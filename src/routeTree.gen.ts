@@ -9,38 +9,141 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ToolsRouteImport } from './routes/tools'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiReposRouteImport } from './routes/api/repos'
+import { Route as ApiPypiRouteImport } from './routes/api/pypi'
+import { Route as ApiAwesomeRouteImport } from './routes/api/awesome'
 
+const ToolsRoute = ToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiReposRoute = ApiReposRouteImport.update({
+  id: '/api/repos',
+  path: '/api/repos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPypiRoute = ApiPypiRouteImport.update({
+  id: '/api/pypi',
+  path: '/api/pypi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
+  id: '/api/awesome',
+  path: '/api/awesome',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/projects': typeof ProjectsRoute
+  '/tools': typeof ToolsRoute
+  '/api/awesome': typeof ApiAwesomeRoute
+  '/api/pypi': typeof ApiPypiRoute
+  '/api/repos': typeof ApiReposRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/projects': typeof ProjectsRoute
+  '/tools': typeof ToolsRoute
+  '/api/awesome': typeof ApiAwesomeRoute
+  '/api/pypi': typeof ApiPypiRoute
+  '/api/repos': typeof ApiReposRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/about': typeof AboutRoute
+  '/projects': typeof ProjectsRoute
+  '/tools': typeof ToolsRoute
+  '/api/awesome': typeof ApiAwesomeRoute
+  '/api/pypi': typeof ApiPypiRoute
+  '/api/repos': typeof ApiReposRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/about'
+    | '/projects'
+    | '/tools'
+    | '/api/awesome'
+    | '/api/pypi'
+    | '/api/repos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/about'
+    | '/projects'
+    | '/tools'
+    | '/api/awesome'
+    | '/api/pypi'
+    | '/api/repos'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/projects'
+    | '/tools'
+    | '/api/awesome'
+    | '/api/pypi'
+    | '/api/repos'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AboutRoute: typeof AboutRoute
+  ProjectsRoute: typeof ProjectsRoute
+  ToolsRoute: typeof ToolsRoute
+  ApiAwesomeRoute: typeof ApiAwesomeRoute
+  ApiPypiRoute: typeof ApiPypiRoute
+  ApiReposRoute: typeof ApiReposRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tools': {
+      id: '/tools'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof ToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +151,38 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/repos': {
+      id: '/api/repos'
+      path: '/api/repos'
+      fullPath: '/api/repos'
+      preLoaderRoute: typeof ApiReposRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pypi': {
+      id: '/api/pypi'
+      path: '/api/pypi'
+      fullPath: '/api/pypi'
+      preLoaderRoute: typeof ApiPypiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/awesome': {
+      id: '/api/awesome'
+      path: '/api/awesome'
+      fullPath: '/api/awesome'
+      preLoaderRoute: typeof ApiAwesomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AboutRoute: AboutRoute,
+  ProjectsRoute: ProjectsRoute,
+  ToolsRoute: ToolsRoute,
+  ApiAwesomeRoute: ApiAwesomeRoute,
+  ApiPypiRoute: ApiPypiRoute,
+  ApiReposRoute: ApiReposRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
