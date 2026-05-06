@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
-import { Github, Youtube, Linkedin, Heart } from "lucide-react";
+import { Heart } from "lucide-react";
+import { GithubIcon, YoutubeIcon, LinkedinIcon } from "./icons";
 
 export function Footer() {
   return (
@@ -30,9 +31,9 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold">Connect</h4>
             <div className="mt-3 flex gap-3">
-              <a href="https://github.com/soumendrak" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon" aria-label="GitHub"><Github size={18} /></a>
-              <a href="https://www.youtube.com/@openodia" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-magenta hover:text-magenta" aria-label="YouTube"><Youtube size={18} /></a>
-              <a href="https://www.linkedin.com/in/soumendrak/" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-saffron hover:text-saffron" aria-label="LinkedIn"><Linkedin size={18} /></a>
+              <a href="https://github.com/soumendrak" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon" aria-label="GitHub"><GithubIcon /></a>
+              <a href="https://www.youtube.com/@openodia" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-magenta hover:text-magenta" aria-label="YouTube"><YoutubeIcon /></a>
+              <a href="https://www.linkedin.com/in/soumendrak/" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-saffron hover:text-saffron" aria-label="LinkedIn"><LinkedinIcon /></a>
             </div>
           </div>
         </div>
