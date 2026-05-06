@@ -66,7 +66,7 @@ function About() {
         <MagneticButton variant="ghost" href="https://www.linkedin.com/in/soumendrak/" external>
           <LinkedinIcon size={16} /> LinkedIn
         </MagneticButton>
-        <MagneticButton variant="ghost" href="mailto:hello@openodia.com" external>
+        <MagneticButton variant="ghost" href="mailto:proud_odia@outlook.com" external>
           <Mail size={16} /> Email
         </MagneticButton>
       </Reveal>
