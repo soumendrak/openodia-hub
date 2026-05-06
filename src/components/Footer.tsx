@@ -1,0 +1,47 @@
+import { Link } from "@tanstack/react-router";
+import { Github, Youtube, Linkedin, Heart } from "lucide-react";
+
+export function Footer() {
+  return (
+    <footer className="border-t border-border mt-32">
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <div className="grid gap-8 md:grid-cols-3">
+          <div>
+            <Link to="/" className="flex items-center gap-2">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground font-display text-xl font-bold">
+                ଓ
+              </span>
+              <span className="font-display text-lg font-semibold">OpenOdia</span>
+            </Link>
+            <p className="mt-3 max-w-xs text-sm text-muted-foreground">
+              Open source initiatives for the Odia language by Soumendra Kumar Sahoo.
+            </p>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold">Explore</h4>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+              <li><Link to="/projects" className="hover:text-foreground">Projects</Link></li>
+              <li><Link to="/tools" className="hover:text-foreground">Tools directory</Link></li>
+              <li><Link to="/about" className="hover:text-foreground">About</Link></li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold">Connect</h4>
+            <div className="mt-3 flex gap-3">
+              <a href="https://github.com/soumendrak" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon" aria-label="GitHub"><Github size={18} /></a>
+              <a href="https://www.youtube.com/@openodia" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-magenta hover:text-magenta" aria-label="YouTube"><Youtube size={18} /></a>
+              <a href="https://www.linkedin.com/in/soumendrak/" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-saffron hover:text-saffron" aria-label="LinkedIn"><Linkedin size={18} /></a>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
+          <p>© {new Date().getFullYear()} OpenOdia · Built with <Heart size={12} className="inline text-magenta" /> in Odisha</p>
+          <p>ଓଡ଼ିଆ ଭାଷା ପାଇଁ ଓପନ୍ ସୋର୍ସ</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
