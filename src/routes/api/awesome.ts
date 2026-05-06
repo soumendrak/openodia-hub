@@ -33,35 +33,60 @@ function parseReadme(md: string): Item[] {
     if (!line.startsWith("- ")) continue;
 
     // strip leading "- "
-    const body = line.slice(2);
+    const body = line.slice(2).trim();
 
-    // first link
+    // find first link
     const linkRe = /\[([^\]]+)\]\(([^)]+)\)/;
     const m = linkRe.exec(body);
     if (!m) continue;
-    const name = m[1].replace(/[*_`]/g, "").trim();
-    const url = m[2].trim();
 
-    // description = rest of line minus markdown links/badges
-    let desc = body
-      .replace(/!\[[^\]]*\]\([^)]*\)/g, "") // images
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1") // links → text
-      .replace(/\\\[/g, "[")
-      .replace(/\\\]/g, "]")
+    let name: string;
+    let url: string;
+    let desc: string;
+
+    if (body.startsWith("[")) {
+      // "- [Name](url) : description..."
+      name = m[1];
+      url = m[2];
+      desc = body.slice(m[0].length).replace(/^[\s:.\-–—]+/, "");
+    } else {
+      // "- Name : description [paper](url) [code](url2)..."
+      // Take name as the leading text up to the first ':' or '['
+      const sepIdx = (() => {
+        const c = body.indexOf(":");
+        const b = body.indexOf("[");
+        if (c === -1) return b;
+        if (b === -1) return c;
+        return Math.min(c, b);
+      })();
+      if (sepIdx <= 0) {
+        name = m[1];
+        url = m[2];
+        desc = body;
+      } else {
+        name = body.slice(0, sepIdx).trim();
+        url = m[2];
+        desc = body.slice(sepIdx + 1).trim();
+      }
+    }
+
+    name = name.replace(/[*_`]/g, "").trim();
+
+    // clean description: drop images, replace links with their text, strip badge artifacts
+    desc = desc
+      .replace(/!\[[^\]]*\]\([^)]*\)/g, "")
+      .replace(/\[\s*([^\]]*?)\s*\]\(([^)]+)\)/g, "")
+      .replace(/\\\[/g, "")
+      .replace(/\\\]/g, "")
+      .replace(/\[|\]/g, "")
       .replace(/\s+/g, " ")
       .trim();
 
-    // remove the leading "Name :" / "Name -" if present
-    const nameClean = name.toLowerCase();
-    if (desc.toLowerCase().startsWith(nameClean)) {
-      desc = desc.slice(name.length).replace(/^[\s:.\-–—]+/, "");
-    }
-
     if (!desc) desc = `${category}${subcategory ? " · " + subcategory : ""}`;
 
-    // skip non-resource entries (e.g., "Permalink" links)
     if (/^permalink/i.test(name)) continue;
     if (!/^https?:\/\//.test(url)) continue;
+    if (!name) continue;
 
     items.push({
       category,
