@@ -47,12 +47,7 @@ export function MagneticButton({
   );
 
   return (
-    <div
-      ref={ref}
-      onMouseMove={onMove}
-      onMouseLeave={reset}
-      className="inline-block"
-    >
+    <div ref={ref} onMouseMove={onMove} onMouseLeave={reset} className="inline-block">
       {href ? (
         <a
           href={href}

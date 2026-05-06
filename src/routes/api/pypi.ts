@@ -27,7 +27,7 @@ export const Route = createFileRoute("/api/pypi")({
                 "Content-Type": "application/json",
                 "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
               },
-            }
+            },
           );
         } catch (e) {
           console.error("pypi error", e);

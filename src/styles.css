@@ -82,7 +82,8 @@
   --magenta: oklch(0.7 0.27 335);
   --saffron: oklch(0.78 0.17 60);
 
-  --gradient-hero: radial-gradient(
+  --gradient-hero:
+    radial-gradient(
       ellipse 80% 60% at 50% 0%,
       color-mix(in oklab, var(--neon) 20%, transparent),
       transparent 60%
@@ -184,7 +185,8 @@
 }
 
 @keyframes float {
-  0%, 100% {
+  0%,
+  100% {
     transform: translateY(0) rotate(0deg);
   }
   50% {

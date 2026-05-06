@@ -7,6 +7,6 @@
   "workers_dev": false,
   "routes": [
     { "pattern": "openodia.com", "custom_domain": true },
-    { "pattern": "www.openodia.com", "custom_domain": true }
-  ]
+    { "pattern": "www.openodia.com", "custom_domain": true },
+  ],
 }

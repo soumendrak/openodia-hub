@@ -10,9 +10,16 @@ export const Route = createFileRoute("/projects")({
   head: () => ({
     meta: [
       { title: "Projects · OpenOdia" },
-      { name: "description", content: "OpenOdia Python package and other open-source Odia language projects by Soumendra Kumar Sahoo." },
+      {
+        name: "description",
+        content:
+          "OpenOdia Python package and other open-source Odia language projects by Soumendra Kumar Sahoo.",
+      },
       { property: "og:title", content: "Projects · OpenOdia" },
-      { property: "og:description", content: "OpenOdia Python package and other open-source Odia language projects." },
+      {
+        property: "og:description",
+        content: "OpenOdia Python package and other open-source Odia language projects.",
+      },
     ],
   }),
   component: ProjectsPage,
@@ -34,12 +41,10 @@ function ProjectsPage() {
     <div className="mx-auto max-w-6xl px-4 pb-24">
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Projects</p>
-        <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Built in the open.
-        </h1>
+        <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">Built in the open.</h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
-          From a Python package to community datasets — every project here is
-          MIT-licensed and contribution-ready.
+          From a Python package to community datasets — every project here is MIT-licensed and
+          contribution-ready.
         </p>
       </Reveal>
 
@@ -59,7 +64,7 @@ function OpenOdiaHero() {
     },
   });
   const [copied, setCopied] = useState(false);
-  const cmd = "pip install openodia";
+  const cmd = "uv add openodia";
 
   return (
     <Reveal delay={0.1} className="mt-14">
@@ -132,8 +137,7 @@ function OpenOdiaHero() {
                 <span className="text-magenta">import</span> transliterator
                 {"\n"}
                 transliterator.<span className="text-saffron">to_odia</span>(
-                <span className="text-neon">"odia bhasha"</span>)
-                {"\n"}
+                <span className="text-neon">"odia bhasha"</span>){"\n"}
                 <span className="text-muted-foreground"># → ଓଡ଼ିଆ ଭାଷା</span>
               </pre>
               <button
@@ -171,18 +175,17 @@ function RepoGrid() {
   return (
     <section className="mt-20">
       <Reveal>
-        <h2 className="font-display text-3xl font-semibold md:text-4xl">
-          More repositories
-        </h2>
-        <p className="mt-2 text-muted-foreground">
-          Live from GitHub — sorted by stars.
-        </p>
+        <h2 className="font-display text-3xl font-semibold md:text-4xl">More repositories</h2>
+        <p className="mt-2 text-muted-foreground">Live from GitHub — sorted by stars.</p>
       </Reveal>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {isLoading
           ? Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-surface" />
+              <div
+                key={i}
+                className="h-44 animate-pulse rounded-2xl border border-border bg-surface"
+              />
             ))
           : data?.repos.slice(0, 12).map((r, i) => (
               <Reveal key={r.full_name} delay={(i % 6) * 0.05}>

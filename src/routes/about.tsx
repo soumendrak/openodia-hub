@@ -8,9 +8,16 @@ export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
       { title: "About · Soumendra Kumar Sahoo" },
-      { name: "description", content: "Soumendra Kumar Sahoo — engineer building open-source tools, datasets, and education for the Odia language." },
+      {
+        name: "description",
+        content:
+          "Soumendra Kumar Sahoo — engineer building open-source tools, datasets, and education for the Odia language.",
+      },
       { property: "og:title", content: "About · Soumendra Kumar Sahoo" },
-      { property: "og:description", content: "Engineer building open-source tools and datasets for the Odia language." },
+      {
+        property: "og:description",
+        content: "Engineer building open-source tools and datasets for the Odia language.",
+      },
     ],
     scripts: [
       {
@@ -35,10 +42,26 @@ export const Route = createFileRoute("/about")({
 });
 
 const milestones = [
-  { year: "2019", title: "Started open-source Odia work", body: "Released early Odia NLP utilities and datasets on GitHub." },
-  { year: "2021", title: "Launched the OpenOdia Python package", body: "A practical, install-and-use library for Odia text processing." },
-  { year: "2023", title: "Curated Awesome-Odia-AI", body: "A living index of Odia datasets, models, and tools — community-driven." },
-  { year: "2024", title: "@openodia on YouTube", body: "Tutorials, demos, and community spotlights for builders." },
+  {
+    year: "2019",
+    title: "Started open-source Odia work",
+    body: "Released early Odia NLP utilities and datasets on GitHub.",
+  },
+  {
+    year: "2021",
+    title: "Launched the OpenOdia Python package",
+    body: "A practical, install-and-use library for Odia text processing.",
+  },
+  {
+    year: "2023",
+    title: "Curated Awesome-Odia-AI",
+    body: "A living index of Odia datasets, models, and tools — community-driven.",
+  },
+  {
+    year: "2024",
+    title: "@openodia on YouTube",
+    body: "Tutorials, demos, and community spotlights for builders.",
+  },
 ];
 
 function About() {
@@ -50,9 +73,9 @@ function About() {
           Hi, I'm <span className="text-gradient">Soumendra</span>.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-          Engineer, lifelong learner, and an Odia native. I build open-source
-          software, datasets, and educational content so the Odia language —
-          spoken by 50+ million people — gets the modern AI tooling it deserves.
+          Engineer, lifelong learner, and an Odia native. I build open-source software, datasets,
+          and educational content so the Odia language — spoken by 50+ million people — gets the
+          modern AI tooling it deserves.
         </p>
       </Reveal>
 
@@ -73,9 +96,7 @@ function About() {
 
       <section className="mt-20">
         <Reveal>
-          <h2 className="font-display text-3xl font-semibold md:text-4xl">
-            Journey so far
-          </h2>
+          <h2 className="font-display text-3xl font-semibold md:text-4xl">Journey so far</h2>
         </Reveal>
 
         <div className="relative mt-8 ml-3 border-l border-border pl-8">
@@ -90,13 +111,14 @@ function About() {
         </div>
       </section>
 
-      <Reveal delay={0.1} className="mt-16 rounded-3xl border border-border bg-surface p-8 text-center md:p-12">
-        <h2 className="font-display text-3xl font-semibold md:text-4xl">
-          Sponsor the work
-        </h2>
+      <Reveal
+        delay={0.1}
+        className="mt-16 rounded-3xl border border-border bg-surface p-8 text-center md:p-12"
+      >
+        <h2 className="font-display text-3xl font-semibold md:text-4xl">Sponsor the work</h2>
         <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-          Every contribution keeps Odia open-source moving. Sponsor on GitHub
-          or just share the projects with someone who'd love them.
+          Every contribution keeps Odia open-source moving. Sponsor on GitHub or just share the
+          projects with someone who'd love them.
         </p>
         <div className="mt-6 flex justify-center">
           <MagneticButton href="https://github.com/sponsors/soumendrak" external>

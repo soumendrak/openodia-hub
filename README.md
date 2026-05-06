@@ -36,15 +36,15 @@ This repository is the web frontend that brings everything together.
 
 ## Tech Stack
 
-| Layer        | Technology                                        |
-| ------------ | ------------------------------------------------- |
-| Framework    | [TanStack Start](https://tanstack.com/start)      |
-| Routing      | [TanStack Router](https://tanstack.com/router)    |
-| Data         | [TanStack Query](https://tanstack.com/query)      |
-| UI           | React 19, Tailwind CSS 4, Radix UI, Framer Motion |
-| Icons        | Lucide React                                      |
-| Deployment   | [Cloudflare Workers](https://workers.cloudflare.com/) |
-| Package mgr  | [Bun](https://bun.sh)                             |
+| Layer       | Technology                                            |
+| ----------- | ----------------------------------------------------- |
+| Framework   | [TanStack Start](https://tanstack.com/start)          |
+| Routing     | [TanStack Router](https://tanstack.com/router)        |
+| Data        | [TanStack Query](https://tanstack.com/query)          |
+| UI          | React 19, Tailwind CSS 4, Radix UI, Framer Motion     |
+| Icons       | Lucide React                                          |
+| Deployment  | [Cloudflare Workers](https://workers.cloudflare.com/) |
+| Package mgr | [Bun](https://bun.sh)                                 |
 
 ## Getting started
 
@@ -71,14 +71,14 @@ The dev server starts at `http://localhost:3000`.
 
 ### Available scripts
 
-| Command          | Purpose                          |
-| ---------------- | -------------------------------- |
-| `bun run dev`    | Start Vite dev server            |
-| `bun run build`  | Production build                 |
-| `bun run build:dev` | Development-mode build        |
-| `bun run preview`   | Preview production build      |
-| `bun run lint`   | Run ESLint                      |
-| `bun run format` | Format with Prettier             |
+| Command             | Purpose                  |
+| ------------------- | ------------------------ |
+| `bun run dev`       | Start Vite dev server    |
+| `bun run build`     | Production build         |
+| `bun run build:dev` | Development-mode build   |
+| `bun run preview`   | Preview production build |
+| `bun run lint`      | Run ESLint               |
+| `bun run format`    | Format with Prettier     |
 
 ## Project structure
 

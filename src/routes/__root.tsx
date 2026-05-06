@@ -45,12 +45,17 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
         <p className="mt-2 text-sm text-muted-foreground">{error.message}</p>
         <div className="mt-6 flex justify-center gap-2">
           <button
-            onClick={() => { router.invalidate(); reset(); }}
+            onClick={() => {
+              router.invalidate();
+              reset();
+            }}
             className="rounded-full bg-gradient-to-r from-neon to-magenta px-5 py-2.5 text-sm font-medium text-primary-foreground"
           >
             Try again
           </button>
-          <a href="/" className="rounded-full border border-border px-5 py-2.5 text-sm">Home</a>
+          <a href="/" className="rounded-full border border-border px-5 py-2.5 text-sm">
+            Home
+          </a>
         </div>
       </div>
     </div>
@@ -63,14 +68,25 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "OpenOdia — Open source for the Odia language" },
-      { name: "description", content: "Open source projects, tools, and AI resources for the Odia language by Soumendra Kumar Sahoo." },
+      {
+        name: "description",
+        content:
+          "Open source projects, tools, and AI resources for the Odia language by Soumendra Kumar Sahoo.",
+      },
       { name: "author", content: "Soumendra Kumar Sahoo" },
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
-      { property: "og:description", content: "Open source projects, tools, and AI resources for the Odia language." },
+      {
+        property: "og:description",
+        content: "Open source projects, tools, and AI resources for the Odia language.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://openodia.com" },
+      { property: "og:image", content: "https://openodia.com/openodia-og.svg" },
+      { property: "og:image:width", content: "1200" },
+      { property: "og:image:height", content: "630" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@openodia" },
+      { name: "twitter:image", content: "https://openodia.com/openodia-og.svg" },
       { name: "theme-color", content: "#0a0a14" },
     ],
     links: [

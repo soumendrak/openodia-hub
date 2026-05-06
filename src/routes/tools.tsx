@@ -9,9 +9,16 @@ export const Route = createFileRoute("/tools")({
   head: () => ({
     meta: [
       { title: "Tools · Awesome Odia AI" },
-      { name: "description", content: "A live, searchable directory of Odia language datasets, models, libraries, and AI tools — synced from Awesome-Odia-AI." },
+      {
+        name: "description",
+        content:
+          "A live, searchable directory of Odia language datasets, models, libraries, and AI tools — synced from Awesome-Odia-AI.",
+      },
       { property: "og:title", content: "Tools · Awesome Odia AI" },
-      { property: "og:description", content: "Searchable directory of Odia language datasets, models, libraries, and AI tools." },
+      {
+        property: "og:description",
+        content: "Searchable directory of Odia language datasets, models, libraries, and AI tools.",
+      },
     ],
   }),
   component: ToolsPage,
@@ -67,8 +74,7 @@ function ToolsPage() {
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Every Odia AI tool,{" "}
-          <span className="text-gradient">in one place.</span>
+          Every Odia AI tool, <span className="text-gradient">in one place.</span>
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Live-synced from{" "}

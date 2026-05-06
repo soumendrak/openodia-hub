@@ -12,9 +12,16 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "OpenOdia — Open source for the Odia language" },
-      { name: "description", content: "A home for open-source Odia language projects: the OpenOdia Python package, the @openodia YouTube channel, and the Awesome-Odia-AI directory." },
+      {
+        name: "description",
+        content:
+          "A home for open-source Odia language projects: the OpenOdia Python package, the @openodia YouTube channel, and the Awesome-Odia-AI directory.",
+      },
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
-      { property: "og:description", content: "Projects, tools, and AI resources for ଓଡ଼ିଆ — curated by Soumendra Kumar Sahoo." },
+      {
+        property: "og:description",
+        content: "Projects, tools, and AI resources for ଓଡ଼ିଆ — curated by Soumendra Kumar Sahoo.",
+      },
     ],
   }),
   component: Home,
@@ -73,11 +80,7 @@ function Hero() {
             }}
             className="mr-3 inline-block"
           >
-            {w === "ଓଡ଼ିଆ." ? (
-              <span className="text-gradient">{w}</span>
-            ) : (
-              w
-            )}
+            {w === "ଓଡ଼ିଆ." ? <span className="text-gradient">{w}</span> : w}
           </motion.span>
         ))}
       </h1>
@@ -88,8 +91,8 @@ function Hero() {
         transition={{ delay: 0.7 }}
         className="mt-6 max-w-2xl text-lg text-muted-foreground"
       >
-        A growing constellation of tools, libraries, and resources making the
-        Odia language a first-class citizen in modern AI and software.
+        A growing constellation of tools, libraries, and resources making the Odia language a
+        first-class citizen in modern AI and software.
       </motion.p>
 
       <motion.div
@@ -153,9 +156,7 @@ function Pillars() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
       <Reveal>
-        <h2 className="font-display text-3xl font-semibold md:text-5xl">
-          Three pillars.
-        </h2>
+        <h2 className="font-display text-3xl font-semibold md:text-5xl">Three pillars.</h2>
         <p className="mt-2 max-w-xl text-muted-foreground">
           Education, tooling, and community — coming together for Odia.
         </p>
@@ -187,11 +188,7 @@ function PillarCard(p: (typeof pillars)[number]) {
       <h3 className="font-display text-xl font-semibold">{p.title}</h3>
       <p className="mt-2 flex-1 text-sm text-muted-foreground">{p.desc}</p>
       <span className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-neon">
-        {p.cta}{" "}
-        <ArrowRight
-          size={14}
-          className="transition-transform group-hover:translate-x-1"
-        />
+        {p.cta} <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
       </span>
       <div
         aria-hidden
@@ -240,9 +237,7 @@ function Videos() {
     <section className="mx-auto max-w-6xl px-4 py-16">
       <Reveal className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-3xl font-semibold md:text-5xl">
-            Featured videos
-          </h2>
+          <h2 className="font-display text-3xl font-semibold md:text-5xl">Featured videos</h2>
           <p className="mt-2 text-muted-foreground">From the @openodia channel.</p>
         </div>
         <a
@@ -289,4 +284,5 @@ function Videos() {
 }
 
 // suppress unused import warning
-void Package; void GithubIcon;
+void Package;
+void GithubIcon;

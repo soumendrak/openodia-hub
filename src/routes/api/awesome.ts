@@ -8,8 +8,7 @@ type Item = {
   description: string;
 };
 
-const README_URL =
-  "https://raw.githubusercontent.com/odisha-ml/Awesome-Odia-AI/main/README.md";
+const README_URL = "https://raw.githubusercontent.com/odisha-ml/Awesome-Odia-AI/main/README.md";
 
 function parseReadme(md: string): Item[] {
   const lines = md.split("\n");
@@ -111,27 +110,24 @@ export const Route = createFileRoute("/api/awesome")({
           if (!res.ok) {
             return Response.json(
               { items: [], fetchedAt: new Date().toISOString(), error: "fetch_failed" },
-              { status: 200 }
+              { status: 200 },
             );
           }
           const md = await res.text();
           const items = parseReadme(md);
 
-          return new Response(
-            JSON.stringify({ items, fetchedAt: new Date().toISOString() }),
-            {
-              status: 200,
-              headers: {
-                "Content-Type": "application/json",
-                "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-              },
-            }
-          );
+          return new Response(JSON.stringify({ items, fetchedAt: new Date().toISOString() }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+            },
+          });
         } catch (e) {
           console.error("awesome parse error", e);
           return Response.json(
             { items: [], fetchedAt: new Date().toISOString(), error: "parse_failed" },
-            { status: 200 }
+            { status: 200 },
           );
         }
       },

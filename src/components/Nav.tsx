@@ -22,9 +22,7 @@ export function Nav() {
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground font-display text-xl font-bold transition-transform group-hover:rotate-12">
               ଓ
             </span>
-            <span className="font-display text-lg font-semibold tracking-tight">
-              OpenOdia
-            </span>
+            <span className="font-display text-lg font-semibold tracking-tight">OpenOdia</span>
           </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
@@ -58,11 +56,7 @@ export function Nav() {
             GitHub
           </a>
 
-          <button
-            className="md:hidden"
-            onClick={() => setOpen((v) => !v)}
-            aria-label="Toggle menu"
-          >
+          <button className="md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu">
             {open ? <X size={22} /> : <Menu size={22} />}
           </button>
         </div>

@@ -22,24 +22,63 @@ export function Footer() {
           <div>
             <h4 className="text-sm font-semibold">Explore</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
-              <li><Link to="/projects" className="hover:text-foreground">Projects</Link></li>
-              <li><Link to="/tools" className="hover:text-foreground">Tools directory</Link></li>
-              <li><Link to="/about" className="hover:text-foreground">About</Link></li>
+              <li>
+                <Link to="/projects" className="hover:text-foreground">
+                  Projects
+                </Link>
+              </li>
+              <li>
+                <Link to="/tools" className="hover:text-foreground">
+                  Tools directory
+                </Link>
+              </li>
+              <li>
+                <Link to="/about" className="hover:text-foreground">
+                  About
+                </Link>
+              </li>
             </ul>
           </div>
 
           <div>
             <h4 className="text-sm font-semibold">Connect</h4>
             <div className="mt-3 flex gap-3">
-              <a href="https://github.com/soumendrak" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon" aria-label="GitHub"><GithubIcon /></a>
-              <a href="https://www.youtube.com/@openodia" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-magenta hover:text-magenta" aria-label="YouTube"><YoutubeIcon /></a>
-              <a href="https://www.linkedin.com/in/soumendrak/" target="_blank" rel="noreferrer" className="rounded-lg border border-border p-2 transition hover:border-saffron hover:text-saffron" aria-label="LinkedIn"><LinkedinIcon /></a>
+              <a
+                href="https://github.com/soumendrak"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon"
+                aria-label="GitHub"
+              >
+                <GithubIcon />
+              </a>
+              <a
+                href="https://www.youtube.com/@openodia"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-border p-2 transition hover:border-magenta hover:text-magenta"
+                aria-label="YouTube"
+              >
+                <YoutubeIcon />
+              </a>
+              <a
+                href="https://www.linkedin.com/in/soumendrak/"
+                target="_blank"
+                rel="noreferrer"
+                className="rounded-lg border border-border p-2 transition hover:border-saffron hover:text-saffron"
+                aria-label="LinkedIn"
+              >
+                <LinkedinIcon />
+              </a>
             </div>
           </div>
         </div>
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
-          <p>© {new Date().getFullYear()} OpenOdia · Built with <Heart size={12} className="inline text-magenta" /> in Odisha</p>
+          <p>
+            © {new Date().getFullYear()} OpenOdia · Built with{" "}
+            <Heart size={12} className="inline text-magenta" /> in Odisha
+          </p>
           <p>ଓଡ଼ିଆ ଭାଷା ପାଇଁ ଓପନ୍ ସୋର୍ସ</p>
         </div>
       </div>
