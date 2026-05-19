@@ -69,6 +69,33 @@ bun run dev
 
 The dev server starts at `http://localhost:3000`.
 
+### Environment variables
+
+Copy `.env.example` to `.env` and fill in the values:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Required | Purpose |
+| -------- | -------- | ------- |
+| `YOUTUBE_API_KEY` | Optional | Sorts Tutorials page videos by view count. Without it, videos are shown in reverse-chronological order. |
+
+#### Getting a YouTube Data API v3 key (free)
+
+1. Open [Google Cloud Console](https://console.cloud.google.com) and create or select a project.
+2. Go to **APIs & Services → Enable APIs** → search **YouTube Data API v3** → Enable.
+3. Go to **APIs & Services → Credentials → Create Credentials → API Key**.
+4. (Recommended) Restrict the key to the **YouTube Data API v3** only.
+
+The free tier provides **10,000 units/day**. Each Tutorials page load consumes **1 unit** (one batched `videos.list` call), and the response is cached for one hour.
+
+#### Setting the secret in production (Cloudflare Workers)
+
+```bash
+npx wrangler secret put YOUTUBE_API_KEY
+```
+
 ### Available scripts
 
 | Command             | Purpose                  |
@@ -116,6 +143,7 @@ src/
 │   ├── index.tsx     # Home page
 │   ├── about.tsx     # About Soumendra
 │   ├── projects.tsx  # OSS projects + GitHub repos
+│   ├── tutorials.tsx # YouTube tutorials from Odia AI channels
 │   └── tools.tsx     # Awesome-Odia-AI directory
 ├── router.tsx    # Router factory
 ├── server.ts     # Cloudflare Worker entry (SSR + error handling)
@@ -131,6 +159,12 @@ The app deploys to Cloudflare Workers at `openodia.com` and `www.openodia.com`. 
 # Deploy (requires Cloudflare credentials)
 bun run build
 npx wrangler deploy
+```
+
+Make sure secrets are set before deploying:
+
+```bash
+npx wrangler secret put YOUTUBE_API_KEY
 ```
 
 ## License

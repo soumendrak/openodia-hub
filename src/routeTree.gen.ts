@@ -9,16 +9,23 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
+import { Route as ApiVideosRouteImport } from './routes/api/videos'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
 import { Route as ApiAwesomeRouteImport } from './routes/api/awesome'
 
+const TutorialsRoute = TutorialsRouteImport.update({
+  id: '/tutorials',
+  path: '/tutorials',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
@@ -49,6 +56,11 @@ const SitemapXmlRoute = SitemapXmlRouteImport.update({
   path: '/sitemap/xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiVideosRoute = ApiVideosRouteImport.update({
+  id: '/api/videos',
+  path: '/api/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReposRoute = ApiReposRouteImport.update({
   id: '/api/repos',
   path: '/api/repos',
@@ -71,9 +83,11 @@ export interface FileRoutesByFullPath {
   '/events': typeof EventsRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
+  '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/videos': typeof ApiVideosRoute
   '/sitemap/xml': typeof SitemapXmlRoute
 }
 export interface FileRoutesByTo {
@@ -82,9 +96,11 @@ export interface FileRoutesByTo {
   '/events': typeof EventsRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
+  '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/videos': typeof ApiVideosRoute
   '/sitemap/xml': typeof SitemapXmlRoute
 }
 export interface FileRoutesById {
@@ -94,9 +110,11 @@ export interface FileRoutesById {
   '/events': typeof EventsRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
+  '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/videos': typeof ApiVideosRoute
   '/sitemap/xml': typeof SitemapXmlRoute
 }
 export interface FileRouteTypes {
@@ -107,9 +125,11 @@ export interface FileRouteTypes {
     | '/events'
     | '/projects'
     | '/tools'
+    | '/tutorials'
     | '/api/awesome'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/videos'
     | '/sitemap/xml'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -118,9 +138,11 @@ export interface FileRouteTypes {
     | '/events'
     | '/projects'
     | '/tools'
+    | '/tutorials'
     | '/api/awesome'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/videos'
     | '/sitemap/xml'
   id:
     | '__root__'
@@ -129,9 +151,11 @@ export interface FileRouteTypes {
     | '/events'
     | '/projects'
     | '/tools'
+    | '/tutorials'
     | '/api/awesome'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/videos'
     | '/sitemap/xml'
   fileRoutesById: FileRoutesById
 }
@@ -141,14 +165,23 @@ export interface RootRouteChildren {
   EventsRoute: typeof EventsRoute
   ProjectsRoute: typeof ProjectsRoute
   ToolsRoute: typeof ToolsRoute
+  TutorialsRoute: typeof TutorialsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
+  ApiVideosRoute: typeof ApiVideosRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/tutorials': {
+      id: '/tutorials'
+      path: '/tutorials'
+      fullPath: '/tutorials'
+      preLoaderRoute: typeof TutorialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/tools': {
       id: '/tools'
       path: '/tools'
@@ -191,6 +224,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapXmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/videos': {
+      id: '/api/videos'
+      path: '/api/videos'
+      fullPath: '/api/videos'
+      preLoaderRoute: typeof ApiVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/repos': {
       id: '/api/repos'
       path: '/api/repos'
@@ -221,9 +261,11 @@ const rootRouteChildren: RootRouteChildren = {
   EventsRoute: EventsRoute,
   ProjectsRoute: ProjectsRoute,
   ToolsRoute: ToolsRoute,
+  TutorialsRoute: TutorialsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
+  ApiVideosRoute: ApiVideosRoute,
   SitemapXmlRoute: SitemapXmlRoute,
 }
 export const routeTree = rootRouteImport
