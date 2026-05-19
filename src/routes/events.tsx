@@ -251,6 +251,16 @@ function EventsPage() {
               </Reveal>
             </div>
           )}
+          {applyFilter(upcomingEvents).length > 0 && (
+            <Reveal>
+              <div className="mt-14 flex items-center gap-3">
+                <h2 className="font-display text-2xl font-bold text-muted-foreground">Past Events</h2>
+                <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
+                  {applyFilter(pastEvents).length}
+                </span>
+              </div>
+            </Reveal>
+          )}
           <div className="mt-14 space-y-12">
             {YEARS.map((year) => {
               const yearEvents = applyFilter(pastEvents.filter((e) => e.year === year));
