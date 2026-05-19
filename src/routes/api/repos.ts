@@ -14,6 +14,16 @@ type Repo = {
   topics?: string[];
 };
 
+const ORGS: string[] = [
+  "odisha-ml",
+  "OdiagenAI",
+  "OdiaWikimedia",
+  "ofdn",
+  "OdiaNLP",
+];
+
+const USERS: string[] = ["shantipriyap"];
+
 const PINNED_REPOS: string[] = [
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
@@ -55,15 +65,14 @@ export const Route = createFileRoute("/api/repos")({
     handlers: {
       GET: async () => {
         try {
-          const [odishaMl, odiagenAI, shantipriyap, ...pinned] = await Promise.all([
-            fetchOrgRepos("odisha-ml"),
-            fetchOrgRepos("OdiagenAI"),
-            fetchUserRepos("shantipriyap"),
-            ...PINNED_REPOS.map(fetchSingleRepo),
+          const [orgResults, userResults, pinnedResults] = await Promise.all([
+            Promise.all(ORGS.map(fetchOrgRepos)),
+            Promise.all(USERS.map(fetchUserRepos)),
+            Promise.all(PINNED_REPOS.map(fetchSingleRepo)),
           ]);
-          const pinnedRepos = pinned.filter(Boolean) as Repo[];
+          const pinnedRepos = pinnedResults.filter(Boolean) as Repo[];
           const pinnedNames = new Set(pinnedRepos.map((r) => r.full_name));
-          const repos = [...odishaMl, ...odiagenAI, ...shantipriyap]
+          const repos = [...orgResults.flat(), ...userResults.flat()]
             .filter((r) => !r.fork && !r.archived)
             .filter((r) => r.name.toLowerCase() !== "openodia") // featured separately
             .filter((r) => !pinnedNames.has(r.full_name)) // avoid duplicates with pinned
