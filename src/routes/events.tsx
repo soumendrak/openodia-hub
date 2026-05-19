@@ -120,7 +120,7 @@ const events: Event[] = [
     year: "2025",
     date: "27 Apr – 12 Jul 2025",
     title: "Build with AI: TFUG Bhubaneswar Edition",
-    url: "https://www.tfugbbsr.in/event",
+    url: "https://www.tfugbbsr.in/buildwithai",
     type: "Workshop",
     location: "Online & CUTM Bhubaneswar",
     description:
@@ -150,7 +150,7 @@ const events: Event[] = [
     year: "2024",
     date: "27 Oct 2024",
     title: "AI Day Bhubaneswar",
-    url: "https://www.tfugbbsr.in/event",
+    url: "https://www.tfugbbsr.in/aidaybbsr2024",
     type: "Workshop",
     location: "IIIT Bhubaneswar",
     description:
@@ -160,7 +160,7 @@ const events: Event[] = [
     year: "2024",
     date: "14 Sep 2024",
     title: "The Eras of Large Language Models",
-    url: "https://www.tfugbbsr.in/event",
+    url: "https://www.tfugbbsr.in/event/era-of-llms",
     type: "Workshop",
     location: "IIIT Bhubaneswar",
     description:
