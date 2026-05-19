@@ -81,7 +81,7 @@ const events = [
   {
     year: "2020",
     title: "Olive — Instruction Following LLaMA for Odia (IEEE)",
-    url: "https://github.com/OdiaGenAI/Olive",
+    url: "https://ieeexplore.ieee.org/document/10404195",
     type: "Research",
   },
 ];
