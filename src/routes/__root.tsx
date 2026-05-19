@@ -12,6 +12,7 @@ import appCss from "../styles.css?url";
 import { Nav } from "../components/Nav";
 import { Footer } from "../components/Footer";
 import { SmoothScroll } from "../components/SmoothScroll";
+import { ScrollToTop } from "../components/ScrollToTop";
 
 function NotFoundComponent() {
   return (
@@ -140,6 +141,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <SmoothScroll />
+      <ScrollToTop />
       <Nav />
       <main className="pt-24">
         <Outlet />

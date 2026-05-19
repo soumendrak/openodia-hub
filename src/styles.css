@@ -311,3 +311,35 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Scroll to top button custom shadows and glowing hover effects */
+.scroll-to-top-btn {
+  box-shadow: 
+    0 4px 12px -2px oklch(0.13 0.02 270 / 8%),
+    0 12px 30px -4px oklch(0.13 0.02 270 / 12%);
+  transition: 
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.scroll-to-top-btn:hover {
+  border-color: color-mix(in oklab, var(--neon) 45%, oklch(0.13 0.02 270 / 20%));
+  box-shadow:
+    0 0 24px -4px color-mix(in oklab, var(--neon) 40%, transparent),
+    0 12px 36px -8px color-mix(in oklab, var(--neon) 25%, oklch(0.13 0.02 270 / 15%));
+}
+
+.dark .scroll-to-top-btn {
+  box-shadow: 
+    0 4px 20px -2px oklch(0 0 0 / 25%),
+    0 12px 40px -8px oklch(0 0 0 / 35%);
+}
+
+.dark .scroll-to-top-btn:hover {
+  border-color: var(--neon);
+  box-shadow:
+    0 0 30px -5px color-mix(in oklab, var(--neon) 50%, transparent),
+    0 12px 40px -8px color-mix(in oklab, var(--neon) 30%, oklch(0 0 0 / 40%));
+}
