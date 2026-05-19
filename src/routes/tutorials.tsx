@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { Play, ExternalLink } from "lucide-react";
+import { Play, ExternalLink, ListVideo, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { YoutubeIcon } from "../components/icons";
 
@@ -35,14 +36,25 @@ type Video = {
   viewCount?: number;
 };
 
+type Playlist = {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  itemCount: number;
+};
+
 type ChannelResult = {
   handle: string;
   name: string;
   url: string;
   videos: Video[];
+  playlists: Playlist[];
 };
 
 function TutorialsPage() {
+  const [query, setQuery] = useState("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["videos"],
     queryFn: async () => {
@@ -52,6 +64,20 @@ function TutorialsPage() {
     },
   });
 
+  const channels = data?.channels ?? [];
+  const needle = query.trim().toLowerCase();
+
+  const filteredVideos = needle
+    ? channels.flatMap((c) =>
+        c.videos.filter(
+          (v) =>
+            v.title.toLowerCase().includes(needle) ||
+            v.channelName.toLowerCase().includes(needle) ||
+            v.channelHandle.toLowerCase().includes(needle),
+        ),
+      )
+    : [];
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
       <Reveal>
@@ -60,40 +86,59 @@ function TutorialsPage() {
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Videos from the Odia AI community — covering NLP, language models, and Odia language
           technology. Sourced from{" "}
-          <a
-            href="https://www.youtube.com/@OdiaGenAI"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
-            OdiaGenAI
-          </a>
+          <a href="https://www.youtube.com/@OdiaGenAI" target="_blank" rel="noreferrer" className="text-neon hover:underline">OdiaGenAI</a>
           ,{" "}
-          <a
-            href="https://www.youtube.com/@OdiasInML"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
-            Odias in ML
-          </a>
+          <a href="https://www.youtube.com/@OdiasInML" target="_blank" rel="noreferrer" className="text-neon hover:underline">Odias in ML</a>
           , and{" "}
-          <a
-            href="https://www.youtube.com/@openodia"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
-            OpenOdia
-          </a>
-          .
+          <a href="https://www.youtube.com/@openodia" target="_blank" rel="noreferrer" className="text-neon hover:underline">OpenOdia</a>.
         </p>
       </Reveal>
 
-      {isLoading ? (
+      <div className="mt-10">
+        <Reveal>
+          <div className="relative max-w-xl">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              type="search"
+              placeholder="Search videos, channels…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </Reveal>
+      </div>
+
+      {needle ? (
+        <section className="mt-10">
+          <Reveal>
+            <p className="text-sm text-muted-foreground">
+              {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""} for &ldquo;{needle}&rdquo;
+            </p>
+          </Reveal>
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {filteredVideos.length === 0 ? (
+              <p className="col-span-full text-muted-foreground">No videos matched.</p>
+            ) : (
+              filteredVideos.map((v, i) => <VideoCard key={v.id} video={v} index={i} />)
+            )}
+          </div>
+        </section>
+      ) : isLoading ? (
         <ChannelSkeleton />
       ) : (
-        data?.channels.map((channel) => (
+        channels.map((channel) => (
           <ChannelSection key={channel.handle} channel={channel} />
         ))
       )}
@@ -155,6 +200,48 @@ function VideoCard({ video, index }: { video: Video; index: number }) {
   );
 }
 
+function PlaylistCard({ playlist, index }: { playlist: Playlist; index: number }) {
+  return (
+    <Reveal delay={(index % 4) * 0.05}>
+      <motion.a
+        whileHover={{ y: -3 }}
+        transition={{ type: "spring", stiffness: 250, damping: 18 }}
+        href={`https://www.youtube.com/playlist?list=${playlist.id}`}
+        target="_blank"
+        rel="noreferrer"
+        className="group flex gap-3 rounded-xl border border-border bg-surface p-3 transition hover:border-neon/40"
+      >
+        <div className="relative shrink-0 overflow-hidden rounded-lg" style={{ width: 100, height: 56 }}>
+          {playlist.thumbnail ? (
+            <img
+              src={playlist.thumbnail}
+              alt={playlist.title}
+              loading="lazy"
+              className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-surface-2">
+              <ListVideo size={18} className="text-muted-foreground" />
+            </div>
+          )}
+          <div className="absolute bottom-1 right-1 flex items-center gap-0.5 rounded bg-black/70 px-1 py-0.5 text-[10px] text-white">
+            <ListVideo size={9} />
+            <span>{playlist.itemCount}</span>
+          </div>
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-xs font-semibold leading-snug">{playlist.title}</p>
+          {playlist.description && (
+            <p className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+              {playlist.description}
+            </p>
+          )}
+        </div>
+      </motion.a>
+    </Reveal>
+  );
+}
+
 function ChannelSection({ channel }: { channel: ChannelResult }) {
   if (channel.videos.length === 0) return null;
 
@@ -187,11 +274,27 @@ function ChannelSection({ channel }: { channel: ChannelResult }) {
           </a>
         </p>
       </Reveal>
+
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {channel.videos.map((v, i) => (
           <VideoCard key={v.id} video={v} index={i} />
         ))}
       </div>
+
+      {channel.playlists.length > 0 && (
+        <div className="mt-6">
+          <Reveal>
+            <p className="flex items-center gap-2 text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              <ListVideo size={13} /> Playlists
+            </p>
+          </Reveal>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {channel.playlists.map((p, i) => (
+              <PlaylistCard key={p.id} playlist={p} index={i} />
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

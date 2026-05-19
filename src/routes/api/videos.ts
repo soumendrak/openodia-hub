@@ -11,11 +11,20 @@ type Video = {
   viewCount?: number;
 };
 
+type Playlist = {
+  id: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  itemCount: number;
+};
+
 type ChannelResult = {
   handle: string;
   name: string;
   url: string;
   videos: Video[];
+  playlists: Playlist[];
 };
 
 const CHANNELS: { handle: string; name: string; url: string; channelId?: string }[] = [
@@ -82,24 +91,65 @@ function parseRss(
     .filter(Boolean) as Video[];
 }
 
+async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playlist[]> {
+  try {
+    const url =
+      `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=12&key=${apiKey}`;
+    const res = await fetch(url, { headers: { "User-Agent": "openodia.com" } });
+    if (!res.ok) return [];
+    const data = (await res.json()) as {
+      items?: {
+        id: string;
+        snippet: {
+          title: string;
+          description: string;
+          thumbnails: {
+            high?: { url: string };
+            medium?: { url: string };
+            default?: { url: string };
+          };
+        };
+        contentDetails: { itemCount: number };
+      }[];
+    };
+    return (data.items ?? []).map((item) => ({
+      id: item.id,
+      title: item.snippet.title,
+      description: item.snippet.description,
+      thumbnail:
+        item.snippet.thumbnails.high?.url ??
+        item.snippet.thumbnails.medium?.url ??
+        item.snippet.thumbnails.default?.url ??
+        "",
+      itemCount: item.contentDetails.itemCount,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 async function fetchChannelVideos(
   handle: string,
   name: string,
   url: string,
   knownChannelId?: string,
+  apiKey?: string,
 ): Promise<ChannelResult> {
   const channelId = knownChannelId ?? (await resolveChannelId(handle));
-  if (!channelId) return { handle, name, url, videos: [] };
+  if (!channelId) return { handle, name, url, videos: [], playlists: [] };
 
-  const res = await fetch(
-    `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`,
-    { headers: { "User-Agent": "openodia.com" } },
-  );
-  if (!res.ok) return { handle, name, url, videos: [] };
+  const [rssRes, playlists] = await Promise.all([
+    fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
+      headers: { "User-Agent": "openodia.com" },
+    }),
+    apiKey ? fetchPlaylists(channelId, apiKey) : Promise.resolve([]),
+  ]);
 
-  const xml = await res.text();
+  if (!rssRes.ok) return { handle, name, url, videos: [], playlists };
+
+  const xml = await rssRes.text();
   const videos = parseRss(xml, name, handle, url).slice(0, 15);
-  return { handle, name, url, videos };
+  return { handle, name, url, videos, playlists };
 }
 
 async function enrichWithViewCounts(
@@ -135,6 +185,7 @@ async function enrichWithViewCounts(
       .map((v) => ({ ...v, viewCount: viewCounts.get(v.id) ?? 0 }))
       .sort((a, b) => b.viewCount - a.viewCount)
       .slice(0, 8),
+    playlists: channel.playlists,
   }));
 }
 
@@ -143,11 +194,13 @@ export const Route = createFileRoute("/api/videos")({
     handlers: {
       GET: async () => {
         try {
+          const apiKey = process.env.YOUTUBE_API_KEY;
           let channels = await Promise.all(
-            CHANNELS.map((c) => fetchChannelVideos(c.handle, c.name, c.url, c.channelId)),
+            CHANNELS.map((c) =>
+              fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey),
+            ),
           );
 
-          const apiKey = process.env.YOUTUBE_API_KEY;
           if (apiKey) {
             channels = await enrichWithViewCounts(channels, apiKey);
           }
