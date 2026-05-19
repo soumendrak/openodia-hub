@@ -30,6 +30,16 @@ export const gdgocCvrEvents: Event[] = [
   },
   {
     year: "2025",
+    date: "8 Nov 2025",
+    title: "AR/VR Bootcamp",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-ar-vr-bootcamp/",
+    type: "Workshop",
+    location: "AR/VR Lab, C. V. Raman Global University, Bhubaneswar",
+    description:
+      "An in-person bootcamp by GDGoC CVR University introducing students to Augmented and Virtual Reality — hands-on sessions on AR/VR tools and frameworks, building interactive immersive experiences and exploring real-world applications.",
+  },
+  {
+    year: "2025",
     date: "19 Apr 2025",
     title: "Algo Arena 2.0",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-algo-arena-2o/",

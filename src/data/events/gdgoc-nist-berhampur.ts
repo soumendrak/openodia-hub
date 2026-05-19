@@ -30,6 +30,15 @@ export const gdgocNistBerhampurEvents: Event[] = [
   },
   {
     year: "2026",
+    date: "31 Jan 2026",
+    title: "ATLAS – Final Results & Top 3 Winner Announcement",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-science-and-technology-berhampur-india-presents-atlas-final-results-amp-top-3-winner-announcement/",
+    type: "Talk",
+    description:
+      "The official closing session of the ATLAS GDGoC NIST hackathon — announcing final results, declaring the Top 3 winning teams based on evaluation outcomes, and recognising all participants and organizers who contributed to the event.",
+  },
+  {
+    year: "2026",
     date: "19 Jan 2026",
     title: "Hands-on Workshop: Building AI Agents with ADK",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-science-and-technology-berhampur-india-presents-hands-on-workshop-building-ai-agents-with-adk/",

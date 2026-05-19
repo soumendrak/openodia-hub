@@ -9,6 +9,16 @@ import type { Event } from "./types";
 
 export const gdgocIiitBbsrEvents: Event[] = [
   {
+    year: "2026",
+    date: "20 Jan 2026",
+    title: "Hands-On Git & GitHub Session",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-hands-on-git-amp-github-session/",
+    type: "Workshop",
+    location: "IIIT Bhubaneswar",
+    description:
+      "An in-person GDGoC IIIT Bhubaneswar session on Git fundamentals and GitHub collaboration — covering version control basics, branching, pull requests, and guided hands-on practice for students entering open-source development.",
+  },
+  {
     year: "2025",
     date: "30 Mar 2025",
     title: "Beyond Boundaries: Tech Talk – Advaita",
