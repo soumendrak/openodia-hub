@@ -36,6 +36,7 @@ const CHANNELS: { handle: string; name: string; url: string; channelId?: string 
     channelId: "UCMiaqPIaXo19LuQx0zbEFAA",
   },
   { handle: "OdiasInML", name: "Odias in ML", url: "https://www.youtube.com/@OdiasInML", channelId: "UCaoGfM_49C8kcKqyTh-fr6Q" },
+  { handle: "tfugbbsr", name: "TFUG Bhubaneswar", url: "https://www.youtube.com/@tfugbbsr", channelId: "UCKANPIRK8mbEvxDisa8x-wQ" },
 ];
 
 function decodeXmlEntities(s: string): string {
