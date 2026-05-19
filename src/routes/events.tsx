@@ -29,12 +29,54 @@ type Event = {
   title: string;
   url: string;
   type: "Conference" | "Summit" | "Workshop" | "Research" | "Hackathon" | "Talk";
+  status?: "upcoming" | "live";
   location?: string;
   theme?: string;
   description: string;
 };
 
 const events: Event[] = [
+  {
+    year: "2026",
+    date: "23 May 2026",
+    title: "Agent Forge — Build with Google ADK",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-science-and-technology-berhampur-india-presents-agent-forge-build-with-google-adk-gdgoc-nist-berhampur/",
+    type: "Hackathon",
+    status: "upcoming",
+    location: "NIST University, Berhampur, Odisha",
+    description:
+      "A 3-hour hands-on AI Agent building competition by GDGoC NIST Berhampur. Participants use Google's Agent Development Kit (ADK) and Gemini to build a working AI agent from scratch — solo. Open to all branches and years; winners receive special Google swags.",
+  },
+  {
+    year: "2026",
+    date: "23 May 2026",
+    title: "AI Bootcamp – Explore the Future of Artificial Intelligence",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-ai-bootcamp-explore-the-future-of-artificial-intelligence/",
+    type: "Workshop",
+    status: "upcoming",
+    location: "C. V. Raman Global University, Bhubaneswar",
+    description:
+      "A beginner-friendly in-person AI bootcamp by GDGoC CVR University covering AI fundamentals, real-world applications, and industry trends through expert-led sessions and interactive hands-on activities.",
+  },
+  {
+    year: "2026",
+    date: "17 Mar 2026",
+    title: "Solution Challenge 2026",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-solution-challenge-2026/",
+    type: "Hackathon",
+    description:
+      "An AI-powered innovation hackathon by GDGoC CVR University (PromptWars) where participants design and build impactful solutions using Google technologies — AI/ML, Google Cloud, Flutter, and Firebase.",
+  },
+  {
+    year: "2026",
+    date: "28 Feb 2026",
+    title: "Breaking an LLM",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-breaking-an-llm/",
+    type: "Workshop",
+    location: "KIIT University, Bhubaneswar",
+    description:
+      "A high-intensity mechanistic interpretability workshop by GDGoC KIIT: dissect LLM internals, identify hallucination circuits, visualize safety breaches via live jailbreak demos, and perform hands-on activation steering via Google Colab.",
+  },
   {
     year: "2026",
     date: "7–8 Apr 2026",
@@ -47,6 +89,24 @@ const events: Event[] = [
   },
   {
     year: "2026",
+    date: "31 Jan 2026",
+    title: "ATLAS – GDG NIST On Campus Hackathon: Final Evaluation",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-science-and-technology-berhampur-india-presents-atlas-gdg-nist-on-campus-hackathon-final-evaluation/",
+    type: "Hackathon",
+    description:
+      "The concluding virtual phase of the ATLAS hackathon at GDGoC NIST Berhampur. Shortlisted teams presented and demoed their solutions to an evaluation panel, judged on innovation, technical implementation, scalability, real-world impact, and presentation clarity.",
+  },
+  {
+    year: "2026",
+    date: "19 Jan 2026",
+    title: "Hands-on Workshop: Building AI Agents with ADK",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-science-and-technology-berhampur-india-presents-hands-on-workshop-building-ai-agents-with-adk/",
+    type: "Workshop",
+    description:
+      "A 60-minute virtual GDGoC NIST workshop on building agentic AI systems with Google's Agent Development Kit (ADK). Participants built agents that reason, call tools, and act intelligently using Python — moving beyond traditional chatbots.",
+  },
+  {
+    year: "2026",
     date: "17–18 Jan 2026",
     title: "HackFest Bhubaneswar 2026",
     url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-hackfest-bhubaneswar-2026/cohost-gdg-bhubaneswar",
@@ -55,6 +115,83 @@ const events: Event[] = [
     theme: "Build the Future with AI",
     description:
       "Odisha's biggest AI + Tech hackathon, organized by GDG Bhubaneswar as the official partner of India's AI Impact Summit 2026. Participants build across AI/GenAI, Cloud, Web, Mobile, Cybersecurity, and Open Source — with top teams earning direct showcase slots at the Govt. of India's national AI platform.",
+  },
+  {
+    year: "2025",
+    date: "15 Dec 2025",
+    title: "Cybersecurity Essentials: A 3-Day Online Workshop",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india-presents-cybersecurity-essentials-a-3-day-online-workshop/",
+    type: "Workshop",
+    description:
+      "A 3-day virtual workshop by GDGoC ITER SOA University covering cybersecurity fundamentals — threat landscapes, secure coding practices, and hands-on labs for students and developers.",
+  },
+  {
+    year: "2025",
+    date: "2 Nov 2025",
+    title: "Building Bad",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-building-bad/",
+    type: "Hackathon",
+    location: "KIIT University, Bhubaneswar",
+    description:
+      "An in-person hackathon by GDGoC KIIT challenging participants to build a tech empire from scratch — multi-stage challenges testing creativity, precision, and grit from concept to deployment.",
+  },
+  {
+    year: "2025",
+    date: "16 Oct 2025",
+    title: "Cloud Study Jam Virtual Session",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-cloud-study-jam-virtual-session/",
+    type: "Workshop",
+    description:
+      "A virtual GDGoC KIIT Cloud Study Jam covering Google Cloud fundamentals with guided hands-on labs and speaker sessions for students new to cloud computing.",
+  },
+  {
+    year: "2025",
+    date: "14 Jun 2025",
+    title: "Debunking Myths of Undergraduate AI Research",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-debunking-myths-of-undergraduate-ai-research/",
+    type: "Talk",
+    description:
+      "A virtual GDGoC KIIT speaker session demystifying AI research for undergraduates — addressing what good research means, career paths, and real-world expectations, hosted by incoming research engineer interns at Birla and TCS Research.",
+  },
+  {
+    year: "2025",
+    date: "19 Apr 2025",
+    title: "Algo Arena 2.0",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-algo-arena-2o/",
+    type: "Hackathon",
+    location: "C. V. Raman Global University, Bhubaneswar",
+    description:
+      "A competitive programming and problem-solving hackathon by GDGoC CVR University challenging participants across algorithmic thinking, data structures, and real-world coding problems.",
+  },
+  {
+    year: "2025",
+    date: "30 Mar 2025",
+    title: "Beyond Boundaries: Tech Talk – Advaita",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-beyond-boundaries-tech-talk-advaita/",
+    type: "Talk",
+    location: "IIIT Bhubaneswar",
+    description:
+      "An in-person tech talk series at IIIT Bhubaneswar's Advaita fest, where industry experts and external speakers shared insights on the latest technologies, innovations, and trends with Q&A.",
+  },
+  {
+    year: "2025",
+    date: "29 Mar 2025",
+    title: "CTF Event – Advaita",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-ctf-event-advaita/",
+    type: "Hackathon",
+    location: "IIIT Bhubaneswar",
+    description:
+      "A Capture the Flag (CTF) cybersecurity competition at IIIT Bhubaneswar's Advaita fest by GDGoC IIIT Bhubaneswar, challenging participants with real-world security challenges and puzzle-based hacking tasks.",
+  },
+  {
+    year: "2025",
+    date: "6 Sep 2025",
+    title: "Intelligent Horizons: RAG, Cloud, and AI",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-science-and-technology-berhampur-india-presents-intelligent-horizons-rag-cloud-and-ai-workshop/",
+    type: "Workshop",
+    location: "NIST University, Berhampur",
+    description:
+      "An advanced in-person workshop at GDGoC NIST Berhampur covering Retrieval-Augmented Generation (RAG), Cloud Computing, and AI. Blended conceptual learning, live demos, and project-based practice — attended by 150+ participants.",
   },
   {
     year: "2025",
@@ -304,6 +441,8 @@ const TYPE_COLORS: Record<Event["type"], string> = {
 };
 
 function EventCard({ event, index }: { event: Event; index: number }) {
+  const isUpcoming = event.status === "upcoming";
+  const isLive = event.status === "live";
   return (
     <motion.a
       href={event.url}
@@ -313,10 +452,30 @@ function EventCard({ event, index }: { event: Event; index: number }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.05 }}
       whileHover={{ y: -3 }}
-      className="group flex flex-col gap-3 rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
+      className={`group flex flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
+        isLive
+          ? "border-green-500/60 hover:border-green-400"
+          : isUpcoming
+            ? "border-neon/50 hover:border-neon"
+            : "border-border hover:border-neon/40"
+      }`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
+          {isLive && (
+            <span className="flex items-center gap-1.5 rounded-full border border-green-500/50 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-400">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
+              </span>
+              Live
+            </span>
+          )}
+          {isUpcoming && (
+            <span className="rounded-full border border-neon/50 bg-neon/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-neon">
+              Upcoming
+            </span>
+          )}
           <span
             className={`rounded-full border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider ${TYPE_COLORS[event.type]}`}
           >
@@ -358,16 +517,21 @@ function EventsPage() {
 
   const needle = query.trim().toLowerCase();
 
-  const filtered = events.filter((e) => {
-    const matchesType = activeType ? e.type === activeType : true;
-    const matchesQuery = needle
-      ? e.title.toLowerCase().includes(needle) ||
-        e.description.toLowerCase().includes(needle) ||
-        (e.location ?? "").toLowerCase().includes(needle)
-      : true;
-    return matchesType && matchesQuery;
-  });
+  const upcomingEvents = events.filter((e) => e.status === "upcoming" || e.status === "live");
+  const pastEvents = events.filter((e) => !e.status || e.status === "past" as string);
 
+  const applyFilter = (list: Event[]) =>
+    list.filter((e) => {
+      const matchesType = activeType ? e.type === activeType : true;
+      const matchesQuery = needle
+        ? e.title.toLowerCase().includes(needle) ||
+          e.description.toLowerCase().includes(needle) ||
+          (e.location ?? "").toLowerCase().includes(needle)
+        : true;
+      return matchesType && matchesQuery;
+    });
+
+  const filtered = applyFilter(events);
   const isFiltering = !!needle || !!activeType;
 
   return (
@@ -459,22 +623,41 @@ function EventsPage() {
           )}
         </div>
       ) : (
-        <div className="mt-14 space-y-12">
-          {YEARS.map((year) => {
-            const yearEvents = events.filter((e) => e.year === year);
-            if (yearEvents.length === 0) return null;
-            return (
-              <Reveal key={year}>
-                <h2 className="font-display text-2xl font-bold text-neon/80">{year}</h2>
+        <>
+          {upcomingEvents.length > 0 && (
+            <div className="mt-14">
+              <Reveal>
+                <div className="flex items-center gap-3">
+                  <h2 className="font-display text-2xl font-bold text-neon">Upcoming</h2>
+                  <span className="rounded-full bg-neon/10 px-2.5 py-0.5 text-xs font-semibold text-neon">
+                    {upcomingEvents.length}
+                  </span>
+                </div>
                 <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                  {yearEvents.map((e, i) => (
+                  {upcomingEvents.map((e, i) => (
                     <EventCard key={e.url + i} event={e} index={i} />
                   ))}
                 </div>
               </Reveal>
-            );
-          })}
-        </div>
+            </div>
+          )}
+          <div className="mt-14 space-y-12">
+            {YEARS.map((year) => {
+              const yearEvents = pastEvents.filter((e) => e.year === year);
+              if (yearEvents.length === 0) return null;
+              return (
+                <Reveal key={year}>
+                  <h2 className="font-display text-2xl font-bold text-neon/80">{year}</h2>
+                  <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                    {yearEvents.map((e, i) => (
+                      <EventCard key={e.url + i} event={e} index={i} />
+                    ))}
+                  </div>
+                </Reveal>
+              );
+            })}
+          </div>
+        </>
       )}
     </div>
   );
