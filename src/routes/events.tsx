@@ -532,17 +532,6 @@ function EventsPage() {
               ))}
             </select>
 
-            {/* RSS Feed Button */}
-            <a
-              href="/events-feed"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm font-semibold uppercase tracking-wider text-orange-400 transition hover:border-orange-500 hover:bg-orange-500/20 shadow-sm"
-              title="Subscribe to RSS Feed of Events"
-            >
-              <Rss size={14} /> RSS Feed
-            </a>
-
             {/* Clear Button */}
             {isFiltering && (
               <button
