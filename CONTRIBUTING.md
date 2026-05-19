@@ -30,8 +30,46 @@ Open `http://localhost:3000` — you're in business.
 
 - **Awesome-Odia-AI directory** (`src/routes/tools.tsx`) — search, filtering, data freshness
 - **Project pages** (`src/routes/projects.tsx`) — repo cards, PyPI integration
+- **Events & Communities** (`src/data/events/`) — adding past/upcoming events and registering new tech chapters
 - **UI polish** — transitions, accessibility, responsive layout
 - **SEO** — meta tags, structured data, sitemap
+
+## Adding Events or Communities
+
+The events registry is completely static-driven and modular under `src/data/events/`.
+
+### 1. How to add an Event to an existing Community
+
+1. Open the community's file under `src/data/events/<community-slug>.ts`.
+2. Append a new `Event` object to the exported array.
+3. Keep properties formatted correctly. Providing `startDate` (and optional `endDate`) in `YYYY-MM-DD` format is highly recommended. The site automatically maps dates to their correct chronological Month & Year sections, and evaluates their status (`upcoming`, `live`, or past) dynamically on the fly based on Indian Standard Time (IST).
+
+_Example Event:_
+
+```typescript
+  {
+    year: "2026",
+    date: "23 May 2026",
+    title: "Odia AI Developers Meetup",
+    url: "https://example.com/event",
+    type: "Talk",
+    startDate: "2026-05-23",
+    location: "Bhubaneswar, Odisha",
+    description: "A community talk on building large language models for local languages.",
+  }
+```
+
+### 2. How to add a brand new Community
+
+1. Create a new data file `src/data/events/<new-community-slug>.ts` using any existing community file as a template.
+2. Define and export your event array.
+3. Open `src/data/events/index.ts`:
+   - Import your exported array at the top.
+   - Add a new entry to the `sources` array pairing your display name with your event array:
+     ```typescript
+     { community: "Your Community Name", events: yourCommunityEvents }
+     ```
+4. That's it! The new community and all its events will render dynamically on the Events page with autocomplete filter options.
 
 ## Issues
 

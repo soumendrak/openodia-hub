@@ -214,7 +214,16 @@ export const events: Event[] = sources
       endDate: endStr,
     };
   })
-  .sort((a, b) => Number(b.year) - Number(a.year));
+  .sort((a, b) => {
+    const yearDiff = Number(b.year) - Number(a.year);
+    if (yearDiff !== 0) return yearDiff;
+    if (a.startDate && b.startDate) {
+      return b.startDate.localeCompare(a.startDate);
+    }
+    if (a.startDate) return -1;
+    if (b.startDate) return 1;
+    return 0;
+  });
 
 /** Unique years present in the dataset, descending. */
 export const YEARS = [...new Set(events.map((e) => e.year))].sort((a, b) => Number(b) - Number(a));

@@ -30,9 +30,9 @@ For each source in `references/sources.md`:
 
 a. Call `read_url_content` on the community page URL.  
 b. If the result contains **chunks**, call `view_content_chunk` on the chunk that mentions
-   "Upcoming events" and "Past events" (usually position 1 or 2).  
+"Upcoming events" and "Past events" (usually position 1 or 2).  
 c. If no chunks (raw HTML dump with no event listings) → mark as **unparsable** and follow
-   the unparsable protocol below.  
+the unparsable protocol below.  
 d. Extract all event entries: title, date, event type label, and detail URL.
 
 ### 3. Identify new events
@@ -45,11 +45,14 @@ For each new event, call `read_url_content` on its detail URL, then `view_conten
 on the "About this event" chunk and the "When + Where" chunk.
 
 Extract:
+
 - `title` — exact event title from the page heading
 - `date` — human-readable (e.g. `"14 Jun 2025"`, `"17–18 Jan 2026"`)
 - `year` — 4-digit string matching the date
 - `type` — map from the GDG label using `references/type-mapping.md`
-- `status` — `"upcoming"` if the event is in the future (compare to today's date); `"live"` only if the event is currently in progress; omit for past events
+- `startDate` — (Recommended) exact YYYY-MM-DD start date
+- `endDate` — (Optional) exact YYYY-MM-DD end date
+- `status` — (Optional) `"upcoming"` or `"live"`. The codebase automatically resolves status dynamically on the client and server side using `startDate` and `endDate` in Indian Standard Time (IST), so manual status is optional when dates are provided.
 - `location` — venue + city if in-person; omit for virtual
 - `theme` — only if explicitly stated as a theme/tagline
 - `description` — 1–2 sentence summary written from the About section (not copy-pasted verbatim)
@@ -64,6 +67,7 @@ same indentation, same quote style.
 ### 6. Report
 
 After processing all sources, report:
+
 - ✅ New events added (title, date, community file)
 - ⏭ Events skipped (already exist)
 - ⚠️ Sources that were unparsable or partially parsable
@@ -73,10 +77,12 @@ After processing all sources, report:
 ## Unparsable page protocol
 
 A page is **unparsable** if:
+
 - The fetch returns only navigation links and no event titles/dates (SPA not rendered server-side)
 - All chunks contain only boilerplate (contact, footer, quick links) with no event data
 
 **When a source is unparsable:**
+
 1. Log: `⚠️ [Community name] — page not parsable (reason). Manual check required.`
 2. Tell the user the source URL to visit manually.
 3. Remind them to paste the event list here and you will add the events.
@@ -94,4 +100,5 @@ A page is **unparsable** if:
 - Dedup strictly by `url`. If a detail URL redirects or changes, treat it as new and note it.
 - If a page has a "Load more" button, note that only the initially visible events were captured.
 - Do not invent descriptions. If the About section is empty, use the OG description from the fetch result.
-- `status` must only be `"upcoming"` or `"live"` — never `"past"`. Omit the field for past events.
+- `startDate` (and optionally `endDate`) are highly recommended over manual `status`. The website automatically resolves and handles status transitions dynamically on both the server and client using the dates in Indian Standard Time (IST).
+- If manual `status` is used, it must only be `"upcoming"` or `"live"` — never `"past"`. Omit the field entirely for past events.

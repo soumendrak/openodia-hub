@@ -19,6 +19,7 @@ import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
+import { Route as ApiEventsRouteImport } from './routes/api/events'
 import { Route as ApiAwesomeRouteImport } from './routes/api/awesome'
 
 const TutorialsRoute = TutorialsRouteImport.update({
@@ -71,6 +72,11 @@ const ApiPypiRoute = ApiPypiRouteImport.update({
   path: '/api/pypi',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiEventsRoute = ApiEventsRouteImport.update({
+  id: '/api/events',
+  path: '/api/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
   id: '/api/awesome',
   path: '/api/awesome',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/videos': typeof ApiVideosRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/videos': typeof ApiVideosRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
+  '/api/events': typeof ApiEventsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/videos': typeof ApiVideosRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
+    | '/api/events'
     | '/api/pypi'
     | '/api/repos'
     | '/api/videos'
@@ -140,6 +150,7 @@ export interface FileRouteTypes {
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
+    | '/api/events'
     | '/api/pypi'
     | '/api/repos'
     | '/api/videos'
@@ -153,6 +164,7 @@ export interface FileRouteTypes {
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
+    | '/api/events'
     | '/api/pypi'
     | '/api/repos'
     | '/api/videos'
@@ -167,6 +179,7 @@ export interface RootRouteChildren {
   ToolsRoute: typeof ToolsRoute
   TutorialsRoute: typeof TutorialsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
+  ApiEventsRoute: typeof ApiEventsRoute
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
   ApiVideosRoute: typeof ApiVideosRoute
@@ -245,6 +258,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPypiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/events': {
+      id: '/api/events'
+      path: '/api/events'
+      fullPath: '/api/events'
+      preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/awesome': {
       id: '/api/awesome'
       path: '/api/awesome'
@@ -263,6 +283,7 @@ const rootRouteChildren: RootRouteChildren = {
   ToolsRoute: ToolsRoute,
   TutorialsRoute: TutorialsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,
+  ApiEventsRoute: ApiEventsRoute,
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
   ApiVideosRoute: ApiVideosRoute,

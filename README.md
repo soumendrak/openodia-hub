@@ -77,8 +77,8 @@ Copy `.env.example` to `.env` and fill in the values:
 cp .env.example .env
 ```
 
-| Variable | Required | Purpose |
-| -------- | -------- | ------- |
+| Variable          | Required | Purpose                                                                                                 |
+| ----------------- | -------- | ------------------------------------------------------------------------------------------------------- |
 | `YOUTUBE_API_KEY` | Optional | Sorts Tutorials page videos by view count. Without it, videos are shown in reverse-chronological order. |
 
 #### Getting a YouTube Data API v3 key (free)
@@ -98,16 +98,16 @@ npx wrangler secret put YOUTUBE_API_KEY
 
 ### Available scripts
 
-| Command             | Purpose                  |
-| ------------------- | ------------------------ |
-| `bun run dev`       | Start Vite dev server    |
-| `bun run build`     | Production build         |
-| `bun run build:dev` | Development-mode build   |
-| `bun run preview`   | Preview production build |
-| `bun run lint`      | Run ESLint               |
-| `bun run format`    | Format with Prettier     |
-| `bun run test`      | Run tests once           |
-| `bun run test:watch`| Run tests in watch mode  |
+| Command              | Purpose                  |
+| -------------------- | ------------------------ |
+| `bun run dev`        | Start Vite dev server    |
+| `bun run build`      | Production build         |
+| `bun run build:dev`  | Development-mode build   |
+| `bun run preview`    | Preview production build |
+| `bun run lint`       | Run ESLint               |
+| `bun run format`     | Format with Prettier     |
+| `bun run test`       | Run tests once           |
+| `bun run test:watch` | Run tests in watch mode  |
 
 ### Just recipes
 
@@ -129,6 +129,34 @@ just check    # lint + test (CI gate)
 just deploy   # build & deploy to Cloudflare Workers
 just clean    # remove dist/.wrangler artefacts
 ```
+
+## Dynamic Event Ingestion & Caching
+
+The website features an automated, zero-intervention live event discovery system for Google Developer Group (GDG) and GDGoC chapters in Odisha.
+
+### Supported Chapters
+
+- **GDG Bhubaneswar**
+- **GDGoC NIST Berhampur**
+- **GDGoC KIIT**
+- **GDGoC CVR University**
+- **GDGoC IIIT Bhubaneswar**
+- **GDGoC ITER SOA**
+
+### How it Works
+
+1. **Egress Harvester**: The `/api/events` API route runs in the Cloudflare Worker server-side environment. It fetches target chapter URLs from `gdg.community.dev` concurrently and extracts their embedded `<script id="__NEXT_DATA__" type="application/json">` React hydrated JSON states using regex. This parses upcoming and past events securely without administrative API credentials or API keys.
+2. **Edge Caching**: To prevent rate limits and page load latency, response payloads are configured with a 1-hour cache header:
+
+   ```http
+   Cache-Control: public, s-maxage=3600, stale-while-revalidate=600
+   ```
+
+   - **CDN Edge Resolution**: The first user request within the 1-hour window fetches fresh data from Bevy and caches the response.
+   - **Fast Delivery**: All subsequent visitors receive cached events directly from Cloudflare Edge memory in under 50ms without hitting Bevy.
+   - **Background Updates**: The first visitor after 60 minutes instantly receives the cached (slightly stale) data, while Cloudflare Edge asynchronously fetches fresh data in the background to update the cache.
+
+3. **Unified Rendering**: Dynamic events are merged with static events and deduplicated by their unique `url` parameter in [src/routes/events.tsx](file:///Users/soumen/Documents/Development/open_source/openodia-hub/src/routes/events.tsx). Dropdown year and community filters are automatically updated in the frontend based on the active event properties.
 
 ## Project structure
 

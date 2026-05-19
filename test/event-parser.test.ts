@@ -69,3 +69,41 @@ describe("parseEventDateRange", () => {
     expect(res.end!.getDate()).toBe(2);
   });
 });
+
+describe("dynamic status resolution logic", () => {
+  const resolveEventStatus = (
+    e: { startDate?: string; endDate?: string; status?: "upcoming" | "live" },
+    today: string,
+  ) => {
+    let status = e.status;
+    if (e.startDate) {
+      const end = e.endDate || e.startDate;
+      if (today < e.startDate) {
+        status = "upcoming";
+      } else if (today >= e.startDate && today <= end) {
+        status = "live";
+      } else {
+        status = undefined; // past event
+      }
+    }
+    return status;
+  };
+
+  it("resolves status as upcoming if today is before start date", () => {
+    const event = { startDate: "2026-06-01", endDate: "2026-06-02", status: "live" as const };
+    const status = resolveEventStatus(event, "2026-05-20");
+    expect(status).toBe("upcoming");
+  });
+
+  it("resolves status as live if today is between start date and end date", () => {
+    const event = { startDate: "2026-05-20", endDate: "2026-05-22", status: "upcoming" as const };
+    const status = resolveEventStatus(event, "2026-05-20");
+    expect(status).toBe("live");
+  });
+
+  it("resolves status as undefined (past) if today is after end date", () => {
+    const event = { startDate: "2026-05-10", endDate: "2026-05-12", status: "live" as const };
+    const status = resolveEventStatus(event, "2026-05-20");
+    expect(status).toBeUndefined();
+  });
+});
