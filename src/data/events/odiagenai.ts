@@ -7,7 +7,7 @@
  */
 import type { Event } from "./types";
 
-export const odiagenaiEvents: Event[] = [
+export const odiagenaiEvents: Omit<Event, "community">[] = [
   {
     year: "2025",
     date: "Jun–Jul 2025",

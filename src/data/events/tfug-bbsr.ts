@@ -7,7 +7,7 @@
  */
 import type { Event } from "./types";
 
-export const tfugBbsrEvents: Event[] = [
+export const tfugBbsrEvents: Omit<Event, "community">[] = [
   {
     year: "2025",
     date: "11 Oct 2025",

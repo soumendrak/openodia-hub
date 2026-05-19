@@ -12,6 +12,8 @@ export type Event = {
   title: string;
   url: string;
   type: EventType;
+  /** Populated automatically by index.ts — do not set in community data files. */
+  community: string;
   /** Omit for past events; set to "upcoming" or "live" for active events. */
   status?: "upcoming" | "live";
   location?: string;

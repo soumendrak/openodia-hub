@@ -7,7 +7,7 @@
  */
 import type { Event } from "./types";
 
-export const gdgocIterSoaEvents: Event[] = [
+export const gdgocIterSoaEvents: Omit<Event, "community">[] = [
   {
     year: "2025",
     date: "15 Dec 2025",

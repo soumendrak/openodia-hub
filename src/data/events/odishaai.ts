@@ -7,7 +7,7 @@
  */
 import type { Event } from "./types";
 
-export const odishaaiEvents: Event[] = [
+export const odishaaiEvents: Omit<Event, "community">[] = [
   {
     year: "2025",
     date: "21–22 Dec 2025",

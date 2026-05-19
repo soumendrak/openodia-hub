@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { motion } from "framer-motion";
 import { ExternalLink, Calendar, MapPin, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
-import { events, YEARS } from "../data/events";
+import { events, YEARS, COMMUNITIES } from "../data/events";
 import type { Event } from "../data/events";
 
 export const Route = createFileRoute("/events")({
@@ -108,6 +108,7 @@ const ALL_TYPES = ["Conference", "Summit", "Workshop", "Hackathon", "Talk", "Res
 function EventsPage() {
   const [query, setQuery] = useState("");
   const [activeType, setActiveType] = useState<Event["type"] | null>(null);
+  const [activeCommunity, setActiveCommunity] = useState<string | null>(null);
 
   const needle = query.trim().toLowerCase();
 
@@ -117,17 +118,18 @@ function EventsPage() {
   const applyFilter = (list: Event[]) =>
     list.filter((e) => {
       const matchesType = activeType ? e.type === activeType : true;
+      const matchesCommunity = activeCommunity ? e.community === activeCommunity : true;
       const matchesQuery = needle
         ? e.title.toLowerCase().includes(needle) ||
           e.description.toLowerCase().includes(needle) ||
           (e.location ?? "").toLowerCase().includes(needle)
         : true;
-      return matchesType && matchesQuery;
+      return matchesType && matchesCommunity && matchesQuery;
     });
 
   const filtered = applyFilter(events);
   const isSearching = !!needle;
-  const isFiltering = !!needle || !!activeType;
+  const isFiltering = !!needle || !!activeType || !!activeCommunity;
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-24">
@@ -192,13 +194,26 @@ function EventsPage() {
             ))}
             {isFiltering && (
               <button
-                onClick={() => { setQuery(""); setActiveType(null); }}
+                onClick={() => { setQuery(""); setActiveType(null); setActiveCommunity(null); }}
                 className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:border-neon/40 hover:text-foreground"
               >
                 <X size={11} /> Clear
               </button>
             )}
           </div>
+        </Reveal>
+
+        <Reveal>
+          <select
+            value={activeCommunity ?? ""}
+            onChange={(e) => setActiveCommunity(e.target.value || null)}
+            className="rounded-2xl border border-border bg-surface py-2.5 pl-4 pr-8 text-sm text-foreground focus:border-neon focus:outline-none"
+          >
+            <option value="">All communities</option>
+            {COMMUNITIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
         </Reveal>
       </div>
 

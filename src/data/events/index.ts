@@ -12,6 +12,7 @@
  * See types.ts for all available fields.
  */
 
+import type { Event } from "./types";
 export type { Event, EventType } from "./types";
 
 import { odishaaiEvents } from "./odishaai";
@@ -24,24 +25,31 @@ import { gdgocCvrEvents } from "./gdgoc-cvr";
 import { gdgocIiitBbsrEvents } from "./gdgoc-iiit-bbsr";
 import { gdgocIterSoaEvents } from "./gdgoc-iter-soa";
 
-const sources = [
-  odishaaiEvents,
-  odiagenaiEvents,
-  tfugBbsrEvents,
-  gdgBhubaneswarEvents,
-  gdgocNistBerhampurEvents,
-  gdgocKiitEvents,
-  gdgocCvrEvents,
-  gdgocIiitBbsrEvents,
-  gdgocIterSoaEvents,
+type RawEvent = Omit<Event, "community">;
+
+/** Each entry pairs a display name with its raw event array.
+ *  The `community` field is injected automatically — data files never set it. */
+const sources: { community: string; events: RawEvent[] }[] = [
+  { community: "Odisha AI",             events: odishaaiEvents },
+  { community: "OdiaGenAI",             events: odiagenaiEvents },
+  { community: "TFUG Bhubaneswar",      events: tfugBbsrEvents },
+  { community: "GDG Bhubaneswar",       events: gdgBhubaneswarEvents },
+  { community: "GDGoC NIST Berhampur",  events: gdgocNistBerhampurEvents },
+  { community: "GDGoC KIIT",            events: gdgocKiitEvents },
+  { community: "GDGoC CVR University",  events: gdgocCvrEvents },
+  { community: "GDGoC IIIT Bhubaneswar", events: gdgocIiitBbsrEvents },
+  { community: "GDGoC ITER SOA",        events: gdgocIterSoaEvents },
 ];
 
-/** All events merged and sorted newest-year-first. */
-export const events = sources
-  .flat()
+/** All events merged, community-tagged, and sorted newest-year-first. */
+export const events: Event[] = sources
+  .flatMap(({ community, events }) => events.map((e) => ({ ...e, community })))
   .sort((a, b) => Number(b.year) - Number(a.year));
 
 /** Unique years present in the dataset, descending. */
 export const YEARS = [...new Set(events.map((e) => e.year))].sort(
   (a, b) => Number(b) - Number(a),
 );
+
+/** Unique community names, sorted alphabetically. */
+export const COMMUNITIES = [...new Set(sources.map((s) => s.community))].sort();

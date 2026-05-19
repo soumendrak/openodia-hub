@@ -7,7 +7,7 @@
  */
 import type { Event } from "./types";
 
-export const gdgocIiitBbsrEvents: Event[] = [
+export const gdgocIiitBbsrEvents: Omit<Event, "community">[] = [
   {
     year: "2026",
     date: "20 Jan 2026",
