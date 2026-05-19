@@ -111,6 +111,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <script src="https://rybbit.ekathi.com/api/script.js" data-site-id="9dad6ada855b" defer />
       </head>
       <body>
         {children}
