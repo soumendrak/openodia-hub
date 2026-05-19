@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Calendar, MapPin, Search, X, Rss } from "lucide-react";
+import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
@@ -503,34 +503,46 @@ function EventsPage() {
             </div>
 
             {/* Communities Dropdown */}
-            <select
-              value={activeCommunity ?? ""}
-              onChange={(e) => setActiveCommunity(e.target.value || null)}
-              className="rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80 min-w-[180px]"
-            >
-              <option value="">All communities</option>
-              {dynamicCommunities.map((c) => (
-                <option key={c} value={c}>
-                  {c}
-                </option>
-              ))}
-            </select>
+            <div className="relative w-full sm:w-[200px]">
+              <select
+                value={activeCommunity ?? ""}
+                onChange={(e) => setActiveCommunity(e.target.value || null)}
+                className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
+              >
+                <option value="">All communities</option>
+                {dynamicCommunities.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+            </div>
 
             {/* Event Types Dropdown */}
-            <select
-              value={activeType ?? ""}
-              onChange={(e) =>
-                setActiveType((e.target.value as (typeof ALL_TYPES)[number]) || null)
-              }
-              className="rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80 min-w-[180px]"
-            >
-              <option value="">All event types</option>
-              {ALL_TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
+            <div className="relative w-full sm:w-[200px]">
+              <select
+                value={activeType ?? ""}
+                onChange={(e) =>
+                  setActiveType((e.target.value as (typeof ALL_TYPES)[number]) || null)
+                }
+                className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
+              >
+                <option value="">All event types</option>
+                {ALL_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+            </div>
 
             {/* Clear Button */}
             {isFiltering && (
