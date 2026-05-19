@@ -51,31 +51,31 @@ const events = [
   {
     year: "2023",
     title: "Odisha AI Summit",
-    url: "https://www.youtube.com/live/KZB9bfKkLgM?si=3i9eY22xT-1yZTD8",
+    url: "https://www.odishaai.org/conferences/summit/",
     type: "Conference",
   },
   {
     year: "2022",
     title: "Odisha AI Summit",
-    url: "https://www.youtube.com/live/MPrU-3s8ccw?si=gxbOFyfI3j3g8UsH",
+    url: "https://www.odishaai.org/conferences/summit/",
     type: "Conference",
   },
   {
     year: "2022",
     title: "OdiaGenAI Workshop",
-    url: "https://youtube.com/playlist?list=PLQCNXbSwgbGwMW4rGHr_LIfSCMh-7lgbR&si=f_b94K73yVAKST1E",
+    url: "https://www.odiagenai.org/",
     type: "Workshop",
   },
   {
     year: "2021",
     title: "Odisha AI Summit",
-    url: "https://www.youtube.com/live/iX59_YJzINs?si=TiZmMMeB6Hy28JcZ",
+    url: "https://www.odishaai.org/conferences/summit/",
     type: "Conference",
   },
   {
     year: "2020",
     title: "Odisha AI Summit",
-    url: "https://www.youtube.com/live/PF5DScCr5SI?si=znfuwHbrIgHSzgnO",
+    url: "https://www.odishaai.org/conferences/summit/",
     type: "Conference",
   },
   {
