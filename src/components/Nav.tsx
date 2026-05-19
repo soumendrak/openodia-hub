@@ -48,7 +48,7 @@ export function Nav() {
           </nav>
 
           <a
-            href="https://github.com/soumendrak"
+            href="https://github.com/soumendrak/openodia-hub"
             target="_blank"
             rel="noreferrer"
             className="hidden rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:border-neon hover:text-neon md:inline-block"

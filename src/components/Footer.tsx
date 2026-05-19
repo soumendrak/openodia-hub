@@ -44,7 +44,7 @@ export function Footer() {
             <h4 className="text-sm font-semibold">Connect</h4>
             <div className="mt-3 flex gap-3">
               <a
-                href="https://github.com/soumendrak"
+                href="https://github.com/soumendrak/openodia-hub"
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon"
