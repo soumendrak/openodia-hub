@@ -465,55 +465,74 @@ function EventsPage() {
         </p>
       </Reveal>
 
-      <div className="mt-10 space-y-4">
+      <div className="mt-10">
         <Reveal>
-          <div className="relative max-w-xl">
-            <Search
-              size={15}
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              type="search"
-              placeholder="Search events…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X size={13} />
-              </button>
-            )}
-          </div>
-        </Reveal>
+          <div className="flex flex-wrap gap-4 items-center">
+            {/* Search Input */}
+            <div className="relative flex-1 min-w-[280px] max-w-xl">
+              <Search
+                size={15}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                type="search"
+                placeholder="Search events…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={13} />
+                </button>
+              )}
+            </div>
 
-        <Reveal>
-          <div className="flex flex-wrap gap-2">
-            {ALL_TYPES.map((type) => (
-              <button
-                key={type}
-                onClick={() => setActiveType(activeType === type ? null : type)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-wider transition ${
-                  activeType === type
-                    ? TYPE_COLORS[type] + " bg-surface-2"
-                    : "border-border text-muted-foreground hover:border-neon/40 hover:text-foreground"
-                }`}
-              >
-                {type}
-              </button>
-            ))}
+            {/* Communities Dropdown */}
+            <select
+              value={activeCommunity ?? ""}
+              onChange={(e) => setActiveCommunity(e.target.value || null)}
+              className="rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80 min-w-[180px]"
+            >
+              <option value="">All communities</option>
+              {dynamicCommunities.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+
+            {/* Event Types Dropdown */}
+            <select
+              value={activeType ?? ""}
+              onChange={(e) =>
+                setActiveType((e.target.value as (typeof ALL_TYPES)[number]) || null)
+              }
+              className="rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80 min-w-[180px]"
+            >
+              <option value="">All event types</option>
+              {ALL_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+
+            {/* RSS Feed Button */}
             <a
               href="/events-feed"
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-orange-400 transition hover:border-orange-500 hover:bg-orange-500/20 shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-2xl border border-orange-500/30 bg-orange-500/10 px-4 py-3 text-sm font-semibold uppercase tracking-wider text-orange-400 transition hover:border-orange-500 hover:bg-orange-500/20 shadow-sm"
               title="Subscribe to RSS Feed of Events"
             >
-              <Rss size={12} /> RSS Feed
+              <Rss size={14} /> RSS Feed
             </a>
+
+            {/* Clear Button */}
             {isFiltering && (
               <button
                 onClick={() => {
@@ -521,27 +540,12 @@ function EventsPage() {
                   setActiveType(null);
                   setActiveCommunity(null);
                 }}
-                className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:border-neon/40 hover:text-foreground"
+                className="flex items-center gap-1.5 rounded-2xl border border-border px-4 py-3 text-sm text-muted-foreground hover:border-neon/40 hover:text-foreground transition"
               >
-                <X size={11} /> Clear
+                <X size={13} /> Clear Filters
               </button>
             )}
           </div>
-        </Reveal>
-
-        <Reveal>
-          <select
-            value={activeCommunity ?? ""}
-            onChange={(e) => setActiveCommunity(e.target.value || null)}
-            className="rounded-2xl border border-border bg-surface py-2.5 pl-4 pr-8 text-sm text-foreground focus:border-neon focus:outline-none"
-          >
-            <option value="">All communities</option>
-            {dynamicCommunities.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
         </Reveal>
       </div>
 
