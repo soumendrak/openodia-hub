@@ -13,7 +13,7 @@ type BevyEvent = {
   url: string;
 };
 
-const CHAPTERS = [
+export const CHAPTERS = [
   {
     community: "GDG Bhubaneswar",
     slug: "gdg-bhubaneswar",

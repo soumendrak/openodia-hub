@@ -19,7 +19,13 @@ export function ScrollToTop() {
   }, []);
 
   const scrollToTop = () => {
-    const lenis = (window as any).lenis;
+    const lenis = (
+      window as unknown as {
+        lenis?: {
+          scrollTo: (target: number) => void;
+        };
+      }
+    ).lenis;
     if (lenis) {
       lenis.scrollTo(0);
     } else {
@@ -43,7 +49,10 @@ export function ScrollToTop() {
           className="scroll-to-top-btn group fixed bottom-6 right-6 z-40 flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-surface/80 p-0 text-muted-foreground shadow-lg backdrop-blur-md transition-all hover:border-neon hover:text-neon cursor-pointer"
           aria-label="Scroll to top"
         >
-          <ArrowUp size={18} className="transition-transform duration-300 group-hover:-translate-y-0.5" />
+          <ArrowUp
+            size={18}
+            className="transition-transform duration-300 group-hover:-translate-y-0.5"
+          />
           <div
             aria-hidden
             className="pointer-events-none absolute -inset-px rounded-xl bg-gradient-to-br from-neon/5 to-magenta/5 opacity-0 transition-opacity group-hover:opacity-100"

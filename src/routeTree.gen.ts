@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
@@ -35,6 +36,11 @@ const ToolsRoute = ToolsRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsFeedRoute = EventsFeedRouteImport.update({
+  id: '/events-feed',
+  path: '/events-feed',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsRoute = EventsRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/events': typeof EventsRoute
+  '/events-feed': typeof EventsFeedRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
@@ -101,6 +108,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/events': typeof EventsRoute
+  '/events-feed': typeof EventsFeedRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
@@ -116,6 +124,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/events': typeof EventsRoute
+  '/events-feed': typeof EventsFeedRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/events'
+    | '/events-feed'
     | '/projects'
     | '/tools'
     | '/tutorials'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/events'
+    | '/events-feed'
     | '/projects'
     | '/tools'
     | '/tutorials'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/events'
+    | '/events-feed'
     | '/projects'
     | '/tools'
     | '/tutorials'
@@ -175,6 +187,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   EventsRoute: typeof EventsRoute
+  EventsFeedRoute: typeof EventsFeedRoute
   ProjectsRoute: typeof ProjectsRoute
   ToolsRoute: typeof ToolsRoute
   TutorialsRoute: typeof TutorialsRoute
@@ -207,6 +220,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events-feed': {
+      id: '/events-feed'
+      path: '/events-feed'
+      fullPath: '/events-feed'
+      preLoaderRoute: typeof EventsFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events': {
@@ -279,6 +299,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   EventsRoute: EventsRoute,
+  EventsFeedRoute: EventsFeedRoute,
   ProjectsRoute: ProjectsRoute,
   ToolsRoute: ToolsRoute,
   TutorialsRoute: TutorialsRoute,

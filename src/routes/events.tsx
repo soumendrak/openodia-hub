@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Calendar, MapPin, Search, X } from "lucide-react";
+import { ExternalLink, Calendar, MapPin, Search, X, Rss } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
@@ -505,6 +505,15 @@ function EventsPage() {
                 {type}
               </button>
             ))}
+            <a
+              href="/events-feed"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-orange-400 transition hover:border-orange-500 hover:bg-orange-500/20 shadow-sm"
+              title="Subscribe to RSS Feed of Events"
+            >
+              <Rss size={12} /> RSS Feed
+            </a>
             {isFiltering && (
               <button
                 onClick={() => {
