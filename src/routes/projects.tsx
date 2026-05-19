@@ -233,9 +233,7 @@ function RepoGrid() {
       )
     : [];
 
-  const byStars = [...repos]
-    .sort((a, b) => b.stargazers_count - a.stargazers_count)
-    .slice(0, 12);
+  const byStars = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count).slice(0, 12);
 
   const byDate = [...repos]
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -301,7 +299,9 @@ function RepoGrid() {
           <section className="mt-20">
             <Reveal>
               <h2 className="font-display text-3xl font-semibold md:text-4xl">Latest added</h2>
-              <p className="mt-2 text-muted-foreground">Live from GitHub — newest repositories first.</p>
+              <p className="mt-2 text-muted-foreground">
+                Live from GitHub — newest repositories first.
+              </p>
             </Reveal>
             <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {isLoading

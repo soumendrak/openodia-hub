@@ -94,9 +94,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
 
       <h3 className="font-display text-base font-semibold leading-snug">{event.title}</h3>
 
-      {event.theme && (
-        <p className="text-xs italic text-neon/80">&ldquo;{event.theme}&rdquo;</p>
-      )}
+      {event.theme && <p className="text-xs italic text-neon/80">&ldquo;{event.theme}&rdquo;</p>}
 
       <p className="text-sm leading-relaxed text-muted-foreground">{event.description}</p>
     </motion.a>
@@ -113,7 +111,7 @@ function EventsPage() {
   const needle = query.trim().toLowerCase();
 
   const upcomingEvents = events.filter((e) => e.status === "upcoming" || e.status === "live");
-  const pastEvents = events.filter((e) => !e.status || e.status === "past" as string);
+  const pastEvents = events.filter((e) => !e.status || e.status === ("past" as string));
 
   const applyFilter = (list: Event[]) =>
     list.filter((e) => {
@@ -141,13 +139,41 @@ function EventsPage() {
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Conferences, workshops, hackathons, and talks from the Odia AI ecosystem — past and
           upcoming. Sourced from{" "}
-          <a href="https://www.odishaai.org/conferences/" target="_blank" rel="noreferrer" className="text-neon hover:underline">odishaai.org</a>
+          <a
+            href="https://www.odishaai.org/conferences/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            odishaai.org
+          </a>
           {", "}
-          <a href="https://www.odiagenai.org/" target="_blank" rel="noreferrer" className="text-neon hover:underline">odiagenai.org</a>
+          <a
+            href="https://www.odiagenai.org/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            odiagenai.org
+          </a>
           {", "}
-          <a href="https://www.tfugbbsr.in/event" target="_blank" rel="noreferrer" className="text-neon hover:underline">tfugbbsr.in</a>
+          <a
+            href="https://www.tfugbbsr.in/event"
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            tfugbbsr.in
+          </a>
           {", and "}
-          <a href="https://gdg.community.dev/gdg-bhubaneswar/" target="_blank" rel="noreferrer" className="text-neon hover:underline">GDG Bhubaneswar</a>
+          <a
+            href="https://gdg.community.dev/gdg-bhubaneswar/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            GDG Bhubaneswar
+          </a>
           .
         </p>
       </Reveal>
@@ -194,7 +220,11 @@ function EventsPage() {
             ))}
             {isFiltering && (
               <button
-                onClick={() => { setQuery(""); setActiveType(null); setActiveCommunity(null); }}
+                onClick={() => {
+                  setQuery("");
+                  setActiveType(null);
+                  setActiveCommunity(null);
+                }}
                 className="flex items-center gap-1 rounded-full border border-border px-3 py-1 text-xs text-muted-foreground hover:border-neon/40 hover:text-foreground"
               >
                 <X size={11} /> Clear
@@ -211,7 +241,9 @@ function EventsPage() {
           >
             <option value="">All communities</option>
             {COMMUNITIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </Reveal>
@@ -228,7 +260,9 @@ function EventsPage() {
             <p className="mt-6 text-muted-foreground">No events matched.</p>
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              {filtered.map((e, i) => <EventCard key={e.url + i} event={e} index={i} />)}
+              {filtered.map((e, i) => (
+                <EventCard key={e.url + i} event={e} index={i} />
+              ))}
             </div>
           )}
         </div>
@@ -251,10 +285,12 @@ function EventsPage() {
               </Reveal>
             </div>
           )}
-          {applyFilter(upcomingEvents).length > 0 && (
+          {applyFilter(pastEvents).length > 0 && (
             <Reveal>
               <div className="mt-14 flex items-center gap-3">
-                <h2 className="font-display text-2xl font-bold text-muted-foreground">Past Events</h2>
+                <h2 className="font-display text-2xl font-bold text-muted-foreground">
+                  Past Events
+                </h2>
                 <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-muted-foreground">
                   {applyFilter(pastEvents).length}
                 </span>

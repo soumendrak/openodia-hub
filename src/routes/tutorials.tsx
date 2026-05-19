@@ -86,11 +86,33 @@ function TutorialsPage() {
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Videos from the Odia AI community — covering NLP, language models, and Odia language
           technology. Sourced from{" "}
-          <a href="https://www.youtube.com/@OdiaGenAI" target="_blank" rel="noreferrer" className="text-neon hover:underline">OdiaGenAI</a>
+          <a
+            href="https://www.youtube.com/@OdiaGenAI"
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            OdiaGenAI
+          </a>
           ,{" "}
-          <a href="https://www.youtube.com/@OdiasInML" target="_blank" rel="noreferrer" className="text-neon hover:underline">Odias in ML</a>
+          <a
+            href="https://www.youtube.com/@OdiasInML"
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            Odias in ML
+          </a>
           , and{" "}
-          <a href="https://www.youtube.com/@openodia" target="_blank" rel="noreferrer" className="text-neon hover:underline">OpenOdia</a>.
+          <a
+            href="https://www.youtube.com/@openodia"
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            OpenOdia
+          </a>
+          .
         </p>
       </Reveal>
 
@@ -124,7 +146,8 @@ function TutorialsPage() {
         <section className="mt-10">
           <Reveal>
             <p className="text-sm text-muted-foreground">
-              {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""} for &ldquo;{needle}&rdquo;
+              {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""} for &ldquo;
+              {needle}&rdquo;
             </p>
           </Reveal>
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -138,9 +161,7 @@ function TutorialsPage() {
       ) : isLoading ? (
         <ChannelSkeleton />
       ) : (
-        channels.map((channel) => (
-          <ChannelSection key={channel.handle} channel={channel} />
-        ))
+        channels.map((channel) => <ChannelSection key={channel.handle} channel={channel} />)
       )}
     </div>
   );
@@ -211,7 +232,10 @@ function PlaylistCard({ playlist, index }: { playlist: Playlist; index: number }
         rel="noreferrer"
         className="group flex gap-3 rounded-xl border border-border bg-surface p-3 transition hover:border-neon/40"
       >
-        <div className="relative shrink-0 overflow-hidden rounded-lg" style={{ width: 100, height: 56 }}>
+        <div
+          className="relative shrink-0 overflow-hidden rounded-lg"
+          style={{ width: 100, height: 56 }}
+        >
           {playlist.thumbnail ? (
             <img
               src={playlist.thumbnail}
@@ -307,7 +331,10 @@ function ChannelSkeleton() {
           <div className="h-8 w-48 animate-pulse rounded-lg bg-surface" />
           <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="animate-pulse overflow-hidden rounded-2xl border border-border bg-surface">
+              <div
+                key={i}
+                className="animate-pulse overflow-hidden rounded-2xl border border-border bg-surface"
+              >
                 <div className="aspect-video bg-surface-2" />
                 <div className="space-y-2 p-4">
                   <div className="h-3 w-16 rounded bg-surface-2" />

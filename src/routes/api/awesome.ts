@@ -110,7 +110,7 @@ export const Route = createFileRoute("/api/awesome")({
           if (!res.ok) {
             return Response.json(
               { items: [], fetchedAt: new Date().toISOString(), error: "fetch_failed" },
-              { status: 200 },
+              { status: 502 },
             );
           }
           const md = await res.text();
@@ -127,7 +127,7 @@ export const Route = createFileRoute("/api/awesome")({
           console.error("awesome parse error", e);
           return Response.json(
             { items: [], fetchedAt: new Date().toISOString(), error: "parse_failed" },
-            { status: 200 },
+            { status: 500 },
           );
         }
       },

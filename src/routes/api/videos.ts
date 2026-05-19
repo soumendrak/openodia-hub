@@ -28,7 +28,6 @@ type ChannelResult = {
   playlists: Playlist[];
 };
 
-
 function decodeXmlEntities(s: string): string {
   return s
     .replace(/&amp;/g, "&")
@@ -36,23 +35,6 @@ function decodeXmlEntities(s: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'");
-}
-
-async function resolveChannelId(handle: string): Promise<string | null> {
-  try {
-    const res = await fetch(`https://www.youtube.com/@${handle}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; openodia.com)",
-        Accept: "text/html",
-      },
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const match = html.match(/"channelId":"(UC[^"]+)"/);
-    return match?.[1] ?? null;
-  } catch {
-    return null;
-  }
 }
 
 function parseRss(
@@ -84,8 +66,7 @@ function parseRss(
 
 async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playlist[]> {
   try {
-    const url =
-      `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=12&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=12&key=${apiKey}`;
     const res = await fetch(url, { headers: { "User-Agent": "openodia.com" } });
     if (!res.ok) return [];
     const data = (await res.json()) as {
@@ -123,12 +104,9 @@ async function fetchChannelVideos(
   handle: string,
   name: string,
   url: string,
-  knownChannelId?: string,
+  channelId: string,
   apiKey?: string,
 ): Promise<ChannelResult> {
-  const channelId = knownChannelId ?? (await resolveChannelId(handle));
-  if (!channelId) return { handle, name, url, videos: [], playlists: [] };
-
   const [rssRes, playlists] = await Promise.all([
     fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
       headers: { "User-Agent": "openodia.com" },
@@ -154,8 +132,7 @@ async function enrichWithViewCounts(
 
   for (let i = 0; i < allIds.length; i += 50) {
     const batch = allIds.slice(i, i + 50);
-    const url =
-      `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${batch.join(",")}&key=${apiKey}`;
+    const url = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${batch.join(",")}&key=${apiKey}`;
     try {
       const res = await fetch(url, { headers: { "User-Agent": "openodia.com" } });
       if (!res.ok) continue;
@@ -187,9 +164,7 @@ export const Route = createFileRoute("/api/videos")({
         try {
           const apiKey = process.env.YOUTUBE_API_KEY;
           let channels = await Promise.all(
-            CHANNELS.map((c) =>
-              fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey),
-            ),
+            CHANNELS.map((c) => fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey)),
           );
 
           if (apiKey) {
@@ -205,7 +180,7 @@ export const Route = createFileRoute("/api/videos")({
           });
         } catch (e) {
           console.error("videos error", e);
-          return Response.json({ channels: [] }, { status: 200 });
+          return Response.json({ channels: [], error: "internal_error" }, { status: 500 });
         }
       },
     },

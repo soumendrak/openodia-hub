@@ -11,7 +11,7 @@ export type Channel = {
   handle: string;
   name: string;
   url: string;
-  channelId?: string;
+  channelId: string;
 };
 
 export const CHANNELS: Channel[] = [

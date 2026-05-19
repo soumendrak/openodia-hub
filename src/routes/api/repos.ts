@@ -14,40 +14,31 @@ type Repo = {
   topics?: string[];
 };
 
-const ORGS: string[] = [
-  "odisha-ml",
-  "OdiagenAI",
-  "OdiaWikimedia",
-  "ofdn",
-  "OdiaNLP",
-];
+const ORGS: string[] = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "OdiaNLP"];
 
 const USERS: string[] = ["shantipriyap"];
 
-const PINNED_REPOS: string[] = [
-  "soumendrak/aidaybbsr2025demo",
-  "soumendrak/odia-2048",
-];
+const PINNED_REPOS: string[] = ["soumendrak/aidaybbsr2025demo", "soumendrak/odia-2048"];
 
+const githubToken = process.env.GITHUB_TOKEN;
 const GH_HEADERS = {
   "User-Agent": "openodia.com",
   Accept: "application/vnd.github+json",
+  ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
 };
 
 async function fetchOrgRepos(org: string): Promise<Repo[]> {
-  const r = await fetch(
-    `https://api.github.com/orgs/${org}/repos?per_page=100&sort=updated`,
-    { headers: GH_HEADERS },
-  );
+  const r = await fetch(`https://api.github.com/orgs/${org}/repos?per_page=100&sort=updated`, {
+    headers: GH_HEADERS,
+  });
   if (!r.ok) return [];
   return (await r.json()) as Repo[];
 }
 
 async function fetchUserRepos(user: string): Promise<Repo[]> {
-  const r = await fetch(
-    `https://api.github.com/users/${user}/repos?per_page=100&sort=updated`,
-    { headers: GH_HEADERS },
-  );
+  const r = await fetch(`https://api.github.com/users/${user}/repos?per_page=100&sort=updated`, {
+    headers: GH_HEADERS,
+  });
   if (!r.ok) return [];
   return (await r.json()) as Repo[];
 }
