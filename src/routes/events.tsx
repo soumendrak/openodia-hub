@@ -287,62 +287,32 @@ function EventsPage() {
   useEffect(() => {
     if (isSearching) return;
 
-    const observerOptions = {
-      root: null,
-      rootMargin: "-110px 0px -60% 0px",
-      threshold: 0.1,
-    };
-
-    const handleIntersection = (entries: IntersectionObserverEntry[]) => {
-      if (isProgrammaticScroll.current) return;
-
-      const intersecting = entries.filter((entry) => entry.isIntersecting);
-      if (intersecting.length === 0) return;
-
-      // Find the intersecting target whose top boundary is closest to 110px in the viewport
-      let closest = intersecting[0];
-      let minDistance = Infinity;
-
-      intersecting.forEach((entry) => {
-        const rect = entry.boundingClientRect;
-        const distance = Math.abs(rect.top - 110);
-        if (distance < minDistance) {
-          minDistance = distance;
-          closest = entry;
-        }
-      });
-
-      if (closest) {
-        setActiveSection(closest.target.id);
-      }
-    };
-
-    const observer = new IntersectionObserver(handleIntersection, observerOptions);
-    const targets: HTMLElement[] = [];
-
-    const upcomingEl = document.getElementById("upcoming-events");
-    if (upcomingEl) targets.push(upcomingEl);
-
-    // Reconstruct list of observed elements from parsed strings to satisfy the static linter dependencies
     const parsedYears: string[] = JSON.parse(yearsStr);
     const parsedMonthsMap = new Map<string, string[]>(JSON.parse(monthsStr));
 
-    parsedYears.forEach((year) => {
-      const yearEl = document.getElementById(`year-${year}`);
-      if (yearEl) targets.push(yearEl);
+    const getTargets = () => {
+      const list: HTMLElement[] = [];
+      const upcomingEl = document.getElementById("upcoming-events");
+      if (upcomingEl) list.push(upcomingEl);
 
-      const months = parsedMonthsMap.get(year) || [];
-      months.forEach((month) => {
-        const monthEl = document.getElementById(`month-${year}-${month.toLowerCase()}`);
-        if (monthEl) targets.push(monthEl);
+      parsedYears.forEach((year) => {
+        const yearEl = document.getElementById(`year-${year}`);
+        if (yearEl) list.push(yearEl);
+
+        const months = parsedMonthsMap.get(year) || [];
+        months.forEach((month) => {
+          const monthEl = document.getElementById(`month-${year}-${month.toLowerCase()}`);
+          if (monthEl) list.push(monthEl);
+        });
       });
-    });
+      return list;
+    };
 
-    targets.forEach((t) => observer.observe(t));
-
-    // Handle edge-cases at very top/bottom of scroll manually
     const handleScroll = () => {
       if (isProgrammaticScroll.current) return;
+
+      const targets = getTargets();
+      if (targets.length === 0) return;
 
       const scrollTop = window.scrollY || document.documentElement.scrollTop;
       const scrollHeight = document.documentElement.scrollHeight;
@@ -350,30 +320,35 @@ function EventsPage() {
 
       // Top of page edge case
       if (scrollTop < 80) {
-        const upcomingEl = document.getElementById("upcoming-events");
-        if (upcomingEl) {
-          setActiveSection("upcoming-events");
-          return;
-        } else if (targets.length > 0) {
-          setActiveSection(targets[0].id);
-          return;
-        }
+        setActiveSection("upcoming-events");
+        return;
       }
 
       // Bottom of page edge case
       if (scrollTop + clientHeight >= scrollHeight - 50) {
-        if (targets.length > 0) {
-          setActiveSection(targets[targets.length - 1].id);
-          return;
+        setActiveSection(targets[targets.length - 1].id);
+        return;
+      }
+
+      // Standard scroll spy: find the last element whose top is <= 160px
+      let activeId = targets[0].id;
+      for (let i = 0; i < targets.length; i++) {
+        const rect = targets[i].getBoundingClientRect();
+        if (rect.top <= 160) {
+          activeId = targets[i].id;
+        } else {
+          break; // since targets are ordered down the page, we can stop
         }
       }
+      setActiveSection(activeId);
     };
+
+    // Run once initially to set correct state on load
+    handleScroll();
 
     window.addEventListener("scroll", handleScroll, { passive: true });
 
     return () => {
-      targets.forEach((t) => observer.unobserve(t));
-      observer.disconnect();
       window.removeEventListener("scroll", handleScroll);
     };
   }, [isSearching, yearsStr, monthsStr]);
@@ -409,18 +384,30 @@ function EventsPage() {
         isProgrammaticScroll.current = false;
       }, 1500);
 
-      const lenis = (window as any).lenis;
+      const lenis = (
+        window as unknown as {
+          lenis?: {
+            scrollTo: (
+              target: HTMLElement,
+              options?: { offset?: number; onComplete?: () => void },
+            ) => void;
+          };
+        }
+      ).lenis;
       if (lenis) {
         lenis.scrollTo(el, {
-          offset: 110,
+          offset: -112,
           onComplete: () => {
-            isProgrammaticScroll.current = false;
+            // Delay the release of programmatic scroll lock to allow late scroll events to settle
+            setTimeout(() => {
+              isProgrammaticScroll.current = false;
+            }, 150);
           },
         });
       } else {
         const rect = el.getBoundingClientRect();
         const scrollTop = window.scrollY || document.documentElement.scrollTop;
-        const targetY = rect.top + scrollTop - 110;
+        const targetY = rect.top + scrollTop - 112;
         window.scrollTo({
           top: targetY,
           behavior: "smooth",
@@ -680,7 +667,7 @@ function EventsPage() {
           )}
 
           {/* Events Grid Content Area */}
-          <div className="flex-1 min-w-0 pb-[60vh]">
+          <div className="flex-1 min-w-0 pb-[85vh]">
             {filteredUpcomingEvents.length > 0 && (
               <div id="upcoming-events" className="scroll-mt-28 mb-16">
                 <Reveal>
