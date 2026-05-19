@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Heart } from "lucide-react";
+import { Heart, Rss } from "lucide-react";
 import { GithubIcon, YoutubeIcon, LinkedinIcon } from "./icons";
 
 export function Footer() {
@@ -32,10 +32,19 @@ export function Footer() {
                   Tools directory
                 </Link>
               </li>
-              <li>
+              <li className="flex items-center gap-1.5">
                 <Link to="/events" className="hover:text-foreground">
                   Events
                 </Link>
+                <a
+                  href="/events-feed"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-orange-500 hover:text-orange-400 transition"
+                  title="Subscribe to RSS Feed of Events"
+                >
+                  <Rss size={13} />
+                </a>
               </li>
               <li>
                 <Link to="/about" className="hover:text-foreground">

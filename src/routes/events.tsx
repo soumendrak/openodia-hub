@@ -420,8 +420,19 @@ function EventsPage() {
     <div className="mx-auto max-w-5xl px-4 pb-24">
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Community</p>
-        <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Odia AI <span className="text-gradient">Events</span>
+        <h1 className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-display text-5xl font-bold md:text-7xl">
+          <span>
+            Odia AI <span className="text-gradient">Events</span>
+          </span>
+          <a
+            href="/events-feed"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center text-orange-500 hover:text-orange-400 transition-all duration-300 hover:scale-110 active:scale-95"
+            title="Subscribe to RSS Feed of Events"
+          >
+            <Rss className="h-7 w-7 md:h-10 md:w-10" />
+          </a>
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Conferences, workshops, hackathons, and talks from the Odia AI ecosystem — past and
