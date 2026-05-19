@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState } from "react";
-import { Menu, X } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Menu, X, Sun, Moon } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const links = [
@@ -15,6 +15,27 @@ const links = [
 export function Nav() {
   const [open, setOpen] = useState(false);
   const { location } = useRouterState();
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setTheme(document.documentElement.classList.contains("light") ? "light" : "dark");
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    if (typeof window !== "undefined") {
+      if (nextTheme === "light") {
+        document.documentElement.classList.add("light");
+        localStorage.setItem("theme", "light");
+      } else {
+        document.documentElement.classList.remove("light");
+        localStorage.setItem("theme", "dark");
+      }
+    }
+  };
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50">
@@ -49,18 +70,32 @@ export function Nav() {
             })}
           </nav>
 
-          <a
-            href="https://github.com/soumendrak/openodia-hub"
-            target="_blank"
-            rel="noreferrer"
-            className="hidden rounded-lg border border-border px-4 py-2 text-sm font-medium transition hover:border-neon hover:text-neon md:inline-block"
-          >
-            GitHub
-          </a>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"
+              aria-label="Toggle theme"
+            >
+              {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
 
-          <button className="md:hidden" onClick={() => setOpen((v) => !v)} aria-label="Toggle menu">
-            {open ? <X size={22} /> : <Menu size={22} />}
-          </button>
+            <a
+              href="https://github.com/soumendrak/openodia-hub"
+              target="_blank"
+              rel="noreferrer"
+              className="hidden rounded-xl border border-border bg-surface/40 px-4 py-2 text-sm font-medium transition hover:border-neon hover:text-neon md:inline-block"
+            >
+              GitHub
+            </a>
+
+            <button
+              className="md:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
+              onClick={() => setOpen((v) => !v)}
+              aria-label="Toggle menu"
+            >
+              {open ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
 
         <AnimatePresence>

@@ -110,9 +110,110 @@
   --shadow-glow-magenta: 0 0 80px -10px color-mix(in oklab, var(--magenta) 50%, transparent);
 }
 
+.light {
+  --background: oklch(0.98 0.01 250);
+  --foreground: oklch(0.13 0.02 270);
+
+  --surface: oklch(0.94 0.02 250);
+  --surface-2: oklch(0.89 0.02 250);
+
+  --card: oklch(0.96 0.02 250);
+  --card-foreground: oklch(0.13 0.02 270);
+
+  --popover: oklch(0.96 0.02 250);
+  --popover-foreground: oklch(0.13 0.02 270);
+
+  --primary: oklch(0.6 0.18 200);
+  --primary-foreground: oklch(0.98 0.01 250);
+
+  --secondary: oklch(0.88 0.02 250);
+  --secondary-foreground: oklch(0.13 0.02 270);
+
+  --muted: oklch(0.9 0.015 250);
+  --muted-foreground: oklch(0.45 0.03 260);
+
+  --accent: oklch(0.6 0.2 340);
+  --accent-foreground: oklch(0.98 0.01 250);
+
+  --destructive: oklch(0.6 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 250);
+
+  --border: oklch(0 0 0 / 8%);
+  --input: oklch(0 0 0 / 6%);
+  --ring: oklch(0.6 0.18 200);
+
+  --neon: oklch(0.55 0.18 200);
+  --magenta: oklch(0.55 0.22 335);
+  --saffron: oklch(0.62 0.17 60);
+
+  --gradient-hero:
+    radial-gradient(
+      ellipse 80% 60% at 50% 0%,
+      color-mix(in oklab, var(--neon) 16%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 60% 50% at 80% 30%,
+      color-mix(in oklab, var(--magenta) 14%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      ellipse 50% 50% at 10% 70%,
+      color-mix(in oklab, var(--saffron) 10%, transparent),
+      transparent 60%
+    );
+
+  --gradient-text: linear-gradient(
+    100deg,
+    var(--neon) 0%,
+    oklch(0.45 0.15 250) 40%,
+    var(--magenta) 90%
+  );
+
+  --shadow-glow:
+    0 10px 30px -5px oklch(0.13 0.02 270 / 12%),
+    0 20px 50px -10px color-mix(in oklab, var(--neon) 30%, oklch(0.13 0.02 270 / 15%));
+  --shadow-glow-magenta:
+    0 10px 30px -5px oklch(0.13 0.02 270 / 12%),
+    0 20px 50px -10px color-mix(in oklab, var(--magenta) 30%, oklch(0.13 0.02 270 / 15%));
+}
+
+.light .bg-surface,
+.light .bg-card {
+  box-shadow:
+    0 1px 2px 0 oklch(0.13 0.02 270 / 6%),
+    0 8px 24px -4px oklch(0.13 0.02 270 / 10%),
+    0 16px 40px -12px oklch(0.13 0.02 270 / 14%);
+  border-color: oklch(0.13 0.02 270 / 10%);
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.light .bg-surface:hover,
+.light .bg-card:hover {
+  transform: translateY(-4px);
+  border-color: color-mix(in oklab, var(--neon) 35%, oklch(0.13 0.02 270 / 15%));
+  box-shadow:
+    0 2px 4px 0 oklch(0.13 0.02 270 / 8%),
+    0 20px 40px -10px color-mix(in oklab, var(--neon) 28%, oklch(0.13 0.02 270 / 15%)),
+    0 30px 60px -15px color-mix(in oklab, var(--magenta) 24%, oklch(0.13 0.02 270 / 10%));
+}
+
+.light header > div > div {
+  box-shadow:
+    0 4px 20px -2px oklch(0.13 0.02 270 / 8%),
+    0 12px 40px -8px oklch(0.13 0.02 270 / 12%);
+  border-color: oklch(0.13 0.02 270 / 10%);
+}
+
 @layer base {
   * {
     border-color: var(--color-border);
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.2s ease;
   }
 
   html,
@@ -121,6 +222,11 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    transition:
+      background-color 0.3s ease,
+      color 0.3s ease,
+      border-color 0.3s ease,
+      box-shadow 0.3s ease;
   }
 
   body {

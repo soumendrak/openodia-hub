@@ -11,6 +11,10 @@ export function SmoothScroll() {
       smoothWheel: true,
     });
 
+    // Expose lenis instance globally for programmatic scroll routing
+    const globalWindow = window as unknown as { lenis?: Lenis };
+    globalWindow.lenis = lenis;
+
     let rafId = 0;
     function raf(time: number) {
       lenis.raf(time);
@@ -21,6 +25,7 @@ export function SmoothScroll() {
     return () => {
       cancelAnimationFrame(rafId);
       lenis.destroy();
+      delete globalWindow.lenis;
     };
   }, []);
 

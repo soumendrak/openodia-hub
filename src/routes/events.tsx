@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
@@ -170,6 +170,17 @@ function EventsPage() {
   const [activeCommunity, setActiveCommunity] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
 
+  const isProgrammaticScroll = useRef(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+
   const { data: liveData } = useQuery({
     queryKey: ["liveEvents"],
     queryFn: async () => {
@@ -278,14 +289,31 @@ function EventsPage() {
 
     const observerOptions = {
       root: null,
-      rootMargin: "-25% 0px -55% 0px",
+      rootMargin: "-110px 0px -60% 0px",
       threshold: 0.1,
     };
 
     const handleIntersection = (entries: IntersectionObserverEntry[]) => {
-      const visible = entries.find((entry) => entry.isIntersecting);
-      if (visible) {
-        setActiveSection(visible.target.id);
+      if (isProgrammaticScroll.current) return;
+
+      const intersecting = entries.filter((entry) => entry.isIntersecting);
+      if (intersecting.length === 0) return;
+
+      // Find the intersecting target whose top boundary is closest to 110px in the viewport
+      let closest = intersecting[0];
+      let minDistance = Infinity;
+
+      intersecting.forEach((entry) => {
+        const rect = entry.boundingClientRect;
+        const distance = Math.abs(rect.top - 110);
+        if (distance < minDistance) {
+          minDistance = distance;
+          closest = entry;
+        }
+      });
+
+      if (closest) {
+        setActiveSection(closest.target.id);
       }
     };
 
@@ -312,9 +340,41 @@ function EventsPage() {
 
     targets.forEach((t) => observer.observe(t));
 
+    // Handle edge-cases at very top/bottom of scroll manually
+    const handleScroll = () => {
+      if (isProgrammaticScroll.current) return;
+
+      const scrollTop = window.scrollY || document.documentElement.scrollTop;
+      const scrollHeight = document.documentElement.scrollHeight;
+      const clientHeight = window.innerHeight;
+
+      // Top of page edge case
+      if (scrollTop < 80) {
+        const upcomingEl = document.getElementById("upcoming-events");
+        if (upcomingEl) {
+          setActiveSection("upcoming-events");
+          return;
+        } else if (targets.length > 0) {
+          setActiveSection(targets[0].id);
+          return;
+        }
+      }
+
+      // Bottom of page edge case
+      if (scrollTop + clientHeight >= scrollHeight - 50) {
+        if (targets.length > 0) {
+          setActiveSection(targets[targets.length - 1].id);
+          return;
+        }
+      }
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+
     return () => {
       targets.forEach((t) => observer.unobserve(t));
       observer.disconnect();
+      window.removeEventListener("scroll", handleScroll);
     };
   }, [isSearching, yearsStr, monthsStr]);
 
@@ -338,7 +398,34 @@ function EventsPage() {
   const scrollToId = (id: string) => {
     const el = document.getElementById(id);
     if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      isProgrammaticScroll.current = true;
+      setActiveSection(id);
+
+      // Safe release of programmatic scroll lock with a longer safety timeout (1500ms)
+      timeoutRef.current = setTimeout(() => {
+        isProgrammaticScroll.current = false;
+      }, 1500);
+
+      const lenis = (window as any).lenis;
+      if (lenis) {
+        lenis.scrollTo(el, {
+          offset: 110,
+          onComplete: () => {
+            isProgrammaticScroll.current = false;
+          },
+        });
+      } else {
+        const rect = el.getBoundingClientRect();
+        const scrollTop = window.scrollY || document.documentElement.scrollTop;
+        const targetY = rect.top + scrollTop - 110;
+        window.scrollTo({
+          top: targetY,
+          behavior: "smooth",
+        });
+      }
     }
   };
 
@@ -593,7 +680,7 @@ function EventsPage() {
           )}
 
           {/* Events Grid Content Area */}
-          <div className="flex-1 min-w-0">
+          <div className="flex-1 min-w-0 pb-[60vh]">
             {filteredUpcomingEvents.length > 0 && (
               <div id="upcoming-events" className="scroll-mt-28 mb-16">
                 <Reveal>

@@ -111,6 +111,20 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var theme = localStorage.getItem('theme');
+                if (theme === 'light' || (!theme && window.matchMedia('(prefers-color-scheme: light)').matches)) {
+                  document.documentElement.classList.add('light');
+                } else {
+                  document.documentElement.classList.remove('light');
+                }
+              } catch (_) {}
+            `,
+          }}
+        />
         <script src="https://rybbit.ekathi.com/api/script.js" data-site-id="9dad6ada855b" defer />
       </head>
       <body>
