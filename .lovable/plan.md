@@ -1,4 +1,3 @@
-
 # OpenOdia.com — Build Plan
 
 A dark, futuristic showcase site for Soumendra Kumar Sahoo's open-source Odia language work, with physics-based motion and a smooth, Framer-style flow.
@@ -28,6 +27,7 @@ Each route gets its own `head()` with unique title/description/og tags.
 ## Page-by-page
 
 ### Home (`/`)
+
 - Full-viewport hero: massive headline "Open source for Odia." with a physics-driven reveal (letters spring in, ଓ glyph orbits). Magnetic "Explore" + "YouTube" CTAs.
 - Three pillar cards (YouTube / PyPI package / Awesome-Odia-AI) — draggable with spring snap-back, hover tilt.
 - Scroll-triggered stats strip (GitHub stars, PyPI downloads, # tools curated) — numbers count up via spring.
@@ -35,16 +35,19 @@ Each route gets its own `head()` with unique title/description/og tags.
 - Marquee of project/tool names at the bottom.
 
 ### Projects (`/projects`)
+
 - Hero card for **OpenOdia** PyPI package: install snippet (`pip install openodia`) with copy button, feature bullets (transliteration, NER, datasets, etc.), GitHub + PyPI buttons, animated terminal demo.
 - Grid of other repos under Soumendra/odisha-ml — fetched live from GitHub REST API (`/users/soumendrak/repos` + `/orgs/odisha-ml/repos`, filtered/curated). Cards show stars, language, last updated; physics hover.
 
 ### Tools (`/tools`) — Awesome-Odia-AI directory
+
 - Live-fetched directory parsed from the Awesome-Odia-AI README.
 - Search box + category chips (Datasets, Models, Libraries, Papers, etc. derived from README headings).
 - Card grid with category color coding, external-link, GitHub/paper icons; staggered entrance animation.
 - "Updated from GitHub" badge with last-fetched timestamp; manual refresh button (revalidates the query).
 
 ### About / Contact (`/about`)
+
 - Portrait/avatar with parallax. Short bio for Soumendra.
 - Timeline of initiatives (animated vertical line that draws on scroll).
 - Contact: GitHub, LinkedIn, X/Twitter, YouTube, email — magnetic icon buttons.

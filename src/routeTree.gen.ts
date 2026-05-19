@@ -68,6 +68,7 @@ const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/events': typeof EventsRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
   '/api/awesome': typeof ApiAwesomeRoute
@@ -78,6 +79,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/events': typeof EventsRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
   '/api/awesome': typeof ApiAwesomeRoute
@@ -89,6 +91,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/events': typeof EventsRoute
   '/projects': typeof ProjectsRoute
   '/tools': typeof ToolsRoute
   '/api/awesome': typeof ApiAwesomeRoute
@@ -101,6 +104,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/events'
     | '/projects'
     | '/tools'
     | '/api/awesome'
@@ -111,6 +115,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/events'
     | '/projects'
     | '/tools'
     | '/api/awesome'
@@ -121,6 +126,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/events'
     | '/projects'
     | '/tools'
     | '/api/awesome'
@@ -132,6 +138,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  EventsRoute: typeof EventsRoute
   ProjectsRoute: typeof ProjectsRoute
   ToolsRoute: typeof ToolsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
@@ -154,6 +161,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -204,6 +218,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  EventsRoute: EventsRoute,
   ProjectsRoute: ProjectsRoute,
   ToolsRoute: ToolsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,

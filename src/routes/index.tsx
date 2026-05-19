@@ -63,7 +63,7 @@ function Hero() {
         className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md"
       >
         <Sparkles size={14} className="text-neon" />
-        Built by <span className="text-foreground">Soumendra Kumar Sahoo</span>
+        Built by <a href="https://www.soumendrak.com" target="_blank" rel="noreferrer" className="text-foreground hover:text-neon transition"><span className="text-foreground">Soumendra Kumar Sahoo</span></a>
       </motion.span>
 
       <h1 className="mt-6 font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">

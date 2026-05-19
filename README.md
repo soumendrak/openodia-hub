@@ -79,6 +79,29 @@ The dev server starts at `http://localhost:3000`.
 | `bun run preview`   | Preview production build |
 | `bun run lint`      | Run ESLint               |
 | `bun run format`    | Format with Prettier     |
+| `bun run test`      | Run tests once           |
+| `bun run test:watch`| Run tests in watch mode  |
+
+### Just recipes
+
+The project ships a [`justfile`](./justfile) for common chores. Install [`just`](https://just.systems/man/en/packages.html) once, then:
+
+```bash
+just          # list all recipes
+just install  # install dependencies
+just dev      # start the dev server
+just build    # production build
+just build-dev# development-mode build
+just preview  # preview production build
+just lint     # run ESLint
+just lint-fix # auto-fix lint issues
+just format   # format with Prettier
+just test     # run tests once
+just test-watch # run tests in watch mode
+just check    # lint + test (CI gate)
+just deploy   # build & deploy to Cloudflare Workers
+just clean    # remove dist/.wrangler artefacts
+```
 
 ## Project structure
 
