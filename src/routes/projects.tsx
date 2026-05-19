@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Star, ArrowRight } from "lucide-react";
+import { Copy, ExternalLink, Star, ArrowRight, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon, PythonIcon } from "../components/icons";
 
@@ -33,6 +33,7 @@ type Repo = {
   stargazers_count: number;
   language: string | null;
   updated_at: string;
+  created_at: string;
   topics?: string[];
 };
 
@@ -162,7 +163,52 @@ function OpenOdiaHero() {
   );
 }
 
+function RepoCard({ repo, index }: { repo: Repo; index: number }) {
+  return (
+    <Reveal key={repo.full_name} delay={(index % 6) * 0.05}>
+      <motion.a
+        whileHover={{ y: -4 }}
+        transition={{ type: "spring", stiffness: 250, damping: 18 }}
+        href={repo.html_url}
+        target="_blank"
+        rel="noreferrer"
+        className="group block h-full rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-xs text-muted-foreground">
+            {repo.full_name.split("/")[0]}
+          </span>
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Star size={12} className="text-saffron" /> {repo.stargazers_count}
+          </span>
+        </div>
+        <h3 className="mt-2 font-display text-lg font-semibold">{repo.name}</h3>
+        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+          {repo.description ?? "No description."}
+        </p>
+        <div className="mt-4 flex items-center justify-between">
+          {repo.language && (
+            <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
+              {repo.language}
+            </span>
+          )}
+          <ArrowRight
+            size={14}
+            className="text-neon transition-transform group-hover:translate-x-1"
+          />
+        </div>
+      </motion.a>
+    </Reveal>
+  );
+}
+
+const SKELETON = Array.from({ length: 6 }).map((_, i) => (
+  <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-surface" />
+));
+
 function RepoGrid() {
+  const [query, setQuery] = useState("");
+
   const { data, isLoading } = useQuery({
     queryKey: ["repos"],
     queryFn: async () => {
@@ -172,58 +218,99 @@ function RepoGrid() {
     },
   });
 
-  return (
-    <section className="mt-20">
-      <Reveal>
-        <h2 className="font-display text-3xl font-semibold md:text-4xl">More repositories</h2>
-        <p className="mt-2 text-muted-foreground">Live from GitHub — sorted by stars.</p>
-      </Reveal>
+  const repos = data?.repos ?? [];
 
-      <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading
-          ? Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-44 animate-pulse rounded-2xl border border-border bg-surface"
-              />
-            ))
-          : data?.repos.slice(0, 12).map((r, i) => (
-              <Reveal key={r.full_name} delay={(i % 6) * 0.05}>
-                <motion.a
-                  whileHover={{ y: -4 }}
-                  transition={{ type: "spring", stiffness: 250, damping: 18 }}
-                  href={r.html_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group block h-full rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {r.full_name.split("/")[0]}
-                    </span>
-                    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-                      <Star size={12} className="text-saffron" /> {r.stargazers_count}
-                    </span>
-                  </div>
-                  <h3 className="mt-2 font-display text-lg font-semibold">{r.name}</h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                    {r.description ?? "No description."}
-                  </p>
-                  <div className="mt-4 flex items-center justify-between">
-                    {r.language && (
-                      <span className="rounded-full border border-border px-2 py-0.5 text-xs text-muted-foreground">
-                        {r.language}
-                      </span>
-                    )}
-                    <ArrowRight
-                      size={14}
-                      className="text-neon transition-transform group-hover:translate-x-1"
-                    />
-                  </div>
-                </motion.a>
-              </Reveal>
-            ))}
+  const needle = query.trim().toLowerCase();
+
+  const filtered = needle
+    ? repos.filter(
+        (r) =>
+          r.name.toLowerCase().includes(needle) ||
+          r.full_name.toLowerCase().includes(needle) ||
+          (r.description ?? "").toLowerCase().includes(needle) ||
+          (r.language ?? "").toLowerCase().includes(needle) ||
+          (r.topics ?? []).some((t) => t.toLowerCase().includes(needle)),
+      )
+    : [];
+
+  const byStars = [...repos]
+    .sort((a, b) => b.stargazers_count - a.stargazers_count)
+    .slice(0, 12);
+
+  const byDate = [...repos]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 12);
+
+  return (
+    <>
+      <div className="mt-16">
+        <Reveal>
+          <div className="relative max-w-xl">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+            />
+            <input
+              type="search"
+              placeholder="Search repos, orgs, languages, topics…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        </Reveal>
       </div>
-    </section>
+
+      {needle ? (
+        <section className="mt-10">
+          <Reveal>
+            <p className="text-sm text-muted-foreground">
+              {filtered.length} result{filtered.length !== 1 ? "s" : ""} for &ldquo;{needle}&rdquo;
+            </p>
+          </Reveal>
+          <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {filtered.length === 0 ? (
+              <p className="col-span-full text-muted-foreground">No repositories matched.</p>
+            ) : (
+              filtered.map((r, i) => <RepoCard key={r.full_name} repo={r} index={i} />)
+            )}
+          </div>
+        </section>
+      ) : (
+        <>
+          <section className="mt-20">
+            <Reveal>
+              <h2 className="font-display text-3xl font-semibold md:text-4xl">Most popular</h2>
+              <p className="mt-2 text-muted-foreground">Live from GitHub — sorted by stars.</p>
+            </Reveal>
+            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {isLoading
+                ? SKELETON
+                : byStars.map((r, i) => <RepoCard key={r.full_name} repo={r} index={i} />)}
+            </div>
+          </section>
+
+          <section className="mt-20">
+            <Reveal>
+              <h2 className="font-display text-3xl font-semibold md:text-4xl">Latest added</h2>
+              <p className="mt-2 text-muted-foreground">Live from GitHub — newest repositories first.</p>
+            </Reveal>
+            <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {isLoading
+                ? SKELETON
+                : byDate.map((r, i) => <RepoCard key={r.full_name} repo={r} index={i} />)}
+            </div>
+          </section>
+        </>
+      )}
+    </>
   );
 }

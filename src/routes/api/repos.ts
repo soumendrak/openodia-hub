@@ -10,11 +10,13 @@ type Repo = {
   updated_at: string;
   fork: boolean;
   archived: boolean;
+  created_at: string;
   topics?: string[];
 };
 
 const PINNED_REPOS: string[] = [
   "soumendrak/aidaybbsr2025demo",
+  "soumendrak/odia-2048",
 ];
 
 const GH_HEADERS = {
