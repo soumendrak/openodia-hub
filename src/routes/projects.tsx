@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Copy, ExternalLink, Star, ArrowRight, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon, PythonIcon } from "../components/icons";
+import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/projects")({
   head: () => ({
@@ -40,6 +41,10 @@ type Repo = {
 function ProjectsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
+      <JsonLd data={breadcrumbSchema([
+        { name: "OpenOdia", url: "https://openodia.com" },
+        { name: "Projects", url: "https://openodia.com/projects" },
+      ])} />
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Projects</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">Built in the open.</h1>

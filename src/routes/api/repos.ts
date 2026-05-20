@@ -75,11 +75,24 @@ export const Route = createFileRoute("/api/repos")({
             headers: {
               "Content-Type": "application/json",
               "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, User-Agent",
             },
           });
         } catch (e) {
           console.error("repos error", e);
-          return Response.json({ repos: [] }, { status: 200 });
+          return new Response(
+            JSON.stringify({ repos: [] }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+              },
+            },
+          );
         }
       },
     },

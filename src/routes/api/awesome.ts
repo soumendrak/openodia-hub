@@ -108,10 +108,17 @@ export const Route = createFileRoute("/api/awesome")({
             headers: { "User-Agent": "openodia.com" },
           });
           if (!res.ok) {
-            return Response.json(
-              { items: [], fetchedAt: new Date().toISOString(), error: "fetch_failed" },
-              { status: 502 },
-            );
+            return new Response(
+            JSON.stringify({ items: [], fetchedAt: new Date().toISOString(), error: "fetch_failed" }),
+            {
+              status: 502,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+              },
+            },
+          );
           }
           const md = await res.text();
           const items = parseReadme(md);
@@ -121,13 +128,23 @@ export const Route = createFileRoute("/api/awesome")({
             headers: {
               "Content-Type": "application/json",
               "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
+              "Access-Control-Allow-Headers": "Content-Type, User-Agent",
             },
           });
         } catch (e) {
           console.error("awesome parse error", e);
-          return Response.json(
-            { items: [], fetchedAt: new Date().toISOString(), error: "parse_failed" },
-            { status: 500 },
+          return new Response(
+            JSON.stringify({ items: [], fetchedAt: new Date().toISOString(), error: "parse_failed" }),
+            {
+              status: 500,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+              },
+            },
           );
         }
       },

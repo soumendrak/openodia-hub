@@ -69,8 +69,75 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     try {
+      // URL rewrites: map dot-path URLs to TanStack Router paths
+      // TanStack Router treats dots as path separators in file-based routing,
+      // so llms.txt.ts → /llms/txt instead of /llms.txt
+      const url = new URL(request.url);
+      const originalPath = url.pathname;
+
+      // Handle .well-known routes at the workers level — TanStack Router ignores
+      // files/directories starting with a dot (hidden files convention)
+      if (originalPath === "/.well-known/ai-plugin.json") {
+        const manifest = {
+          schema_version: "v1",
+          name_for_model: "openodia",
+          name_for_human: "OpenOdia",
+          description_for_model:
+            "OpenOdia is a hub for Odia language open-source. Use it to find Odia AI tools, datasets, models, YouTube tutorials, GitHub projects, community events, and PyPI packages. It aggregates resources from the OdishaAI community and the Awesome-Odia-AI directory.",
+          description_for_human:
+            "Open source tools, datasets, and resources for the Odia language.",
+          api: { type: "openapi", url: "https://openodia.com/.well-known/openapi.json", has_user_authentication: false },
+          auth: { type: "none" },
+          logo_url: "https://openodia.com/openodia-logo.svg",
+          contact_email: "soumendra.s@outlook.com",
+          legal_info_url: "https://github.com/soumendrak/openodia-hub/blob/main/LICENSE",
+        };
+        return new Response(JSON.stringify(manifest, null, 2), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      if (originalPath === "/.well-known/openapi.json") {
+        const spec = {
+          openapi: "3.0.0",
+          info: {
+            title: "OpenOdia API",
+            version: "1.0.0",
+            description: "Public API for OpenOdia — Odia language open-source resources.",
+            contact: { name: "Soumendra Kumar Sahoo", url: "https://www.soumendrak.com", email: "soumendra.s@outlook.com" },
+          },
+          servers: [{ url: "https://openodia.com", description: "Production" }],
+          paths: {
+            "/api/awesome": { get: { summary: "Awesome-Odia-AI directory", responses: { "200": { description: "Array of categorized items" } } } },
+            "/api/events": { get: { summary: "Community events", responses: { "200": { description: "Array of events" } } } },
+            "/api/pypi": { get: { summary: "OpenOdia PyPI package info", responses: { "200": { description: "Package metadata" } } } },
+            "/api/repos": { get: { summary: "GitHub repositories", responses: { "200": { description: "Repository list" } } } },
+            "/api/videos": { get: { summary: "YouTube videos", responses: { "200": { description: "Videos and playlists" } } } },
+            "/events-feed": { get: { summary: "Events RSS feed", responses: { "200": { description: "RSS XML feed" } } } },
+            "/llms.txt": { get: { summary: "llms.txt agent context", responses: { "200": { description: "Plain text" } } } },
+            "/llms-full.txt": { get: { summary: "llms-full.txt full context", responses: { "200": { description: "Plain text" } } } },
+          },
+        };
+        return new Response(JSON.stringify(spec, null, 2), {
+          status: 200,
+          headers: { "Content-Type": "application/json", "Cache-Control": "public, max-age=86400", "Access-Control-Allow-Origin": "*" },
+        });
+      }
+
+      if (originalPath === "/llms.txt") {
+        url.pathname = "/llms/txt";
+      } else if (originalPath === "/llms-full.txt") {
+        url.pathname = "/llms-full/txt";
+      }
+
+      const rewrittenRequest =
+        url.pathname !== originalPath
+          ? new Request(url.toString(), request)
+          : request;
+
       const handler = await getServerEntry();
-      const response = await handler.fetch(request, env, ctx);
+      const response = await handler.fetch(rewrittenRequest, env, ctx);
       return await normalizeCatastrophicSsrResponse(response);
     } catch (error) {
       console.error(error);

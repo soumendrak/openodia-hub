@@ -1,5 +1,41 @@
+# OpenOdia — openodia.com
+# Agent & crawler rules
+
+# Friendly AI/answer-engine bots — allowed full access
+User-agent: GPTBot
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+# Standard crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: DuckDuckBot
+Allow: /
+
 User-agent: *
 Allow: /
 Disallow: /api/
+Disallow: /.well-known/
 
+# Referenced files for AI agents
 Sitemap: https://openodia.com/sitemap.xml
+
+# Agent discovery files (llms.txt standard)
+# https://openodia.com/llms.txt — agent-friendly table of contents
+# https://openodia.com/llms-full.txt — full plain-text site content
+# https://openodia.com/.well-known/ai-plugin.json — AI plugin manifest

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Search, ExternalLink, RefreshCw } from "lucide-react";
 import { Reveal } from "../components/Reveal";
+import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/tools")({
   head: () => ({
@@ -71,6 +72,10 @@ function ToolsPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
+      <JsonLd data={breadcrumbSchema([
+        { name: "OpenOdia", url: "https://openodia.com" },
+        { name: "Tools", url: "https://openodia.com/tools" },
+      ])} />
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">

@@ -13,6 +13,7 @@ import { Nav } from "../components/Nav";
 import { Footer } from "../components/Footer";
 import { SmoothScroll } from "../components/SmoothScroll";
 import { ScrollToTop } from "../components/ScrollToTop";
+import { JsonLd, siteOrganization, authorPerson, webSiteSchema } from "../lib/jsonld";
 
 function NotFoundComponent() {
   return (
@@ -112,6 +113,9 @@ function RootShell({ children }: { children: React.ReactNode }) {
     <html lang="en">
       <head>
         <HeadContent />
+        <JsonLd data={siteOrganization()} />
+        <JsonLd data={authorPerson()} />
+        <JsonLd data={webSiteSchema()} />
         <script
           dangerouslySetInnerHTML={{
             __html: `

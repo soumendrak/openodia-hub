@@ -17,6 +17,8 @@ import { Route as EventsRouteImport } from './routes/events'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
+import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
+import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
@@ -63,6 +65,16 @@ const SitemapXmlRoute = SitemapXmlRouteImport.update({
   path: '/sitemap/xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LlmsTxtRoute = LlmsTxtRouteImport.update({
+  id: '/llms/txt',
+  path: '/llms/txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
+  id: '/llms-full/txt',
+  path: '/llms-full/txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVideosRoute = ApiVideosRouteImport.update({
   id: '/api/videos',
   path: '/api/videos',
@@ -102,6 +114,8 @@ export interface FileRoutesByFullPath {
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/videos': typeof ApiVideosRoute
+  '/llms-full/txt': typeof LlmsFullTxtRoute
+  '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
 }
 export interface FileRoutesByTo {
@@ -117,6 +131,8 @@ export interface FileRoutesByTo {
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/videos': typeof ApiVideosRoute
+  '/llms-full/txt': typeof LlmsFullTxtRoute
+  '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
 }
 export interface FileRoutesById {
@@ -133,6 +149,8 @@ export interface FileRoutesById {
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/videos': typeof ApiVideosRoute
+  '/llms-full/txt': typeof LlmsFullTxtRoute
+  '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
 }
 export interface FileRouteTypes {
@@ -150,6 +168,8 @@ export interface FileRouteTypes {
     | '/api/pypi'
     | '/api/repos'
     | '/api/videos'
+    | '/llms-full/txt'
+    | '/llms/txt'
     | '/sitemap/xml'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -165,6 +185,8 @@ export interface FileRouteTypes {
     | '/api/pypi'
     | '/api/repos'
     | '/api/videos'
+    | '/llms-full/txt'
+    | '/llms/txt'
     | '/sitemap/xml'
   id:
     | '__root__'
@@ -180,6 +202,8 @@ export interface FileRouteTypes {
     | '/api/pypi'
     | '/api/repos'
     | '/api/videos'
+    | '/llms-full/txt'
+    | '/llms/txt'
     | '/sitemap/xml'
   fileRoutesById: FileRoutesById
 }
@@ -196,6 +220,8 @@ export interface RootRouteChildren {
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
   ApiVideosRoute: typeof ApiVideosRoute
+  LlmsFullTxtRoute: typeof LlmsFullTxtRoute
+  LlmsTxtRoute: typeof LlmsTxtRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
 }
 
@@ -257,6 +283,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapXmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/llms/txt': {
+      id: '/llms/txt'
+      path: '/llms/txt'
+      fullPath: '/llms/txt'
+      preLoaderRoute: typeof LlmsTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms-full/txt': {
+      id: '/llms-full/txt'
+      path: '/llms-full/txt'
+      fullPath: '/llms-full/txt'
+      preLoaderRoute: typeof LlmsFullTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/videos': {
       id: '/api/videos'
       path: '/api/videos'
@@ -308,6 +348,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
   ApiVideosRoute: ApiVideosRoute,
+  LlmsFullTxtRoute: LlmsFullTxtRoute,
+  LlmsTxtRoute: LlmsTxtRoute,
   SitemapXmlRoute: SitemapXmlRoute,
 }
 export const routeTree = rootRouteImport

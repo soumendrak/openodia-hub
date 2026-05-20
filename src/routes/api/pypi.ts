@@ -26,12 +26,25 @@ export const Route = createFileRoute("/api/pypi")({
               headers: {
                 "Content-Type": "application/json",
                 "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, User-Agent",
               },
             },
           );
         } catch (e) {
           console.error("pypi error", e);
-          return Response.json({ version: "0.1.0", summary: "", releases: 0 });
+          return new Response(
+            JSON.stringify({ version: "0.1.0", summary: "", releases: 0 }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+              },
+            },
+          );
         }
       },
     },

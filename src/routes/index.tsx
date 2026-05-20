@@ -7,6 +7,8 @@ import { Reveal } from "../components/Reveal";
 import { Marquee } from "../components/Marquee";
 import { FEATURED_VIDEOS, YOUTUBE_CHANNEL } from "../data/videos";
 import { YoutubeIcon, GithubIcon, PythonIcon } from "../components/icons";
+import { FaqSection } from "../components/FaqSection";
+import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -36,6 +38,17 @@ function Home() {
       <Pillars />
       <Stats />
       <Videos />
+      <FaqSection />
+      <JsonLd data={faqPageSchema([
+        { question: "What is OpenOdia?", answer: "OpenOdia is a hub for Odia language open-source — a growing collection of tools, libraries, and resources making Odia a first-class citizen in modern AI and software. It spans a YouTube channel (@openodia), a Python package on PyPI, and the Awesome-Odia-AI directory." },
+        { question: "How can I contribute to Odia AI?", answer: "You can contribute by joining the odisha-ml GitHub organization, submitting tools to Awesome-Odia-AI, publishing Odia-language Python packages to PyPI, creating tutorial content for @openodia, or participating in OdishaAI community events." },
+        { question: "What Odia language AI tools exist?", answer: "Over 60 tools and resources are listed in the Awesome-Odia-AI directory — including speech recognition (STT), text-to-speech (TTS), datasets, fine-tuned LLMs, transliteration libraries, and NLP toolkits. Browse them at openodia.com/tools." },
+        { question: "Who maintains OpenOdia?", answer: "OpenOdia is built and maintained by Soumendra Kumar Sahoo, an observability engineer at PepsiCo. It is part of the broader OdishaAI community initiative uniting Odias in AI/ML globally." },
+        { question: "Where can I learn Odia NLP?", answer: "The @openodia YouTube channel features tutorials in both Odia and English covering AI, NLP, and language technology. See openodia.com/tutorials." },
+        { question: "Is OpenOdia open source?", answer: "Yes. All code is open source under the MIT license. The website is at github.com/soumendrak/openodia-hub." },
+        { question: "What is the OpenOdia Python package?", answer: "The openodia PyPI package provides practical tools for Odia language processing including transliteration, text normalization, and language detection. Install with 'pip install openodia'." },
+      ])} />
+      <JsonLd data={breadcrumbSchema([{ name: "Home", url: "https://openodia.com" }])} />
       <Marquee
         items={[
           "OpenOdia",
