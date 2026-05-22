@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Play, ExternalLink, ListVideo, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
+import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { YoutubeIcon } from "../components/icons";
 
 export const Route = createFileRoute("/tutorials")({
@@ -54,6 +55,8 @@ type ChannelResult = {
 
 function TutorialsPage() {
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useSearchShortcut(searchInputRef);
 
   const { data, isLoading } = useQuery({
     queryKey: ["videos"],
@@ -124,8 +127,9 @@ function TutorialsPage() {
               className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <input
+              ref={searchInputRef}
               type="search"
-              placeholder="Search videos, channels…"
+              placeholder="Search videos, channels… [/]"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"

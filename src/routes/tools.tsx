@@ -1,9 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Search, ExternalLink, RefreshCw } from "lucide-react";
 import { Reveal } from "../components/Reveal";
+import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/tools")({
@@ -48,6 +49,8 @@ function ToolsPage() {
 
   const [q, setQ] = useState("");
   const [active, setActive] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useSearchShortcut(searchInputRef);
 
   const categories = useMemo(() => {
     if (!data) return [];
@@ -105,9 +108,10 @@ function ToolsPage() {
               className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
             />
             <input
+              ref={searchInputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Search tools, datasets, models…"
+              placeholder="Search tools, datasets, models… [/]"
               className="w-full rounded-full border border-border bg-surface py-3 pl-11 pr-4 text-sm outline-none transition focus:border-neon"
             />
           </div>

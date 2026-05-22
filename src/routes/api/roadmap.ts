@@ -62,7 +62,11 @@ export const Route = createFileRoute("/api/roadmap")({
         } catch (e) {
           console.error("roadmap error", e);
           return new Response(
-            JSON.stringify({ groups: [], fetchedAt: new Date().toISOString(), error: "fetch_failed" }),
+            JSON.stringify({
+              groups: [],
+              fetchedAt: new Date().toISOString(),
+              error: "fetch_failed",
+            }),
             {
               status: 200,
               headers: {

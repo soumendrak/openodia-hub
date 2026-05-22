@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
+import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
 
@@ -166,6 +167,8 @@ const getEventMonthName = (e: Event): string => {
 
 function EventsPage() {
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useSearchShortcut(searchInputRef);
   const [activeType, setActiveType] = useState<Event["type"] | null>(null);
   const [activeCommunity, setActiveCommunity] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -486,8 +489,9 @@ function EventsPage() {
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
+                ref={searchInputRef}
                 type="search"
-                placeholder="Search events…"
+                placeholder="Search events… [/]"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"

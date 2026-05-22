@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Copy, ExternalLink, Star, ArrowRight, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon, PythonIcon } from "../components/icons";
+import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/projects")({
@@ -214,6 +215,8 @@ const SKELETON = Array.from({ length: 6 }).map((_, i) => (
 
 function RepoGrid() {
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useSearchShortcut(searchInputRef);
 
   const { data, isLoading } = useQuery({
     queryKey: ["repos"],
@@ -256,7 +259,8 @@ function RepoGrid() {
             />
             <input
               type="search"
-              placeholder="Search repos, orgs, languages, topics…"
+              ref={searchInputRef}
+              placeholder="Search repos, orgs, languages, topics… [/]"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
