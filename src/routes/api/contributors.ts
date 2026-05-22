@@ -96,8 +96,8 @@ export const Route = createFileRoute("/api/contributors")({
             }
           }
 
-          // Filter to contributors with >50 contributions, sort desc
-          const minContributions = 50;
+          // Filter to contributors with >10 contributions, sort desc
+          const minContributions = 10;
           const contributors = Array.from(contributorMap.values())
             .filter((c) => c.contributions > minContributions)
             .sort((a, b) => b.contributions - a.contributions);
