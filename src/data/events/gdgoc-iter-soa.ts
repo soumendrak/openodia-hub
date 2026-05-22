@@ -39,11 +39,13 @@ export const gdgocIterSoaEvents: Omit<Event, "community">[] = [
       "GDGoC ITER SOA's flagship fun event combining campus exploration, riddles, and team challenges with over 500 registered teams. Featured checkpoint-based gameplay across campus landmarks with a technical MCQ bonus round.",
   },
   {
-    year: "2026",
-    date: "2026",
+    year: "2025",
+    date: "20 Dec 2025",
     title: "Algorithm Arena - DSA Series",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india-presents-algorithm-arena-dsa-series/",
     type: "Workshop",
+    startDate: "2025-12-20",
+    endDate: "2025-12-20",
     description:
       "A multi-week DSA study program by GDGoC ITER SOA with trio-based peer learning, curated weekly problem sets across difficulty levels, and a large-scale final assessment on HackerRank. Engaged 81 GDG members across 9 clans.",
   },

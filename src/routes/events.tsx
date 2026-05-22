@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown } from "lucide-react";
+import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { events } from "../data/events";
@@ -184,18 +184,23 @@ function EventsPage() {
     };
   }, []);
 
+  const [pastPage, setPastPage] = useState(1);
+  const PAST_PAGE_SIZE = 20;
+
   const { data: liveData } = useQuery({
-    queryKey: ["liveEvents"],
+    queryKey: ["liveEvents", String(pastPage)],
     queryFn: async () => {
-      const r = await fetch("/api/events");
+      const r = await fetch(`/api/events?page=${pastPage}&limit=${PAST_PAGE_SIZE}`);
       if (!r.ok) throw new Error("Failed to fetch live events");
-      return r.json() as Promise<{ events: Event[] }>;
+      return r.json() as Promise<{ events: Event[]; nextCursor?: string; total: number }>;
     },
     retry: 1,
     refetchOnWindowFocus: false,
   });
 
-  const fetchedEvents = liveData?.events || [];
+  const fetchedEvents = liveData?.events ?? [];
+  const totalLiveEvents = liveData?.total ?? 0;
+  const totalPastPages = Math.ceil(totalLiveEvents / PAST_PAGE_SIZE);
 
   const allMergedEventsMap = new Map<string, Event>();
 
@@ -773,6 +778,43 @@ function EventsPage() {
                 );
               })}
             </div>
+
+            {!isSearching && totalPastPages > 0 && (
+              <div className="mt-10 flex flex-col items-center gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Page {pastPage} of {totalPastPages} ({totalLiveEvents} past events)
+                </p>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => setPastPage((p) => Math.max(1, p - 1))}
+                    disabled={pastPage <= 1}
+                    className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  {Array.from({ length: totalPastPages }, (_, i) => i + 1).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setPastPage(p)}
+                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-sm transition ${
+                        p === pastPage
+                          ? "border border-neon bg-neon/10 text-neon"
+                          : "border border-border hover:border-neon/40 hover:text-foreground text-muted-foreground"
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setPastPage((p) => Math.min(totalPastPages, p + 1))}
+                    disabled={pastPage >= totalPastPages}
+                    className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

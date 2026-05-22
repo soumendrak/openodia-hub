@@ -51,10 +51,23 @@ async function fetchSingleRepo(ownerRepo: string): Promise<Repo | null> {
   return (await r.json()) as Repo;
 }
 
+function buildResponse(body: unknown, status: number, cache = true) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, User-Agent",
+  };
+  if (cache) {
+    headers["Cache-Control"] = "public, s-maxage=1800, stale-while-revalidate=86400";
+  }
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
 export const Route = createFileRoute("/api/repos")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }: { request: Request }) => {
         try {
           const [orgResults, userResults, pinnedResults] = await Promise.all([
             Promise.all(ORGS.map(fetchOrgRepos)),
@@ -63,33 +76,39 @@ export const Route = createFileRoute("/api/repos")({
           ]);
           const pinnedRepos = pinnedResults.filter(Boolean) as Repo[];
           const pinnedNames = new Set(pinnedRepos.map((r) => r.full_name));
-          const repos = [...orgResults.flat(), ...userResults.flat()]
+          const allRepos = [...orgResults.flat(), ...userResults.flat()]
             .filter((r) => !r.fork && !r.archived)
-            .filter((r) => r.name.toLowerCase() !== "openodia") // featured separately
-            .filter((r) => !pinnedNames.has(r.full_name)) // avoid duplicates with pinned
+            .filter((r) => r.name.toLowerCase() !== "openodia")
+            .filter((r) => !pinnedNames.has(r.full_name))
             .concat(pinnedRepos)
-            .sort((a, b) => b.stargazers_count - a.stargazers_count);
+            .sort(
+              (a, b) =>
+                new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+            );
 
-          return new Response(JSON.stringify({ repos }), {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, User-Agent",
-            },
-          });
+          const url = new URL(request.url);
+          const cursorParam = url.searchParams.get("cursor");
+
+          if (cursorParam === null) {
+            return buildResponse({ repos: allRepos }, 200);
+          }
+
+          const limit = Math.min(
+            parseInt(url.searchParams.get("limit") || "24", 10) || 24,
+            50,
+          );
+          const start = parseInt(cursorParam || "0", 10) || 0;
+          const pageRepos = allRepos.slice(start, start + limit);
+          const nextCursor =
+            start + limit < allRepos.length ? String(start + limit) : undefined;
+
+          return buildResponse(
+            { repos: pageRepos, nextCursor, total: allRepos.length },
+            200,
+          );
         } catch (e) {
           console.error("repos error", e);
-          return new Response(JSON.stringify({ repos: [] }), {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, OPTIONS",
-            },
-          });
+          return buildResponse({ repos: [] }, 200, false);
         }
       },
     },

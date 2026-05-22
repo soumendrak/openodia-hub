@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, ExternalLink, RefreshCw } from "lucide-react";
+import { Search, ExternalLink, RefreshCw, ChevronLeft, ChevronRight } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
@@ -34,35 +34,50 @@ type Item = {
   description: string;
 };
 
-type Resp = { items: Item[]; fetchedAt: string };
+type Page = {
+  items: Item[];
+  fetchedAt: string;
+  nextCursor?: string;
+  total: number;
+};
+
+const PAGE_SIZE = 30;
 
 function ToolsPage() {
-  const { data, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ["awesome"],
-    queryFn: async () => {
-      const r = await fetch("/api/awesome");
-      if (!r.ok) throw new Error("fetch failed");
-      return (await r.json()) as Resp;
-    },
-    staleTime: 60 * 60 * 1000,
-  });
-
+  const [page, setPage] = useState(1);
   const [q, setQ] = useState("");
   const [active, setActive] = useState<string | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
+  const cursor = String((page - 1) * PAGE_SIZE);
+
+  const { data, isLoading, refetch, isFetching } = useQuery({
+    queryKey: ["awesome", cursor],
+    queryFn: async () => {
+      const r = await fetch(`/api/awesome?cursor=${cursor}&limit=${PAGE_SIZE}`);
+      if (!r.ok) throw new Error("fetch failed");
+      return (await r.json()) as Page;
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const allItems = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const fetchedAt = data?.fetchedAt;
+
   const categories = useMemo(() => {
-    if (!data) return [];
+    if (!allItems.length) return [];
     const set = new Set<string>();
-    data.items.forEach((i) => set.add(i.category));
+    allItems.forEach((i) => set.add(i.category));
     return Array.from(set);
-  }, [data]);
+  }, [allItems]);
 
   const filtered = useMemo(() => {
-    if (!data) return [];
+    if (!allItems.length) return [];
     const lq = q.toLowerCase();
-    return data.items.filter((i) => {
+    return allItems.filter((i) => {
       if (active && i.category !== active) return false;
       if (!lq) return true;
       return (
@@ -71,7 +86,7 @@ function ToolsPage() {
         i.category.toLowerCase().includes(lq)
       );
     });
-  }, [data, q, active]);
+  }, [allItems, q, active]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -84,7 +99,9 @@ function ToolsPage() {
       {data && (
         <JsonLd
           data={itemListSchema(
-            data.items.slice(0, 50).map((i) => ({
+            allItems.slice(0, 50).map((i) => ({
+              name: i.name,
+
               name: i.name,
               url: i.url,
               description: i.description,
@@ -139,10 +156,10 @@ function ToolsPage() {
 
         <div className="mt-4 flex flex-wrap gap-2">
           <Chip active={active === null} onClick={() => setActive(null)}>
-            All ({data?.items.length ?? 0})
+            All ({total})
           </Chip>
           {categories.map((c) => {
-            const count = data?.items.filter((i) => i.category === c).length ?? 0;
+            const count = allItems.filter((i) => i.category === c).length;
             return (
               <Chip
                 key={c}
@@ -200,10 +217,42 @@ function ToolsPage() {
             ))}
       </div>
 
-      {data && (
-        <p className="mt-10 text-center text-xs text-muted-foreground">
-          Updated {new Date(data.fetchedAt).toLocaleString()} · {data.items.length} entries
-        </p>
+      {data && totalPages > 0 && (
+        <div className="mt-10 flex flex-col items-center gap-3">
+          <p className="text-xs text-muted-foreground">
+            Updated {new Date(fetchedAt!).toLocaleString()} · Page {page} of {totalPages} ({total}{" "}
+            tools)
+          </p>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPage(p)}
+                className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-sm transition ${
+                  p === page
+                    ? "border border-neon bg-neon/10 text-neon"
+                    : "border border-border hover:border-neon/40 hover:text-foreground text-muted-foreground"
+                }`}
+              >
+                {p}
+              </button>
+            ))}
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

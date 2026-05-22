@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Star, ArrowRight, Search, X } from "lucide-react";
+import { Copy, ExternalLink, Star, ArrowRight, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon, PythonIcon } from "../components/icons";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
@@ -36,6 +36,12 @@ type Repo = {
   updated_at: string;
   created_at: string;
   topics?: string[];
+};
+
+type ReposPage = {
+  repos: Repo[];
+  nextCursor?: string;
+  total: number;
 };
 
 function ProjectsPage() {
@@ -213,26 +219,42 @@ const SKELETON = Array.from({ length: 6 }).map((_, i) => (
   <div key={i} className="h-44 animate-pulse rounded-2xl border border-border bg-surface" />
 ));
 
+const LATEST_PAGE_SIZE = 24;
+
 function RepoGrid() {
+  const [page, setPage] = useState(1);
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["repos"],
+  const cursor = String((page - 1) * LATEST_PAGE_SIZE);
+
+  const { data: latestData, isLoading: latestLoading } = useQuery({
+    queryKey: ["repos", "latest", cursor],
     queryFn: async () => {
-      const r = await fetch("/api/repos");
+      const r = await fetch(`/api/repos?cursor=${cursor}&limit=${LATEST_PAGE_SIZE}`);
       if (!r.ok) throw new Error("repos");
-      return r.json() as Promise<{ repos: Repo[] }>;
+      return (await r.json()) as ReposPage;
     },
   });
 
-  const repos = data?.repos ?? [];
+  const { data: starsData, isLoading: starsLoading } = useQuery({
+    queryKey: ["repos", "stars"],
+    queryFn: async () => {
+      const r = await fetch("/api/repos");
+      if (!r.ok) throw new Error("repos");
+      return (await r.json()) as ReposPage;
+    },
+  });
+
+  const allRepos = latestData?.repos ?? [];
+  const total = latestData?.total ?? 0;
+  const totalPages = Math.ceil(total / LATEST_PAGE_SIZE);
 
   const needle = query.trim().toLowerCase();
 
   const filtered = needle
-    ? repos.filter(
+    ? allRepos.filter(
         (r) =>
           r.name.toLowerCase().includes(needle) ||
           r.full_name.toLowerCase().includes(needle) ||
@@ -242,17 +264,19 @@ function RepoGrid() {
       )
     : [];
 
-  const byStars = [...repos].sort((a, b) => b.stargazers_count - a.stargazers_count).slice(0, 12);
-
-  const byDate = [...repos]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, 12);
+  const allStarRepos = starsData?.repos ?? [];
+  const byStars = [...allStarRepos]
+    .filter((r) => r.stargazers_count >= 5)
+    .sort((a, b) => b.stargazers_count - a.stargazers_count);
+  const byDate = [...allRepos].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 
   return (
     <>
       <JsonLd
         data={itemListSchema(
-          repos.slice(0, 50).map((r) => ({
+          allRepos.slice(0, 50).map((r) => ({
             name: r.name,
             url: r.html_url,
             description: r.description ?? "",
@@ -311,7 +335,7 @@ function RepoGrid() {
               <p className="mt-2 text-muted-foreground">Live from GitHub — sorted by stars.</p>
             </Reveal>
             <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {isLoading
+              {starsLoading
                 ? SKELETON
                 : byStars.map((r, i) => <RepoCard key={r.full_name} repo={r} index={i} />)}
             </div>
@@ -325,11 +349,48 @@ function RepoGrid() {
               </p>
             </Reveal>
             <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {isLoading
+              {latestLoading
                 ? SKELETON
                 : byDate.map((r, i) => <RepoCard key={r.full_name} repo={r} index={i} />)}
             </div>
           </section>
+
+          {latestData && totalPages > 0 && (
+            <div className="mt-10 flex flex-col items-center gap-3">
+              <p className="text-xs text-muted-foreground">
+                Page {page} of {totalPages} ({total} repos)
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1}
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+                >
+                  <ChevronLeft size={14} />
+                </button>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-sm transition ${
+                      p === page
+                        ? "border border-neon bg-neon/10 text-neon"
+                        : "border border-border hover:border-neon/40 hover:text-foreground text-muted-foreground"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages}
+                  className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+                >
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+          )}
         </>
       )}
     </>
