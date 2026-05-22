@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as ToolsRouteImport } from './routes/tools'
+import { Route as RoadmapRouteImport } from './routes/roadmap'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
@@ -20,6 +21,7 @@ import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
+import { Route as ApiRoadmapRouteImport } from './routes/api/roadmap'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
@@ -33,6 +35,11 @@ const TutorialsRoute = TutorialsRouteImport.update({
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RoadmapRoute = RoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -80,6 +87,11 @@ const ApiVideosRoute = ApiVideosRouteImport.update({
   path: '/api/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiRoadmapRoute = ApiRoadmapRouteImport.update({
+  id: '/api/roadmap',
+  path: '/api/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiReposRoute = ApiReposRouteImport.update({
   id: '/api/repos',
   path: '/api/repos',
@@ -107,12 +119,14 @@ export interface FileRoutesByFullPath {
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
   '/projects': typeof ProjectsRoute
+  '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/events': typeof ApiEventsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -124,12 +138,14 @@ export interface FileRoutesByTo {
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
   '/projects': typeof ProjectsRoute
+  '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/events': typeof ApiEventsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -142,12 +158,14 @@ export interface FileRoutesById {
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
   '/projects': typeof ProjectsRoute
+  '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/events': typeof ApiEventsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -161,12 +179,14 @@ export interface FileRouteTypes {
     | '/events'
     | '/events-feed'
     | '/projects'
+    | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
     | '/api/events'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/roadmap'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -178,12 +198,14 @@ export interface FileRouteTypes {
     | '/events'
     | '/events-feed'
     | '/projects'
+    | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
     | '/api/events'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/roadmap'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -195,12 +217,14 @@ export interface FileRouteTypes {
     | '/events'
     | '/events-feed'
     | '/projects'
+    | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
     | '/api/events'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/roadmap'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -213,12 +237,14 @@ export interface RootRouteChildren {
   EventsRoute: typeof EventsRoute
   EventsFeedRoute: typeof EventsFeedRoute
   ProjectsRoute: typeof ProjectsRoute
+  RoadmapRoute: typeof RoadmapRoute
   ToolsRoute: typeof ToolsRoute
   TutorialsRoute: typeof TutorialsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
   ApiEventsRoute: typeof ApiEventsRoute
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
+  ApiRoadmapRoute: typeof ApiRoadmapRoute
   ApiVideosRoute: typeof ApiVideosRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
@@ -239,6 +265,13 @@ declare module '@tanstack/react-router' {
       path: '/tools'
       fullPath: '/tools'
       preLoaderRoute: typeof ToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/roadmap': {
+      id: '/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof RoadmapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects': {
@@ -304,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/roadmap': {
+      id: '/api/roadmap'
+      path: '/api/roadmap'
+      fullPath: '/api/roadmap'
+      preLoaderRoute: typeof ApiRoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/repos': {
       id: '/api/repos'
       path: '/api/repos'
@@ -341,12 +381,14 @@ const rootRouteChildren: RootRouteChildren = {
   EventsRoute: EventsRoute,
   EventsFeedRoute: EventsFeedRoute,
   ProjectsRoute: ProjectsRoute,
+  RoadmapRoute: RoadmapRoute,
   ToolsRoute: ToolsRoute,
   TutorialsRoute: TutorialsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,
   ApiEventsRoute: ApiEventsRoute,
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
+  ApiRoadmapRoute: ApiRoadmapRoute,
   ApiVideosRoute: ApiVideosRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,

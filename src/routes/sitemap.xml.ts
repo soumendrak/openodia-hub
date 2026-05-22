@@ -6,6 +6,8 @@ const pages = [
   { path: "projects", changefreq: "weekly", priority: "0.9" },
   { path: "tools", changefreq: "daily", priority: "0.9" },
   { path: "tutorials", changefreq: "daily", priority: "0.9" },
+  { path: "events", changefreq: "daily", priority: "0.9" },
+  { path: "roadmap", changefreq: "weekly", priority: "0.7" },
 ] as const;
 
 function generateSitemap(baseUrl: string) {
