@@ -18,7 +18,17 @@ const ORGS: string[] = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "Odia
 
 const USERS: string[] = ["shantipriyap"];
 
-const PINNED_REPOS: string[] = ["soumendrak/aidaybbsr2025demo", "soumendrak/odia-2048"];
+const PINNED_REPOS: string[] = [
+  "soumendrak/aidaybbsr2025demo",
+  "soumendrak/odia-2048",
+  "goru001/nlp-for-odia",
+  "Deeptiman/Alphabet-Learning-Android-Application",
+  "jyotishankar04/odialang",
+  "HimanshuMohanty-Git24/OdiaLingua",
+  "imsbg/odiabhasa",
+  "shrixtacy/Subhadra-AI",
+  "sovopr/sovogpt",
+];
 
 const githubToken = process.env.GITHUB_TOKEN;
 const GH_HEADERS = {
