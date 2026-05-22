@@ -193,26 +193,6 @@ function About() {
           ))}
         </div>
       </section>
-
-      {/* Origin story */}
-      <Reveal delay={0.1} className="mt-20 rounded-3xl border border-border bg-surface p-8 md:p-12">
-        <h2 className="font-display text-3xl font-semibold md:text-4xl">How it started</h2>
-        <p className="mt-4 max-w-2xl text-muted-foreground">
-          OpenOdia began in 2019 when{" "}
-          <a
-            href="https://github.com/soumendrak"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
-            Soumendra Kumar Sahoo
-          </a>{" "}
-          started releasing Odia NLP utilities and datasets on GitHub. What began as a personal
-          effort has grown into a constellation of projects — the OpenOdia Python package, the
-          @openodia YouTube channel, and the Awesome-Odia-AI directory — all open source, all
-          community-driven.
-        </p>
-      </Reveal>
     </div>
   );
 }
