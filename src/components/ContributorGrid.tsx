@@ -1,7 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { Users } from "lucide-react";
-import { Reveal } from "./Reveal";
 
 type Contributor = {
   login: string;
@@ -33,54 +31,47 @@ export function ContributorGrid() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
-      <Reveal className="text-center">
+      <div className="text-center">
         <h2 className="font-display text-3xl font-semibold md:text-5xl">
           {total > 0 ? `${total}+ contributors` : "Community contributors"}
         </h2>
         <p className="mt-2 text-muted-foreground">
           Building Odia AI together — from across the community.
         </p>
-      </Reveal>
+      </div>
 
-      <Reveal delay={0.1}>
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
         {isLoading ? (
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-14 w-14 animate-pulse rounded-full border-2 border-border bg-surface"
-              />
-            ))}
-          </div>
+          Array.from({ length: 8 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-14 w-14 animate-pulse rounded-full border-2 border-border bg-surface"
+            />
+          ))
         ) : isError || contributors.length === 0 ? (
-          <div className="mt-8 flex flex-col items-center gap-3 text-center">
+          <div className="flex flex-col items-center gap-3 py-4 text-center">
             <Users size={32} className="text-muted-foreground" />
             <p className="text-sm text-muted-foreground">
               Contributor data is being gathered from GitHub.
-              <br />
-              <a
-                href="https://github.com/soumendrak/openodia-hub"
-                target="_blank"
-                rel="noreferrer"
-                className="text-neon hover:underline"
-              >
-                Join us on GitHub →
-              </a>
             </p>
+            <a
+              href="https://github.com/soumendrak/openodia-hub"
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm text-neon hover:underline"
+            >
+              Join us on GitHub →
+            </a>
           </div>
         ) : (
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
-            {contributors.slice(0, 12).map((c, i) => (
-              <motion.a
+          <>
+            {contributors.slice(0, 12).map((c) => (
+              <a
                 key={c.login}
                 href={c.html_url}
                 target="_blank"
                 rel="noreferrer"
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: i * 0.04, type: "spring", stiffness: 200, damping: 15 }}
-                whileHover={{ y: -4, scale: 1.1 }}
-                className="group relative"
+                className="group transition-transform hover:scale-110"
                 title={`${c.login} · ${c.contributions} contributions`}
               >
                 <img
@@ -89,22 +80,16 @@ export function ContributorGrid() {
                   loading="lazy"
                   className="h-14 w-14 rounded-full border-2 border-border transition group-hover:border-neon"
                 />
-              </motion.a>
+              </a>
             ))}
-
             {total > 12 && (
-              <motion.span
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 12 * 0.04, type: "spring" }}
-                className="grid h-14 w-14 place-items-center rounded-full border-2 border-dashed border-border bg-surface text-sm font-medium text-muted-foreground"
-              >
+              <span className="grid h-14 w-14 place-items-center rounded-full border-2 border-dashed border-border bg-surface text-sm font-medium text-muted-foreground">
                 +{total - 12}
-              </motion.span>
+              </span>
             )}
-          </div>
+          </>
         )}
-      </Reveal>
+      </div>
     </section>
   );
 }
