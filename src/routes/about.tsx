@@ -4,6 +4,7 @@ import { Reveal } from "../components/Reveal";
 import { MagneticButton } from "../components/MagneticButton";
 import { GithubIcon, YoutubeIcon, PythonIcon } from "../components/icons";
 import { ContributorGrid } from "../components/ContributorGrid";
+import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
 import { ArrowRight, Star, Users, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/about")({
@@ -196,6 +197,8 @@ function About() {
       </section>
 
       <ContributorGrid />
+
+      <ContributorLeaderboard limit={10} />
     </div>
   );
 }

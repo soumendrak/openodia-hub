@@ -9,6 +9,7 @@ import { FEATURED_VIDEOS, YOUTUBE_CHANNEL } from "../data/videos";
 import { YoutubeIcon, GithubIcon, PythonIcon } from "../components/icons";
 import { FaqSection } from "../components/FaqSection";
 import { ContributorGrid } from "../components/ContributorGrid";
+import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
 import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/")({
@@ -40,6 +41,7 @@ function Home() {
       <Stats />
       <Videos />
       <ContributorGrid />
+      <ContributorLeaderboard limit={5} />
       <FaqSection />
       <JsonLd
         data={faqPageSchema([
