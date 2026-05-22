@@ -139,14 +139,10 @@ export const Route = createFileRoute("/api/awesome")({
             return buildResponse({ items: allItems, fetchedAt }, 200);
           }
 
-          const limit = Math.min(
-            parseInt(url.searchParams.get("limit") || "30", 10) || 30,
-            50,
-          );
+          const limit = Math.min(parseInt(url.searchParams.get("limit") || "30", 10) || 30, 50);
           const start = parseInt(cursorParam || "0", 10) || 0;
           const pageItems = allItems.slice(start, start + limit);
-          const nextCursor =
-            start + limit < allItems.length ? String(start + limit) : undefined;
+          const nextCursor = start + limit < allItems.length ? String(start + limit) : undefined;
 
           return buildResponse(
             { items: pageItems, fetchedAt, nextCursor, total: allItems.length },

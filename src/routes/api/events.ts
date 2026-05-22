@@ -157,15 +157,11 @@ export const Route = createFileRoute("/api/events")({
             });
           }
 
-          const limit = Math.min(
-            parseInt(url.searchParams.get("limit") || "20", 10) || 20,
-            50,
-          );
+          const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50);
           const pageNum = parseInt(pageParam || "1", 10) || 1;
           const start = (pageNum - 1) * limit;
           const pageItems = allEvents.slice(start, start + limit);
-          const nextCursor =
-            start + limit < allEvents.length ? String(pageNum + 1) : undefined;
+          const nextCursor = start + limit < allEvents.length ? String(pageNum + 1) : undefined;
 
           return new Response(
             JSON.stringify({

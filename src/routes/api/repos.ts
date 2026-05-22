@@ -91,10 +91,7 @@ export const Route = createFileRoute("/api/repos")({
             .filter((r) => r.name.toLowerCase() !== "openodia")
             .filter((r) => !pinnedNames.has(r.full_name))
             .concat(pinnedRepos)
-            .sort(
-              (a, b) =>
-                new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-            );
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
           const url = new URL(request.url);
           const cursorParam = url.searchParams.get("cursor");
@@ -103,19 +100,12 @@ export const Route = createFileRoute("/api/repos")({
             return buildResponse({ repos: allRepos }, 200);
           }
 
-          const limit = Math.min(
-            parseInt(url.searchParams.get("limit") || "24", 10) || 24,
-            50,
-          );
+          const limit = Math.min(parseInt(url.searchParams.get("limit") || "24", 10) || 24, 50);
           const start = parseInt(cursorParam || "0", 10) || 0;
           const pageRepos = allRepos.slice(start, start + limit);
-          const nextCursor =
-            start + limit < allRepos.length ? String(start + limit) : undefined;
+          const nextCursor = start + limit < allRepos.length ? String(start + limit) : undefined;
 
-          return buildResponse(
-            { repos: pageRepos, nextCursor, total: allRepos.length },
-            200,
-          );
+          return buildResponse({ repos: pageRepos, nextCursor, total: allRepos.length }, 200);
         } catch (e) {
           console.error("repos error", e);
           return buildResponse({ repos: [] }, 200, false);

@@ -2,7 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  ExternalLink,
+  Calendar,
+  MapPin,
+  Search,
+  X,
+  Rss,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { events } from "../data/events";

@@ -15,17 +15,10 @@ type Resp = {
 };
 
 function rankIcon(rank: number) {
-  if (rank === 1)
-    return <Trophy size={14} className="text-saffron" />;
-  if (rank === 2)
-    return <Medal size={14} className="text-muted-foreground" />;
-  if (rank === 3)
-    return <Medal size={14} className="text-amber-700" />;
-  return (
-    <span className="font-mono text-xs tabular-nums text-muted-foreground">
-      {rank}
-    </span>
-  );
+  if (rank === 1) return <Trophy size={14} className="text-saffron" />;
+  if (rank === 2) return <Medal size={14} className="text-muted-foreground" />;
+  if (rank === 3) return <Medal size={14} className="text-amber-700" />;
+  return <span className="font-mono text-xs tabular-nums text-muted-foreground">{rank}</span>;
 }
 
 export function ContributorLeaderboard({ limit = 5 }: { limit?: number }) {
@@ -37,6 +30,7 @@ export function ContributorLeaderboard({ limit = 5 }: { limit?: number }) {
       return (await r.json()) as Resp;
     },
     staleTime: 60 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
   });
 
   const contributors = data?.contributors ?? [];
@@ -48,9 +42,7 @@ export function ContributorLeaderboard({ limit = 5 }: { limit?: number }) {
   return (
     <section className="mx-auto max-w-4xl px-4 py-16">
       <div className="text-center">
-        <h2 className="font-display text-3xl font-semibold md:text-5xl">
-          Top contributors
-        </h2>
+        <h2 className="font-display text-3xl font-semibold md:text-5xl">Top contributors</h2>
         <p className="mt-2 text-muted-foreground">
           The people building open-source Odia AI — ranked by total contributions.
         </p>
@@ -66,9 +58,7 @@ export function ContributorLeaderboard({ limit = 5 }: { limit?: number }) {
             className="group flex items-center gap-4 rounded-xl border border-border bg-surface p-4 transition hover:border-neon/30"
           >
             {/* Rank */}
-            <div className="grid h-8 w-8 shrink-0 place-items-center">
-              {rankIcon(i + 1)}
-            </div>
+            <div className="grid h-8 w-8 shrink-0 place-items-center">{rankIcon(i + 1)}</div>
 
             {/* Avatar */}
             <img

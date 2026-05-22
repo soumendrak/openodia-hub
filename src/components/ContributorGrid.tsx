@@ -23,6 +23,7 @@ export function ContributorGrid() {
       return (await r.json()) as Resp;
     },
     staleTime: 60 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
     retry: 1,
   });
 

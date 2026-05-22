@@ -2,7 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Copy, ExternalLink, Star, ArrowRight, Search, X, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  Copy,
+  ExternalLink,
+  Star,
+  ArrowRight,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon, PythonIcon } from "../components/icons";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
