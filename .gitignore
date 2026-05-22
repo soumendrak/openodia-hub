@@ -35,3 +35,4 @@ package-lock.json
 *.sw?
 .commandCode
 .env
+scratch/
