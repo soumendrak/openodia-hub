@@ -21,12 +21,18 @@ const USERS = ["shantipriyap"];
 type GitHubRepo = { name: string; full_name: string; fork: boolean; archived: boolean };
 
 async function fetchRepos(owner: string, isOrg: boolean): Promise<GitHubRepo[]> {
-  const endpoint = isOrg
-    ? `https://api.github.com/orgs/${owner}/repos?per_page=100&sort=updated`
-    : `https://api.github.com/users/${owner}/repos?per_page=100&sort=updated`;
-  const r = await fetch(endpoint, { headers: GH_HEADERS });
-  if (!r.ok) return [];
-  return (await r.json()) as GitHubRepo[];
+  try {
+    const endpoint = isOrg
+      ? `https://api.github.com/orgs/${owner}/repos?per_page=100&sort=updated`
+      : `https://api.github.com/users/${owner}/repos?per_page=100&sort=updated`;
+    const r = await fetch(endpoint, { headers: GH_HEADERS });
+    if (!r.ok) return [];
+    const text = await r.text();
+    if (!text) return [];
+    return JSON.parse(text) as GitHubRepo[];
+  } catch {
+    return [];
+  }
 }
 
 type GitHubContributor = {
@@ -37,11 +43,17 @@ type GitHubContributor = {
 };
 
 async function fetchContributors(fullName: string): Promise<GitHubContributor[]> {
-  const r = await fetch(`https://api.github.com/repos/${fullName}/contributors?per_page=30`, {
-    headers: GH_HEADERS,
-  });
-  if (!r.ok) return [];
-  return (await r.json()) as GitHubContributor[];
+  try {
+    const r = await fetch(`https://api.github.com/repos/${fullName}/contributors?per_page=30`, {
+      headers: GH_HEADERS,
+    });
+    if (!r.ok) return [];
+    const text = await r.text();
+    if (!text) return [];
+    return JSON.parse(text) as GitHubContributor[];
+  } catch {
+    return [];
+  }
 }
 
 export const Route = createFileRoute("/api/contributors")({
