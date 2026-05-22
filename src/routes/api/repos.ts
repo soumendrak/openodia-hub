@@ -82,17 +82,14 @@ export const Route = createFileRoute("/api/repos")({
           });
         } catch (e) {
           console.error("repos error", e);
-          return new Response(
-            JSON.stringify({ repos: [] }),
-            {
-              status: 200,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
+          return new Response(JSON.stringify({ repos: [] }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
             },
-          );
+          });
         }
       },
     },

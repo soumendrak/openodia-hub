@@ -6,10 +6,7 @@ import React from "react";
  */
 export function JsonLd({ data }: { data: Record<string, unknown> }) {
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
+    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
   );
 }
 
@@ -29,8 +26,7 @@ export function siteOrganization() {
       "https://www.youtube.com/@openodia",
       "https://pypi.org/project/openodia/",
     ],
-    description:
-      "Open source for the Odia language — tools, datasets, and AI resources for ଓଡ଼ିଆ.",
+    description: "Open source for the Odia language — tools, datasets, and AI resources for ଓଡ଼ିଆ.",
   };
 }
 
@@ -88,9 +84,7 @@ export function breadcrumbSchema(items: { name: string; url: string }[]) {
 /**
  * FAQPage schema: question/answer pairs rendered for answer engines.
  */
-export function faqPageSchema(
-  questions: { question: string; answer: string }[],
-) {
+export function faqPageSchema(questions: { question: string; answer: string }[]) {
   return {
     "@context": "https://schema.org",
     "@type": "FAQPage",

@@ -34,17 +34,14 @@ export const Route = createFileRoute("/api/pypi")({
           );
         } catch (e) {
           console.error("pypi error", e);
-          return new Response(
-            JSON.stringify({ version: "0.1.0", summary: "", releases: 0 }),
-            {
-              status: 200,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
+          return new Response(JSON.stringify({ version: "0.1.0", summary: "", releases: 0 }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
             },
-          );
+          });
         }
       },
     },

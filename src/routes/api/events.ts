@@ -153,17 +153,14 @@ export const Route = createFileRoute("/api/events")({
           });
         } catch (e) {
           console.error("Live events ingestion error:", e);
-          return new Response(
-            JSON.stringify({ events: [] }),
-            {
-              status: 500,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
+          return new Response(JSON.stringify({ events: [] }), {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
             },
-          );
+          });
         }
       },
     },

@@ -40,10 +40,12 @@ type Repo = {
 function ProjectsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
-      <JsonLd data={breadcrumbSchema([
-        { name: "OpenOdia", url: "https://openodia.com" },
-        { name: "Projects", url: "https://openodia.com/projects" },
-      ])} />
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "OpenOdia", url: "https://openodia.com" },
+          { name: "Projects", url: "https://openodia.com/projects" },
+        ])}
+      />
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Projects</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">Built in the open.</h1>

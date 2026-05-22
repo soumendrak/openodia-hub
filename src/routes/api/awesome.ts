@@ -109,16 +109,20 @@ export const Route = createFileRoute("/api/awesome")({
           });
           if (!res.ok) {
             return new Response(
-            JSON.stringify({ items: [], fetchedAt: new Date().toISOString(), error: "fetch_failed" }),
-            {
-              status: 502,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
+              JSON.stringify({
+                items: [],
+                fetchedAt: new Date().toISOString(),
+                error: "fetch_failed",
+              }),
+              {
+                status: 502,
+                headers: {
+                  "Content-Type": "application/json",
+                  "Access-Control-Allow-Origin": "*",
+                  "Access-Control-Allow-Methods": "GET, OPTIONS",
+                },
               },
-            },
-          );
+            );
           }
           const md = await res.text();
           const items = parseReadme(md);
@@ -136,7 +140,11 @@ export const Route = createFileRoute("/api/awesome")({
         } catch (e) {
           console.error("awesome parse error", e);
           return new Response(
-            JSON.stringify({ items: [], fetchedAt: new Date().toISOString(), error: "parse_failed" }),
+            JSON.stringify({
+              items: [],
+              fetchedAt: new Date().toISOString(),
+              error: "parse_failed",
+            }),
             {
               status: 500,
               headers: {
