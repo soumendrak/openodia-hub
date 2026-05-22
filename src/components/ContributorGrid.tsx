@@ -65,14 +65,14 @@ export function ContributorGrid() {
           </div>
         ) : (
           <>
-            {contributors.slice(0, 12).map((c) => (
+            {contributors.map((c) => (
               <a
                 key={c.login}
                 href={c.html_url}
                 target="_blank"
                 rel="noreferrer"
                 className="group transition-transform hover:scale-110"
-                title={`${c.login} · ${c.contributions} contributions`}
+                title={`${c.login} · ${c.contributions} contributions across ${c.repos.length} repos`}
               >
                 <img
                   src={c.avatar_url}
@@ -82,11 +82,6 @@ export function ContributorGrid() {
                 />
               </a>
             ))}
-            {total > 12 && (
-              <span className="grid h-14 w-14 place-items-center rounded-full border-2 border-dashed border-border bg-surface text-sm font-medium text-muted-foreground">
-                +{total - 12}
-              </span>
-            )}
           </>
         )}
       </div>

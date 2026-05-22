@@ -68,10 +68,9 @@ export const Route = createFileRoute("/api/contributors")({
             (r) => !r.fork && !r.archived,
           );
 
-          // Fetch contributors for each repo (limited to prevent rate limiting)
-          const reposToFetch = allRepos.slice(0, 20);
+          // Fetch contributors for each repo
           const contributorsPerRepo = await Promise.all(
-            reposToFetch.map(async (repo) => {
+            allRepos.map(async (repo) => {
               const contributors = await fetchContributors(repo.full_name);
               return { repo: repo.name, contributors };
             }),
@@ -97,10 +96,11 @@ export const Route = createFileRoute("/api/contributors")({
             }
           }
 
-          // Sort by contributions desc
-          const contributors = Array.from(contributorMap.values()).sort(
-            (a, b) => b.contributions - a.contributions,
-          );
+          // Filter to contributors with >50 contributions, sort desc
+          const minContributions = 50;
+          const contributors = Array.from(contributorMap.values())
+            .filter((c) => c.contributions > minContributions)
+            .sort((a, b) => b.contributions - a.contributions);
 
           return new Response(
             JSON.stringify({
