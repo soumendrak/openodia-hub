@@ -36,9 +36,7 @@ export function ContributorGrid() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
       <Reveal className="text-center">
-        <h2 className="font-display text-3xl font-semibold md:text-5xl">
-          {total}+ contributors
-        </h2>
+        <h2 className="font-display text-3xl font-semibold md:text-5xl">{total}+ contributors</h2>
         <p className="mt-2 text-muted-foreground">
           Building Odia AI together — from across the community.
         </p>

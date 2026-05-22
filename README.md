@@ -77,9 +77,9 @@ Copy `.env.example` to `.env` and fill in the values:
 cp .env.example .env
 ```
 
-| Variable          | Required | Purpose                                                                                                 |
-| ----------------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `YOUTUBE_API_KEY` | Optional | Sorts Tutorials page videos by view count. Without it, videos are shown in reverse-chronological order. |
+| Variable          | Required | Purpose                                                                                                                                                              |
+| ----------------- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `YOUTUBE_API_KEY` | Optional | Sorts Tutorials page videos by view count. Without it, videos are shown in reverse-chronological order.                                                              |
 | `GITHUB_TOKEN`    | Optional | Increases GitHub API rate limit for the repos endpoint from 60 req/hr to 5,000 req/hr. Without it, the Projects page may show an empty fallback under heavy traffic. |
 
 #### Getting a YouTube Data API v3 key (free)

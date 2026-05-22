@@ -52,8 +52,9 @@ export const Route = createFileRoute("/api/contributors")({
           // Fetch repos from all orgs and users
           const orgRepos = await Promise.all(ORGS.map((org) => fetchRepos(org, true)));
           const userRepos = await Promise.all(USERS.map((user) => fetchRepos(user, false)));
-          const allRepos = [...orgRepos.flat(), ...userRepos.flat()]
-            .filter((r) => !r.fork && !r.archived);
+          const allRepos = [...orgRepos.flat(), ...userRepos.flat()].filter(
+            (r) => !r.fork && !r.archived,
+          );
 
           // Fetch contributors for each repo (limited to prevent rate limiting)
           const reposToFetch = allRepos.slice(0, 20);
