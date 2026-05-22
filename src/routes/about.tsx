@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router";
 import { Reveal } from "../components/Reveal";
 import { MagneticButton } from "../components/MagneticButton";
 import { GithubIcon, YoutubeIcon, PythonIcon } from "../components/icons";
+import { ContributorGrid } from "../components/ContributorGrid";
 import { ArrowRight, Star, Users, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/about")({
@@ -193,6 +194,8 @@ function About() {
           ))}
         </div>
       </section>
+
+      <ContributorGrid />
     </div>
   );
 }

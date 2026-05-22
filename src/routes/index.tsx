@@ -8,6 +8,7 @@ import { Marquee } from "../components/Marquee";
 import { FEATURED_VIDEOS, YOUTUBE_CHANNEL } from "../data/videos";
 import { YoutubeIcon, GithubIcon, PythonIcon } from "../components/icons";
 import { FaqSection } from "../components/FaqSection";
+import { ContributorGrid } from "../components/ContributorGrid";
 import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/")({
@@ -38,6 +39,7 @@ function Home() {
       <Pillars />
       <Stats />
       <Videos />
+      <ContributorGrid />
       <FaqSection />
       <JsonLd
         data={faqPageSchema([
