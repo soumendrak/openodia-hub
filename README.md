@@ -80,6 +80,7 @@ cp .env.example .env
 | Variable          | Required | Purpose                                                                                                 |
 | ----------------- | -------- | ------------------------------------------------------------------------------------------------------- |
 | `YOUTUBE_API_KEY` | Optional | Sorts Tutorials page videos by view count. Without it, videos are shown in reverse-chronological order. |
+| `GITHUB_TOKEN`    | Optional | Increases GitHub API rate limit for the repos endpoint from 60 req/hr to 5,000 req/hr. Without it, the Projects page may show an empty fallback under heavy traffic. |
 
 #### Getting a YouTube Data API v3 key (free)
 
@@ -90,10 +91,18 @@ cp .env.example .env
 
 The free tier provides **10,000 units/day**. Each Tutorials page load consumes **1 unit** (one batched `videos.list` call), and the response is cached for one hour.
 
-#### Setting the secret in production (Cloudflare Workers)
+#### Getting a GitHub personal access token (free)
+
+1. Go to [GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)](https://github.com/settings/tokens).
+2. Click **Generate new token → Generate new token (classic)**.
+3. No scopes are needed for public repositories. Click **Generate token**.
+4. Copy the token — it will not be shown again.
+
+#### Setting secrets in production (Cloudflare Workers)
 
 ```bash
 npx wrangler secret put YOUTUBE_API_KEY
+npx wrangler secret put GITHUB_TOKEN
 ```
 
 ### Available scripts
@@ -193,8 +202,9 @@ Make sure secrets are set before deploying:
 
 ```bash
 npx wrangler secret put YOUTUBE_API_KEY
+npx wrangler secret put GITHUB_TOKEN
 ```
 
 ## License
 
-MIT © [Soumendra Kumar Sahoo](https://github.com/soumendrak)
+MIT © OpenOdia
