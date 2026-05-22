@@ -17,9 +17,11 @@ import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
 import { Route as ApiRoadmapRouteImport } from './routes/api/roadmap'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
@@ -68,6 +70,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapXmlRoute = SitemapXmlRouteImport.update({
   id: '/sitemap/xml',
   path: '/sitemap/xml',
@@ -81,6 +88,11 @@ const LlmsTxtRoute = LlmsTxtRouteImport.update({
 const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
   id: '/llms-full/txt',
   path: '/llms-full/txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiVideosRoute = ApiVideosRouteImport.update({
@@ -135,9 +147,11 @@ export interface FileRoutesByFullPath {
   '/api/repos': typeof ApiReposRoute
   '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -155,9 +169,11 @@ export interface FileRoutesByTo {
   '/api/repos': typeof ApiReposRoute
   '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/blog': typeof BlogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -176,9 +192,11 @@ export interface FileRoutesById {
   '/api/repos': typeof ApiReposRoute
   '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -198,9 +216,11 @@ export interface FileRouteTypes {
     | '/api/repos'
     | '/api/roadmap'
     | '/api/videos'
+    | '/blog/$slug'
     | '/llms-full/txt'
     | '/llms/txt'
     | '/sitemap/xml'
+    | '/blog/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -218,9 +238,11 @@ export interface FileRouteTypes {
     | '/api/repos'
     | '/api/roadmap'
     | '/api/videos'
+    | '/blog/$slug'
     | '/llms-full/txt'
     | '/llms/txt'
     | '/sitemap/xml'
+    | '/blog'
   id:
     | '__root__'
     | '/'
@@ -238,9 +260,11 @@ export interface FileRouteTypes {
     | '/api/repos'
     | '/api/roadmap'
     | '/api/videos'
+    | '/blog/$slug'
     | '/llms-full/txt'
     | '/llms/txt'
     | '/sitemap/xml'
+    | '/blog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -259,9 +283,11 @@ export interface RootRouteChildren {
   ApiReposRoute: typeof ApiReposRoute
   ApiRoadmapRoute: typeof ApiRoadmapRoute
   ApiVideosRoute: typeof ApiVideosRoute
+  BlogSlugRoute: typeof BlogSlugRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
+  BlogIndexRoute: typeof BlogIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -322,6 +348,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap/xml': {
       id: '/sitemap/xml'
       path: '/sitemap/xml'
@@ -341,6 +374,13 @@ declare module '@tanstack/react-router' {
       path: '/llms-full/txt'
       fullPath: '/llms-full/txt'
       preLoaderRoute: typeof LlmsFullTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/videos': {
@@ -411,9 +451,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReposRoute: ApiReposRoute,
   ApiRoadmapRoute: ApiRoadmapRoute,
   ApiVideosRoute: ApiVideosRoute,
+  BlogSlugRoute: BlogSlugRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,
   SitemapXmlRoute: SitemapXmlRoute,
+  BlogIndexRoute: BlogIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

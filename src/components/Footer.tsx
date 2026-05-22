@@ -32,6 +32,11 @@ export function Footer() {
                   Tools directory
                 </Link>
               </li>
+              <li>
+                <Link to="/tutorials" className="hover:text-foreground">
+                  Tutorials
+                </Link>
+              </li>
               <li className="flex items-center gap-1.5">
                 <Link to="/events" className="hover:text-foreground">
                   Events
@@ -49,6 +54,11 @@ export function Footer() {
               <li>
                 <Link to="/roadmap" className="hover:text-foreground">
                   Roadmap
+                </Link>
+              </li>
+              <li>
+                <Link to="/blog" className="hover:text-foreground">
+                  Blog
                 </Link>
               </li>
               <li>
