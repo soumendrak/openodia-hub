@@ -72,10 +72,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "OpenOdia — Open source for the Odia language" },
       {
         name: "description",
-        content:
-          "Open source projects, tools, and AI resources for the Odia language by Soumendra Kumar Sahoo.",
+        content: "Open source projects, tools, and AI resources for the Odia language.",
       },
-      { name: "author", content: "Soumendra Kumar Sahoo" },
+      { name: "author", content: "OpenOdia" },
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
       {
         property: "og:description",

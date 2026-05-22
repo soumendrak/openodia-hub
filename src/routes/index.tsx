@@ -22,7 +22,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
       {
         property: "og:description",
-        content: "Projects, tools, and AI resources for ଓଡ଼ିଆ — curated by Soumendra Kumar Sahoo.",
+        content: "Projects, tools, and AI resources for ଓଡ଼ିଆ.",
       },
     ],
   }),
@@ -76,15 +76,7 @@ function Hero() {
         className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md"
       >
         <Sparkles size={14} className="text-neon" />
-        Built by{" "}
-        <a
-          href="https://www.soumendrak.com"
-          target="_blank"
-          rel="noreferrer"
-          className="text-foreground hover:text-neon transition"
-        >
-          <span className="text-foreground">Soumendra Kumar Sahoo</span>
-        </a>
+        Open source community for the Odia language
       </motion.span>
 
       <h1 className="mt-6 font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">

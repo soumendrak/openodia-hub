@@ -13,8 +13,7 @@ export const Route = createFileRoute("/projects")({
       { title: "Projects · OpenOdia" },
       {
         name: "description",
-        content:
-          "OpenOdia Python package and other open-source Odia language projects by Soumendra Kumar Sahoo.",
+        content: "OpenOdia Python package and other open-source Odia language projects.",
       },
       { property: "og:title", content: "Projects · OpenOdia" },
       {

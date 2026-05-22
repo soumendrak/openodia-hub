@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Rss } from "lucide-react";
-import { GithubIcon, YoutubeIcon, LinkedinIcon } from "./icons";
+import { GithubIcon, YoutubeIcon } from "./icons";
 
 export function Footer() {
   return (
@@ -15,7 +15,7 @@ export function Footer() {
               <span className="font-display text-lg font-semibold">OpenOdia</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-              Open source initiatives for the Odia language by Soumendra Kumar Sahoo.
+              Open source initiatives for the Odia language — community-driven.
             </p>
           </div>
 
@@ -74,15 +74,6 @@ export function Footer() {
                 aria-label="YouTube"
               >
                 <YoutubeIcon />
-              </a>
-              <a
-                href="https://www.linkedin.com/in/soumendrak/"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg border border-border p-2 transition hover:border-saffron hover:text-saffron"
-                aria-label="LinkedIn"
-              >
-                <LinkedinIcon />
               </a>
             </div>
           </div>
