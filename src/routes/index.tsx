@@ -297,7 +297,7 @@ function Videos() {
         {FEATURED_VIDEOS.map((v, i) => (
           <Reveal key={i} delay={i * 0.06}>
             <a
-              href={`https://www.youtube.com/watch?v=${v.id}`}
+              href={`https://www.youtube.com/watch?v=${v.id}${v.startTime ? `&t=${v.startTime}s` : ""}`}
               target="_blank"
               rel="noreferrer"
               className="group block overflow-hidden rounded-2xl border border-border bg-surface"
