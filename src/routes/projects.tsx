@@ -250,6 +250,17 @@ function RepoGrid() {
 
   return (
     <>
+      <JsonLd
+        data={itemListSchema(
+          repos.slice(0, 50).map((r) => ({
+            name: r.name,
+            url: r.html_url,
+            description: r.description ?? "",
+          })),
+          "OpenOdia Projects",
+          "Open-source Odia language projects and repositories",
+        )}
+      />
       <div className="mt-16">
         <Reveal>
           <div className="relative max-w-xl">

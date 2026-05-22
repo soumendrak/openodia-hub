@@ -81,6 +81,19 @@ function ToolsPage() {
           { name: "Tools", url: "https://openodia.com/tools" },
         ])}
       />
+      {data && (
+        <JsonLd
+          data={itemListSchema(
+            data.items.slice(0, 50).map((i) => ({
+              name: i.name,
+              url: i.url,
+              description: i.description,
+            })),
+            "Awesome Odia AI Tools",
+            "A curated directory of Odia language datasets, models, libraries, and AI tools",
+          )}
+        />
+      )}
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
