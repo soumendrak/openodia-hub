@@ -183,17 +183,14 @@ export const Route = createFileRoute("/api/videos")({
           });
         } catch (e) {
           console.error("videos error", e);
-          return new Response(
-            JSON.stringify({ channels: [], error: "internal_error" }),
-            {
-              status: 500,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
+          return new Response(JSON.stringify({ channels: [], error: "internal_error" }), {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
             },
-          );
+          });
         }
       },
     },

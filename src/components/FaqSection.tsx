@@ -65,9 +65,7 @@ export function FaqSection() {
                   </svg>
                 </span>
               </summary>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                {faq.a}
-              </p>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{faq.a}</p>
             </details>
           </Reveal>
         ))}

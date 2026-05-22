@@ -137,9 +137,7 @@ export const Route = createFileRoute("/llms-full/txt")({
     handlers: {
       GET: () => {
         const separator = "\n" + "=".repeat(72) + "\n";
-        const content = SECTIONS.map(
-          (s) => `# ${s.heading}\n${separator}\n${s.body}`,
-        ).join("\n\n");
+        const content = SECTIONS.map((s) => `# ${s.heading}\n${separator}\n${s.body}`).join("\n\n");
 
         return new Response(content, {
           status: 200,
