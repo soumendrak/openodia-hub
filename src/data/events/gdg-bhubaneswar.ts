@@ -37,7 +37,16 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     type: "Conference",
     location: "Bhubaneswar, India",
     description:
-      "GDG Bhubaneswar's annual developer festival — a full day of keynotes, hands-on workshops, and tech talks covering AI, GenAI, Flutter, Android, Web, Cloud, and Firebase. Open to students, developers, designers, entrepreneurs, and tech leaders.",
+      "GDG Bhubaneswar's annual developer festival \u2014 a full day of keynotes, hands-on workshops, and tech talks covering AI, GenAI, Flutter, Android, Web, Cloud, and Firebase. Open to students, developers, designers, entrepreneurs, and tech leaders.",
+  },
+  {
+    year: "2025",
+    date: "7 Sep 2025",
+    title: "Getting Started with Vertex AI on Google Cloud",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-getting-started-with-vertex-ai-on-google-cloud/",
+    type: "Workshop",
+    description:
+      "A hands-on workshop by GDG Bhubaneswar introducing Google Cloud Vertex AI \u2014 covering AI Platform fundamentals, model training, deployment, and practical use cases for building AI-powered applications on GCP.",
   },
   {
     year: "2025",
