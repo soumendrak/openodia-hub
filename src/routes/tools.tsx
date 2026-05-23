@@ -10,16 +10,16 @@ import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 export const Route = createFileRoute("/tools")({
   head: () => ({
     meta: [
-      { title: "Tools · Awesome Odia AI" },
+      { title: "Tools · OpenOdia" },
       {
         name: "description",
         content:
-          "A live, searchable directory of Odia language datasets, models, libraries, and AI tools — synced from Awesome-Odia-AI.",
+          "A live, searchable directory of Odia language tools — fonts, datasets, models, libraries, apps, and more — all open source.",
       },
-      { property: "og:title", content: "Tools · Awesome Odia AI" },
+      { property: "og:title", content: "Tools · OpenOdia" },
       {
         property: "og:description",
-        content: "Searchable directory of Odia language datasets, models, libraries, and AI tools.",
+        content: "Curated directory of open-source Odia language tools, fonts, datasets, models, and libraries.",
       },
     ],
   }),
@@ -114,19 +114,10 @@ function ToolsPage() {
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Every Odia AI tool, <span className="text-gradient">in one place.</span>
+          Every Odia tool, <span className="text-gradient">in one place.</span>
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
-          Live-synced from{" "}
-          <a
-            href="https://github.com/odisha-ml/Awesome-Odia-AI"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
-            odisha-ml/Awesome-Odia-AI
-          </a>
-          . Datasets, models, libraries, papers — search and explore.
+          Curated directory of open-source Odia language resources — fonts, transliterators, spell checkers, models, datasets, libraries, apps, and more.
         </p>
       </Reveal>
 
