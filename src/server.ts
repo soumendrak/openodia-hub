@@ -185,6 +185,8 @@ export default {
         url.pathname = "/llms/txt";
       } else if (originalPath === "/llms-full.txt") {
         url.pathname = "/llms-full/txt";
+      } else if (originalPath === "/sitemap.xml") {
+        url.pathname = "/sitemap/xml";
       }
 
       const rewrittenRequest =
