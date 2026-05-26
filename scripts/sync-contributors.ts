@@ -97,7 +97,16 @@ async function aggregate(token: string): Promise<Payload> {
         existing.contributions += c.contributions;
         if (!existing.repos.includes(repo)) existing.repos.push(repo);
       } else {
-        map.set(c.login, { ...c, repos: [repo] });
+        // Explicit pick — the GitHub API returns ~15 extra URL fields per user
+        // that the UI never reads. Picking keeps the KV value (and the
+        // /api/contributors response) ~10× smaller.
+        map.set(c.login, {
+          login: c.login,
+          avatar_url: c.avatar_url,
+          html_url: c.html_url,
+          contributions: c.contributions,
+          repos: [repo],
+        });
       }
     }
   }
