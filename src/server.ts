@@ -160,30 +160,100 @@ export default {
             "/api/awesome": {
               get: {
                 summary: "Awesome-Odia-AI directory",
+                description:
+                  "Curated open-source Odia tools, datasets, and models parsed from the Awesome-Odia-AI README. Supports cursor pagination.",
+                parameters: [
+                  {
+                    name: "cursor",
+                    in: "query",
+                    schema: { type: "string" },
+                    description: "Numeric offset returned as nextCursor.",
+                  },
+                  {
+                    name: "limit",
+                    in: "query",
+                    schema: { type: "integer", maximum: 50, default: 30 },
+                  },
+                ],
                 responses: { "200": { description: "Array of categorized items" } },
+              },
+            },
+            "/api/community": {
+              get: {
+                summary: "GitHub Discussions",
+                description:
+                  "Recent discussions on the OpenOdia repo grouped by category. Falls back to an empty payload (never 5xx) when discussions are unavailable.",
+                responses: { "200": { description: "Categories with their discussions" } },
+              },
+            },
+            "/api/contributors": {
+              get: {
+                summary: "Contributors leaderboard",
+                description:
+                  "Aggregated contributors across the OpenOdia orgs, populated daily by a GitHub Action writing to KV. Returns an empty list while KV is warming up.",
+                responses: { "200": { description: "Aggregated contributor list" } },
               },
             },
             "/api/events": {
               get: {
                 summary: "Community events",
+                description:
+                  "Live + static event feed (GDG/GDGoC chapters scraped from Bevy, merged with the curated archive).",
+                parameters: [
+                  {
+                    name: "page",
+                    in: "query",
+                    schema: { type: "integer", default: 1 },
+                  },
+                  {
+                    name: "limit",
+                    in: "query",
+                    schema: { type: "integer", maximum: 50, default: 20 },
+                  },
+                ],
                 responses: { "200": { description: "Array of events" } },
               },
             },
             "/api/pypi": {
               get: {
                 summary: "OpenOdia PyPI package info",
+                description: "Version, summary, and release count for the openodia PyPI package.",
                 responses: { "200": { description: "Package metadata" } },
               },
             },
             "/api/repos": {
               get: {
                 summary: "GitHub repositories",
+                description:
+                  "Repos across the OpenOdia orgs, users, and pinned repos. Supports cursor pagination.",
+                parameters: [
+                  {
+                    name: "cursor",
+                    in: "query",
+                    schema: { type: "string" },
+                  },
+                  {
+                    name: "limit",
+                    in: "query",
+                    schema: { type: "integer", maximum: 50, default: 24 },
+                  },
+                ],
                 responses: { "200": { description: "Repository list" } },
+              },
+            },
+            "/api/roadmap": {
+              get: {
+                summary: "Public roadmap",
+                description:
+                  "Issues on the openodia-hub repo grouped by roadmap:planned, roadmap:in-progress, and roadmap:completed labels.",
+                responses: { "200": { description: "Roadmap groups" } },
               },
             },
             "/api/videos": {
               get: {
                 summary: "YouTube videos",
+                description:
+                  "Latest videos and playlists from the OpenOdia and partner channels. Enriched with view counts when YOUTUBE_API_KEY is set.",
                 responses: { "200": { description: "Videos and playlists" } },
               },
             },
