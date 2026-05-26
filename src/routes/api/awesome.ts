@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout } from "../../lib/fetch-utils";
 
 type Item = {
   category: string;
@@ -117,7 +118,7 @@ export const Route = createFileRoute("/api/awesome")({
     handlers: {
       GET: async ({ request }: { request: Request }) => {
         try {
-          const res = await fetch(README_URL, {
+          const res = await fetchWithTimeout(README_URL, {
             headers: { "User-Agent": "openodia.com" },
           });
           if (!res.ok) {

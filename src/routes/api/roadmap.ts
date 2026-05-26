@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout } from "../../lib/fetch-utils";
 
 type RoadmapIssue = {
   number: number;
@@ -28,12 +29,17 @@ const REPO = "soumendrak/openodia-hub";
 const ROADMAP_LABELS = ["roadmap:planned", "roadmap:in-progress", "roadmap:completed"];
 
 async function fetchLabeledIssues(label: string): Promise<RoadmapIssue[]> {
-  const url = `https://api.github.com/repos/${REPO}/issues?labels=${encodeURIComponent(label)}&state=all&per_page=100&sort=updated&direction=desc`;
-  const r = await fetch(url, { headers: GH_HEADERS });
-  if (!r.ok) return [];
-  const issues = (await r.json()) as RoadmapIssue[];
-  // Filter out pull requests (GitHub Issues API returns PRs too)
-  return issues.filter((i) => !(i as unknown as { pull_request?: unknown }).pull_request);
+  try {
+    const url = `https://api.github.com/repos/${REPO}/issues?labels=${encodeURIComponent(label)}&state=all&per_page=100&sort=updated&direction=desc`;
+    const r = await fetchWithTimeout(url, { headers: GH_HEADERS });
+    if (!r.ok) return [];
+    const issues = (await r.json()) as RoadmapIssue[];
+    // Filter out pull requests (GitHub Issues API returns PRs too)
+    return issues.filter((i) => !(i as unknown as { pull_request?: unknown }).pull_request);
+  } catch (err) {
+    console.warn(`fetchLabeledIssues ${label}:`, err);
+    return [];
+  }
 }
 
 export const Route = createFileRoute("/api/roadmap")({
@@ -41,12 +47,15 @@ export const Route = createFileRoute("/api/roadmap")({
     handlers: {
       GET: async () => {
         try {
-          const results = await Promise.all(ROADMAP_LABELS.map(fetchLabeledIssues));
+          // Preserve label order by mapping rejected promises to []. settledValues
+          // would compact and break the positional zip with ROADMAP_LABELS.
+          const settled = await Promise.allSettled(ROADMAP_LABELS.map(fetchLabeledIssues));
+          const grouped = settled.map((r) => (r.status === "fulfilled" ? r.value : []));
 
           const groups: RoadmapGroup[] = [
-            { status: "planned", label: "Planned", issues: results[0] },
-            { status: "in-progress", label: "In Progress", issues: results[1] },
-            { status: "completed", label: "Completed", issues: results[2] },
+            { status: "planned", label: "Planned", issues: grouped[0] },
+            { status: "in-progress", label: "In Progress", issues: grouped[1] },
+            { status: "completed", label: "Completed", issues: grouped[2] },
           ];
 
           return new Response(JSON.stringify({ groups, fetchedAt: new Date().toISOString() }), {

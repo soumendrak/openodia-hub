@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
 import type { Event, EventType } from "../../data/events/types";
 
 type BevyEvent = {
@@ -79,7 +80,7 @@ function formatHumanDate(isoStr: string): string {
 
 export async function fetchChapterEvents(community: string, slug: string): Promise<Event[]> {
   try {
-    const response = await fetch(`https://gdg.community.dev/${slug}/`, {
+    const response = await fetchWithTimeout(`https://gdg.community.dev/${slug}/`, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -136,10 +137,10 @@ export const Route = createFileRoute("/api/events")({
     handlers: {
       GET: async ({ request }: { request: Request }) => {
         try {
-          const results = await Promise.all(
+          const results = await Promise.allSettled(
             CHAPTERS.map((ch) => fetchChapterEvents(ch.community, ch.slug)),
           );
-          const allEvents = results.flat();
+          const allEvents = settledValues(results).flat();
 
           const url = new URL(request.url);
           const pageParam = url.searchParams.get("page");
