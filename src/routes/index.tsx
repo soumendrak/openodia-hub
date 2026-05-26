@@ -19,12 +19,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A home for open-source Odia language projects: the OpenOdia Python package, the @openodia YouTube channel, and the Awesome-Odia-AI directory.",
+          "A home for open-source Odia language projects: from the OpenOdia Python package and the @openodia YouTube channel to a curated directory of Odia tools, fonts, models, and datasets.",
       },
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
       {
         property: "og:description",
-        content: "Projects, tools, and AI resources for ଓଡ଼ିଆ.",
+        content:
+          "Projects, tools, and resources for the Odia language — fonts, datasets, models, libraries, and more.",
       },
     ],
   }),
@@ -48,27 +49,27 @@ function Home() {
           {
             question: "What is OpenOdia?",
             answer:
-              "OpenOdia is a hub for Odia language open-source — a growing collection of tools, libraries, and resources making Odia a first-class citizen in modern AI and software. It spans a YouTube channel (@openodia), a Python package on PyPI, and the Awesome-Odia-AI directory.",
+              "OpenOdia is a hub for Odia language open-source — a growing collection of tools, fonts, datasets, models, libraries, and resources. It spans a YouTube channel (@openodia), a Python package on PyPI, and a curated directory of Odia projects.",
           },
           {
-            question: "How can I contribute to Odia AI?",
+            question: "How can I contribute to Odia open source?",
             answer:
-              "You can contribute by joining the odisha-ml GitHub organization, submitting tools to Awesome-Odia-AI, publishing Odia-language Python packages to PyPI, creating tutorial content for @openodia, or participating in OdishaAI community events.",
+              "You can contribute by joining the odisha-ml GitHub organization, submitting tools and projects to our directory, publishing Odia-language libraries to PyPI, creating tutorial content for @openodia, or sharing your own Odia open-source projects.",
           },
           {
-            question: "What Odia language AI tools exist?",
+            question: "What kinds of Odia tools are listed here?",
             answer:
-              "Over 60 tools and resources are listed in the Awesome-Odia-AI directory — including speech recognition (STT), text-to-speech (TTS), datasets, fine-tuned LLMs, transliteration libraries, and NLP toolkits. Browse them at openodia.com/tools.",
+              "Everything open source: fonts, transliterators, spell checkers, speech models, NLP libraries, datasets, dictionaries, OCR tools, games, language learning apps, and more. Browse them at openodia.com/tools.",
           },
           {
             question: "Who maintains OpenOdia?",
             answer:
-              "OpenOdia is built and maintained by Soumendra Kumar Sahoo, an observability engineer at PepsiCo. It is part of the broader OdishaAI community initiative uniting Odias in AI/ML globally.",
+              "OpenOdia is built and maintained by Soumendra Kumar Sahoo, an observability engineer at PepsiCo, with contributions from the Odia open-source community worldwide.",
           },
           {
-            question: "Where can I learn Odia NLP?",
+            question: "Where can I learn about Odia language technology?",
             answer:
-              "The @openodia YouTube channel features tutorials in both Odia and English covering AI, NLP, and language technology. See openodia.com/tutorials.",
+              "The @openodia YouTube channel features tutorials in both Odia and English covering language processing, open-source tools, font development, and more. See openodia.com/tutorials.",
           },
           {
             question: "Is OpenOdia open source?",
@@ -86,13 +87,13 @@ function Home() {
       <Marquee
         items={[
           "OpenOdia",
-          "Awesome-Odia-AI",
-          "@openodia",
-          "Odia NLP",
-          "Transliteration",
+          "Fonts",
           "Datasets",
-          "Speech",
-          "LLMs",
+          "Models",
+          "Transliteration",
+          "Libraries",
+          "Tools",
+          "Open Source",
         ]}
       />
     </>
@@ -175,7 +176,7 @@ const pillars = [
   {
     icon: <YoutubeIcon size={22} />,
     title: "YouTube channel",
-    desc: "Tutorials, talks, and demos in Odia & English at @openodia.",
+    desc: "Tutorials, talks, and demos in Odia & English covering language tech, open source, and AI.",
     href: YOUTUBE_CHANNEL,
     color: "from-magenta to-saffron",
     cta: "Visit channel",
@@ -191,8 +192,8 @@ const pillars = [
   },
   {
     icon: <Star size={22} />,
-    title: "Awesome-Odia-AI",
-    desc: "A curated, live directory of Odia datasets, models, and tools.",
+    title: "Odia Tools Directory",
+    desc: "A curated, live directory of Odia fonts, datasets, models, libraries, and tools.",
     href: "/tools",
     color: "from-saffron to-neon",
     cta: "Browse tools",

@@ -14,12 +14,13 @@ export const Route = createFileRoute("/tutorials")({
       {
         name: "description",
         content:
-          "Video tutorials from OdiaGenAI, Odias in ML, and OpenOdia — learn Odia NLP, AI, and language technology.",
+          "Video tutorials from the OpenOdia community — learn Odia language technology, open-source tools, font development, NLP, and more.",
       },
       { property: "og:title", content: "Tutorials · OpenOdia" },
       {
         property: "og:description",
-        content: "Video tutorials from the Odia AI community channels.",
+        content:
+          "OpenOdia tutorials covering Odia language tech, open-source tools, fonts, and community projects.",
       },
     ],
   }),
