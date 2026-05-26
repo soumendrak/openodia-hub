@@ -1,0 +1,25 @@
+/**
+ * English UI strings.
+ *
+ * This file is the canonical key inventory. Keep keys in alphabetical order
+ * within each namespace, and never use English copy as a "key" — always pick
+ * a stable, structural identifier like `nav.home`.
+ *
+ * To extend coverage to more pages, add keys here, then add the Odia
+ * translation in `or.ts`. Missing Odia keys fall back to English at runtime.
+ */
+export const en = {
+  // Nav
+  "nav.home": "Home",
+  "nav.tools": "Tools",
+  "nav.tutorials": "Tutorials",
+  "nav.events": "Events",
+  "nav.community": "Community",
+  "nav.roadmap": "Roadmap",
+  "nav.blog": "Blog",
+  "nav.about": "About",
+  "nav.search.aria": "Open search (Cmd+K)",
+  "nav.theme.aria": "Toggle theme",
+  "nav.locale.aria": "Switch language",
+  "nav.menu.aria": "Toggle menu",
+} as const;
