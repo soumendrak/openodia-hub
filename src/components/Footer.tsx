@@ -32,6 +32,11 @@ export function Footer() {
                   Tutorials
                 </Link>
               </li>
+              <li>
+                <Link to="/playground" className="hover:text-foreground">
+                  Playground
+                </Link>
+              </li>
               <li className="flex items-center gap-1.5">
                 <Link to="/events" className="hover:text-foreground">
                   Events
