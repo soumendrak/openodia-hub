@@ -8,6 +8,10 @@ type HFDataset = {
   likes?: number;
   tags?: string[];
   createdAt?: string;
+  // Present when ?full=true. All three default to false in normal cases.
+  disabled?: boolean;
+  gated?: boolean | string;
+  private?: boolean;
 };
 
 type Dataset = {
@@ -21,10 +25,15 @@ type Dataset = {
   likes: number;
   tags: string[];
   createdAt: string;
+  // Heuristic: datasets-server has a viewer for ~all non-gated, non-private,
+  // non-disabled datasets. Not perfect — some still fail because the server
+  // hasn't processed them — but it filters out the obvious "no preview"
+  // cases so users don't click hopelessly.
+  previewable: boolean;
 };
 
 const HF_URL =
-  "https://huggingface.co/api/datasets?filter=language:or&limit=200&sort=downloads&direction=-1";
+  "https://huggingface.co/api/datasets?filter=language:or&limit=200&sort=downloads&direction=-1&full=true";
 
 // task_categories tags look like "task_categories:translation". Extract the
 // first one we find as the headline task; default to "other".
@@ -49,6 +58,7 @@ function normalize(d: HFDataset): Dataset {
     likes: d.likes ?? 0,
     tags: d.tags ?? [],
     createdAt: d.createdAt ?? "",
+    previewable: !(d.disabled || d.gated || d.private),
   };
 }
 
