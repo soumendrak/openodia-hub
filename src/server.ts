@@ -3,9 +3,22 @@ import "./lib/error-capture";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 
+type KVRead = { get: (key: string) => Promise<string | null> };
+type Env = {
+  CONTRIBUTORS_KV?: KVRead;
+};
+
 type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
+
+const CONTRIBUTORS_KV_KEY = "contributors:v1";
+const EMPTY_CONTRIBUTORS_BODY = JSON.stringify({
+  contributors: [],
+  totalContributors: 0,
+  fetchedAt: new Date(0).toISOString(),
+  error: "warming_up",
+});
 
 let serverEntryPromise: Promise<ServerEntry> | undefined;
 
@@ -66,14 +79,37 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
+async function handleContributors(env: Env): Promise<Response> {
+  const cors = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, User-Agent",
+  };
+  const cached = env.CONTRIBUTORS_KV ? await env.CONTRIBUTORS_KV.get(CONTRIBUTORS_KV_KEY) : null;
+  return new Response(cached ?? EMPTY_CONTRIBUTORS_BODY, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
+      ...cors,
+    },
+  });
+}
+
 export default {
-  async fetch(request: Request, env: unknown, ctx: unknown) {
+  async fetch(request: Request, env: Env, ctx: unknown) {
     try {
       // URL rewrites: map dot-path URLs to TanStack Router paths
       // TanStack Router treats dots as path separators in file-based routing,
       // so llms.txt.ts → /llms/txt instead of /llms.txt
       const url = new URL(request.url);
       const originalPath = url.pathname;
+
+      // Served from KV (populated by .github/workflows/sync-contributors.yml).
+      // Kept out of TanStack routes so the handler can reach env bindings.
+      if (originalPath === "/api/contributors") {
+        return await handleContributors(env);
+      }
 
       // Handle .well-known routes at the workers level — TanStack Router ignores
       // files/directories starting with a dot (hidden files convention)
