@@ -4,6 +4,8 @@ const pages = [
   { path: "", changefreq: "weekly", priority: "1.0" },
   { path: "about", changefreq: "monthly", priority: "0.8" },
   { path: "tools", changefreq: "daily", priority: "0.9" },
+  { path: "models", changefreq: "daily", priority: "0.9" },
+  { path: "datasets", changefreq: "daily", priority: "0.9" },
   { path: "tutorials", changefreq: "daily", priority: "0.9" },
   { path: "events", changefreq: "daily", priority: "0.9" },
   { path: "community", changefreq: "daily", priority: "0.8" },

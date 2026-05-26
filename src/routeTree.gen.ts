@@ -12,8 +12,10 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as ModelsRouteImport } from './routes/models'
 import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
+import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
@@ -27,7 +29,9 @@ import { Route as ApiVideosRouteImport } from './routes/api/videos'
 import { Route as ApiRoadmapRouteImport } from './routes/api/roadmap'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
+import { Route as ApiModelsRouteImport } from './routes/api/models'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
+import { Route as ApiDatasetsRouteImport } from './routes/api/datasets'
 import { Route as ApiCommunityRouteImport } from './routes/api/community'
 import { Route as ApiAwesomeRouteImport } from './routes/api/awesome'
 
@@ -46,6 +50,11 @@ const RoadmapRoute = RoadmapRouteImport.update({
   path: '/roadmap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ModelsRoute = ModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const EventsFeedRoute = EventsFeedRouteImport.update({
   id: '/events-feed',
   path: '/events-feed',
@@ -54,6 +63,11 @@ const EventsFeedRoute = EventsFeedRouteImport.update({
 const EventsRoute = EventsRouteImport.update({
   id: '/events',
   path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatasetsRoute = DatasetsRouteImport.update({
+  id: '/datasets',
+  path: '/datasets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityRoute = CommunityRouteImport.update({
@@ -121,9 +135,19 @@ const ApiPypiRoute = ApiPypiRouteImport.update({
   path: '/api/pypi',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiModelsRoute = ApiModelsRouteImport.update({
+  id: '/api/models',
+  path: '/api/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiEventsRoute = ApiEventsRouteImport.update({
   id: '/api/events',
   path: '/api/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDatasetsRoute = ApiDatasetsRouteImport.update({
+  id: '/api/datasets',
+  path: '/api/datasets',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiCommunityRoute = ApiCommunityRouteImport.update({
@@ -141,14 +165,18 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/community': typeof CommunityRoute
+  '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
+  '/models': typeof ModelsRoute
   '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/community': typeof ApiCommunityRoute
+  '/api/datasets': typeof ApiDatasetsRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/roadmap': typeof ApiRoadmapRoute
@@ -164,14 +192,18 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/community': typeof CommunityRoute
+  '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
+  '/models': typeof ModelsRoute
   '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/community': typeof ApiCommunityRoute
+  '/api/datasets': typeof ApiDatasetsRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/roadmap': typeof ApiRoadmapRoute
@@ -188,14 +220,18 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/community': typeof CommunityRoute
+  '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
+  '/models': typeof ModelsRoute
   '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/community': typeof ApiCommunityRoute
+  '/api/datasets': typeof ApiDatasetsRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/roadmap': typeof ApiRoadmapRoute
@@ -213,14 +249,18 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/community'
+    | '/datasets'
     | '/events'
     | '/events-feed'
+    | '/models'
     | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
     | '/api/community'
+    | '/api/datasets'
     | '/api/events'
+    | '/api/models'
     | '/api/pypi'
     | '/api/repos'
     | '/api/roadmap'
@@ -236,14 +276,18 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/community'
+    | '/datasets'
     | '/events'
     | '/events-feed'
+    | '/models'
     | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
     | '/api/community'
+    | '/api/datasets'
     | '/api/events'
+    | '/api/models'
     | '/api/pypi'
     | '/api/repos'
     | '/api/roadmap'
@@ -259,14 +303,18 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/community'
+    | '/datasets'
     | '/events'
     | '/events-feed'
+    | '/models'
     | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
     | '/api/community'
+    | '/api/datasets'
     | '/api/events'
+    | '/api/models'
     | '/api/pypi'
     | '/api/repos'
     | '/api/roadmap'
@@ -283,14 +331,18 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   CommunityRoute: typeof CommunityRoute
+  DatasetsRoute: typeof DatasetsRoute
   EventsRoute: typeof EventsRoute
   EventsFeedRoute: typeof EventsFeedRoute
+  ModelsRoute: typeof ModelsRoute
   RoadmapRoute: typeof RoadmapRoute
   ToolsRoute: typeof ToolsRoute
   TutorialsRoute: typeof TutorialsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
   ApiCommunityRoute: typeof ApiCommunityRoute
+  ApiDatasetsRoute: typeof ApiDatasetsRoute
   ApiEventsRoute: typeof ApiEventsRoute
+  ApiModelsRoute: typeof ApiModelsRoute
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
   ApiRoadmapRoute: typeof ApiRoadmapRoute
@@ -326,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RoadmapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/models': {
+      id: '/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof ModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/events-feed': {
       id: '/events-feed'
       path: '/events-feed'
@@ -338,6 +397,13 @@ declare module '@tanstack/react-router' {
       path: '/events'
       fullPath: '/events'
       preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datasets': {
+      id: '/datasets'
+      path: '/datasets'
+      fullPath: '/datasets'
+      preLoaderRoute: typeof DatasetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/community': {
@@ -431,11 +497,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPypiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/models': {
+      id: '/api/models'
+      path: '/api/models'
+      fullPath: '/api/models'
+      preLoaderRoute: typeof ApiModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/events': {
       id: '/api/events'
       path: '/api/events'
       fullPath: '/api/events'
       preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/datasets': {
+      id: '/api/datasets'
+      path: '/api/datasets'
+      fullPath: '/api/datasets'
+      preLoaderRoute: typeof ApiDatasetsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/community': {
@@ -459,14 +539,18 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   CommunityRoute: CommunityRoute,
+  DatasetsRoute: DatasetsRoute,
   EventsRoute: EventsRoute,
   EventsFeedRoute: EventsFeedRoute,
+  ModelsRoute: ModelsRoute,
   RoadmapRoute: RoadmapRoute,
   ToolsRoute: ToolsRoute,
   TutorialsRoute: TutorialsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,
   ApiCommunityRoute: ApiCommunityRoute,
+  ApiDatasetsRoute: ApiDatasetsRoute,
   ApiEventsRoute: ApiEventsRoute,
+  ApiModelsRoute: ApiModelsRoute,
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
   ApiRoadmapRoute: ApiRoadmapRoute,

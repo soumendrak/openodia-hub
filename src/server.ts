@@ -219,6 +219,22 @@ export default {
                 responses: { "200": { description: "Array of events" } },
               },
             },
+            "/api/models": {
+              get: {
+                summary: "Odia AI models",
+                description:
+                  "Live registry of models tagged for Odia on Hugging Face. Returns normalized fields (author, name, task, downloads, likes, tags).",
+                responses: { "200": { description: "Array of models" } },
+              },
+            },
+            "/api/datasets": {
+              get: {
+                summary: "Odia datasets",
+                description:
+                  "Live browser of datasets with `language:or` on Hugging Face. Returns normalized fields including extracted task category.",
+                responses: { "200": { description: "Array of datasets" } },
+              },
+            },
             "/api/pypi": {
               get: {
                 summary: "OpenOdia PyPI package info",

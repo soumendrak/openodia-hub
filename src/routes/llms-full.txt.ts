@@ -30,6 +30,8 @@ const SECTIONS: { heading: string; body: string }[] = [
     body: [
       "- / (Home):         https://openodia.com — Hero, three pillars, featured YouTube videos, FAQ",
       "- /tools:           https://openodia.com/tools — Unified directory of Odia open-source repos, datasets, models, libraries, fonts, and tools",
+      "- /models:          https://openodia.com/models — Live registry of Odia AI models on Hugging Face",
+      "- /datasets:        https://openodia.com/datasets — Live browser of Odia datasets on Hugging Face",
       "- /tutorials:       https://openodia.com/tutorials — YouTube tutorials from Odia AI channels",
       "- /events:          https://openodia.com/events — Community events (conferences, workshops, hackathons)",
       "- /community:       https://openodia.com/community — GitHub Discussions surfaced on-site",
