@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Loader2, Terminal, AlertCircle, Sparkles } from "lucide-react";
+import { Play, Loader2, Terminal, AlertCircle, Sparkles, Clipboard, Check } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { PythonIcon } from "../components/icons";
 import { CodeEditor } from "../components/CodeEditor";
@@ -80,6 +80,7 @@ function PlaygroundPage() {
   const [statusMsg, setStatusMsg] = useState("");
   const [running, setRunning] = useState(false);
   const [formatting, setFormatting] = useState(false);
+  const [copied, setCopied] = useState(false);
   const pyodideRef = useRef<PyodideInterface | null>(null);
   // Lazy-install black on first format click rather than at boot — it's a
   // few extra MB and not every visitor cares about formatting.
@@ -142,6 +143,17 @@ function PlaygroundPage() {
       cancelled = true;
     };
   }, []);
+
+  async function copyOutput() {
+    if (!output) return;
+    try {
+      await navigator.clipboard.writeText(output);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // ignore — clipboard can fail when the page isn't focused
+    }
+  }
 
   async function run() {
     if (!pyodideRef.current || running) return;
@@ -263,6 +275,17 @@ function PlaygroundPage() {
             <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground">
               <Terminal size={12} />
               <span className="font-mono">output</span>
+              <div className="flex-1" />
+              {output && (
+                <button
+                  onClick={copyOutput}
+                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-neon"
+                  title="Copy output"
+                  aria-label="Copy output"
+                >
+                  {copied ? <Check size={12} /> : <Clipboard size={12} />}
+                </button>
+              )}
             </div>
             <pre className="block min-h-[24rem] overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm text-foreground">
               {output || (
