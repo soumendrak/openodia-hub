@@ -84,13 +84,13 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
   return brandedErrorResponse();
 }
 
-async function handleContributors(env: Env): Promise<Response> {
+async function handleContributors(env: Env | undefined): Promise<Response> {
   const cors = {
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, User-Agent",
   };
-  const cached = env.CONTRIBUTORS_KV ? await env.CONTRIBUTORS_KV.get(CONTRIBUTORS_KV_KEY) : null;
+  const cached = env?.CONTRIBUTORS_KV ? await env.CONTRIBUTORS_KV.get(CONTRIBUTORS_KV_KEY) : null;
   return new Response(cached ?? EMPTY_CONTRIBUTORS_BODY, {
     status: 200,
     headers: {
@@ -116,11 +116,11 @@ async function liveScrapeEvents(): Promise<Event[]> {
   return settledValues(settled).flat();
 }
 
-async function handleEvents(env: Env, request: Request): Promise<Response> {
+async function handleEvents(env: Env | undefined, request: Request): Promise<Response> {
   let events: Event[] = [];
   let source: "d1" | "scrape" = "scrape";
 
-  if (env.EVENTS_DB) {
+  if (env?.EVENTS_DB) {
     try {
       events = await readEventsFromD1(env.EVENTS_DB);
       if (events.length > 0) source = "d1";
@@ -157,7 +157,7 @@ async function handleEvents(env: Env, request: Request): Promise<Response> {
 }
 
 export default {
-  async fetch(request: Request, env: Env, ctx: unknown) {
+  async fetch(request: Request, env: Env | undefined, ctx: unknown) {
     try {
       // URL rewrites: map dot-path URLs to TanStack Router paths
       // TanStack Router treats dots as path separators in file-based routing,
@@ -396,8 +396,8 @@ export default {
 
   // Cloudflare cron trigger (configured in wrangler.jsonc). Refreshes the
   // EVENTS_DB from Bevy daily so the request path never has to scrape.
-  async scheduled(_event: unknown, env: Env, _ctx: unknown): Promise<void> {
-    if (!env.EVENTS_DB) {
+  async scheduled(_event: unknown, env: Env | undefined, _ctx: unknown): Promise<void> {
+    if (!env?.EVENTS_DB) {
       console.warn("scheduled: EVENTS_DB not bound; skipping events sync");
       return;
     }
