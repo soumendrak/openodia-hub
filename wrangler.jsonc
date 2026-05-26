@@ -12,6 +12,6 @@
   // One-time setup: `wrangler kv namespace create CONTRIBUTORS_KV`,
   // then paste the returned id below. Populated daily by .github/workflows/sync-contributors.yml.
   "kv_namespaces": [
-    { "binding": "CONTRIBUTORS_KV", "id": "TODO_PASTE_KV_NAMESPACE_ID_HERE" },
+    { "binding": "CONTRIBUTORS_KV", "id": "9aee3dc0e2df42f2aa81426a744364ec", "remote": true },
   ],
 }
