@@ -1,19 +1,25 @@
 /**
  * Minimal Python-friendly code editor used by /playground.
  *
- * Backed by a real <textarea> for accessibility + native selection, with three
- * developer-conveniences layered on top:
+ * Architecture:
+ *   - A real <textarea> handles all input, selection, accessibility, and the
+ *     caret. Its text is `color: transparent`, but the caret stays visible.
+ *   - A <pre> overlay behind the textarea renders the same string with Prism
+ *     syntax highlighting. Both share font / line-height / padding so tokens
+ *     line up over their textarea equivalents.
+ *   - A line-number gutter on the left, kept aligned via shared line-height.
  *
- *   - line-number gutter that stays aligned with the textarea
+ * Layered conveniences on the textarea:
  *   - Tab inserts 4 spaces (Shift+Tab dedents); selections indent/dedent block-wise
  *   - Enter preserves the previous line's indent, and adds an extra level
  *     after a line ending in `:` (Python block convention)
  *
- * No syntax highlighting — that would mean a second hidden layer with
- * pixel-perfect alignment to the textarea, which is fiddly. Plain monospaced
- * text is fine for a playground.
+ * Token colors live in styles.css (scoped to `.code-editor-pre`) so they
+ * cooperate with the site's dark/light theme variables.
  */
-import { useRef, useMemo, type ChangeEvent, type KeyboardEvent } from "react";
+import { useMemo, useRef, type ChangeEvent, type KeyboardEvent } from "react";
+import Prism from "prismjs";
+import "prismjs/components/prism-python";
 
 const INDENT = "    "; // 4 spaces — PEP 8 default
 
@@ -36,8 +42,13 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
   const lineCount = useMemo(() => value.split("\n").length, [value]);
   const visibleRows = Math.max(rows ?? 16, lineCount);
 
+  // Trailing newline makes the overlay match the textarea's final empty line.
+  const highlighted = useMemo(
+    () => Prism.highlight(value, Prism.languages.python, "python") + "\n",
+    [value],
+  );
+
   function setSelection(start: number, end: number) {
-    // Defer so React's value update lands before we touch selection.
     requestAnimationFrame(() => {
       const ta = taRef.current;
       if (!ta) return;
@@ -59,8 +70,6 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
     if (e.key === "Tab") {
       e.preventDefault();
       if (e.shiftKey) {
-        // Dedent: remove up to INDENT.length spaces (or one tab) from the
-        // start of every line in the selection.
         const { lineStart, lineEnd } = getLineRange(text, selectionStart, selectionEnd);
         const before = text.slice(0, lineStart);
         const block = text.slice(lineStart, lineEnd);
@@ -78,8 +87,7 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
           .join("\n");
 
         if (dedented === 0) return;
-        const next = before + newBlock + after;
-        onChange(next);
+        onChange(before + newBlock + after);
         const firstLineMatch = block.split("\n", 1)[0].match(/^( {1,4}|\t)/);
         const firstLineRemoved = firstLineMatch ? firstLineMatch[0].length : 0;
         setSelection(
@@ -90,7 +98,6 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
       }
 
       if (hasSelection) {
-        // Indent every line in the selection by one level.
         const { lineStart, lineEnd } = getLineRange(text, selectionStart, selectionEnd);
         const before = text.slice(0, lineStart);
         const block = text.slice(lineStart, lineEnd);
@@ -102,7 +109,6 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
         return;
       }
 
-      // Plain Tab inserts spaces at the cursor.
       const next = text.slice(0, selectionStart) + INDENT + text.slice(selectionEnd);
       onChange(next);
       setSelection(selectionStart + INDENT.length, selectionStart + INDENT.length);
@@ -134,17 +140,25 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
           <div key={i}>{i + 1}</div>
         ))}
       </div>
-      <textarea
-        ref={taRef}
-        value={value}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        spellCheck={false}
-        rows={visibleRows}
-        disabled={disabled}
-        className="block flex-1 resize-y bg-transparent p-4 leading-[1.5] outline-none disabled:opacity-50"
-        wrap="off"
-      />
+      <div className="relative flex-1">
+        <pre
+          aria-hidden
+          className="code-editor-pre pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre-wrap break-words p-4 leading-[1.5]"
+        >
+          <code className="language-python" dangerouslySetInnerHTML={{ __html: highlighted }} />
+        </pre>
+        <textarea
+          ref={taRef}
+          value={value}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          spellCheck={false}
+          rows={visibleRows}
+          disabled={disabled}
+          className="relative block w-full resize-y bg-transparent p-4 leading-[1.5] text-transparent outline-none disabled:opacity-50"
+          style={{ caretColor: "var(--color-foreground)" }}
+        />
+      </div>
     </div>
   );
 }
