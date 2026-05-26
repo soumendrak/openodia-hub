@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, ExternalLink, Heart, Download } from "lucide-react";
+import { Search, ExternalLink, Heart, Download, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
@@ -53,8 +53,10 @@ function formatCount(n: number): string {
 }
 
 function DatasetsPage() {
+  const PAGE_SIZE = 30;
   const [q, setQ] = useState("");
   const [task, setTask] = useState<string | null>(null);
+  const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
@@ -133,7 +135,10 @@ function DatasetsPage() {
           <input
             ref={searchInputRef}
             value={q}
-            onChange={(e) => setQ(e.target.value)}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setShownCount(PAGE_SIZE);
+            }}
             placeholder="Search datasets, authors, tags… [/]"
             className="w-full rounded-full border border-border bg-surface py-3 pl-11 pr-4 text-sm outline-none transition focus:border-neon"
           />
@@ -141,11 +146,24 @@ function DatasetsPage() {
 
         {tasks.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
-            <Chip active={task === null} onClick={() => setTask(null)}>
+            <Chip
+              active={task === null}
+              onClick={() => {
+                setTask(null);
+                setShownCount(PAGE_SIZE);
+              }}
+            >
               All ({datasets.length})
             </Chip>
             {tasks.map(([t, count]) => (
-              <Chip key={t} active={task === t} onClick={() => setTask(task === t ? null : t)}>
+              <Chip
+                key={t}
+                active={task === t}
+                onClick={() => {
+                  setTask(task === t ? null : t);
+                  setShownCount(PAGE_SIZE);
+                }}
+              >
                 {prettyTask(t)} ({count})
               </Chip>
             ))}
@@ -164,7 +182,7 @@ function DatasetsPage() {
         ) : filtered.length === 0 ? (
           <p className="col-span-full text-muted-foreground">No datasets matched.</p>
         ) : (
-          filtered.map((d, i) => (
+          filtered.slice(0, shownCount).map((d, i) => (
             <motion.a
               key={d.id}
               href={d.url}
@@ -207,6 +225,22 @@ function DatasetsPage() {
           ))
         )}
       </div>
+
+      {!isLoading && filtered.length > 0 && (
+        <div className="mt-10 flex flex-col items-center gap-3">
+          <p className="text-xs text-muted-foreground">
+            Showing {Math.min(shownCount, filtered.length)} of {filtered.length}
+          </p>
+          {filtered.length > shownCount && (
+            <button
+              onClick={() => setShownCount((n) => n + PAGE_SIZE)}
+              className="inline-flex items-center gap-2 rounded-full border border-neon/40 bg-neon/5 px-5 py-2.5 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/15"
+            >
+              Load more <ChevronDown size={14} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -1,18 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  ExternalLink,
-  Calendar,
-  MapPin,
-  Search,
-  X,
-  Rss,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { events } from "../data/events";
@@ -194,23 +184,36 @@ function EventsPage() {
     };
   }, []);
 
-  const [pastPage, setPastPage] = useState(1);
   const PAST_PAGE_SIZE = 20;
 
-  const { data: liveData } = useQuery({
-    queryKey: ["liveEvents", String(pastPage)],
-    queryFn: async () => {
-      const r = await fetch(`/api/events?page=${pastPage}&limit=${PAST_PAGE_SIZE}`);
+  // useInfiniteQuery accumulates pages so filters can search across every
+  // event the user has loaded, and Load More just appends — no more "click
+  // page 2 and page 1 events vanish from the filter."
+  const {
+    data: liveData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
+    queryKey: ["liveEvents"],
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const r = await fetch(`/api/events?page=${pageParam}&limit=${PAST_PAGE_SIZE}`);
       if (!r.ok) throw new Error("Failed to fetch live events");
-      return r.json() as Promise<{ events: Event[]; nextCursor?: string; total: number }>;
+      return r.json() as Promise<{
+        events: Event[];
+        nextCursor?: string;
+        total: number;
+      }>;
     },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.nextCursor ? allPages.length + 1 : undefined,
     retry: 1,
     refetchOnWindowFocus: false,
   });
 
-  const fetchedEvents = liveData?.events ?? [];
-  const totalLiveEvents = liveData?.total ?? 0;
-  const totalPastPages = Math.ceil(totalLiveEvents / PAST_PAGE_SIZE);
+  const fetchedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const allMergedEventsMap = new Map<string, Event>();
 
@@ -789,40 +792,25 @@ function EventsPage() {
               })}
             </div>
 
-            {!isSearching && totalPastPages > 0 && (
+            {!isSearching && totalLiveEvents > 0 && (
               <div className="mt-10 flex flex-col items-center gap-3">
                 <p className="text-xs text-muted-foreground">
-                  Page {pastPage} of {totalPastPages} ({totalLiveEvents} past events)
+                  Showing {fetchedEvents.length} of {totalLiveEvents} past events
                 </p>
-                <div className="flex items-center gap-1">
+                {hasNextPage && (
                   <button
-                    onClick={() => setPastPage((p) => Math.max(1, p - 1))}
-                    disabled={pastPage <= 1}
-                    className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="inline-flex items-center gap-2 rounded-full border border-neon/40 bg-neon/5 px-5 py-2.5 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/15 disabled:opacity-50"
                   >
-                    <ChevronLeft size={14} />
+                    {isFetchingNextPage ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <ChevronDown size={14} />
+                    )}
+                    Load more
                   </button>
-                  {Array.from({ length: totalPastPages }, (_, i) => i + 1).map((p) => (
-                    <button
-                      key={p}
-                      onClick={() => setPastPage(p)}
-                      className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-sm transition ${
-                        p === pastPage
-                          ? "border border-neon bg-neon/10 text-neon"
-                          : "border border-border hover:border-neon/40 hover:text-foreground text-muted-foreground"
-                      }`}
-                    >
-                      {p}
-                    </button>
-                  ))}
-                  <button
-                    onClick={() => setPastPage((p) => Math.min(totalPastPages, p + 1))}
-                    disabled={pastPage >= totalPastPages}
-                    className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
-                  >
-                    <ChevronRight size={14} />
-                  </button>
-                </div>
+                )}
               </div>
             )}
           </div>
