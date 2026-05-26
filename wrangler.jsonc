@@ -9,4 +9,9 @@
     { "pattern": "openodia.com", "custom_domain": true },
     { "pattern": "www.openodia.com", "custom_domain": true },
   ],
+  // One-time setup: `wrangler kv namespace create CONTRIBUTORS_KV`,
+  // then paste the returned id below. Populated daily by .github/workflows/sync-contributors.yml.
+  "kv_namespaces": [
+    { "binding": "CONTRIBUTORS_KV", "id": "TODO_PASTE_KV_NAMESPACE_ID_HERE" },
+  ],
 }
