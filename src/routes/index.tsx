@@ -25,7 +25,7 @@ export const Route = createFileRoute("/")({
       {
         property: "og:description",
         content:
-          "Projects, tools, and resources for the Odia language — fonts, datasets, models, libraries, and more.",
+          "Open-source repos, tools, datasets, models, libraries, fonts, and resources for the Odia language.",
       },
     ],
   }),
@@ -149,9 +149,9 @@ function Hero() {
         transition={{ delay: 0.85 }}
         className="mt-8 flex flex-wrap items-center gap-3"
       >
-        <Link to="/projects">
+        <Link to="/tools">
           <MagneticButton>
-            Explore projects <ArrowRight size={16} />
+            Explore the directory <ArrowRight size={16} />
           </MagneticButton>
         </Link>
         <MagneticButton variant="ghost" href={YOUTUBE_CHANNEL} external>
@@ -186,9 +186,10 @@ const pillars = [
     icon: <PythonIcon size={22} />,
     title: "OpenOdia · PyPI",
     desc: "A Python package of practical tools for the Odia language.",
-    href: "/projects",
+    href: "https://pypi.org/project/openodia/",
     color: "from-neon to-magenta",
     cta: "See package",
+    external: true,
   },
   {
     icon: <Star size={22} />,

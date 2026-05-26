@@ -23,13 +23,8 @@ export function Footer() {
             <h4 className="text-sm font-semibold">Explore</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link to="/projects" className="hover:text-foreground">
-                  Projects
-                </Link>
-              </li>
-              <li>
                 <Link to="/tools" className="hover:text-foreground">
-                  Tools directory
+                  Tools & projects
                 </Link>
               </li>
               <li>

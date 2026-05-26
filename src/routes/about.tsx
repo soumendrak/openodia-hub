@@ -58,9 +58,10 @@ const pillars = [
     icon: <PythonIcon size={22} />,
     title: "Tooling",
     body: "The openodia Python package provides practical, install-and-use utilities for Odia text processing — transliteration, normalization, tokenization, and curated datasets.",
-    href: "/projects",
+    href: "https://pypi.org/project/openodia/",
     cta: "Explore the package",
     color: "from-neon to-magenta",
+    external: true,
   },
   {
     icon: <Star size={22} />,
