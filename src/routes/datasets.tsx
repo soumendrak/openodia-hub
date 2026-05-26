@@ -56,6 +56,20 @@ type PreviewState =
 
 const DATASETS_SERVER = "https://datasets-server.huggingface.co";
 
+// Asks the HF datasets-server whether it can actually serve a preview for
+// this dataset. The list-level `previewable` flag (computed from
+// disabled/gated/private) is a fast filter; this is the truth.
+async function isPreviewSupported(id: string): Promise<boolean> {
+  try {
+    const r = await fetch(`${DATASETS_SERVER}/is-valid?dataset=${encodeURIComponent(id)}`);
+    if (!r.ok) return false;
+    const data = (await r.json()) as { preview?: boolean };
+    return data.preview === true;
+  } catch {
+    return false;
+  }
+}
+
 async function fetchPreview(id: string): Promise<PreviewState> {
   try {
     const splitsRes = await fetch(`${DATASETS_SERVER}/splits?dataset=${encodeURIComponent(id)}`);
@@ -104,6 +118,11 @@ function DatasetsPage() {
   const [previewing, setPreviewing] = useState<Dataset | null>(null);
   const [previewState, setPreviewState] = useState<PreviewState | null>(null);
   const previewCache = useRef<Map<string, PreviewState>>(new Map());
+  // Datasets that the HF datasets-server has confirmed can be previewed.
+  // Populated lazily after the dataset list resolves; cards only render
+  // the Preview affordance for ids in this set so users never see a
+  // "click and discover broken" path.
+  const [verifiedPreview, setVerifiedPreview] = useState<Set<string>>(new Set());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
@@ -160,6 +179,32 @@ function DatasetsPage() {
       cancelled = true;
     };
   }, [previewing]);
+
+  // Verify each dataset against the HF datasets-server. The list-level
+  // `previewable` flag (computed from disabled/gated/private) is just a
+  // cheap pre-filter; here we ask whether datasets-server can actually
+  // serve a preview. Promise.allSettled means one slow / failed check
+  // doesn't block the others.
+  useEffect(() => {
+    if (!datasets.length) return;
+    const candidates = datasets.filter((d) => d.previewable);
+    if (!candidates.length) return;
+    let cancelled = false;
+    candidates.forEach((d) => {
+      void isPreviewSupported(d.id).then((ok) => {
+        if (cancelled || !ok) return;
+        setVerifiedPreview((prev) => {
+          if (prev.has(d.id)) return prev;
+          const next = new Set(prev);
+          next.add(d.id);
+          return next;
+        });
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [datasets]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -238,7 +283,13 @@ function DatasetsPage() {
           <p className="col-span-full text-muted-foreground">No datasets matched.</p>
         ) : (
           filtered.map((d, i) => (
-            <DatasetCard key={d.id} dataset={d} index={i} onPreview={() => setPreviewing(d)} />
+            <DatasetCard
+              key={d.id}
+              dataset={d}
+              index={i}
+              canPreview={verifiedPreview.has(d.id)}
+              onPreview={() => setPreviewing(d)}
+            />
           ))
         )}
       </div>
@@ -251,10 +302,12 @@ function DatasetsPage() {
 function DatasetCard({
   dataset: d,
   index,
+  canPreview,
   onPreview,
 }: {
   dataset: Dataset;
   index: number;
+  canPreview: boolean;
   onPreview: () => void;
 }) {
   return (
@@ -274,7 +327,7 @@ function DatasetCard({
         <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
           {prettyTask(d.task)}
         </span>
-        {d.previewable && (
+        {canPreview && (
           <button
             type="button"
             onClick={onPreview}
@@ -315,7 +368,7 @@ function DatasetCard({
           <ExternalLink size={12} /> Hugging Face
         </a>
       </div>
-      {d.previewable && (
+      {canPreview && (
         <button
           type="button"
           onClick={onPreview}
