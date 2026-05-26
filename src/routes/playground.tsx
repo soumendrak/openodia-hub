@@ -1,6 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Loader2, Terminal, AlertCircle, Sparkles, Clipboard, Check } from "lucide-react";
+import {
+  Play,
+  Loader2,
+  Terminal,
+  AlertCircle,
+  Sparkles,
+  Clipboard,
+  Check,
+  Trash2,
+} from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { PythonIcon } from "../components/icons";
 import { CodeEditor } from "../components/CodeEditor";
@@ -156,8 +165,11 @@ function PlaygroundPage() {
       });
       if (cancelled) return;
 
-      py.setStdout({ batched: (s) => setOutput((o) => o + s) });
-      py.setStderr({ batched: (s) => setOutput((o) => o + s) });
+      // Pyodide's batched stdout/stderr fires once per line with the
+      // trailing newline stripped. We append it back so multi-line prints
+      // render as multi-line text in the <pre>.
+      py.setStdout({ batched: (s) => setOutput((o) => o + s + "\n") });
+      py.setStderr({ batched: (s) => setOutput((o) => o + s + "\n") });
 
       // pygments is a Pyodide-native package (faster than micropip) but
       // not auto-loaded. `rich` (a transitive dep of openodia) imports it
@@ -316,23 +328,33 @@ function PlaygroundPage() {
             <CodeEditor value={code} onChange={setCode} rows={16} disabled={status === "loading"} />
           </div>
 
-          <div className="rounded-2xl border border-border bg-surface overflow-hidden">
+          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
             <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground">
               <Terminal size={12} />
               <span className="font-mono">output</span>
               <div className="flex-1" />
               {output && (
-                <button
-                  onClick={copyOutput}
-                  className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-neon"
-                  title="Copy output"
-                  aria-label="Copy output"
-                >
-                  {copied ? <Check size={12} /> : <Clipboard size={12} />}
-                </button>
+                <>
+                  <button
+                    onClick={copyOutput}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-neon"
+                    title="Copy output"
+                    aria-label="Copy output"
+                  >
+                    {copied ? <Check size={12} /> : <Clipboard size={12} />}
+                  </button>
+                  <button
+                    onClick={() => setOutput("")}
+                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-destructive"
+                    title="Clear output"
+                    aria-label="Clear output"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </>
               )}
             </div>
-            <pre className="block min-h-[24rem] overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm text-foreground">
+            <pre className="block min-h-[24rem] overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed text-foreground">
               {output || (
                 <span className="text-muted-foreground">
                   Output appears here after you click Run.
