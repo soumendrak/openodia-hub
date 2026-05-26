@@ -37,6 +37,16 @@ export const gdgocNitRourkelaEvents: Omit<Event, "community">[] = [
   },
   {
     year: "2026",
+    date: "24 Jan 2026",
+    title: "Google Antigravity is Here!",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-google-antigravity-is-here/",
+    type: "Talk",
+    startDate: "2026-01-24",
+    description:
+      "A virtual inspiration session by GDGoC NIT Rourkela exploring real-world tech insights and innovation thinking — how ideas evolve into impactful solutions and how to push beyond conventional limits.",
+  },
+  {
+    year: "2026",
     date: "3–4 Jan 2026",
     title: "HackNITR 7.0",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-sketch-code-conquer-hacknitr-70-is-here/",
