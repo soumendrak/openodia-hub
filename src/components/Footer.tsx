@@ -52,6 +52,11 @@ export function Footer() {
                 </a>
               </li>
               <li>
+                <Link to="/community" className="hover:text-foreground">
+                  Community
+                </Link>
+              </li>
+              <li>
                 <Link to="/roadmap" className="hover:text-foreground">
                   Roadmap
                 </Link>
