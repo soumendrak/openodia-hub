@@ -117,8 +117,11 @@ function PlaygroundPage() {
       py.setStdout({ batched: (s) => setOutput((o) => o + s) });
       py.setStderr({ batched: (s) => setOutput((o) => o + s) });
 
-      setStatusMsg("Loading numpy…");
-      await py.loadPackage("numpy");
+      // pygments is a Pyodide-native package (faster than micropip) but
+      // not auto-loaded. `rich` (a transitive dep of openodia) imports it
+      // eagerly, so we need it on the path before openodia is imported.
+      setStatusMsg("Loading numpy + pygments…");
+      await py.loadPackage(["numpy", "pygments"]);
       if (cancelled) return;
 
       setStatusMsg("Loading micropip and installing openodia…");
