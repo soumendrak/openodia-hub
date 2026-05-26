@@ -6,7 +6,7 @@ export function Footer() {
   return (
     <footer className="border-t border-border mt-32">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-4">
           <div>
             <Link to="/" className="flex items-center gap-2">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground font-display text-xl font-bold">
@@ -66,16 +66,12 @@ export function Footer() {
                   Community
                 </Link>
               </li>
-              <li>
-                <Link to="/roadmap" className="hover:text-foreground">
-                  Roadmap
-                </Link>
-              </li>
-              <li>
-                <Link to="/blog" className="hover:text-foreground">
-                  Blog
-                </Link>
-              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold">Develop</h4>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link to="/api" className="hover:text-foreground">
                   API
@@ -84,6 +80,16 @@ export function Footer() {
               <li>
                 <Link to="/about" className="hover:text-foreground">
                   About
+                </Link>
+              </li>
+              <li>
+                <Link to="/roadmap" className="hover:text-foreground">
+                  Roadmap
+                </Link>
+              </li>
+              <li>
+                <Link to="/blog" className="hover:text-foreground">
+                  Blog
                 </Link>
               </li>
             </ul>
