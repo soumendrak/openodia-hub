@@ -12,7 +12,7 @@ export const Route = createFileRoute("/playground")({
       {
         name: "description",
         content:
-          "Run Python in the browser with the openodia package — transliteration, normalization, and more. No setup, no install.",
+          "Run Python in the browser with the openodia package — tokenization, name generation, alphabet exploration. No setup, no install.",
       },
       { property: "og:title", content: "Playground · OpenOdia" },
       {
@@ -29,28 +29,70 @@ const PYODIDE_SRC = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/p
 
 const SAMPLES: { label: string; code: string }[] = [
   {
-    label: "Transliterate (English → Odia)",
-    code: `import openodia
-from openodia import transliterator
+    label: "Quick tour",
+    code: `# A whirlwind tour of openodia — tokenization, language detection,
+# stopword removal, name generation, alphabet stats. All offline.
+from openodia import ud, name, alphabet
 
-print(transliterator.to_odia("odia bhasha"))
-print(transliterator.to_odia("namaskar"))
+text = (
+    "ଓଡ଼ିଆ ଭାଷା ଭାରତର ଏକ ସମୃଦ୍ଧ ଶାସ୍ତ୍ରୀୟ ଭାଷା । "
+    "ଆମ ସମ୍ବିଧାନ ଅନୁଯାୟୀ ଏହା ଗୋଟିଏ ସରକାରୀ ଭାଷା ।"
+)
+
+print("Detected language:")
+print(" ", ud.detect_language(text))
+
+print("\\nSentences:")
+for s in ud.sentence_tokenizer(text):
+    print(" •", s.strip())
+
+tokens = ud.word_tokenizer(text)
+print(f"\\n{len(tokens)} tokens, first 8: {tokens[:8]}")
+
+print("\\nWithout stopwords:")
+print(" ", ud.remove_stopwords(text, get_str=True))
+
+print(f"\\nAlphabet: {len(alphabet.vowels)} vowels, "
+      f"{len(alphabet.consonants)} consonants, "
+      f"{len(alphabet.numbers)} digits")
+
+print(f"\\nA random Odia name: {name.generate_names(count=1)[0]}")
 `,
   },
   {
-    label: "Random Odia name",
-    code: `from openodia import names
+    label: "Tokenize Odia text",
+    code: `from openodia import ud
 
-for _ in range(5):
-    print(names.male_name())
+text = "ଓଡ଼ିଆ ଭାଷା ଓ ସଂସ୍କୃତି ମୋ ଗର୍ବ । ଆସନ୍ତୁ ଆମେ ସମସ୍ତେ ମିଶି ଏହାକୁ ଆଗକୁ ବଢ଼ାଇବା ।"
+
+print("Words:")
+for t in ud.word_tokenizer(text):
+    print(" •", t)
+
+print("\\nSentences:")
+for s in ud.sentence_tokenizer(text):
+    print(" •", s.strip())
+
+print("\\nContent words only (stopwords removed):")
+print(" ", ud.remove_stopwords(text, get_str=True))
 `,
   },
   {
-    label: "Numeric → Odia digits",
-    code: `from openodia import numbers
+    label: "Random Odia names",
+    code: `from openodia import name
 
-for n in [0, 1, 9, 42, 2026]:
-    print(n, "→", numbers.to_odia_digits(n))
+print("First names:", name.generate_firstnames(5, name_type="male"))
+print("Surnames:", name.generate_surnames(5))
+`,
+  },
+  {
+    label: "Odia alphabet",
+    code: `from openodia import alphabet
+
+print("Vowels:", alphabet.vowels)
+print("Consonants:", alphabet.consonants[:5], "...")
+print("Digits:", alphabet.numbers)
+print("Matras:", alphabet.matras)
 `,
   },
 ];
@@ -207,7 +249,7 @@ function PlaygroundPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
           The openodia Python package, pre-loaded and ready in the browser via Pyodide. No install,
-          no setup — try transliteration, name generation, and number conversion below.
+          no setup — try the Quick tour or pick a feature below.
         </p>
       </Reveal>
 
