@@ -62,6 +62,11 @@ export function Footer() {
                 </Link>
               </li>
               <li>
+                <Link to="/api" className="hover:text-foreground">
+                  API
+                </Link>
+              </li>
+              <li>
                 <Link to="/about" className="hover:text-foreground">
                   About
                 </Link>
