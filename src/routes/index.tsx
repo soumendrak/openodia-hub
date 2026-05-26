@@ -24,7 +24,8 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
       {
         property: "og:description",
-        content: "Projects, tools, and resources for the Odia language — fonts, datasets, models, libraries, and more.",
+        content:
+          "Projects, tools, and resources for the Odia language — fonts, datasets, models, libraries, and more.",
       },
     ],
   }),

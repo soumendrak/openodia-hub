@@ -21,6 +21,7 @@ export const Route = createFileRoute("/tutorials")({
         property: "og:description",
         content:
           "OpenOdia tutorials covering Odia language tech, open-source tools, fonts, and community projects.",
+      },
     ],
   }),
   component: TutorialsPage,

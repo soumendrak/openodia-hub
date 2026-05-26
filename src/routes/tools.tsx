@@ -19,7 +19,8 @@ export const Route = createFileRoute("/tools")({
       { property: "og:title", content: "Tools · OpenOdia" },
       {
         property: "og:description",
-        content: "Curated directory of open-source Odia language tools, fonts, datasets, models, and libraries.",
+        content:
+          "Curated directory of open-source Odia language tools, fonts, datasets, models, and libraries.",
       },
     ],
   }),
@@ -117,7 +118,8 @@ function ToolsPage() {
           Every Odia tool, <span className="text-gradient">in one place.</span>
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
-          Curated directory of open-source Odia language resources — fonts, transliterators, spell checkers, models, datasets, libraries, apps, and more.
+          Curated directory of open-source Odia language resources — fonts, transliterators, spell
+          checkers, models, datasets, libraries, apps, and more.
         </p>
       </Reveal>
 
