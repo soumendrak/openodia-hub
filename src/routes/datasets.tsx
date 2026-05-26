@@ -275,12 +275,15 @@ function DatasetCard({
           {prettyTask(d.task)}
         </span>
         {d.previewable && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full border border-neon/30 bg-neon/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-neon"
-            title="Sample rows can be previewed without leaving the page"
+          <button
+            type="button"
+            onClick={onPreview}
+            className="inline-flex items-center gap-1 rounded-full border border-neon/40 bg-neon/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-neon transition hover:border-neon hover:bg-neon/20"
+            aria-label="Preview sample rows"
+            title="Preview sample rows"
           >
             <Eye size={10} /> Preview
-          </span>
+          </button>
         )}
       </div>
       <a
@@ -295,7 +298,7 @@ function DatasetCard({
       {d.description && (
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{d.description}</p>
       )}
-      <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
+      <div className="mt-4 flex items-center gap-3 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1">
           <Download size={12} /> {formatCount(d.downloads)}
         </span>
@@ -309,18 +312,18 @@ function DatasetCard({
           className="ml-auto inline-flex items-center gap-1 transition hover:text-neon"
           aria-label="Open on Hugging Face"
         >
-          <ExternalLink size={12} /> HF
+          <ExternalLink size={12} /> Hugging Face
         </a>
-        {d.previewable && (
-          <button
-            type="button"
-            onClick={onPreview}
-            className="inline-flex items-center gap-1 rounded-full bg-neon/10 px-2 py-0.5 text-neon transition hover:bg-neon/20"
-          >
-            <Eye size={12} /> Preview
-          </button>
-        )}
       </div>
+      {d.previewable && (
+        <button
+          type="button"
+          onClick={onPreview}
+          className="mt-4 inline-flex items-center justify-center gap-2 rounded-full border border-neon/30 bg-neon/5 px-4 py-2 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/15"
+        >
+          <Eye size={14} /> Preview sample rows
+        </button>
+      )}
     </motion.div>
   );
 }
