@@ -115,9 +115,13 @@ function ToolsPage() {
   const items: DirectoryItem[] = useMemo(() => {
     const awesome = awesomeData?.items ?? [];
     const repos = reposData?.repos ?? [];
-    const tools: DirectoryItem[] = awesome.map((a) => ({
+    // Keys include the array index because the Awesome list reuses the same
+    // paper URL across several entries (e.g. one paper covers both a dataset
+    // and a model). Without the index React sees duplicate keys, drops cards,
+    // and keeps stale DOM nodes alive when filters change.
+    const tools: DirectoryItem[] = awesome.map((a, idx) => ({
       source: "tool",
-      key: `tool:${a.url}`,
+      key: `tool:${idx}:${a.url}`,
       name: a.name,
       url: a.url,
       description: a.description,
@@ -127,9 +131,9 @@ function ToolsPage() {
     const toolUrls = new Set(awesome.map((a) => a.url));
     const repoItems: DirectoryItem[] = repos
       .filter((r) => !toolUrls.has(r.html_url))
-      .map((r) => ({
+      .map((r, idx) => ({
         source: "repo",
-        key: `repo:${r.full_name}`,
+        key: `repo:${idx}:${r.full_name}`,
         name: r.full_name,
         url: r.html_url,
         description: r.description ?? "",
