@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as ModelsRouteImport } from './routes/models'
 import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
@@ -48,6 +49,11 @@ const ToolsRoute = ToolsRouteImport.update({
 const RoadmapRoute = RoadmapRouteImport.update({
   id: '/roadmap',
   path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ModelsRoute = ModelsRouteImport.update({
@@ -169,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
   '/models': typeof ModelsRoute
+  '/playground': typeof PlaygroundRoute
   '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
@@ -196,6 +203,7 @@ export interface FileRoutesByTo {
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
   '/models': typeof ModelsRoute
+  '/playground': typeof PlaygroundRoute
   '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
@@ -224,6 +232,7 @@ export interface FileRoutesById {
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
   '/models': typeof ModelsRoute
+  '/playground': typeof PlaygroundRoute
   '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
@@ -253,6 +262,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/events-feed'
     | '/models'
+    | '/playground'
     | '/roadmap'
     | '/tools'
     | '/tutorials'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/events-feed'
     | '/models'
+    | '/playground'
     | '/roadmap'
     | '/tools'
     | '/tutorials'
@@ -307,6 +318,7 @@ export interface FileRouteTypes {
     | '/events'
     | '/events-feed'
     | '/models'
+    | '/playground'
     | '/roadmap'
     | '/tools'
     | '/tutorials'
@@ -335,6 +347,7 @@ export interface RootRouteChildren {
   EventsRoute: typeof EventsRoute
   EventsFeedRoute: typeof EventsFeedRoute
   ModelsRoute: typeof ModelsRoute
+  PlaygroundRoute: typeof PlaygroundRoute
   RoadmapRoute: typeof RoadmapRoute
   ToolsRoute: typeof ToolsRoute
   TutorialsRoute: typeof TutorialsRoute
@@ -376,6 +389,13 @@ declare module '@tanstack/react-router' {
       path: '/roadmap'
       fullPath: '/roadmap'
       preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/models': {
@@ -543,6 +563,7 @@ const rootRouteChildren: RootRouteChildren = {
   EventsRoute: EventsRoute,
   EventsFeedRoute: EventsFeedRoute,
   ModelsRoute: ModelsRoute,
+  PlaygroundRoute: PlaygroundRoute,
   RoadmapRoute: RoadmapRoute,
   ToolsRoute: ToolsRoute,
   TutorialsRoute: TutorialsRoute,
