@@ -49,10 +49,14 @@ type EventItem = {
 const PAGES: { label: string; path: string }[] = [
   { label: "Home", path: "/" },
   { label: "Tools", path: "/tools" },
+  { label: "Models", path: "/models" },
+  { label: "Datasets", path: "/datasets" },
   { label: "Tutorials", path: "/tutorials" },
   { label: "Events", path: "/events" },
+  { label: "Community", path: "/community" },
   { label: "Roadmap", path: "/roadmap" },
   { label: "Blog", path: "/blog" },
+  { label: "API", path: "/api" },
   { label: "About", path: "/about" },
 ];
 
