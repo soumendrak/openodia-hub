@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, ExternalLink, RefreshCw, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ExternalLink, RefreshCw, Star, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon } from "../components/icons";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
@@ -70,7 +70,10 @@ const PAGE_SIZE = 30;
 type TypeFilter = "all" | "repo" | "tool";
 
 function ToolsPage() {
-  const [page, setPage] = useState(1);
+  // Load More — show items 0..shownCount, button bumps by PAGE_SIZE.
+  // Filters reset back to the initial window so a fresh narrow doesn't
+  // open with hundreds of cards already visible.
+  const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const [q, setQ] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
@@ -177,11 +180,8 @@ function ToolsPage() {
     });
   }, [items, q, category, typeFilter]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  // Clamp on display so a filter that shrinks the result set doesn't strand
-  // the user on a non-existent page; filter handlers reset `page` to 1 too.
-  const displayPage = Math.min(page, totalPages);
-  const pageItems = filtered.slice((displayPage - 1) * PAGE_SIZE, displayPage * PAGE_SIZE);
+  const visibleItems = filtered.slice(0, shownCount);
+  const hasMore = filtered.length > shownCount;
 
   const repoCount = items.filter((i) => i.source === "repo").length;
   const toolCount = items.filter((i) => i.source === "tool").length;
@@ -231,7 +231,7 @@ function ToolsPage() {
               value={q}
               onChange={(e) => {
                 setQ(e.target.value);
-                setPage(1);
+                setShownCount(PAGE_SIZE);
               }}
               placeholder="Search projects, repos, datasets, models… [/]"
               className="w-full rounded-full border border-border bg-surface py-3 pl-11 pr-4 text-sm outline-none transition focus:border-neon"
@@ -254,7 +254,7 @@ function ToolsPage() {
             active={typeFilter === "all"}
             onClick={() => {
               setTypeFilter("all");
-              setPage(1);
+              setShownCount(PAGE_SIZE);
             }}
           >
             All ({total})
@@ -263,7 +263,7 @@ function ToolsPage() {
             active={typeFilter === "tool"}
             onClick={() => {
               setTypeFilter(typeFilter === "tool" ? "all" : "tool");
-              setPage(1);
+              setShownCount(PAGE_SIZE);
             }}
           >
             Tools ({toolCount})
@@ -272,7 +272,7 @@ function ToolsPage() {
             active={typeFilter === "repo"}
             onClick={() => {
               setTypeFilter(typeFilter === "repo" ? "all" : "repo");
-              setPage(1);
+              setShownCount(PAGE_SIZE);
             }}
           >
             Repos ({repoCount})
@@ -290,7 +290,7 @@ function ToolsPage() {
                 active={category === c.name}
                 onClick={() => {
                   setCategory(category === c.name ? null : c.name);
-                  setPage(1);
+                  setShownCount(PAGE_SIZE);
                 }}
               >
                 {c.name} ({c.count})
@@ -308,10 +308,10 @@ function ToolsPage() {
               className="h-44 animate-pulse rounded-2xl border border-border bg-surface"
             />
           ))
-        ) : pageItems.length === 0 ? (
+        ) : visibleItems.length === 0 ? (
           <p className="col-span-full text-muted-foreground">No projects matched.</p>
         ) : (
-          pageItems.map((item, i) => (
+          visibleItems.map((item, i) => (
             <motion.a
               key={item.key}
               href={item.url}
@@ -376,40 +376,19 @@ function ToolsPage() {
         )}
       </div>
 
-      {!isLoading && totalPages > 1 && (
+      {!isLoading && filtered.length > 0 && (
         <div className="mt-10 flex flex-col items-center gap-3">
           <p className="text-xs text-muted-foreground">
-            Page {displayPage} of {totalPages} · {filtered.length} matching
+            Showing {visibleItems.length} of {filtered.length}
           </p>
-          <div className="flex items-center gap-1">
+          {hasMore && (
             <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={displayPage <= 1}
-              className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
+              onClick={() => setShownCount((n) => n + PAGE_SIZE)}
+              className="inline-flex items-center gap-2 rounded-full border border-neon/40 bg-neon/5 px-5 py-2.5 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/15"
             >
-              <ChevronLeft size={14} />
+              Load more <ChevronDown size={14} />
             </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={`inline-flex h-9 w-9 items-center justify-center rounded-full text-sm transition ${
-                  p === displayPage
-                    ? "border border-neon bg-neon/10 text-neon"
-                    : "border border-border hover:border-neon/40 hover:text-foreground text-muted-foreground"
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-            <button
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              disabled={displayPage >= totalPages}
-              className="inline-flex items-center gap-1 rounded-full border border-border px-3 py-2 text-sm hover:border-neon hover:text-neon disabled:opacity-30"
-            >
-              <ChevronRight size={14} />
-            </button>
-          </div>
+          )}
         </div>
       )}
     </div>
