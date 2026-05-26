@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Play, Loader2, Terminal, AlertCircle } from "lucide-react";
+import { Play, Loader2, Terminal, AlertCircle, Sparkles } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { PythonIcon } from "../components/icons";
+import { CodeEditor } from "../components/CodeEditor";
 
 export const Route = createFileRoute("/playground")({
   head: () => ({
@@ -62,10 +63,12 @@ declare global {
   }
 }
 
+type Micropip = { install: (pkg: string | string[]) => Promise<void> };
 type PyodideInterface = {
   loadPackage: (name: string | string[]) => Promise<void>;
-  pyimport: (name: string) => { install: (pkg: string | string[]) => Promise<void> };
+  pyimport: (name: string) => Micropip;
   runPythonAsync: (code: string) => Promise<unknown>;
+  globals: { set: (key: string, value: unknown) => void };
   setStdout: (opts: { batched: (s: string) => void }) => void;
   setStderr: (opts: { batched: (s: string) => void }) => void;
 };
@@ -76,7 +79,11 @@ function PlaygroundPage() {
   const [status, setStatus] = useState<PyodideStatus>("idle");
   const [statusMsg, setStatusMsg] = useState("");
   const [running, setRunning] = useState(false);
+  const [formatting, setFormatting] = useState(false);
   const pyodideRef = useRef<PyodideInterface | null>(null);
+  // Lazy-install black on first format click rather than at boot — it's a
+  // few extra MB and not every visitor cares about formatting.
+  const blackInstalledRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +156,33 @@ function PlaygroundPage() {
     }
   }
 
+  async function format() {
+    const py = pyodideRef.current;
+    if (!py || formatting) return;
+    setFormatting(true);
+    try {
+      if (!blackInstalledRef.current) {
+        setStatusMsg("Installing black for formatting…");
+        const micropip = py.pyimport("micropip");
+        await micropip.install("black");
+        blackInstalledRef.current = true;
+        setStatusMsg("Ready. Hit Run to execute.");
+      }
+      py.globals.set("__src", code);
+      const result = await py.runPythonAsync(
+        "import black\nblack.format_str(__src, mode=black.Mode())",
+      );
+      if (typeof result === "string") {
+        setCode(result);
+      }
+    } catch (err) {
+      // Don't replace code on parse errors — surface the failure in output.
+      setOutput((o) => o + "\n[format failed] " + String(err) + "\n");
+    } finally {
+      setFormatting(false);
+    }
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
       <Reveal>
@@ -198,22 +232,31 @@ function PlaygroundPage() {
           <div className="rounded-2xl border border-border bg-surface overflow-hidden">
             <div className="flex items-center justify-between border-b border-border px-4 py-2">
               <span className="font-mono text-xs text-muted-foreground">main.py</span>
-              <button
-                onClick={run}
-                disabled={status !== "ready" || running}
-                className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-neon to-magenta px-4 py-1.5 text-xs font-medium text-primary-foreground transition disabled:opacity-40"
-              >
-                {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-                Run
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={format}
+                  disabled={status !== "ready" || formatting || running}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon disabled:opacity-40"
+                  title="Format with black"
+                >
+                  {formatting ? (
+                    <Loader2 size={12} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={12} />
+                  )}
+                  Format
+                </button>
+                <button
+                  onClick={run}
+                  disabled={status !== "ready" || running}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-neon to-magenta px-4 py-1.5 text-xs font-medium text-primary-foreground transition disabled:opacity-40"
+                >
+                  {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                  Run
+                </button>
+              </div>
             </div>
-            <textarea
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              spellCheck={false}
-              rows={16}
-              className="block w-full resize-y bg-transparent p-4 font-mono text-sm outline-none"
-            />
+            <CodeEditor value={code} onChange={setCode} rows={16} disabled={status === "loading"} />
           </div>
 
           <div className="rounded-2xl border border-border bg-surface overflow-hidden">
