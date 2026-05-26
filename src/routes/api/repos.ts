@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
 
 type Repo = {
   name: string;
@@ -37,28 +38,42 @@ const GH_HEADERS = {
   ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
 };
 
-async function fetchOrgRepos(org: string): Promise<Repo[]> {
-  const r = await fetch(`https://api.github.com/orgs/${org}/repos?per_page=100&sort=updated`, {
-    headers: GH_HEADERS,
-  });
-  if (!r.ok) return [];
-  return (await r.json()) as Repo[];
-}
+// Safety cap on pagination — current orgs are all well under 100 repos, but
+// without this a single org with >100 would be silently truncated.
+const MAX_PAGES = 5;
 
-async function fetchUserRepos(user: string): Promise<Repo[]> {
-  const r = await fetch(`https://api.github.com/users/${user}/repos?per_page=100&sort=updated`, {
-    headers: GH_HEADERS,
-  });
-  if (!r.ok) return [];
-  return (await r.json()) as Repo[];
+async function fetchOwnerRepos(owner: string, isOrg: boolean): Promise<Repo[]> {
+  const kind = isOrg ? "orgs" : "users";
+  const all: Repo[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    try {
+      const r = await fetchWithTimeout(
+        `https://api.github.com/${kind}/${owner}/repos?per_page=100&sort=updated&page=${page}`,
+        { headers: GH_HEADERS },
+      );
+      if (!r.ok) break;
+      const batch = (await r.json()) as Repo[];
+      all.push(...batch);
+      if (batch.length < 100) break;
+    } catch (err) {
+      console.warn(`fetchOwnerRepos ${owner} page ${page}:`, err);
+      break;
+    }
+  }
+  return all;
 }
 
 async function fetchSingleRepo(ownerRepo: string): Promise<Repo | null> {
-  const r = await fetch(`https://api.github.com/repos/${ownerRepo}`, {
-    headers: GH_HEADERS,
-  });
-  if (!r.ok) return null;
-  return (await r.json()) as Repo;
+  try {
+    const r = await fetchWithTimeout(`https://api.github.com/repos/${ownerRepo}`, {
+      headers: GH_HEADERS,
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as Repo;
+  } catch (err) {
+    console.warn(`fetchSingleRepo ${ownerRepo}:`, err);
+    return null;
+  }
 }
 
 function buildResponse(body: unknown, status: number, cache = true) {
@@ -80,9 +95,9 @@ export const Route = createFileRoute("/api/repos")({
       GET: async ({ request }: { request: Request }) => {
         try {
           const [orgResults, userResults, pinnedResults] = await Promise.all([
-            Promise.all(ORGS.map(fetchOrgRepos)),
-            Promise.all(USERS.map(fetchUserRepos)),
-            Promise.all(PINNED_REPOS.map(fetchSingleRepo)),
+            Promise.allSettled(ORGS.map((o) => fetchOwnerRepos(o, true))).then(settledValues),
+            Promise.allSettled(USERS.map((u) => fetchOwnerRepos(u, false))).then(settledValues),
+            Promise.allSettled(PINNED_REPOS.map(fetchSingleRepo)).then(settledValues),
           ]);
           const pinnedRepos = pinnedResults.filter(Boolean) as Repo[];
           const pinnedNames = new Set(pinnedRepos.map((r) => r.full_name));

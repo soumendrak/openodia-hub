@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { events as staticEvents } from "../data/events";
 import { fetchChapterEvents, CHAPTERS } from "./api/events";
+import { settledValues } from "../lib/fetch-utils";
 import type { Event } from "../data/events/types";
 
 function escapeXml(unsafe: string): string {
@@ -117,10 +118,10 @@ export const Route = createFileRoute("/events-feed")({
       GET: async () => {
         try {
           // Fetch dynamic events
-          const results = await Promise.all(
+          const results = await Promise.allSettled(
             CHAPTERS.map((ch) => fetchChapterEvents(ch.community, ch.slug)),
           );
-          const fetchedEvents = results.flat();
+          const fetchedEvents = settledValues(results).flat();
 
           // Merge static and dynamic events
           const allMergedEventsMap = new Map<string, Event>();
