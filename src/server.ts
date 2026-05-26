@@ -111,6 +111,11 @@ export default {
         return await handleContributors(env);
       }
 
+      // /projects merged into /tools — preserve link equity with a 301.
+      if (originalPath === "/projects") {
+        return Response.redirect(`${url.origin}/tools`, 301);
+      }
+
       // Handle .well-known routes at the workers level — TanStack Router ignores
       // files/directories starting with a dot (hidden files convention)
       if (originalPath === "/.well-known/ai-plugin.json") {
