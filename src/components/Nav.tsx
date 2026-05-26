@@ -102,15 +102,6 @@ export function Nav() {
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
 
-            <a
-              href="https://github.com/soumendrak/openodia-hub"
-              target="_blank"
-              rel="noreferrer"
-              className="hidden rounded-xl border border-border bg-surface/40 px-4 py-2 text-sm font-medium transition hover:border-neon hover:text-neon md:inline-block"
-            >
-              GitHub
-            </a>
-
             <button
               className="md:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
               onClick={() => setOpen((v) => !v)}
