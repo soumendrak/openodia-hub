@@ -1,6 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Menu, X, Sun, Moon } from "lucide-react";
+import { Menu, X, Sun, Moon, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const links = [
@@ -73,6 +73,15 @@ export function Nav() {
           </nav>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("openCommandPalette"))}
+              className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface/40 px-3 py-2 text-sm text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"
+              aria-label="Open search (Cmd+K)"
+            >
+              <Search size={16} />
+              <kbd className="hidden font-mono text-[10px] tracking-wider md:inline">⌘K</kbd>
+            </button>
+
             <button
               onClick={toggleTheme}
               className="rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"

@@ -13,6 +13,7 @@ import { Nav } from "../components/Nav";
 import { Footer } from "../components/Footer";
 import { SmoothScroll } from "../components/SmoothScroll";
 import { ScrollToTop } from "../components/ScrollToTop";
+import { CommandPalette } from "../components/CommandPalette";
 import { JsonLd, siteOrganization, authorPerson, webSiteSchema } from "../lib/jsonld";
 
 function NotFoundComponent() {
@@ -146,6 +147,7 @@ function RootComponent() {
       <SmoothScroll />
       <ScrollToTop />
       <Nav />
+      <CommandPalette />
       <main className="pt-24">
         <Outlet />
       </main>
