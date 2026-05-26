@@ -91,7 +91,7 @@ print("Surnames:", name.generate_surnames(5))
 print("Vowels:", alphabet.vowels)
 print("Consonants:", alphabet.consonants[:5], "...")
 print("Digits:", alphabet.numbers)
-print("Matra:", alphabet.matra)
+print("Matras:", alphabet.matras)
 `,
   },
 ];
