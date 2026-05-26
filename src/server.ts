@@ -2,10 +2,15 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { readEventsFromD1, syncEventsToD1, type D1Like } from "./lib/events-store";
+import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
+import { settledValues } from "./lib/fetch-utils";
+import type { Event } from "./data/events/types";
 
 type KVRead = { get: (key: string) => Promise<string | null> };
 type Env = {
   CONTRIBUTORS_KV?: KVRead;
+  EVENTS_DB?: D1Like;
 };
 
 type ServerEntry = {
@@ -96,6 +101,61 @@ async function handleContributors(env: Env): Promise<Response> {
   });
 }
 
+const EVENTS_CORS = {
+  "Content-Type": "application/json",
+  "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, User-Agent",
+};
+
+async function liveScrapeEvents(): Promise<Event[]> {
+  const settled = await Promise.allSettled(
+    CHAPTERS.map((c) => fetchChapterEvents(c.community, c.slug)),
+  );
+  return settledValues(settled).flat();
+}
+
+async function handleEvents(env: Env, request: Request): Promise<Response> {
+  let events: Event[] = [];
+  let source: "d1" | "scrape" = "scrape";
+
+  if (env.EVENTS_DB) {
+    try {
+      events = await readEventsFromD1(env.EVENTS_DB);
+      if (events.length > 0) source = "d1";
+    } catch (err) {
+      console.warn("EVENTS_DB read failed; falling back to live scrape", err);
+    }
+  }
+
+  if (events.length === 0) {
+    events = await liveScrapeEvents();
+    source = "scrape";
+  }
+
+  const url = new URL(request.url);
+  const pageParam = url.searchParams.get("page");
+
+  if (pageParam === null) {
+    return new Response(JSON.stringify({ events, source }), {
+      status: 200,
+      headers: EVENTS_CORS,
+    });
+  }
+
+  const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50);
+  const pageNum = parseInt(pageParam || "1", 10) || 1;
+  const start = (pageNum - 1) * limit;
+  const pageItems = events.slice(start, start + limit);
+  const nextCursor = start + limit < events.length ? String(pageNum + 1) : undefined;
+
+  return new Response(
+    JSON.stringify({ events: pageItems, nextCursor, total: events.length, source }),
+    { status: 200, headers: EVENTS_CORS },
+  );
+}
+
 export default {
   async fetch(request: Request, env: Env, ctx: unknown) {
     try {
@@ -109,6 +169,12 @@ export default {
       // Kept out of TanStack routes so the handler can reach env bindings.
       if (originalPath === "/api/contributors") {
         return await handleContributors(env);
+      }
+
+      // Served from D1 (populated daily by the scheduled handler below).
+      // Falls back to live Bevy scrape if the DB is unavailable or empty.
+      if (originalPath === "/api/events") {
+        return await handleEvents(env, request);
       }
 
       // /projects merged into /tools — preserve link equity with a 301.
@@ -219,6 +285,22 @@ export default {
                 responses: { "200": { description: "Array of events" } },
               },
             },
+            "/api/models": {
+              get: {
+                summary: "Odia AI models",
+                description:
+                  "Live registry of models tagged for Odia on Hugging Face. Returns normalized fields (author, name, task, downloads, likes, tags).",
+                responses: { "200": { description: "Array of models" } },
+              },
+            },
+            "/api/datasets": {
+              get: {
+                summary: "Odia datasets",
+                description:
+                  "Live browser of datasets with `language:or` on Hugging Face. Returns normalized fields including extracted task category.",
+                responses: { "200": { description: "Array of datasets" } },
+              },
+            },
             "/api/pypi": {
               get: {
                 summary: "OpenOdia PyPI package info",
@@ -309,6 +391,21 @@ export default {
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();
+    }
+  },
+
+  // Cloudflare cron trigger (configured in wrangler.jsonc). Refreshes the
+  // EVENTS_DB from Bevy daily so the request path never has to scrape.
+  async scheduled(_event: unknown, env: Env, _ctx: unknown): Promise<void> {
+    if (!env.EVENTS_DB) {
+      console.warn("scheduled: EVENTS_DB not bound; skipping events sync");
+      return;
+    }
+    try {
+      const result = await syncEventsToD1(env.EVENTS_DB);
+      console.log(`events sync: ${result.upserted} upserted`);
+    } catch (err) {
+      console.error("events sync failed", err);
     }
   },
 };

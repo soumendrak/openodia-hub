@@ -1,23 +1,25 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Menu, X, Sun, Moon, Search } from "lucide-react";
+import { Menu, X, Sun, Moon, Search, Languages } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation, type TranslationKey } from "../lib/i18n";
 
-const links = [
-  { to: "/", label: "Home" },
-  { to: "/tools", label: "Tools" },
-  { to: "/tutorials", label: "Tutorials" },
-  { to: "/events", label: "Events" },
-  { to: "/community", label: "Community" },
-  { to: "/roadmap", label: "Roadmap" },
-  { to: "/blog", label: "Blog" },
-  { to: "/about", label: "About" },
-] as const;
+const links: ReadonlyArray<{ to: string; labelKey: TranslationKey }> = [
+  { to: "/", labelKey: "nav.home" },
+  { to: "/tools", labelKey: "nav.tools" },
+  { to: "/tutorials", labelKey: "nav.tutorials" },
+  { to: "/events", labelKey: "nav.events" },
+  { to: "/community", labelKey: "nav.community" },
+  { to: "/roadmap", labelKey: "nav.roadmap" },
+  { to: "/blog", labelKey: "nav.blog" },
+  { to: "/about", labelKey: "nav.about" },
+];
 
 export function Nav() {
   const [open, setOpen] = useState(false);
   const { location } = useRouterState();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const { locale, setLocale, t } = useTranslation();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -66,7 +68,7 @@ export function Nav() {
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     />
                   )}
-                  <span className="relative">{l.label}</span>
+                  <span className="relative">{t(l.labelKey)}</span>
                 </Link>
               );
             })}
@@ -76,16 +78,26 @@ export function Nav() {
             <button
               onClick={() => window.dispatchEvent(new CustomEvent("openCommandPalette"))}
               className="inline-flex items-center gap-2 rounded-xl border border-border bg-surface/40 px-3 py-2 text-sm text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"
-              aria-label="Open search (Cmd+K)"
+              aria-label={t("nav.search.aria")}
             >
               <Search size={16} />
               <kbd className="hidden font-mono text-[10px] tracking-wider md:inline">⌘K</kbd>
             </button>
 
             <button
+              onClick={() => setLocale(locale === "en" ? "or" : "en")}
+              className="hidden items-center gap-1 rounded-xl border border-border bg-surface/40 px-2 py-2 text-xs text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer md:inline-flex"
+              aria-label={t("nav.locale.aria")}
+              title={t("nav.locale.aria")}
+            >
+              <Languages size={14} />
+              <span className="font-mono">{locale === "or" ? "ଓ" : "EN"}</span>
+            </button>
+
+            <button
               onClick={toggleTheme}
               className="rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"
-              aria-label="Toggle theme"
+              aria-label={t("nav.theme.aria")}
             >
               {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
             </button>
@@ -102,7 +114,7 @@ export function Nav() {
             <button
               className="md:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
               onClick={() => setOpen((v) => !v)}
-              aria-label="Toggle menu"
+              aria-label={t("nav.menu.aria")}
             >
               {open ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -124,7 +136,7 @@ export function Nav() {
                   onClick={() => setOpen(false)}
                   className="rounded-lg px-4 py-3 text-sm hover:bg-surface-2"
                 >
-                  {l.label}
+                  {t(l.labelKey)}
                 </Link>
               ))}
             </motion.div>
