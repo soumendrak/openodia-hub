@@ -41,6 +41,36 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
   },
   {
     year: "2025",
+    date: "18 May 2025",
+    title: "Cloud Community Day 2025",
+    url: "https://gdg.community.dev/events/details/google-gdg-cloud-bhubaneswar-presents-cloud-community-day-2025/cohost-gdg-bhubaneswar/",
+    type: "Conference",
+    location: "Bhubaneswar, India",
+    description:
+      "A community-driven cloud conference co-hosted by GDG Cloud Bhubaneswar and GDG Bhubaneswar, featuring deep-dive sessions on Google Cloud, AI/ML, DevOps, and Kubernetes — with expert talks, hands-on demos, networking, and swags for developers, architects, students, and entrepreneurs.",
+  },
+  {
+    year: "2025",
+    date: "25–26 Apr 2025",
+    title: "HackForge — Build With AI",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-hackforge-build-with-ai/",
+    type: "Hackathon",
+    location: "Regional College of Management, Bhubaneswar",
+    description:
+      "A 48-hour hackathon (Innovate48) by GDG Bhubaneswar challenging participants to solve real-world problems in fintech, education, and social domains using Google AI technologies — Gemini, Gemma, and Vertex AI. Open to all skill levels as part of the Brahmastra 2025 tech fest.",
+  },
+  {
+    year: "2025",
+    date: "2 Mar 2025",
+    title: "Kickstart Your AI Journey with Vertex AI and Google Cloud",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-kickstart-your-ai-journey-with-vertex-ai-and-google-cloud/",
+    type: "Workshop",
+    location: "Srusti Academy of Management and Technology, Bhubaneswar",
+    description:
+      "A hands-on workshop by GDG Bhubaneswar introducing AI development with Google Cloud's Vertex AI and Cloud Run — guiding participants through deploying ML models, running cloud analytics, and building real-time AI projects in an interactive, project-based format.",
+  },
+  {
+    year: "2025",
     date: "7 Sep 2025",
     title: "Getting Started with Vertex AI on Google Cloud",
     url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-getting-started-with-vertex-ai-on-google-cloud/",
@@ -56,5 +86,25 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     type: "Talk",
     description:
       "A virtual GDG Bhubaneswar speaker session on writing clean, test-driven code and building a life beyond the corporate 9–5 — covering freelancing, entrepreneurship, and continuous learning for developers at all levels.",
+  },
+  {
+    year: "2024",
+    date: "10 Nov 2024",
+    title: "DevFest 2024 Bhubaneswar",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-devfest-2024-bhubaneswar/",
+    type: "Conference",
+    location: "Bhubaneswar, India",
+    description:
+      "GDG Bhubaneswar's annual developer festival for 2024 — a full day of expert talks, hands-on workshops, startup demos, and networking. Covered responsible AI, emerging technologies, and Google Cloud, with giveaways and community-building activities.",
+  },
+  {
+    year: "2024",
+    date: "29 Sep 2024",
+    title: "Cloud Community Day Bhubaneswar 2024",
+    url: "https://gdg.community.dev/events/details/google-gdg-cloud-bhubaneswar-presents-cloud-community-day-bhubaneswar-2024/",
+    type: "Conference",
+    location: "Bhubaneswar, India",
+    description:
+      "A day-long Google Cloud conference by GDG Cloud Bhubaneswar featuring technical workshops, hands-on training, interactive demos, and networking — offering developers and professionals insights into the latest Google Cloud technologies and industry best practices.",
   },
 ];

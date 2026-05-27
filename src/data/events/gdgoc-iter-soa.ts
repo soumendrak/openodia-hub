@@ -78,4 +78,53 @@ export const gdgocIterSoaEvents: Omit<Event, "community">[] = [
     description:
       "An in-person competitive coding contest by GDGoC ITER SOA University evaluating participants' problem-solving abilities in Data Structures and Algorithms, structured across difficulty tiers aligned to different academic years.",
   },
+  {
+    year: "2025",
+    date: "2 Nov 2025",
+    title: "DesignSphere",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india-presents-designsphere/",
+    type: "Workshop",
+    description:
+      "An online design competition by GDGoC ITER SOA with two parallel tracks — Frontend (translating designs into functional implementations) and Figma/Canva (creating themed UI prototypes). Evaluated creativity, visual aesthetics, and technical proficiency under time-bound challenges.",
+  },
+  {
+    year: "2025",
+    date: "26 Mar 2025",
+    title: "CODEQUEST",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india-presents-codequest/",
+    type: "Hackathon",
+    location: "ITER SOA University, Bhubaneswar",
+    description:
+      "An intense team-based coding competition by GDGoC ITER SOA featuring three escalating rounds of algorithmic puzzles, strategic team swaps, and a real-time leaderboard — testing logic, speed, and problem-solving under pressure.",
+  },
+  {
+    year: "2025",
+    date: "25 Mar 2025",
+    title: "TORMENTA",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india-presents-tormenta/",
+    type: "Workshop",
+    location: "ITER SOA University, Bhubaneswar",
+    description:
+      "A rapid-fire ideathon by GDGoC ITER SOA where randomly assigned teams tackled surprise themes under tight time constraints — brainstorming, innovating, and delivering impactful pitches in a high-energy format.",
+  },
+  {
+    year: "2025",
+    date: "25 Mar 2025",
+    title: "AI TREASURE-HUNT",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india-presents-ai-treasure-hunt/",
+    type: "Workshop",
+    location: "ITER SOA University, Bhubaneswar",
+    description:
+      "An AI-powered puzzle adventure by GDGoC ITER SOA where teams solved AI-driven challenges, QR-based riddles, and Scissors Cipher puzzles — each solved clue unlocking the next stage in a thrilling campus-wide hunt.",
+  },
+  {
+    year: "2024",
+    date: "26 Oct 2024",
+    title: "Techwiz",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india-presents-techwiz/",
+    type: "Hackathon",
+    location: "ITER SOA University, Bhubaneswar",
+    description:
+      "A no-code quiz competition by GDGoC ITER SOA combining community building with Google Workspace skills — challenging participants to think creatively and demonstrate technical aptitude without writing code.",
+  },
 ];
