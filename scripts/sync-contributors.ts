@@ -119,7 +119,7 @@ const CURATED_REPOS: string[] = [
 ];
 
 const MIN_CONTRIBUTIONS = 10;
-const KV_KEY = "contributors:v1";
+const KV_KEY = "contributors:v2";
 
 type GitHubContributor = {
   login: string;
@@ -128,7 +128,21 @@ type GitHubContributor = {
   contributions: number;
 };
 
-type Contributor = GitHubContributor & { repos: string[] };
+type RepoDetail = {
+  name: string;
+  full_name: string;
+  contributions: number;
+  stars: number;
+  html_url: string;
+};
+
+type Contributor = {
+  login: string;
+  avatar_url: string;
+  html_url: string;
+  contributions: number;
+  repos: RepoDetail[];
+};
 
 type Payload = {
   contributors: Contributor[];
@@ -170,28 +184,62 @@ async function fetchContributors(fullName: string, token: string): Promise<GitHu
   return data ?? [];
 }
 
+async function fetchRepoDetails(
+  fullName: string,
+  token: string,
+): Promise<{ stars: number; html_url: string } | null> {
+  const data = await gh<{ stargazers_count: number; html_url: string }>(
+    `https://api.github.com/repos/${fullName}`,
+    token,
+  );
+  return data ? { stars: data.stargazers_count, html_url: data.html_url } : null;
+}
+
 async function aggregate(token: string): Promise<Payload> {
   const perRepo = await Promise.all(
-    CURATED_REPOS.map(async (fullName) => ({
-      repo: fullName.split("/")[1],
-      contributors: await fetchContributors(fullName, token),
-    })),
+    CURATED_REPOS.map(async (fullName) => {
+      const parts = fullName.split("/");
+      const repoName = parts[1];
+      const [contributors, repoDetails] = await Promise.all([
+        fetchContributors(fullName, token),
+        fetchRepoDetails(fullName, token),
+      ]);
+      return {
+        repo: repoName,
+        full_name: fullName,
+        contributors,
+        stars: repoDetails?.stars ?? 0,
+        html_url: repoDetails?.html_url ?? `https://github.com/${fullName}`,
+      };
+    }),
   );
 
   const map = new Map<string, Contributor>();
-  for (const { repo, contributors } of perRepo) {
+  for (const { repo, full_name, contributors, stars, html_url } of perRepo) {
     for (const c of contributors) {
       const existing = map.get(c.login);
       if (existing) {
         existing.contributions += c.contributions;
-        if (!existing.repos.includes(repo)) existing.repos.push(repo);
+        const seen = existing.repos.find((r) => r.name === repo);
+        if (seen) {
+          // shouldn't happen with curated list, but be safe
+          seen.contributions += c.contributions;
+        } else {
+          existing.repos.push({
+            name: repo,
+            full_name,
+            contributions: c.contributions,
+            stars,
+            html_url,
+          });
+        }
       } else {
         map.set(c.login, {
           login: c.login,
           avatar_url: c.avatar_url,
           html_url: c.html_url,
           contributions: c.contributions,
-          repos: [repo],
+          repos: [{ name: repo, full_name, contributions: c.contributions, stars, html_url }],
         });
       }
     }
