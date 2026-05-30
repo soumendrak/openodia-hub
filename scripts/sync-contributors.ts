@@ -239,9 +239,7 @@ async function aggregate(token: string): Promise<Payload> {
           avatar_url: c.avatar_url,
           html_url: c.html_url,
           contributions: c.contributions,
-          repos: [
-            { name: repo, full_name, contributions: c.contributions, stars, html_url },
-          ],
+          repos: [{ name: repo, full_name, contributions: c.contributions, stars, html_url }],
         });
       }
     }

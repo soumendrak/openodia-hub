@@ -61,9 +61,7 @@ function RepoRow({ repo }: { repo: RepoDetail | string }) {
       className="group flex items-center gap-3 rounded-lg border border-border/50 bg-surface/40 px-3 py-2 text-sm transition hover:border-neon/30 hover:bg-surface/60"
     >
       <GitFork size={14} className="shrink-0 text-muted-foreground" />
-      <span className="min-w-0 flex-1 truncate font-mono text-xs">
-        {repo.full_name}
-      </span>
+      <span className="min-w-0 flex-1 truncate font-mono text-xs">{repo.full_name}</span>
       <span className="flex shrink-0 items-center gap-1 tabular-nums text-muted-foreground">
         <Star size={12} />
         {repo.stars}
@@ -71,7 +69,10 @@ function RepoRow({ repo }: { repo: RepoDetail | string }) {
       <span className="shrink-0 rounded-full bg-neon/10 px-2 py-0.5 tabular-nums text-xs text-neon">
         {repo.contributions} {repo.contributions === 1 ? "commit" : "commits"}
       </span>
-      <ExternalLink size={12} className="shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+      <ExternalLink
+        size={12}
+        className="shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100"
+      />
     </a>
   );
 }

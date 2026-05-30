@@ -45,9 +45,7 @@ function RepoRow({ repo }: { repo: RepoDetail | string }) {
     return (
       <div className="flex items-center gap-3 rounded-lg border border-border/40 bg-surface/30 px-3 py-1.5 text-xs">
         <GitFork size={12} className="shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">
-          {repo}
-        </span>
+        <span className="min-w-0 flex-1 truncate font-mono text-muted-foreground">{repo}</span>
         <span className="shrink-0 rounded-full bg-surface/50 px-1.5 py-0.5 text-[10px] text-muted-foreground">
           (refreshing…)
         </span>
@@ -161,7 +159,9 @@ export function ContributorLeaderboard({ limit = 5 }: { limit?: number }) {
                     <RepoList repos={c.repos} />
                     <div className="mt-3 flex items-center justify-between border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
                       <span>{c.contributions.toLocaleString()} total commits</span>
-                      <span>{c.repos.length} {c.repos.length === 1 ? "repo" : "repos"}</span>
+                      <span>
+                        {c.repos.length} {c.repos.length === 1 ? "repo" : "repos"}
+                      </span>
                     </div>
                   </div>
                 </div>
