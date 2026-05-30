@@ -14,11 +14,51 @@ type Repo = {
   topics?: string[];
 };
 
-const ORGS: string[] = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "OdiaNLP"];
+const ORGS: string[] = [
+  "odisha-ml",
+  "OdiagenAI",
+  "OdiaWikimedia",
+  "ofdn",
+  "OdiaNLP",
+  "Odia-Digital",
+  "lohit-fonts",
+];
 
-const USERS: string[] = ["shantipriyap"];
+const USERS: string[] = [
+  "shantipriyap",
+  "imsbg",
+  "coldbreeze16",
+  "dmort27",
+  "goru001",
+  "sovopr",
+  "jyotishankar04",
+  "Deeptiman",
+  "nsoum",
+  "SantoshNayak",
+  "gyan111",
+  "odiaorg",
+  "shrixtacy",
+  "HimanshuMohanty-Git24",
+  "GnsP",
+  "sushantamishra79",
+  "mohitkdas",
+  "RajeebLochan",
+];
 
-const PINNED_REPOS: string[] = ["soumendrak/aidaybbsr2025demo", "soumendrak/odia-2048"];
+const PINNED_REPOS: string[] = [
+  "soumendrak/aidaybbsr2025demo",
+  "soumendrak/odia-2048",
+  "notofonts/noto-sans-oriya",
+  "notofonts/oriya",
+  "silnrsi/font-japa-sans-oriya",
+  "gooselinux/hunspell-or",
+  "gooselinux/hyphen-or",
+  "gooselinux/lohit-oriya-fonts",
+  "nlci/orya-font-asika",
+  "nlci/orya-font-sans",
+  "nlci/orya-keybd-winscript",
+  "pld-linux/aspell-or",
+];
 
 const githubToken = process.env.GITHUB_TOKEN;
 const GH_HEADERS = {
