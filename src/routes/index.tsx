@@ -8,8 +8,9 @@ import { Marquee } from "../components/Marquee";
 import { FEATURED_VIDEOS, YOUTUBE_CHANNEL } from "../data/videos";
 import { YoutubeIcon, GithubIcon, PythonIcon } from "../components/icons";
 import { FaqSection } from "../components/FaqSection";
+import { ContributorGrid } from "../components/ContributorGrid";
+import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
 import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
-import { CONTRIBUTORS } from "../data/contributors";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -18,12 +19,13 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A home for open-source Odia language projects: the OpenOdia Python package, the @openodia YouTube channel, and the Awesome-Odia-AI directory.",
+          "A home for open-source Odia language projects: from the OpenOdia Python package and the @openodia YouTube channel to a curated directory of Odia tools, fonts, models, and datasets.",
       },
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
       {
         property: "og:description",
-        content: "Projects, tools, and AI resources for ଓଡ଼ିଆ — curated by Soumendra Kumar Sahoo.",
+        content:
+          "Open-source repos, tools, datasets, models, libraries, fonts, and resources for the Odia language.",
       },
     ],
   }),
@@ -38,29 +40,60 @@ function Home() {
       <Hero />
       <Pillars />
       <Stats />
-      <Contributors />
       <Videos />
+      <ContributorGrid />
+      <ContributorLeaderboard limit={5} />
       <FaqSection />
-      <JsonLd data={faqPageSchema([
-        { question: "What is OpenOdia?", answer: "OpenOdia is a hub for Odia language open-source — a growing collection of tools, libraries, and resources making Odia a first-class citizen in modern AI and software. It spans a YouTube channel (@openodia), a Python package on PyPI, and the Awesome-Odia-AI directory." },
-        { question: "How can I contribute to Odia AI?", answer: "You can contribute by joining the odisha-ml GitHub organization, submitting tools to Awesome-Odia-AI, publishing Odia-language Python packages to PyPI, creating tutorial content for @openodia, or participating in OdishaAI community events." },
-        { question: "What Odia language AI tools exist?", answer: "Over 60 tools and resources are listed in the Awesome-Odia-AI directory — including speech recognition (STT), text-to-speech (TTS), datasets, fine-tuned LLMs, transliteration libraries, and NLP toolkits. Browse them at openodia.com/tools." },
-        { question: "Who maintains OpenOdia?", answer: "OpenOdia is built and maintained by Soumendra Kumar Sahoo, an observability engineer at PepsiCo. It is part of the broader OdishaAI community initiative uniting Odias in AI/ML globally." },
-        { question: "Where can I learn Odia NLP?", answer: "The @openodia YouTube channel features tutorials in both Odia and English covering AI, NLP, and language technology. See openodia.com/tutorials." },
-        { question: "Is OpenOdia open source?", answer: "Yes. All code is open source under the MIT license. The website is at github.com/soumendrak/openodia-hub." },
-        { question: "What is the OpenOdia Python package?", answer: "The openodia PyPI package provides practical tools for Odia language processing including transliteration, text normalization, and language detection. Install with 'pip install openodia'." },
-      ])} />
+      <JsonLd
+        data={faqPageSchema([
+          {
+            question: "What is OpenOdia?",
+            answer:
+              "OpenOdia is a hub for Odia language open-source — a growing collection of tools, fonts, datasets, models, libraries, and resources. It spans a YouTube channel (@openodia), a Python package on PyPI, and a curated directory of Odia projects.",
+          },
+          {
+            question: "How can I contribute to Odia open source?",
+            answer:
+              "You can contribute by joining the odisha-ml GitHub organization, submitting tools and projects to our directory, publishing Odia-language libraries to PyPI, creating tutorial content for @openodia, or sharing your own Odia open-source projects.",
+          },
+          {
+            question: "What kinds of Odia tools are listed here?",
+            answer:
+              "Everything open source: fonts, transliterators, spell checkers, speech models, NLP libraries, datasets, dictionaries, OCR tools, games, language learning apps, and more. Browse them at openodia.com/tools.",
+          },
+          {
+            question: "Who maintains OpenOdia?",
+            answer:
+              "OpenOdia is built and maintained by Soumendra Kumar Sahoo, an observability engineer at PepsiCo, with contributions from the Odia open-source community worldwide.",
+          },
+          {
+            question: "Where can I learn about Odia language technology?",
+            answer:
+              "The @openodia YouTube channel features tutorials in both Odia and English covering language processing, open-source tools, font development, and more. See openodia.com/tutorials.",
+          },
+          {
+            question: "Is OpenOdia open source?",
+            answer:
+              "Yes. All code is open source under the MIT license. The website is at github.com/soumendrak/openodia-hub.",
+          },
+          {
+            question: "What is the OpenOdia Python package?",
+            answer:
+              "The openodia PyPI package provides practical tools for Odia language processing including transliteration, text normalization, and language detection. Install with 'pip install openodia'.",
+          },
+        ])}
+      />
       <JsonLd data={breadcrumbSchema([{ name: "Home", url: "https://openodia.com" }])} />
       <Marquee
         items={[
           "OpenOdia",
-          "Awesome-Odia-AI",
-          "@openodia",
-          "Odia NLP",
-          "Transliteration",
+          "Fonts",
           "Datasets",
-          "Speech",
-          "LLMs",
+          "Models",
+          "Transliteration",
+          "Libraries",
+          "Tools",
+          "Open Source",
         ]}
       />
     </>
@@ -78,15 +111,7 @@ function Hero() {
         className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md"
       >
         <Sparkles size={14} className="text-neon" />
-        Built by{" "}
-        <a
-          href="https://www.soumendrak.com"
-          target="_blank"
-          rel="noreferrer"
-          className="text-foreground hover:text-neon transition"
-        >
-          <span className="text-foreground">Soumendra Kumar Sahoo</span>
-        </a>
+        Open source community for the Odia language
       </motion.span>
 
       <h1 className="mt-6 font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
@@ -124,9 +149,9 @@ function Hero() {
         transition={{ delay: 0.85 }}
         className="mt-8 flex flex-wrap items-center gap-3"
       >
-        <Link to="/projects">
+        <Link to="/tools">
           <MagneticButton>
-            Explore projects <ArrowRight size={16} />
+            Explore the directory <ArrowRight size={16} />
           </MagneticButton>
         </Link>
         <MagneticButton variant="ghost" href={YOUTUBE_CHANNEL} external>
@@ -151,7 +176,7 @@ const pillars = [
   {
     icon: <YoutubeIcon size={22} />,
     title: "YouTube channel",
-    desc: "Tutorials, talks, and demos in Odia & English at @openodia.",
+    desc: "Tutorials, talks, and demos in Odia & English covering language tech, open source, and AI.",
     href: YOUTUBE_CHANNEL,
     color: "from-magenta to-saffron",
     cta: "Visit channel",
@@ -161,14 +186,15 @@ const pillars = [
     icon: <PythonIcon size={22} />,
     title: "OpenOdia · PyPI",
     desc: "A Python package of practical tools for the Odia language.",
-    href: "/projects",
+    href: "https://pypi.org/project/openodia/",
     color: "from-neon to-magenta",
     cta: "See package",
+    external: true,
   },
   {
     icon: <Star size={22} />,
-    title: "Awesome-Odia-AI",
-    desc: "A curated, live directory of Odia datasets, models, and tools.",
+    title: "Odia Tools Directory",
+    desc: "A curated, live directory of Odia fonts, datasets, models, libraries, and tools.",
     href: "/tools",
     color: "from-saffron to-neon",
     cta: "Browse tools",
@@ -255,45 +281,6 @@ function Stats() {
   );
 }
 
-function Contributors() {
-  return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
-      <Reveal>
-        <h2 className="font-display text-3xl font-semibold md:text-5xl">Contributors.</h2>
-        <p className="mt-2 max-w-xl text-muted-foreground">
-          The people building open-source for the Odia language.
-        </p>
-      </Reveal>
-
-      <div className="mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {CONTRIBUTORS.map((c, i) => (
-          <Reveal key={c.login} delay={i * 0.03}>
-            <a
-              href={c.github_url}
-              target="_blank"
-              rel="noreferrer"
-              className="group flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 transition hover:border-neon/40 hover:bg-surface-2"
-            >
-              <img
-                src={c.avatar_url}
-                alt={c.name}
-                className="h-12 w-12 rounded-full border border-border object-cover"
-                loading="lazy"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium group-hover:text-neon">
-                  {c.name}
-                </div>
-                <div className="truncate text-xs text-muted-foreground">{c.projects}</div>
-              </div>
-            </a>
-          </Reveal>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function Videos() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
@@ -316,7 +303,7 @@ function Videos() {
         {FEATURED_VIDEOS.map((v, i) => (
           <Reveal key={i} delay={i * 0.06}>
             <a
-              href={`https://www.youtube.com/watch?v=${v.id}`}
+              href={`https://www.youtube.com/watch?v=${v.id}${v.startTime ? `&t=${v.startTime}s` : ""}`}
               target="_blank"
               rel="noreferrer"
               className="group block overflow-hidden rounded-2xl border border-border bg-surface"

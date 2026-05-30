@@ -34,67 +34,56 @@ OpenOdia is the hub for Odia language open-source. Built and maintained by [Soum
 
 This repository is the web frontend that brings everything together.
 
+---
+
+## What belongs here
+
+**Everything open source in the Odia language.** No AI gatekeeping. If it's Odia, open source, and useful — it belongs.
+
+| Category | Examples |
+|---|---|
+| 🎯 **Language tools** | Transliterators, spell checkers, grammar tools, Unicode converters, OCR |
+| 🖋 **Fonts & typography** | Open-source Odia fonts, IMEs, keyboard layouts |
+| 📚 **Datasets** | Parallel corpora, monolingual texts, speech data, dictionaries |
+| 🧠 **Models (open weight)** | STT, TTS, embedding, LLM fine-tunes for Odia |
+| 🐍 **Libraries** | Python/JS/Rust packages for Odia text processing, dates, numerals |
+| 🎮 **Applications** | Games, apps, utilities built for or in Odia |
+| 📖 **Educational** | Language learning tools, interactive tutorials, grammar references |
+| 🔧 **Infrastructure** | Odia localization tools, CI/CD for Odia projects, evaluation benchmarks |
+
+---
+
 ## Tech Stack
 
-| Layer       | Technology                                            |
-| ----------- | ----------------------------------------------------- |
-| Framework   | [TanStack Start](https://tanstack.com/start)          |
-| Routing     | [TanStack Router](https://tanstack.com/router)        |
-| Data        | [TanStack Query](https://tanstack.com/query)          |
-| UI          | React 19, Tailwind CSS 4, Radix UI, Framer Motion     |
-| Icons       | Lucide React                                          |
-| Deployment  | [Cloudflare Workers](https://workers.cloudflare.com/) |
-| Package mgr | [Bun](https://bun.sh)                                 |
+| Layer        | Technology                                            |
+| ------------ | ----------------------------------------------------- |
+| Framework    | [TanStack Start](https://tanstack.com/start)          |
+| Routing      | [TanStack Router](https://tanstack.com/router)        |
+| Data         | [TanStack Query](https://tanstack.com/query)          |
+| UI           | React 19, Tailwind CSS 4, Radix UI, Framer Motion     |
+| Icons        | Lucide React                                          |
+| Deployment   | [Cloudflare Workers](https://workers.cloudflare.com/) |
+| Package mgr  | [Bun](https://bun.sh)                                 |
+
+---
 
 ## Getting started
 
 ### Prerequisites
 
-- [Bun](https://bun.sh) (the project uses Bun as its package manager)
+- [Bun](https://bun.sh)
 - Node.js 22+
 
-### Setup
+### Install
 
 ```bash
-# Clone the repo
 git clone https://github.com/soumendrak/openodia-hub.git
 cd openodia-hub
-
-# Install dependencies
 bun install
-
-# Start the dev server
 bun run dev
 ```
 
-The dev server starts at `http://localhost:3000`.
-
-### Environment variables
-
-Copy `.env.example` to `.env` and fill in the values:
-
-```bash
-cp .env.example .env
-```
-
-| Variable          | Required | Purpose                                                                                                 |
-| ----------------- | -------- | ------------------------------------------------------------------------------------------------------- |
-| `YOUTUBE_API_KEY` | Optional | Sorts Tutorials page videos by view count. Without it, videos are shown in reverse-chronological order. |
-
-#### Getting a YouTube Data API v3 key (free)
-
-1. Open [Google Cloud Console](https://console.cloud.google.com) and create or select a project.
-2. Go to **APIs & Services → Enable APIs** → search **YouTube Data API v3** → Enable.
-3. Go to **APIs & Services → Credentials → Create Credentials → API Key**.
-4. (Recommended) Restrict the key to the **YouTube Data API v3** only.
-
-The free tier provides **10,000 units/day**. Each Tutorials page load consumes **1 unit** (one batched `videos.list` call), and the response is cached for one hour.
-
-#### Setting the secret in production (Cloudflare Workers)
-
-```bash
-npx wrangler secret put YOUTUBE_API_KEY
-```
+The dev server starts at `http://localhost:9090`.
 
 ### Available scripts
 
@@ -106,94 +95,189 @@ npx wrangler secret put YOUTUBE_API_KEY
 | `bun run preview`    | Preview production build |
 | `bun run lint`       | Run ESLint               |
 | `bun run format`     | Format with Prettier     |
-| `bun run test`       | Run tests once           |
-| `bun run test:watch` | Run tests in watch mode  |
+| `bun run test`       | Run Vitest tests         |
 
-### Just recipes
+---
 
-The project ships a [`justfile`](./justfile) for common chores. Install [`just`](https://just.systems/man/en/packages.html) once, then:
+## How it works
 
-```bash
-just          # list all recipes
-just install  # install dependencies
-just dev      # start the dev server
-just build    # production build
-just build-dev# development-mode build
-just preview  # preview production build
-just lint     # run ESLint
-just lint-fix # auto-fix lint issues
-just format   # format with Prettier
-just test     # run tests once
-just test-watch # run tests in watch mode
-just check    # lint + test (CI gate)
-just deploy   # build & deploy to Cloudflare Workers
-just clean    # remove dist/.wrangler artefacts
+### Card-Browser pages (`/tools`, `/models`, `/datasets`)
+
+These three pages share the same architecture — fetch data from an API, render filterable/searchable card grids with "Load more" pagination.
+
+```mermaid
+flowchart TD
+    A[Page Load] --> B[TanStack Query fetches /api/*]
+    B --> C{Loading?}
+    C -->|Yes| D[Show skeleton cards]
+    C -->|No| E[Render Hero + Search + Chips]
+    E --> F[User types in search]
+    E --> G[User clicks filter chip]
+    F --> H[filtered = useMemo over all items]
+    G --> H
+    H --> I[Render card grid with framer-motion animations]
+    I --> J{More items?}
+    J -->|Yes| K[Show Load More button]
+    J -->|No| L[Done]
+    K --> M[Bump shownCount by 30]
+    M --> I
+
+    style A stroke:#00d4ff
+    style B stroke:#00d4ff
+    style E stroke:#ff2d95
+    style I stroke:#f59e0b
 ```
 
-## Dynamic Event Ingestion & Caching
+| Page | Data source | Filter axes |
+|---|---|---|
+| `/tools` | `/api/awesome` + `/api/repos` | Type (All/Tools/Repos) + Category |
+| `/models` | `/api/models` (Hugging Face `filter=or`) | Task type chips |
+| `/datasets` | `/api/datasets` (Hugging Face `language:or`) | Task type chips |
 
-The website features an automated, zero-intervention live event discovery system for Google Developer Group (GDG) and GDGoC chapters in Odisha.
+### Content List pages (`/tutorials`, `/events`)
 
-### Supported Chapters
+Both pages aggregate content from multiple sources with search and filtering, but differ in layout. Events adds a sticky timeline sidebar with scrollspy for year/month navigation.
 
-- **GDG Bhubaneswar**
-- **GDGoC NIST Berhampur**
-- **GDGoC KIIT**
-- **GDGoC CVR University**
-- **GDGoC IIIT Bhubaneswar**
-- **GDGoC ITER SOA**
+```mermaid
+flowchart TD
+    A[Page Load] --> B{Tutorials or Events?}
+    B -->|Tutorials| C[useQuery: /api/videos]
+    B -->|Events| D[Static events + useInfiniteQuery: /api/events]
+    C --> E[Group by channel → VideoCards + Playlists]
+    D --> F[Merge static + live events, compute status by IST]
+    F --> G[Render Upcoming section + Timeline sidebar]
+    G --> H[Render Past Events grouped by Year → Month]
+    H --> I[ScrollSpy on sidebar updates active section]
+    I --> J{Load More?}
+    J -->|Yes| K[fetchNextPage, append to list]
+    K --> H
 
-### How it Works
-
-1. **Egress Harvester**: The `/api/events` API route runs in the Cloudflare Worker server-side environment. It fetches target chapter URLs from `gdg.community.dev` concurrently and extracts their embedded `<script id="__NEXT_DATA__" type="application/json">` React hydrated JSON states using regex. This parses upcoming and past events securely without administrative API credentials or API keys.
-2. **Edge Caching**: To prevent rate limits and page load latency, response payloads are configured with a 1-hour cache header:
-
-   ```http
-   Cache-Control: public, s-maxage=3600, stale-while-revalidate=600
-   ```
-
-   - **CDN Edge Resolution**: The first user request within the 1-hour window fetches fresh data from Bevy and caches the response.
-   - **Fast Delivery**: All subsequent visitors receive cached events directly from Cloudflare Edge memory in under 50ms without hitting Bevy.
-   - **Background Updates**: The first visitor after 60 minutes instantly receives the cached (slightly stale) data, while Cloudflare Edge asynchronously fetches fresh data in the background to update the cache.
-
-3. **Unified Rendering**: Dynamic events are merged with static events and deduplicated by their unique `url` parameter in [src/routes/events.tsx](file:///Users/soumen/Documents/Development/open_source/openodia-hub/src/routes/events.tsx). Dropdown year and community filters are automatically updated in the frontend based on the active event properties.
-
-## Project structure
-
+    style A stroke:#00d4ff
+    style C stroke:#ff2d95
+    style D stroke:#ff2d95
+    style G stroke:#f59e0b
 ```
-src/
-├── components/   # Shared UI components (Nav, Footer, Reveal, etc.)
-├── data/         # Static data (videos, constants)
-├── hooks/        # Custom React hooks
-├── lib/          # Utilities (error capture, error pages, etc.)
-├── routes/       # TanStack file-based routes
-│   ├── __root.tsx    # Root layout + shell
-│   ├── index.tsx     # Home page
-│   ├── about.tsx     # About Soumendra
-│   ├── projects.tsx  # OSS projects + GitHub repos
-│   ├── tutorials.tsx # YouTube tutorials from Odia AI channels
-│   └── tools.tsx     # Awesome-Odia-AI directory
-├── router.tsx    # Router factory
-├── server.ts     # Cloudflare Worker entry (SSR + error handling)
-├── start.ts      # TanStack Start config
-└── styles.css    # Global styles
+
+### Static Content pages (`/about`, `/roadmap`)
+
+Static layout pages with scroll-triggered `Reveal` animations. Roadmap fetches GitHub Issues with `roadmap:*` labels and groups them by status.
+
+```mermaid
+flowchart TD
+    A[Page Load] --> B{Which page?}
+    B -->|About| C[Static content: pillars + get involved sections]
+    B -->|Roadmap| D[useQuery: /api/roadmap]
+    C --> E[ContributorGrid + ContributorLeaderboard]
+    D --> F[GitHub Issues grouped by roadmap label]
+    F --> G[Render Planned / In Progress / Completed]
+    G --> H[Each issue: clickable card with priority badge]
+
+    style A stroke:#00d4ff
+    style C stroke:#ff2d95
+    style D stroke:#ff2d95
 ```
+
+### Blog pages (`/blog`, `/blog/$slug`)
+
+Content-driven pages. The index uses `import.meta.glob` to read all `.md` files from `src/content/blog/`, parses YAML frontmatter, and renders a year-grouped timeline. Detail pages render the markdown body via `marked`.
+
+```mermaid
+flowchart TD
+    A[Blog Index] --> B[import.meta.glob: src/content/blog/*.md]
+    B --> C[Parse YAML frontmatter + sort by date]
+    C --> D[Render timeline grouped by year]
+    D --> E[User clicks a post]
+    E --> F[Blog Detail: loader reads specific .md]
+    F --> G[marked → HTML, render prose article]
+
+    style A stroke:#00d4ff
+    style B stroke:#ff2d95
+    style G stroke:#f59e0b
+```
+
+### Playground (`/playground`)
+
+In-browser Python execution via Pyodide WebAssembly. Loads `openodia` + dependencies, runs user code client-side.
+
+```mermaid
+flowchart TD
+    A[Page Load] --> B[Inject Pyodide script from CDN]
+    B --> C[Init Python runtime ~10MB WASM]
+    C --> D[loadPackage: numpy, pygments, micropip]
+    D --> E[micropip.install: openodia, rich, faker, deep-translator]
+    E --> F[Status: ready]
+    F --> G[User writes code or picks sample]
+    G --> H[Click Run]
+    H --> I[pyodide.runPythonAsync code]
+    I --> J[batched stdout → output panel]
+    G --> K[Click Format]
+    K --> L[black.format_str → update editor]
+
+    style A stroke:#00d4ff
+    style C stroke:#ff2d95
+    style I stroke:#f59e0b
+```
+
+### Community page (`/community`)
+
+Fetches GitHub Discussions via GraphQL API, grouped by category with emoji icons.
+
+```mermaid
+flowchart TD
+    A[Page Load] --> B[useQuery: /api/community]
+    B --> C[GitHub GraphQL: discussionCategories + discussions]
+    C --> D{Discussions exist?}
+    D -->|Yes| E[Render categories with discussion cards]
+    D -->|No| F[Show empty state + Start discussion CTA]
+    E --> G[Each card: avatar, title, author, replies, external link]
+
+    style A stroke:#00d4ff
+    style B stroke:#ff2d95
+    style E stroke:#f59e0b
+```
+
+---
+
+## Data Sources
+
+| Source | What | Cache |
+|---|---|---|
+| **Hugging Face API** | Odia models & datasets | 1 hour |
+| **GitHub REST API** | Repos from 5 Odia orgs | 30 min |
+| **GitHub GraphQL** | Discussions | 5 min |
+| **GitHub Issues** | Roadmap items | 10 min |
+| **GitHub Raw** | Awesome-Odia-AI README | 1 hour |
+| **PyPI JSON API** | openodia package info | 1 hour |
+| **YouTube RSS** | Video feeds from 4 channels | 1 hour |
+| **GDG Bevy (SSR scrape)** | Community events | D1-backed, daily sync |
+| **Cloudflare KV** | Contributor data | Synced daily via GitHub Action |
+
+---
 
 ## Deployment
 
-The app deploys to Cloudflare Workers at `openodia.com` and `www.openodia.com`. Configuration lives in `wrangler.jsonc`.
-
 ```bash
-# Deploy (requires Cloudflare credentials)
 bun run build
 npx wrangler deploy
 ```
 
-Make sure secrets are set before deploying:
+CI/CD via GitHub Actions: lint → test → build → deploy on push to `main`.
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and where to help.
+
+Quick checklist before opening a PR:
 
 ```bash
-npx wrangler secret put YOUTUBE_API_KEY
+bun run lint
+bun run build
+bun run test
 ```
+
+---
 
 ## License
 

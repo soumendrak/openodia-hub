@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
 import { CHANNELS } from "../../data/channels";
 
 type Video = {
@@ -67,7 +68,7 @@ function parseRss(
 async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playlist[]> {
   try {
     const url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=12&key=${apiKey}`;
-    const res = await fetch(url, { headers: { "User-Agent": "openodia.com" } });
+    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "openodia.com" } });
     if (!res.ok) return [];
     const data = (await res.json()) as {
       items?: {
@@ -107,18 +108,24 @@ async function fetchChannelVideos(
   channelId: string,
   apiKey?: string,
 ): Promise<ChannelResult> {
-  const [rssRes, playlists] = await Promise.all([
-    fetch(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
-      headers: { "User-Agent": "openodia.com" },
-    }),
-    apiKey ? fetchPlaylists(channelId, apiKey) : Promise.resolve([]),
-  ]);
+  const empty: ChannelResult = { handle, name, url, videos: [], playlists: [] };
+  try {
+    const [rssRes, playlists] = await Promise.all([
+      fetchWithTimeout(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
+        headers: { "User-Agent": "openodia.com" },
+      }),
+      apiKey ? fetchPlaylists(channelId, apiKey) : Promise.resolve([]),
+    ]);
 
-  if (!rssRes.ok) return { handle, name, url, videos: [], playlists };
+    if (!rssRes.ok) return { ...empty, playlists };
 
-  const xml = await rssRes.text();
-  const videos = parseRss(xml, name, handle, url).slice(0, 15);
-  return { handle, name, url, videos, playlists };
+    const xml = await rssRes.text();
+    const videos = parseRss(xml, name, handle, url).slice(0, 15);
+    return { handle, name, url, videos, playlists };
+  } catch (err) {
+    console.warn(`fetchChannelVideos ${handle}:`, err);
+    return empty;
+  }
 }
 
 async function enrichWithViewCounts(
@@ -134,7 +141,7 @@ async function enrichWithViewCounts(
     const batch = allIds.slice(i, i + 50);
     const url = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${batch.join(",")}&key=${apiKey}`;
     try {
-      const res = await fetch(url, { headers: { "User-Agent": "openodia.com" } });
+      const res = await fetchWithTimeout(url, { headers: { "User-Agent": "openodia.com" } });
       if (!res.ok) continue;
       const data = (await res.json()) as {
         items?: { id: string; statistics: { viewCount?: string } }[];
@@ -163,9 +170,10 @@ export const Route = createFileRoute("/api/videos")({
       GET: async () => {
         try {
           const apiKey = process.env.YOUTUBE_API_KEY;
-          let channels = await Promise.all(
+          const settled = await Promise.allSettled(
             CHANNELS.map((c) => fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey)),
           );
+          let channels = settledValues(settled);
 
           if (apiKey) {
             channels = await enrichWithViewCounts(channels, apiKey);
@@ -183,17 +191,14 @@ export const Route = createFileRoute("/api/videos")({
           });
         } catch (e) {
           console.error("videos error", e);
-          return new Response(
-            JSON.stringify({ channels: [], error: "internal_error" }),
-            {
-              status: 500,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
+          return new Response(JSON.stringify({ channels: [], error: "internal_error" }), {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
             },
-          );
+          });
         }
       },
     },

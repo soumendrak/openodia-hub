@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout } from "../../lib/fetch-utils";
 
 export const Route = createFileRoute("/api/pypi")({
   server: {
     handlers: {
       GET: async () => {
         try {
-          const r = await fetch("https://pypi.org/pypi/openodia/json", {
+          const r = await fetchWithTimeout("https://pypi.org/pypi/openodia/json", {
             headers: { "User-Agent": "openodia.com" },
           });
           if (!r.ok) {
@@ -34,17 +35,14 @@ export const Route = createFileRoute("/api/pypi")({
           );
         } catch (e) {
           console.error("pypi error", e);
-          return new Response(
-            JSON.stringify({ version: "0.1.0", summary: "", releases: 0 }),
-            {
-              status: 200,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
+          return new Response(JSON.stringify({ version: "0.1.0", summary: "", releases: 0 }), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
             },
-          );
+          });
         }
       },
     },

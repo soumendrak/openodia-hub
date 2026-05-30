@@ -11,18 +11,29 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as ToolsRouteImport } from './routes/tools'
-import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as RoadmapRouteImport } from './routes/roadmap'
+import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as ModelsRouteImport } from './routes/models'
 import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
+import { Route as DatasetsRouteImport } from './routes/datasets'
+import { Route as CommunityRouteImport } from './routes/community'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as BlogIndexRouteImport } from './routes/blog/index'
+import { Route as ApiIndexRouteImport } from './routes/api/index'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
 import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
+import { Route as BlogSlugRouteImport } from './routes/blog/$slug'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
+import { Route as ApiRoadmapRouteImport } from './routes/api/roadmap'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
+import { Route as ApiModelsRouteImport } from './routes/api/models'
 import { Route as ApiEventsRouteImport } from './routes/api/events'
+import { Route as ApiDatasetsRouteImport } from './routes/api/datasets'
+import { Route as ApiCommunityRouteImport } from './routes/api/community'
 import { Route as ApiAwesomeRouteImport } from './routes/api/awesome'
 
 const TutorialsRoute = TutorialsRouteImport.update({
@@ -35,9 +46,19 @@ const ToolsRoute = ToolsRouteImport.update({
   path: '/tools',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
+const RoadmapRoute = RoadmapRouteImport.update({
+  id: '/roadmap',
+  path: '/roadmap',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelsRoute = ModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsFeedRoute = EventsFeedRouteImport.update({
@@ -50,6 +71,16 @@ const EventsRoute = EventsRouteImport.update({
   path: '/events',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DatasetsRoute = DatasetsRouteImport.update({
+  id: '/datasets',
+  path: '/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AboutRoute = AboutRouteImport.update({
   id: '/about',
   path: '/about',
@@ -58,6 +89,16 @@ const AboutRoute = AboutRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiIndexRoute = ApiIndexRouteImport.update({
+  id: '/api/',
+  path: '/api/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SitemapXmlRoute = SitemapXmlRouteImport.update({
@@ -75,9 +116,19 @@ const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
   path: '/llms-full/txt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiVideosRoute = ApiVideosRouteImport.update({
   id: '/api/videos',
   path: '/api/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRoadmapRoute = ApiRoadmapRouteImport.update({
+  id: '/api/roadmap',
+  path: '/api/roadmap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReposRoute = ApiReposRouteImport.update({
@@ -90,9 +141,24 @@ const ApiPypiRoute = ApiPypiRouteImport.update({
   path: '/api/pypi',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiModelsRoute = ApiModelsRouteImport.update({
+  id: '/api/models',
+  path: '/api/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiEventsRoute = ApiEventsRouteImport.update({
   id: '/api/events',
   path: '/api/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDatasetsRoute = ApiDatasetsRouteImport.update({
+  id: '/api/datasets',
+  path: '/api/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiCommunityRoute = ApiCommunityRouteImport.update({
+  id: '/api/community',
+  path: '/api/community',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
@@ -104,125 +170,202 @@ const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/community': typeof CommunityRoute
+  '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
-  '/projects': typeof ProjectsRoute
+  '/models': typeof ModelsRoute
+  '/playground': typeof PlaygroundRoute
+  '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
+  '/api/community': typeof ApiCommunityRoute
+  '/api/datasets': typeof ApiDatasetsRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/': typeof ApiIndexRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/community': typeof CommunityRoute
+  '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
-  '/projects': typeof ProjectsRoute
+  '/models': typeof ModelsRoute
+  '/playground': typeof PlaygroundRoute
+  '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
+  '/api/community': typeof ApiCommunityRoute
+  '/api/datasets': typeof ApiDatasetsRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/api': typeof ApiIndexRoute
+  '/blog': typeof BlogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/community': typeof CommunityRoute
+  '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
-  '/projects': typeof ProjectsRoute
+  '/models': typeof ModelsRoute
+  '/playground': typeof PlaygroundRoute
+  '/roadmap': typeof RoadmapRoute
   '/tools': typeof ToolsRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
+  '/api/community': typeof ApiCommunityRoute
+  '/api/datasets': typeof ApiDatasetsRoute
   '/api/events': typeof ApiEventsRoute
+  '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/roadmap': typeof ApiRoadmapRoute
   '/api/videos': typeof ApiVideosRoute
+  '/blog/$slug': typeof BlogSlugRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
   '/sitemap/xml': typeof SitemapXmlRoute
+  '/api/': typeof ApiIndexRoute
+  '/blog/': typeof BlogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/about'
+    | '/community'
+    | '/datasets'
     | '/events'
     | '/events-feed'
-    | '/projects'
+    | '/models'
+    | '/playground'
+    | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
+    | '/api/community'
+    | '/api/datasets'
     | '/api/events'
+    | '/api/models'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/roadmap'
     | '/api/videos'
+    | '/blog/$slug'
     | '/llms-full/txt'
     | '/llms/txt'
     | '/sitemap/xml'
+    | '/api/'
+    | '/blog/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/community'
+    | '/datasets'
     | '/events'
     | '/events-feed'
-    | '/projects'
+    | '/models'
+    | '/playground'
+    | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
+    | '/api/community'
+    | '/api/datasets'
     | '/api/events'
+    | '/api/models'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/roadmap'
     | '/api/videos'
+    | '/blog/$slug'
     | '/llms-full/txt'
     | '/llms/txt'
     | '/sitemap/xml'
+    | '/api'
+    | '/blog'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/community'
+    | '/datasets'
     | '/events'
     | '/events-feed'
-    | '/projects'
+    | '/models'
+    | '/playground'
+    | '/roadmap'
     | '/tools'
     | '/tutorials'
     | '/api/awesome'
+    | '/api/community'
+    | '/api/datasets'
     | '/api/events'
+    | '/api/models'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/roadmap'
     | '/api/videos'
+    | '/blog/$slug'
     | '/llms-full/txt'
     | '/llms/txt'
     | '/sitemap/xml'
+    | '/api/'
+    | '/blog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  CommunityRoute: typeof CommunityRoute
+  DatasetsRoute: typeof DatasetsRoute
   EventsRoute: typeof EventsRoute
   EventsFeedRoute: typeof EventsFeedRoute
-  ProjectsRoute: typeof ProjectsRoute
+  ModelsRoute: typeof ModelsRoute
+  PlaygroundRoute: typeof PlaygroundRoute
+  RoadmapRoute: typeof RoadmapRoute
   ToolsRoute: typeof ToolsRoute
   TutorialsRoute: typeof TutorialsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
+  ApiCommunityRoute: typeof ApiCommunityRoute
+  ApiDatasetsRoute: typeof ApiDatasetsRoute
   ApiEventsRoute: typeof ApiEventsRoute
+  ApiModelsRoute: typeof ApiModelsRoute
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
+  ApiRoadmapRoute: typeof ApiRoadmapRoute
   ApiVideosRoute: typeof ApiVideosRoute
+  BlogSlugRoute: typeof BlogSlugRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
+  ApiIndexRoute: typeof ApiIndexRoute
+  BlogIndexRoute: typeof BlogIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -241,11 +384,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/projects': {
-      id: '/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof ProjectsRouteImport
+    '/roadmap': {
+      id: '/roadmap'
+      path: '/roadmap'
+      fullPath: '/roadmap'
+      preLoaderRoute: typeof RoadmapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/models': {
+      id: '/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof ModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events-feed': {
@@ -262,6 +419,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof EventsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/datasets': {
+      id: '/datasets'
+      path: '/datasets'
+      fullPath: '/datasets'
+      preLoaderRoute: typeof DatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/about': {
       id: '/about'
       path: '/about'
@@ -274,6 +445,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/': {
+      id: '/api/'
+      path: '/api'
+      fullPath: '/api/'
+      preLoaderRoute: typeof ApiIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sitemap/xml': {
@@ -297,11 +482,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LlmsFullTxtRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/videos': {
       id: '/api/videos'
       path: '/api/videos'
       fullPath: '/api/videos'
       preLoaderRoute: typeof ApiVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/roadmap': {
+      id: '/api/roadmap'
+      path: '/api/roadmap'
+      fullPath: '/api/roadmap'
+      preLoaderRoute: typeof ApiRoadmapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/repos': {
@@ -318,11 +517,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPypiRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/models': {
+      id: '/api/models'
+      path: '/api/models'
+      fullPath: '/api/models'
+      preLoaderRoute: typeof ApiModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/events': {
       id: '/api/events'
       path: '/api/events'
       fullPath: '/api/events'
       preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/datasets': {
+      id: '/api/datasets'
+      path: '/api/datasets'
+      fullPath: '/api/datasets'
+      preLoaderRoute: typeof ApiDatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/community': {
+      id: '/api/community'
+      path: '/api/community'
+      fullPath: '/api/community'
+      preLoaderRoute: typeof ApiCommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/awesome': {
@@ -338,19 +558,30 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  CommunityRoute: CommunityRoute,
+  DatasetsRoute: DatasetsRoute,
   EventsRoute: EventsRoute,
   EventsFeedRoute: EventsFeedRoute,
-  ProjectsRoute: ProjectsRoute,
+  ModelsRoute: ModelsRoute,
+  PlaygroundRoute: PlaygroundRoute,
+  RoadmapRoute: RoadmapRoute,
   ToolsRoute: ToolsRoute,
   TutorialsRoute: TutorialsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,
+  ApiCommunityRoute: ApiCommunityRoute,
+  ApiDatasetsRoute: ApiDatasetsRoute,
   ApiEventsRoute: ApiEventsRoute,
+  ApiModelsRoute: ApiModelsRoute,
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
+  ApiRoadmapRoute: ApiRoadmapRoute,
   ApiVideosRoute: ApiVideosRoute,
+  BlogSlugRoute: BlogSlugRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,
   SitemapXmlRoute: SitemapXmlRoute,
+  ApiIndexRoute: ApiIndexRoute,
+  BlogIndexRoute: BlogIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

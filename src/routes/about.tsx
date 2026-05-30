@@ -1,23 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Reveal } from "../components/Reveal";
 import { MagneticButton } from "../components/MagneticButton";
-import { GithubIcon, YoutubeIcon, LinkedinIcon } from "../components/icons";
-import { Mail } from "lucide-react";
-import { CONTRIBUTORS } from "../data/contributors";
+import { GithubIcon, YoutubeIcon, PythonIcon } from "../components/icons";
+import { ContributorGrid } from "../components/ContributorGrid";
+import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
+import { ArrowRight, Star, Users, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
     meta: [
-      { title: "About · Soumendra Kumar Sahoo" },
+      { title: "About · OpenOdia" },
       {
         name: "description",
         content:
-          "Soumendra Kumar Sahoo — engineer building open-source tools, datasets, and education for the Odia language.",
+          "OpenOdia is a community-driven ecosystem of open-source tools, datasets, and educational content for the Odia language.",
       },
-      { property: "og:title", content: "About · Soumendra Kumar Sahoo" },
+      { property: "og:title", content: "About · OpenOdia" },
       {
         property: "og:description",
-        content: "Engineer building open-source tools and datasets for the Odia language.",
+        content:
+          "A community-driven ecosystem for the Odia language — open-source tools, datasets, and education.",
       },
     ],
     scripts: [
@@ -25,16 +28,15 @@ export const Route = createFileRoute("/about")({
         type: "application/ld+json",
         children: JSON.stringify({
           "@context": "https://schema.org",
-          "@type": "Person",
-          name: "Soumendra Kumar Sahoo",
+          "@type": "Organization",
+          name: "OpenOdia",
           url: "https://openodia.com",
+          description:
+            "Open source community building tools, datasets, and educational content for the Odia language.",
           sameAs: [
-            "https://github.com/soumendrak",
+            "https://github.com/soumendrak/openodia-hub",
             "https://www.youtube.com/@openodia",
-            "https://www.linkedin.com/in/soumendrak/",
           ],
-          jobTitle: "Software Engineer",
-          knowsAbout: ["Odia language", "Natural Language Processing", "Open Source"],
         }),
       },
     ],
@@ -42,26 +44,32 @@ export const Route = createFileRoute("/about")({
   component: About,
 });
 
-const milestones = [
+const pillars = [
   {
-    year: "2019",
-    title: "Started open-source Odia work",
-    body: "Released early Odia NLP utilities and datasets on GitHub.",
+    icon: <YoutubeIcon size={22} />,
+    title: "Education",
+    body: "The @openodia YouTube channel produces tutorials, talks, and demos in Odia and English — covering NLP, AI, and language technology for Odia speakers and builders.",
+    href: "https://www.youtube.com/@openodia",
+    cta: "Watch on YouTube",
+    color: "from-magenta to-saffron",
+    external: true,
   },
   {
-    year: "2021",
-    title: "Launched the OpenOdia Python package",
-    body: "A practical, install-and-use library for Odia text processing.",
+    icon: <PythonIcon size={22} />,
+    title: "Tooling",
+    body: "The openodia Python package provides practical, install-and-use utilities for Odia text processing — transliteration, normalization, tokenization, and curated datasets.",
+    href: "https://pypi.org/project/openodia/",
+    cta: "Explore the package",
+    color: "from-neon to-magenta",
+    external: true,
   },
   {
-    year: "2023",
-    title: "Curated Awesome-Odia-AI",
-    body: "A living index of Odia datasets, models, and tools — community-driven.",
-  },
-  {
-    year: "2024",
-    title: "@openodia on YouTube",
-    body: "Tutorials, demos, and community spotlights for builders.",
+    icon: <Star size={22} />,
+    title: "Community",
+    body: "Awesome-Odia-AI is a living, community-curated directory of 60+ Odia datasets, models, libraries, and research papers — the go-to index for anyone building with Odia.",
+    href: "/tools",
+    cta: "Browse the directory",
+    color: "from-saffron to-neon",
   },
 ];
 
@@ -71,95 +79,127 @@ function About() {
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">About</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Hi, I'm <span className="text-gradient">Soumendra</span>.
+          Open source for <span className="text-gradient">ଓଡ଼ିଆ</span>.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-          Engineer, lifelong learner, and an Odia native. I build open-source software, datasets,
-          and educational content so the Odia language — spoken by 50+ million people — gets the
-          modern AI tooling it deserves.
+          OpenOdia is a community-driven ecosystem making the Odia language — spoken by 50+ million
+          people — a first-class citizen in modern AI and open-source software.
         </p>
       </Reveal>
 
       <Reveal delay={0.1} className="mt-10 flex flex-wrap gap-3">
-        <MagneticButton href="https://github.com/soumendrak" external>
+        <MagneticButton href="https://github.com/soumendrak/openodia-hub" external>
           <GithubIcon size={16} /> GitHub
         </MagneticButton>
         <MagneticButton variant="ghost" href="https://www.youtube.com/@openodia" external>
           <YoutubeIcon size={16} /> YouTube
         </MagneticButton>
-        <MagneticButton variant="ghost" href="https://www.linkedin.com/in/soumendrak/" external>
-          <LinkedinIcon size={16} /> LinkedIn
-        </MagneticButton>
-        <MagneticButton variant="ghost" href="mailto:proud_odia@outlook.com" external>
-          <Mail size={16} /> Email
-        </MagneticButton>
       </Reveal>
 
+      {/* Three pillars */}
       <section className="mt-20">
         <Reveal>
-          <h2 className="font-display text-3xl font-semibold md:text-4xl">Journey so far</h2>
+          <h2 className="font-display text-3xl font-semibold md:text-4xl">What we build</h2>
+          <p className="mt-2 max-w-xl text-muted-foreground">
+            Three pillars — education, tooling, and community — working together for Odia.
+          </p>
         </Reveal>
 
-        <div className="relative mt-8 ml-3 border-l border-border pl-8">
-          {milestones.map((m, i) => (
-            <Reveal key={m.year} delay={i * 0.06} className="relative pb-10">
-              <span className="absolute -left-[42px] top-1.5 h-3 w-3 rounded-full bg-gradient-to-br from-neon to-magenta ring-4 ring-background" />
-              <div className="font-mono text-xs text-neon">{m.year}</div>
-              <h3 className="mt-1 font-display text-xl font-semibold">{m.title}</h3>
-              <p className="mt-1 text-muted-foreground">{m.body}</p>
+        <div className="mt-8 space-y-6">
+          {pillars.map((p, i) => (
+            <Reveal key={p.title} delay={i * 0.08}>
+              <div className="group relative overflow-hidden rounded-2xl border border-border bg-surface p-6 md:p-8">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:gap-6">
+                  <div
+                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${p.color} text-primary-foreground`}
+                  >
+                    {p.icon}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className="font-display text-xl font-semibold">{p.title}</h3>
+                    <p className="mt-2 text-muted-foreground">{p.body}</p>
+                    <div className="mt-4">
+                      {p.external ? (
+                        <a
+                          href={p.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-sm font-medium text-neon hover:underline"
+                        >
+                          {p.cta} <ArrowRight size={14} />
+                        </a>
+                      ) : (
+                        <Link
+                          to={p.href}
+                          className="inline-flex items-center gap-1 text-sm font-medium text-neon hover:underline"
+                        >
+                          {p.cta} <ArrowRight size={14} />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br from-neon/10 to-magenta/10 blur-3xl"
+                />
+              </div>
             </Reveal>
           ))}
         </div>
       </section>
 
+      {/* Contribute */}
       <section className="mt-20">
         <Reveal>
-          <h2 className="font-display text-3xl font-semibold md:text-4xl">Community contributors</h2>
-          <p className="mt-2 text-muted-foreground">
-            The people building open-source tools and resources for the Odia language.
+          <h2 className="font-display text-3xl font-semibold md:text-4xl">Get involved</h2>
+          <p className="mt-2 max-w-xl text-muted-foreground">
+            OpenOdia is open source and community-driven. Here's how you can contribute.
           </p>
         </Reveal>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
-          {CONTRIBUTORS.map((c, i) => (
-            <Reveal key={c.login} delay={i * 0.03}>
+        <div className="mt-8 grid gap-4 md:grid-cols-3">
+          {[
+            {
+              icon: <GithubIcon size={18} />,
+              title: "Contribute code",
+              body: "Pick an issue, submit a PR, or start a discussion on GitHub. Every contribution counts.",
+              href: "https://github.com/soumendrak/openodia-hub",
+            },
+            {
+              icon: <BookOpen size={18} />,
+              title: "Add to the directory",
+              body: "Found a dataset, model, or tool missing from Awesome-Odia-AI? Open a PR to add it.",
+              href: "https://github.com/odisha-ml/Awesome-Odia-AI",
+            },
+            {
+              icon: <Users size={18} />,
+              title: "Spread the word",
+              body: "Share the projects, give talks, write tutorials — help grow the Odia AI community.",
+              href: "https://www.youtube.com/@openodia",
+            },
+          ].map((item, i) => (
+            <Reveal key={item.title} delay={i * 0.06}>
               <a
-                href={c.github_url}
+                href={item.href}
                 target="_blank"
                 rel="noreferrer"
-                className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-3 transition hover:border-neon/40"
+                className="group block h-full rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
               >
-                <img
-                  src={c.avatar_url}
-                  alt={c.name}
-                  className="h-10 w-10 rounded-full border border-border object-cover"
-                  loading="lazy"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium group-hover:text-neon">{c.name}</div>
-                  <div className="truncate text-xs text-muted-foreground">{c.projects}</div>
+                <div className="mb-3 grid h-10 w-10 place-items-center rounded-lg bg-neon/10 text-neon">
+                  {item.icon}
                 </div>
+                <h3 className="font-display font-semibold">{item.title}</h3>
+                <p className="mt-2 text-sm text-muted-foreground">{item.body}</p>
               </a>
             </Reveal>
           ))}
         </div>
       </section>
 
-      <Reveal
-        delay={0.1}
-        className="mt-16 rounded-3xl border border-border bg-surface p-8 text-center md:p-12"
-      >
-        <h2 className="font-display text-3xl font-semibold md:text-4xl">Sponsor the work</h2>
-        <p className="mx-auto mt-3 max-w-md text-muted-foreground">
-          Every contribution keeps Odia open-source moving. Sponsor on GitHub or just share the
-          projects with someone who'd love them.
-        </p>
-        <div className="mt-6 flex justify-center">
-          <MagneticButton href="https://github.com/sponsors/soumendrak" external>
-            ❤ Sponsor on GitHub
-          </MagneticButton>
-        </div>
-      </Reveal>
+      <ContributorGrid />
+
+      <ContributorLeaderboard limit={10} />
     </div>
   );
 }

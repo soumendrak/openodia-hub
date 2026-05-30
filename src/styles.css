@@ -343,3 +343,52 @@
     0 0 30px -5px color-mix(in oklab, var(--neon) 50%, transparent),
     0 12px 40px -8px color-mix(in oklab, var(--neon) 30%, oklch(0 0 0 / 40%));
 }
+
+/* ---- Code editor (Prism) tokens ---------------------------------------- */
+/* Scoped to .code-editor-pre so the rules don't leak to other Prism-using
+ * surfaces if any get added later. Colors reuse the site palette so the
+ * highlighter stays in the same visual language as the rest of the site. */
+.code-editor-pre {
+  color: var(--color-foreground);
+}
+.code-editor-pre .token.comment,
+.code-editor-pre .token.prolog,
+.code-editor-pre .token.cdata {
+  color: var(--color-muted-foreground);
+  font-style: italic;
+}
+.code-editor-pre .token.string,
+.code-editor-pre .token.triple-quoted-string,
+.code-editor-pre .token.string-interpolation {
+  color: var(--neon);
+}
+.code-editor-pre .token.keyword,
+.code-editor-pre .token.control,
+.code-editor-pre .token.directive {
+  color: var(--magenta);
+  font-weight: 500;
+}
+.code-editor-pre .token.builtin {
+  color: var(--magenta);
+}
+.code-editor-pre .token.function,
+.code-editor-pre .token.class-name {
+  color: var(--saffron);
+}
+.code-editor-pre .token.decorator {
+  color: var(--saffron);
+}
+.code-editor-pre .token.number,
+.code-editor-pre .token.boolean {
+  color: var(--saffron);
+}
+.code-editor-pre .token.operator {
+  color: var(--color-foreground);
+}
+.code-editor-pre .token.punctuation {
+  color: var(--color-muted-foreground);
+}
+.code-editor-pre .token.constant,
+.code-editor-pre .token.symbol {
+  color: var(--saffron);
+}

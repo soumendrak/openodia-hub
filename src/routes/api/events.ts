@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
 import type { Event, EventType } from "../../data/events/types";
 
 type BevyEvent = {
@@ -79,7 +80,7 @@ function formatHumanDate(isoStr: string): string {
 
 export async function fetchChapterEvents(community: string, slug: string): Promise<Event[]> {
   try {
-    const response = await fetch(`https://gdg.community.dev/${slug}/`, {
+    const response = await fetchWithTimeout(`https://gdg.community.dev/${slug}/`, {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -134,36 +135,62 @@ export async function fetchChapterEvents(community: string, slug: string): Promi
 export const Route = createFileRoute("/api/events")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }: { request: Request }) => {
         try {
-          const results = await Promise.all(
+          const results = await Promise.allSettled(
             CHAPTERS.map((ch) => fetchChapterEvents(ch.community, ch.slug)),
           );
-          const events = results.flat();
+          const allEvents = settledValues(results).flat();
 
-          return new Response(JSON.stringify({ events }), {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, User-Agent",
-            },
-          });
-        } catch (e) {
-          console.error("Live events ingestion error:", e);
-          return new Response(
-            JSON.stringify({ events: [] }),
-            {
-              status: 500,
+          const url = new URL(request.url);
+          const pageParam = url.searchParams.get("page");
+
+          if (pageParam === null) {
+            return new Response(JSON.stringify({ events: allEvents }), {
+              status: 200,
               headers: {
                 "Content-Type": "application/json",
+                "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, User-Agent",
+              },
+            });
+          }
+
+          const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50);
+          const pageNum = parseInt(pageParam || "1", 10) || 1;
+          const start = (pageNum - 1) * limit;
+          const pageItems = allEvents.slice(start, start + limit);
+          const nextCursor = start + limit < allEvents.length ? String(pageNum + 1) : undefined;
+
+          return new Response(
+            JSON.stringify({
+              events: pageItems,
+              nextCursor,
+              total: allEvents.length,
+            }),
+            {
+              status: 200,
+              headers: {
+                "Content-Type": "application/json",
+                "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type, User-Agent",
               },
             },
           );
+        } catch (e) {
+          console.error("Live events ingestion error:", e);
+          return new Response(JSON.stringify({ events: [] }), {
+            status: 500,
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+              "Access-Control-Allow-Methods": "GET, OPTIONS",
+            },
+          });
         }
       },
     },

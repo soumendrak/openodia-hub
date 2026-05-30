@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown } from "lucide-react";
+import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
+import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
 
@@ -166,6 +167,8 @@ const getEventMonthName = (e: Event): string => {
 
 function EventsPage() {
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useSearchShortcut(searchInputRef);
   const [activeType, setActiveType] = useState<Event["type"] | null>(null);
   const [activeCommunity, setActiveCommunity] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<string | null>(null);
@@ -181,18 +184,36 @@ function EventsPage() {
     };
   }, []);
 
-  const { data: liveData } = useQuery({
+  const PAST_PAGE_SIZE = 20;
+
+  // useInfiniteQuery accumulates pages so filters can search across every
+  // event the user has loaded, and Load More just appends — no more "click
+  // page 2 and page 1 events vanish from the filter."
+  const {
+    data: liveData,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteQuery({
     queryKey: ["liveEvents"],
-    queryFn: async () => {
-      const r = await fetch("/api/events");
+    initialPageParam: 1,
+    queryFn: async ({ pageParam }) => {
+      const r = await fetch(`/api/events?page=${pageParam}&limit=${PAST_PAGE_SIZE}`);
       if (!r.ok) throw new Error("Failed to fetch live events");
-      return r.json() as Promise<{ events: Event[] }>;
+      return r.json() as Promise<{
+        events: Event[];
+        nextCursor?: string;
+        total: number;
+      }>;
     },
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.nextCursor ? allPages.length + 1 : undefined,
     retry: 1,
     refetchOnWindowFocus: false,
   });
 
-  const fetchedEvents = liveData?.events || [];
+  const fetchedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const allMergedEventsMap = new Map<string, Event>();
 
@@ -486,8 +507,9 @@ function EventsPage() {
                 className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
               />
               <input
+                ref={searchInputRef}
                 type="search"
-                placeholder="Search events…"
+                placeholder="Search events… [/]"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
@@ -769,6 +791,28 @@ function EventsPage() {
                 );
               })}
             </div>
+
+            {!isSearching && totalLiveEvents > 0 && (
+              <div className="mt-10 flex flex-col items-center gap-3">
+                <p className="text-xs text-muted-foreground">
+                  Showing {fetchedEvents.length} of {totalLiveEvents} past events
+                </p>
+                {hasNextPage && (
+                  <button
+                    onClick={() => fetchNextPage()}
+                    disabled={isFetchingNextPage}
+                    className="inline-flex items-center gap-2 rounded-full border border-neon/40 bg-neon/5 px-5 py-2.5 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/15 disabled:opacity-50"
+                  >
+                    {isFetchingNextPage ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <ChevronDown size={14} />
+                    )}
+                    Load more
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

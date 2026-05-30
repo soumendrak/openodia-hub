@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Rss } from "lucide-react";
-import { GithubIcon, YoutubeIcon, LinkedinIcon } from "./icons";
+import { GithubIcon, YoutubeIcon } from "./icons";
 
 export function Footer() {
   return (
     <footer className="border-t border-border mt-32">
       <div className="mx-auto max-w-6xl px-4 py-12">
-        <div className="grid gap-8 md:grid-cols-3">
+        <div className="grid gap-8 md:grid-cols-4">
           <div>
             <Link to="/" className="flex items-center gap-2">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground font-display text-xl font-bold">
@@ -15,7 +15,7 @@ export function Footer() {
               <span className="font-display text-lg font-semibold">OpenOdia</span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-              Open source initiatives for the Odia language by Soumendra Kumar Sahoo.
+              Open source initiatives for the Odia language — community-driven.
             </p>
           </div>
 
@@ -23,13 +23,28 @@ export function Footer() {
             <h4 className="text-sm font-semibold">Explore</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link to="/projects" className="hover:text-foreground">
-                  Projects
+                <Link to="/tools" className="hover:text-foreground">
+                  Tools & projects
                 </Link>
               </li>
               <li>
-                <Link to="/tools" className="hover:text-foreground">
-                  Tools directory
+                <Link to="/models" className="hover:text-foreground">
+                  Models
+                </Link>
+              </li>
+              <li>
+                <Link to="/datasets" className="hover:text-foreground">
+                  Datasets
+                </Link>
+              </li>
+              <li>
+                <Link to="/tutorials" className="hover:text-foreground">
+                  Tutorials
+                </Link>
+              </li>
+              <li>
+                <Link to="/playground" className="hover:text-foreground">
+                  Playground
                 </Link>
               </li>
               <li className="flex items-center gap-1.5">
@@ -47,8 +62,34 @@ export function Footer() {
                 </a>
               </li>
               <li>
+                <Link to="/community" className="hover:text-foreground">
+                  Community
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
+            <h4 className="text-sm font-semibold">Develop</h4>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link to="/api" className="hover:text-foreground">
+                  API
+                </Link>
+              </li>
+              <li>
                 <Link to="/about" className="hover:text-foreground">
                   About
+                </Link>
+              </li>
+              <li>
+                <Link to="/roadmap" className="hover:text-foreground">
+                  Roadmap
+                </Link>
+              </li>
+              <li>
+                <Link to="/blog" className="hover:text-foreground">
+                  Blog
                 </Link>
               </li>
             </ul>
@@ -74,15 +115,6 @@ export function Footer() {
                 aria-label="YouTube"
               >
                 <YoutubeIcon />
-              </a>
-              <a
-                href="https://www.linkedin.com/in/soumendrak/"
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-lg border border-border p-2 transition hover:border-saffron hover:text-saffron"
-                aria-label="LinkedIn"
-              >
-                <LinkedinIcon />
               </a>
             </div>
           </div>

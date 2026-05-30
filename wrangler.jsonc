@@ -9,4 +9,24 @@
     { "pattern": "openodia.com", "custom_domain": true },
     { "pattern": "www.openodia.com", "custom_domain": true },
   ],
+  // One-time setup: `wrangler kv namespace create CONTRIBUTORS_KV`,
+  // then paste the returned id below. Populated daily by .github/workflows/sync-contributors.yml.
+  "kv_namespaces": [
+    { "binding": "CONTRIBUTORS_KV", "id": "9aee3dc0e2df42f2aa81426a744364ec", "remote": true },
+  ],
+  // One-time setup:
+  //   bunx wrangler d1 create openodia-events
+  //   bunx wrangler d1 execute openodia-events --remote --file=db/schema.sql
+  // Then paste the database_id below. Populated by the scheduled handler in src/server.ts.
+  "d1_databases": [
+    {
+      "binding": "EVENTS_DB",
+      "database_name": "openodia-events",
+      "database_id": "ec88a8bb-e2f5-42d3-96fe-57191259d49c",
+      "remote": true,
+    },
+  ],
+  "triggers": {
+    "crons": ["0 6 * * *"], // daily 06:00 UTC — refresh events from Bevy
+  },
 }

@@ -10,7 +10,7 @@ import type { Event } from "./types";
 export const gdgocCvrEvents: Omit<Event, "community">[] = [
   {
     year: "2026",
-    date: "23 May 2026",
+    date: "28 May 2026",
     title: "AI Bootcamp – Explore the Future of Artificial Intelligence",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-ai-bootcamp-explore-the-future-of-artificial-intelligence/",
     type: "Workshop",

@@ -24,6 +24,8 @@ import { gdgocKiitEvents } from "./gdgoc-kiit";
 import { gdgocCvrEvents } from "./gdgoc-cvr";
 import { gdgocIiitBbsrEvents } from "./gdgoc-iiit-bbsr";
 import { gdgocIterSoaEvents } from "./gdgoc-iter-soa";
+import { gdgocVssutBurlaEvents } from "./gdgoc-vssut-burla";
+import { gdgocNitRourkelaEvents } from "./gdgoc-nit-rourkela";
 
 type RawEvent = Omit<Event, "community">;
 
@@ -39,6 +41,8 @@ const sources: { community: string; events: RawEvent[] }[] = [
   { community: "GDGoC CVR University", events: gdgocCvrEvents },
   { community: "GDGoC IIIT Bhubaneswar", events: gdgocIiitBbsrEvents },
   { community: "GDGoC ITER SOA", events: gdgocIterSoaEvents },
+  { community: "GDGoC VSSUT Burla", events: gdgocVssutBurlaEvents },
+  { community: "GDGoC NIT Rourkela", events: gdgocNitRourkelaEvents },
 ];
 
 const MONTH_MAP: Record<string, number> = {

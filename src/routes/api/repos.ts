@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
 
 type Repo = {
   name: string;
@@ -28,6 +29,7 @@ const USERS: string[] = [
 ];
 
 const PINNED_REPOS: string[] = [
+  // Original pinned
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
   // Google Noto fonts
@@ -86,28 +88,55 @@ const GH_HEADERS = {
   ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
 };
 
-async function fetchOrgRepos(org: string): Promise<Repo[]> {
-  const r = await fetch(`https://api.github.com/orgs/${org}/repos?per_page=100&sort=updated`, {
-    headers: GH_HEADERS,
-  });
-  if (!r.ok) return [];
-  return (await r.json()) as Repo[];
-}
+// Safety cap on pagination — current orgs are all well under 100 repos, but
+// without this a single org with >100 would be silently truncated.
+const MAX_PAGES = 5;
 
-async function fetchUserRepos(user: string): Promise<Repo[]> {
-  const r = await fetch(`https://api.github.com/users/${user}/repos?per_page=100&sort=updated`, {
-    headers: GH_HEADERS,
-  });
-  if (!r.ok) return [];
-  return (await r.json()) as Repo[];
+async function fetchOwnerRepos(owner: string, isOrg: boolean): Promise<Repo[]> {
+  const kind = isOrg ? "orgs" : "users";
+  const all: Repo[] = [];
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    try {
+      const r = await fetchWithTimeout(
+        `https://api.github.com/${kind}/${owner}/repos?per_page=100&sort=updated&page=${page}`,
+        { headers: GH_HEADERS },
+      );
+      if (!r.ok) break;
+      const batch = (await r.json()) as Repo[];
+      all.push(...batch);
+      if (batch.length < 100) break;
+    } catch (err) {
+      console.warn(`fetchOwnerRepos ${owner} page ${page}:`, err);
+      break;
+    }
+  }
+  return all;
 }
 
 async function fetchSingleRepo(ownerRepo: string): Promise<Repo | null> {
-  const r = await fetch(`https://api.github.com/repos/${ownerRepo}`, {
-    headers: GH_HEADERS,
-  });
-  if (!r.ok) return null;
-  return (await r.json()) as Repo;
+  try {
+    const r = await fetchWithTimeout(`https://api.github.com/repos/${ownerRepo}`, {
+      headers: GH_HEADERS,
+    });
+    if (!r.ok) return null;
+    return (await r.json()) as Repo;
+  } catch (err) {
+    console.warn(`fetchSingleRepo ${ownerRepo}:`, err);
+    return null;
+  }
+}
+
+function buildResponse(body: unknown, status: number, cache = true) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, User-Agent",
+  };
+  if (cache) {
+    headers["Cache-Control"] = "public, s-maxage=1800, stale-while-revalidate=86400";
+  }
+  return new Response(JSON.stringify(body), { status, headers });
 }
 
 export const Route = createFileRoute("/api/repos")({
@@ -116,8 +145,8 @@ export const Route = createFileRoute("/api/repos")({
       GET: async () => {
         try {
           const [orgResults, userResults, pinnedResults] = await Promise.all([
-            Promise.all(ORGS.map(fetchOrgRepos)),
-            Promise.all(USERS.map(fetchUserRepos)),
+            Promise.all(ORGS.map((o) => fetchOwnerRepos(o, true))),
+            Promise.all(USERS.map((u) => fetchOwnerRepos(u, false))),
             Promise.all(PINNED_REPOS.map(fetchSingleRepo)),
           ]);
           const pinnedRepos = pinnedResults.filter(Boolean) as Repo[];
@@ -129,29 +158,10 @@ export const Route = createFileRoute("/api/repos")({
             .concat(pinnedRepos)
             .sort((a, b) => b.stargazers_count - a.stargazers_count);
 
-          return new Response(JSON.stringify({ repos }), {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, User-Agent",
-            },
-          });
+          return buildResponse({ repos }, 200);
         } catch (e) {
           console.error("repos error", e);
-          return new Response(
-            JSON.stringify({ repos: [] }),
-            {
-              status: 200,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
-            },
-          );
+          return buildResponse({ repos: [] }, 200, false);
         }
       },
     },

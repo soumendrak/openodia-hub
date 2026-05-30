@@ -13,6 +13,8 @@ import { Nav } from "../components/Nav";
 import { Footer } from "../components/Footer";
 import { SmoothScroll } from "../components/SmoothScroll";
 import { ScrollToTop } from "../components/ScrollToTop";
+import { CommandPalette } from "../components/CommandPalette";
+import { I18nProvider } from "../lib/i18n";
 import { JsonLd, siteOrganization, authorPerson, webSiteSchema } from "../lib/jsonld";
 
 function NotFoundComponent() {
@@ -72,10 +74,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "OpenOdia — Open source for the Odia language" },
       {
         name: "description",
-        content:
-          "Open source projects, tools, and AI resources for the Odia language by Soumendra Kumar Sahoo.",
+        content: "Open source projects, tools, and AI resources for the Odia language.",
       },
-      { name: "author", content: "Soumendra Kumar Sahoo" },
+      { name: "author", content: "OpenOdia" },
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
       {
         property: "og:description",
@@ -126,6 +127,10 @@ function RootShell({ children }: { children: React.ReactNode }) {
                 } else {
                   document.documentElement.classList.remove('light');
                 }
+                var locale = localStorage.getItem('locale');
+                if (locale === 'en' || locale === 'or') {
+                  document.documentElement.lang = locale;
+                }
               } catch (_) {}
             `,
           }}
@@ -144,13 +149,16 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   return (
     <QueryClientProvider client={queryClient}>
-      <SmoothScroll />
-      <ScrollToTop />
-      <Nav />
-      <main className="pt-24">
-        <Outlet />
-      </main>
-      <Footer />
+      <I18nProvider>
+        <SmoothScroll />
+        <ScrollToTop />
+        <Nav />
+        <CommandPalette />
+        <main className="pt-24">
+          <Outlet />
+        </main>
+        <Footer />
+      </I18nProvider>
     </QueryClientProvider>
   );
 }

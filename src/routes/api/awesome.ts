@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { fetchWithTimeout } from "../../lib/fetch-utils";
 
 type Item = {
   category: string;
@@ -99,52 +100,65 @@ function parseReadme(md: string): Item[] {
   return items;
 }
 
+function buildResponse(body: unknown, status: number, cache = true) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, User-Agent",
+  };
+  if (cache) {
+    headers["Cache-Control"] = "public, s-maxage=3600, stale-while-revalidate=86400";
+  }
+  return new Response(JSON.stringify(body), { status, headers });
+}
+
 export const Route = createFileRoute("/api/awesome")({
   server: {
     handlers: {
-      GET: async () => {
+      GET: async ({ request }: { request: Request }) => {
         try {
-          const res = await fetch(README_URL, {
+          const res = await fetchWithTimeout(README_URL, {
             headers: { "User-Agent": "openodia.com" },
           });
           if (!res.ok) {
-            return new Response(
-            JSON.stringify({ items: [], fetchedAt: new Date().toISOString(), error: "fetch_failed" }),
-            {
-              status: 502,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
-            },
-          );
+            const body = {
+              items: [],
+              fetchedAt: new Date().toISOString(),
+              error: "fetch_failed",
+            };
+            return buildResponse(body, 502, false);
           }
           const md = await res.text();
-          const items = parseReadme(md);
+          const allItems = parseReadme(md);
+          const fetchedAt = new Date().toISOString();
 
-          return new Response(JSON.stringify({ items, fetchedAt: new Date().toISOString() }), {
-            status: 200,
-            headers: {
-              "Content-Type": "application/json",
-              "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=86400",
-              "Access-Control-Allow-Origin": "*",
-              "Access-Control-Allow-Methods": "GET, OPTIONS",
-              "Access-Control-Allow-Headers": "Content-Type, User-Agent",
-            },
-          });
+          const url = new URL(request.url);
+          const cursorParam = url.searchParams.get("cursor");
+
+          if (cursorParam === null) {
+            return buildResponse({ items: allItems, fetchedAt }, 200);
+          }
+
+          const limit = Math.min(parseInt(url.searchParams.get("limit") || "30", 10) || 30, 50);
+          const start = parseInt(cursorParam || "0", 10) || 0;
+          const pageItems = allItems.slice(start, start + limit);
+          const nextCursor = start + limit < allItems.length ? String(start + limit) : undefined;
+
+          return buildResponse(
+            { items: pageItems, fetchedAt, nextCursor, total: allItems.length },
+            200,
+          );
         } catch (e) {
           console.error("awesome parse error", e);
-          return new Response(
-            JSON.stringify({ items: [], fetchedAt: new Date().toISOString(), error: "parse_failed" }),
+          return buildResponse(
             {
-              status: 500,
-              headers: {
-                "Content-Type": "application/json",
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Methods": "GET, OPTIONS",
-              },
+              items: [],
+              fetchedAt: new Date().toISOString(),
+              error: "parse_failed",
             },
+            500,
+            false,
           );
         }
       },
