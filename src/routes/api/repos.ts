@@ -15,20 +15,70 @@ type Repo = {
   topics?: string[];
 };
 
-const ORGS: string[] = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "OdiaNLP"];
+const ORGS: string[] = [
+  "odisha-ml",
+  "OdiagenAI",
+  "OdiaWikimedia",
+  "ofdn",
+  "OdiaNLP",
+  "Odia-Digital",
+];
 
-const USERS: string[] = ["shantipriyap"];
+const USERS: string[] = [
+  "shantipriyap",
+];
 
 const PINNED_REPOS: string[] = [
+  // Original pinned
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
-  "goru001/nlp-for-odia",
-  "Deeptiman/Alphabet-Learning-Android-Application",
-  "jyotishankar04/odialang",
-  "HimanshuMohanty-Git24/OdiaLingua",
+  // Google Noto fonts
+  "notofonts/noto-sans-oriya",
+  "notofonts/oriya",
+  // SIL font variant
+  "silnrsi/font-japa-sans-oriya",
+  // Hunspell / hyphenation / Lohit
+  "gooselinux/hunspell-or",
+  "gooselinux/hyphen-or",
+  "gooselinux/lohit-oriya-fonts",
+  "lohit-fonts/lohit-odia-fonts",
+  // NLCI Oriya fonts & keyboard
+  "nlci/orya-font-asika",
+  "nlci/orya-font-sans",
+  "nlci/orya-keybd-winscript",
+  // Aspell
+  "pld-linux/aspell-or",
+  // Individual high-value repos
   "imsbg/odiabhasa",
-  "shrixtacy/Subhadra-AI",
+  "imsbg/odia-bhasa",
+  "imsbg/odiaapp",
+  "imsbg/odiagames",
+  "imsbg/odialipi",
+  "imsbg/Ganita-Bingya-App",
+  "imsbg/Atomic-Guru",
+  "coldbreeze16/Lekhani",
+  "coldbreeze16/Kunji-Binyasa",
+  "coldbreeze16/Meghaduta-Converter",
+  "dmort27/orimorph",
+  "dmort27/odia-tools",
+  "dmort27/odia-im",
+  "goru001/nlp-for-odia",
   "sovopr/sovogpt",
+  "jyotishankar04/odialang",
+  "Deeptiman/Alphabet-Learning-Android-Application",
+  "Deeptiman/php-dom-parser-translation-tool",
+  "nsoum/odia-tex",
+  "SantoshNayak/Odia-Calendar",
+  "gyan111/gyan111.github.io",
+  "gyan111/twinkle-orwiki",
+  "odiaorg/purnachandraBhasakosha",
+  "odiaorg/odiaDictColln",
+  "shrixtacy/Subhadra-AI",
+  "HimanshuMohanty-Git24/OdiaLingua",
+  "GnsP/odia-keyboard",
+  "sushantamishra79/Odia-TTS-Dataset",
+  "mohitkdas/OdiaCalendarArchive",
+  "RajeebLochan/Sweatable",
 ];
 
 const githubToken = process.env.GITHUB_TOKEN;
@@ -92,35 +142,23 @@ function buildResponse(body: unknown, status: number, cache = true) {
 export const Route = createFileRoute("/api/repos")({
   server: {
     handlers: {
-      GET: async ({ request }: { request: Request }) => {
+      GET: async () => {
         try {
           const [orgResults, userResults, pinnedResults] = await Promise.all([
-            Promise.allSettled(ORGS.map((o) => fetchOwnerRepos(o, true))).then(settledValues),
-            Promise.allSettled(USERS.map((u) => fetchOwnerRepos(u, false))).then(settledValues),
-            Promise.allSettled(PINNED_REPOS.map(fetchSingleRepo)).then(settledValues),
+            Promise.all(ORGS.map((o) => fetchOwnerRepos(o, true))),
+            Promise.all(USERS.map((u) => fetchOwnerRepos(u, false))),
+            Promise.all(PINNED_REPOS.map(fetchSingleRepo)),
           ]);
           const pinnedRepos = pinnedResults.filter(Boolean) as Repo[];
           const pinnedNames = new Set(pinnedRepos.map((r) => r.full_name));
-          const allRepos = [...orgResults.flat(), ...userResults.flat()]
+          const repos = [...orgResults.flat(), ...userResults.flat()]
             .filter((r) => !r.fork && !r.archived)
-            .filter((r) => r.name.toLowerCase() !== "openodia")
-            .filter((r) => !pinnedNames.has(r.full_name))
+            .filter((r) => r.name.toLowerCase() !== "openodia") // featured separately
+            .filter((r) => !pinnedNames.has(r.full_name)) // avoid duplicates with pinned
             .concat(pinnedRepos)
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+            .sort((a, b) => b.stargazers_count - a.stargazers_count);
 
-          const url = new URL(request.url);
-          const cursorParam = url.searchParams.get("cursor");
-
-          if (cursorParam === null) {
-            return buildResponse({ repos: allRepos }, 200);
-          }
-
-          const limit = Math.min(parseInt(url.searchParams.get("limit") || "24", 10) || 24, 50);
-          const start = parseInt(cursorParam || "0", 10) || 0;
-          const pageRepos = allRepos.slice(start, start + limit);
-          const nextCursor = start + limit < allRepos.length ? String(start + limit) : undefined;
-
-          return buildResponse({ repos: pageRepos, nextCursor, total: allRepos.length }, 200);
+          return buildResponse({ repos }, 200);
         } catch (e) {
           console.error("repos error", e);
           return buildResponse({ repos: [] }, 200, false);
