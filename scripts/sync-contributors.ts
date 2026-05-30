@@ -1,6 +1,9 @@
 /**
- * Aggregates GitHub contributors across the OpenOdia orgs and writes the
- * result to Cloudflare Workers KV via the Cloudflare REST API.
+ * Aggregates GitHub contributors across the OpenOdia curated repo list and
+ * writes the result to Cloudflare Workers KV via the Cloudflare REST API.
+ *
+ * No orgs or users are auto-fetched — every repo in the list is individually
+ * curated to ensure only Odia-language projects are included.
  *
  * Designed for GitHub Actions (see .github/workflows/sync-contributors.yml).
  * Runs outside the Worker so it isn't bound by the 50-subrequest free-tier cap.
@@ -12,38 +15,11 @@
  *   CONTRIBUTORS_KV_NAMESPACE_ID  KV namespace ID from `wrangler kv namespace create`
  */
 
-const ORGS = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "OdiaNLP", "Odia-Digital"];
-// Individual users are not auto-fetched to avoid pulling non-Odia repos.
-// Their Odia-specific repos are listed in PINNED below.
-const USERS: string[] = [];
-
-// Pinned repos from large orgs where full-org fetch would be too noisy.
-// Contributors from these are fetched individually.
-const PINNED = [
-  "notofonts/noto-sans-oriya",
-  "notofonts/oriya",
-  "silnrsi/font-japa-sans-oriya",
-  "gooselinux/hunspell-or",
-  "gooselinux/hyphen-or",
-  "gooselinux/lohit-oriya-fonts",
-  "lohit-fonts/lohit-odia-fonts",
-  "nlci/orya-font-asika",
-  "nlci/orya-font-sans",
-  "nlci/orya-keybd-winscript",
-  "pld-linux/aspell-or",
-  "imsbg/odiabhasa",
-  "imsbg/odia-bhasa",
-  "imsbg/odiaapp",
-  "imsbg/odiagames",
-  "imsbg/odialipi",
-  "imsbg/Ganita-Bingya-App",
-  "imsbg/Atomic-Guru",
-  "coldbreeze16/Lekhani",
-  "coldbreeze16/Kunji-Binyasa",
-  "coldbreeze16/Meghaduta-Converter",
-  "dmort27/orimorph",
-  "dmort27/odia-tools",
-  "dmort27/odia-im",
+const CURATED_REPOS: string[] = [
+  // ── soumendrak ──
+  "soumendrak/aidaybbsr2025demo",
+  "soumendrak/odia-2048",
+  // ── Individual high-value repos ──
   "goru001/nlp-for-odia",
   "sovopr/sovogpt",
   "jyotishankar04/odialang",
@@ -61,8 +37,23 @@ const PINNED = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
-  // shantipriyap — Odia-only repos (excluded: Bengali_LLM, ColossalAI, discord,
-  // HausaVQA, Hindi-Visual-Genome, hindi_nlp, tensor2tensor, etc.)
+  // ── imsbg — Odia educational apps ──
+  "imsbg/odiabhasa",
+  "imsbg/odia-bhasa",
+  "imsbg/odiaapp",
+  "imsbg/odiagames",
+  "imsbg/odialipi",
+  "imsbg/Ganita-Bingya-App",
+  "imsbg/Atomic-Guru",
+  // ── coldbreeze16 — fonts, IME, converter ──
+  "coldbreeze16/Lekhani",
+  "coldbreeze16/Kunji-Binyasa",
+  "coldbreeze16/Meghaduta-Converter",
+  // ── dmort27 — Odia NLP tools ──
+  "dmort27/orimorph",
+  "dmort27/odia-tools",
+  "dmort27/odia-im",
+  // ── shantipriyap — Odia-only repos ──
   "shantipriyap/Odia-NLP-Resource-Catalog",
   "shantipriyap/BertOdia",
   "shantipriyap/Llama3_Odia",
@@ -79,11 +70,56 @@ const PINNED = [
   "shantipriyap/odia_asr",
   "shantipriyap/odia_nlp",
   "shantipriyap/wat2025",
+  // ── odisha-ml community ──
+  "odisha-ml/Awesome-Odia-AI",
+  "odisha-ml/OdiaInMLWeb",
+  "odisha-ml/odisha-ml.github.io",
+  "odisha-ml/website",
+  "odisha-ml/SummerSchool2022",
+  "odisha-ml/links",
+  // ── OdiaGenAI ──
+  "OdiaGenAI/GenerativeAI_and_LLM_Odia",
+  "OdiaGenAI/Olive_Odia_ASR",
+  "OdiaGenAI/iwslt-odia-speech",
+  // ── OdiaWikimedia ──
+  "OdiaWikimedia/Odia_OT_Jagannatha",
+  "OdiaWikimedia/Converter",
+  "OdiaWikimedia/Kunji-Binyasa",
+  "OdiaWikimedia/Wordlist",
+  "OdiaWikimedia/odiawikimedia.github.io",
+  "OdiaWikimedia/English-Odia",
+  // ── OdiaNLP ──
+  "OdiaNLP/NMT",
+  "OdiaNLP/wikipedia-corpus",
+  "OdiaNLP/SMT",
+  "OdiaNLP/dictionary",
+  "OdiaNLP/odianlp.github.io",
+  "OdiaNLP/word-embeddings",
+  "OdiaNLP/spelling-correction",
+  "OdiaNLP/language-modeling",
+  // ── Odia-Digital ──
+  "Odia-Digital/odia-keyboard",
+  "Odia-Digital/odia-editor",
+  "Odia-Digital/odia-books",
+  // ── ofdn (Odia-specific repos only) ──
+  "ofdn/Chapakala",
+  "ofdn/odia-wordlist-from-wikimedia-dump",
+  // ── Fonts & OS-level Odia support ──
+  "notofonts/noto-sans-oriya",
+  "notofonts/oriya",
+  "silnrsi/font-japa-sans-oriya",
+  "gooselinux/hunspell-or",
+  "gooselinux/hyphen-or",
+  "gooselinux/lohit-oriya-fonts",
+  "lohit-fonts/lohit-odia-fonts",
+  "nlci/orya-font-asika",
+  "nlci/orya-font-sans",
+  "nlci/orya-keybd-winscript",
+  "pld-linux/aspell-or",
 ];
+
 const MIN_CONTRIBUTIONS = 10;
 const KV_KEY = "contributors:v1";
-
-type GitHubRepo = { name: string; full_name: string; fork: boolean; archived: boolean };
 
 type GitHubContributor = {
   login: string;
@@ -126,15 +162,6 @@ async function gh<T>(url: string, token: string): Promise<T | null> {
   return text ? (JSON.parse(text) as T) : null;
 }
 
-async function fetchRepos(owner: string, isOrg: boolean, token: string): Promise<GitHubRepo[]> {
-  const kind = isOrg ? "orgs" : "users";
-  const data = await gh<GitHubRepo[]>(
-    `https://api.github.com/${kind}/${owner}/repos?per_page=100&sort=updated`,
-    token,
-  );
-  return data ?? [];
-}
-
 async function fetchContributors(fullName: string, token: string): Promise<GitHubContributor[]> {
   const data = await gh<GitHubContributor[]>(
     `https://api.github.com/repos/${fullName}/contributors?per_page=30`,
@@ -144,28 +171,10 @@ async function fetchContributors(fullName: string, token: string): Promise<GitHu
 }
 
 async function aggregate(token: string): Promise<Payload> {
-  const orgRepos = await Promise.all(ORGS.map((o) => fetchRepos(o, true, token)));
-  const userRepos = await Promise.all(USERS.map((u) => fetchRepos(u, false, token)));
-  const allRepos = [...orgRepos.flat(), ...userRepos.flat()].filter((r) => !r.fork && !r.archived);
-
-  // Pinned repos are already in full_name format — wrap them to match the
-  // { full_name, name } shape used below so they flow through the same pipeline.
-  const pinnedWrapped: GitHubRepo[] = PINNED.map((fn) => ({
-    full_name: fn,
-    name: fn.split("/")[1],
-    fork: false,
-    archived: false,
-  }));
-
-  const unique = new Map<string, GitHubRepo>();
-  for (const r of [...allRepos, ...pinnedWrapped]) {
-    unique.set(r.full_name, r);
-  }
-
   const perRepo = await Promise.all(
-    Array.from(unique.values()).map(async (repo) => ({
-      repo: repo.name,
-      contributors: await fetchContributors(repo.full_name, token),
+    CURATED_REPOS.map(async (fullName) => ({
+      repo: fullName.split("/")[1],
+      contributors: await fetchContributors(fullName, token),
     })),
   );
 
@@ -177,9 +186,6 @@ async function aggregate(token: string): Promise<Payload> {
         existing.contributions += c.contributions;
         if (!existing.repos.includes(repo)) existing.repos.push(repo);
       } else {
-        // Explicit pick — the GitHub API returns ~15 extra URL fields per user
-        // that the UI never reads. Picking keeps the KV value (and the
-        // /api/contributors response) ~10× smaller.
         map.set(c.login, {
           login: c.login,
           avatar_url: c.avatar_url,
@@ -227,7 +233,7 @@ async function main(): Promise<void> {
   const token = requireEnv("GITHUB_TOKEN");
   const payload = await aggregate(token);
   console.log(
-    `Aggregated ${payload.totalContributors} contributors (>${MIN_CONTRIBUTIONS} contributions).`,
+    `Aggregated ${payload.totalContributors} contributors (>${MIN_CONTRIBUTIONS} contributions) from ${CURATED_REPOS.length} curated repos.`,
   );
   await writeToKv(payload);
   console.log(`Wrote KV key "${KV_KEY}".`);
