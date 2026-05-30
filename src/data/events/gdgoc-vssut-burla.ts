@@ -20,6 +20,17 @@ export const gdgocVssutBurlaEvents: Omit<Event, "community">[] = [
   },
   {
     year: "2026",
+    date: "24 Jan 2026",
+    title: "Dev Talk: Comprehensive Workshop",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india-presents-dev-talk-comprehensive-workshop/",
+    type: "Workshop",
+    startDate: "2026-01-24",
+    location: "VSSUT Burla, Odisha",
+    description:
+      "An exclusive workshop by GDGoC VSSUT Burla featuring a Google employee presenting 'A Journey into Google's Technology' — offering insights into cutting-edge technologies and hands-on experiences for students and developers.",
+  },
+  {
+    year: "2026",
     date: "24–25 Jan 2026",
     title: "Dev Talk & Workshop: Networking with Industry Experts",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india-presents-dev-talk-and-workshop-networking-with-industry-experts/",
