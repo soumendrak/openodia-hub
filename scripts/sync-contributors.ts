@@ -13,7 +13,9 @@
  */
 
 const ORGS = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "OdiaNLP", "Odia-Digital"];
-const USERS = ["shantipriyap"];
+// Individual users are not auto-fetched to avoid pulling non-Odia repos.
+// Their Odia-specific repos are listed in PINNED below.
+const USERS: string[] = [];
 
 // Pinned repos from large orgs where full-org fetch would be too noisy.
 // Contributors from these are fetched individually.
@@ -59,6 +61,24 @@ const PINNED = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
+  // shantipriyap — Odia-only repos (excluded: Bengali_LLM, ColossalAI, discord,
+  // HausaVQA, Hindi-Visual-Genome, hindi_nlp, tensor2tensor, etc.)
+  "shantipriyap/Odia-NLP-Resource-Catalog",
+  "shantipriyap/BertOdia",
+  "shantipriyap/Llama3_Odia",
+  "shantipriyap/MDOLC",
+  "shantipriyap/ODIAGEN_WAT2024",
+  "shantipriyap/OdiEnCorp-1.0",
+  "shantipriyap/Odia-Santali-Dialect-Detection-Dataset",
+  "shantipriyap/Odia_Tokenizer",
+  "shantipriyap/SiloNLP_WAT2022",
+  "shantipriyap/hunyuan_odia_ocr",
+  "shantipriyap/odia-ocr-internvl2",
+  "shantipriyap/odia-ocr-qwen-finetuned",
+  "shantipriyap/odia-ocr-qwen7b-v3",
+  "shantipriyap/odia_asr",
+  "shantipriyap/odia_nlp",
+  "shantipriyap/wat2025",
 ];
 const MIN_CONTRIBUTIONS = 10;
 const KV_KEY = "contributors:v1";

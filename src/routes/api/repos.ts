@@ -24,7 +24,9 @@ const ORGS: string[] = [
   "Odia-Digital",
 ];
 
-const USERS: string[] = ["shantipriyap"];
+// Individual users are not auto-fetched to avoid pulling non-Odia repos.
+// Their Odia-specific repos are listed individually below.
+const USERS: string[] = [];
 
 const PINNED_REPOS: string[] = [
   // Original pinned
@@ -46,7 +48,7 @@ const PINNED_REPOS: string[] = [
   "nlci/orya-keybd-winscript",
   // Aspell
   "pld-linux/aspell-or",
-  // Individual high-value repos
+  // imsbg — Odia educational apps
   "imsbg/odiabhasa",
   "imsbg/odia-bhasa",
   "imsbg/odiaapp",
@@ -54,12 +56,15 @@ const PINNED_REPOS: string[] = [
   "imsbg/odialipi",
   "imsbg/Ganita-Bingya-App",
   "imsbg/Atomic-Guru",
+  // coldbreeze16 — fonts, IME, converter
   "coldbreeze16/Lekhani",
   "coldbreeze16/Kunji-Binyasa",
   "coldbreeze16/Meghaduta-Converter",
+  // dmort27 — Odia NLP tools
   "dmort27/orimorph",
   "dmort27/odia-tools",
   "dmort27/odia-im",
+  // Individual high-value repos
   "goru001/nlp-for-odia",
   "sovopr/sovogpt",
   "jyotishankar04/odialang",
@@ -77,6 +82,24 @@ const PINNED_REPOS: string[] = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
+  // shantipriyap — Odia-only repos (excluded: Bengali_LLM, ColossalAI, discord,
+  // HausaVQA, Hindi-Visual-Genome, hindi_nlp, tensor2tensor, etc.)
+  "shantipriyap/Odia-NLP-Resource-Catalog",
+  "shantipriyap/BertOdia",
+  "shantipriyap/Llama3_Odia",
+  "shantipriyap/MDOLC",
+  "shantipriyap/ODIAGEN_WAT2024",
+  "shantipriyap/OdiEnCorp-1.0",
+  "shantipriyap/Odia-Santali-Dialect-Detection-Dataset",
+  "shantipriyap/Odia_Tokenizer",
+  "shantipriyap/SiloNLP_WAT2022",
+  "shantipriyap/hunyuan_odia_ocr",
+  "shantipriyap/odia-ocr-internvl2",
+  "shantipriyap/odia-ocr-qwen-finetuned",
+  "shantipriyap/odia-ocr-qwen7b-v3",
+  "shantipriyap/odia_asr",
+  "shantipriyap/odia_nlp",
+  "shantipriyap/wat2025",
 ];
 
 const githubToken = process.env.GITHUB_TOKEN;
