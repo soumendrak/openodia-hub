@@ -21,43 +21,62 @@ const ORGS: string[] = [
   "ofdn",
   "OdiaNLP",
   "Odia-Digital",
-  "lohit-fonts",
 ];
 
 const USERS: string[] = [
   "shantipriyap",
-  "imsbg",
-  "coldbreeze16",
-  "dmort27",
-  "goru001",
-  "sovopr",
-  "jyotishankar04",
-  "Deeptiman",
-  "nsoum",
-  "SantoshNayak",
-  "gyan111",
-  "odiaorg",
-  "shrixtacy",
-  "HimanshuMohanty-Git24",
-  "GnsP",
-  "sushantamishra79",
-  "mohitkdas",
-  "RajeebLochan",
 ];
 
 const PINNED_REPOS: string[] = [
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
+  // Google Noto fonts
   "notofonts/noto-sans-oriya",
   "notofonts/oriya",
+  // SIL font variant
   "silnrsi/font-japa-sans-oriya",
+  // Hunspell / hyphenation / Lohit
   "gooselinux/hunspell-or",
   "gooselinux/hyphen-or",
   "gooselinux/lohit-oriya-fonts",
+  "lohit-fonts/lohit-odia-fonts",
+  // NLCI Oriya fonts & keyboard
   "nlci/orya-font-asika",
   "nlci/orya-font-sans",
   "nlci/orya-keybd-winscript",
+  // Aspell
   "pld-linux/aspell-or",
+  // Individual high-value repos
+  "imsbg/odiabhasa",
+  "imsbg/odia-bhasa",
+  "imsbg/odiaapp",
+  "imsbg/odiagames",
+  "imsbg/odialipi",
+  "imsbg/Ganita-Bingya-App",
+  "imsbg/Atomic-Guru",
+  "coldbreeze16/Lekhani",
+  "coldbreeze16/Kunji-Binyasa",
+  "coldbreeze16/Meghaduta-Converter",
+  "dmort27/orimorph",
+  "dmort27/odia-tools",
+  "dmort27/odia-im",
+  "goru001/nlp-for-odia",
+  "sovopr/sovogpt",
+  "jyotishankar04/odialang",
+  "Deeptiman/Alphabet-Learning-Android-Application",
+  "Deeptiman/php-dom-parser-translation-tool",
+  "nsoum/odia-tex",
+  "SantoshNayak/Odia-Calendar",
+  "gyan111/gyan111.github.io",
+  "gyan111/twinkle-orwiki",
+  "odiaorg/purnachandraBhasakosha",
+  "odiaorg/odiaDictColln",
+  "shrixtacy/Subhadra-AI",
+  "HimanshuMohanty-Git24/OdiaLingua",
+  "GnsP/odia-keyboard",
+  "sushantamishra79/Odia-TTS-Dataset",
+  "mohitkdas/OdiaCalendarArchive",
+  "RajeebLochan/Sweatable",
 ];
 
 const githubToken = process.env.GITHUB_TOKEN;

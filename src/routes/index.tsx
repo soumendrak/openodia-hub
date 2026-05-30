@@ -9,6 +9,7 @@ import { FEATURED_VIDEOS, YOUTUBE_CHANNEL } from "../data/videos";
 import { YoutubeIcon, GithubIcon, PythonIcon } from "../components/icons";
 import { FaqSection } from "../components/FaqSection";
 import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
+import { CONTRIBUTORS } from "../data/contributors";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -37,6 +38,7 @@ function Home() {
       <Hero />
       <Pillars />
       <Stats />
+      <Contributors />
       <Videos />
       <FaqSection />
       <JsonLd data={faqPageSchema([
@@ -246,6 +248,45 @@ function Stats() {
               {s.value}
             </div>
             <div className="mt-1 text-sm text-muted-foreground">{s.label}</div>
+          </Reveal>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Contributors() {
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-16">
+      <Reveal>
+        <h2 className="font-display text-3xl font-semibold md:text-5xl">Contributors.</h2>
+        <p className="mt-2 max-w-xl text-muted-foreground">
+          The people building open-source for the Odia language.
+        </p>
+      </Reveal>
+
+      <div className="mt-10 grid gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {CONTRIBUTORS.map((c, i) => (
+          <Reveal key={c.login} delay={i * 0.03}>
+            <a
+              href={c.github_url}
+              target="_blank"
+              rel="noreferrer"
+              className="group flex items-center gap-3 rounded-2xl border border-border bg-surface p-4 transition hover:border-neon/40 hover:bg-surface-2"
+            >
+              <img
+                src={c.avatar_url}
+                alt={c.name}
+                className="h-12 w-12 rounded-full border border-border object-cover"
+                loading="lazy"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium group-hover:text-neon">
+                  {c.name}
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{c.projects}</div>
+              </div>
+            </a>
           </Reveal>
         ))}
       </div>

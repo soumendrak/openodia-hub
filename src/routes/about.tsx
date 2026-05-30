@@ -3,6 +3,7 @@ import { Reveal } from "../components/Reveal";
 import { MagneticButton } from "../components/MagneticButton";
 import { GithubIcon, YoutubeIcon, LinkedinIcon } from "../components/icons";
 import { Mail } from "lucide-react";
+import { CONTRIBUTORS } from "../data/contributors";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -106,6 +107,39 @@ function About() {
               <div className="font-mono text-xs text-neon">{m.year}</div>
               <h3 className="mt-1 font-display text-xl font-semibold">{m.title}</h3>
               <p className="mt-1 text-muted-foreground">{m.body}</p>
+            </Reveal>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-20">
+        <Reveal>
+          <h2 className="font-display text-3xl font-semibold md:text-4xl">Community contributors</h2>
+          <p className="mt-2 text-muted-foreground">
+            The people building open-source tools and resources for the Odia language.
+          </p>
+        </Reveal>
+
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3">
+          {CONTRIBUTORS.map((c, i) => (
+            <Reveal key={c.login} delay={i * 0.03}>
+              <a
+                href={c.github_url}
+                target="_blank"
+                rel="noreferrer"
+                className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-3 transition hover:border-neon/40"
+              >
+                <img
+                  src={c.avatar_url}
+                  alt={c.name}
+                  className="h-10 w-10 rounded-full border border-border object-cover"
+                  loading="lazy"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium group-hover:text-neon">{c.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">{c.projects}</div>
+                </div>
+              </a>
             </Reveal>
           ))}
         </div>
