@@ -17,7 +17,7 @@ type ServerEntry = {
   fetch: (request: Request, env: unknown, ctx: unknown) => Promise<Response> | Response;
 };
 
-const CONTRIBUTORS_KV_KEY = "contributors:v1";
+const CONTRIBUTORS_KV_KEY = "contributors:v2";
 const EMPTY_CONTRIBUTORS_BODY = JSON.stringify({
   contributors: [],
   totalContributors: 0,
