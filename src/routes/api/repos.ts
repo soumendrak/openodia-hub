@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
+import { fetchWithTimeout } from "../../lib/fetch-utils";
 
 type Repo = {
   name: string;
@@ -15,51 +15,16 @@ type Repo = {
   topics?: string[];
 };
 
-const ORGS: string[] = [
-  "odisha-ml",
-  "OdiagenAI",
-  "OdiaWikimedia",
-  "ofdn",
-  "OdiaNLP",
-  "Odia-Digital",
-];
-
-const USERS: string[] = ["shantipriyap"];
+// No orgs or users are auto-fetched — every repo on the site is individually
+// curated to ensure only Odia-language projects are listed.
+const ORGS: string[] = [];
+const USERS: string[] = [];
 
 const PINNED_REPOS: string[] = [
-  // Original pinned
+  // ── soumendrak ──
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
-  // Google Noto fonts
-  "notofonts/noto-sans-oriya",
-  "notofonts/oriya",
-  // SIL font variant
-  "silnrsi/font-japa-sans-oriya",
-  // Hunspell / hyphenation / Lohit
-  "gooselinux/hunspell-or",
-  "gooselinux/hyphen-or",
-  "gooselinux/lohit-oriya-fonts",
-  "lohit-fonts/lohit-odia-fonts",
-  // NLCI Oriya fonts & keyboard
-  "nlci/orya-font-asika",
-  "nlci/orya-font-sans",
-  "nlci/orya-keybd-winscript",
-  // Aspell
-  "pld-linux/aspell-or",
-  // Individual high-value repos
-  "imsbg/odiabhasa",
-  "imsbg/odia-bhasa",
-  "imsbg/odiaapp",
-  "imsbg/odiagames",
-  "imsbg/odialipi",
-  "imsbg/Ganita-Bingya-App",
-  "imsbg/Atomic-Guru",
-  "coldbreeze16/Lekhani",
-  "coldbreeze16/Kunji-Binyasa",
-  "coldbreeze16/Meghaduta-Converter",
-  "dmort27/orimorph",
-  "dmort27/odia-tools",
-  "dmort27/odia-im",
+  // ── Individual high-value repos ──
   "goru001/nlp-for-odia",
   "sovopr/sovogpt",
   "jyotishankar04/odialang",
@@ -77,6 +42,85 @@ const PINNED_REPOS: string[] = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
+  // ── imsbg — Odia educational apps ──
+  "imsbg/odiabhasa",
+  "imsbg/odia-bhasa",
+  "imsbg/odiaapp",
+  "imsbg/odiagames",
+  "imsbg/odialipi",
+  "imsbg/Ganita-Bingya-App",
+  "imsbg/Atomic-Guru",
+  // ── coldbreeze16 — fonts, IME, converter ──
+  "coldbreeze16/Lekhani",
+  "coldbreeze16/Kunji-Binyasa",
+  "coldbreeze16/Meghaduta-Converter",
+  // ── dmort27 — Odia NLP tools ──
+  "dmort27/orimorph",
+  "dmort27/odia-tools",
+  "dmort27/odia-im",
+  // ── shantipriyap — Odia-only repos (excluded non-Odia: Bengali_LLM, etc.) ──
+  "shantipriyap/Odia-NLP-Resource-Catalog",
+  "shantipriyap/BertOdia",
+  "shantipriyap/Llama3_Odia",
+  "shantipriyap/MDOLC",
+  "shantipriyap/ODIAGEN_WAT2024",
+  "shantipriyap/OdiEnCorp-1.0",
+  "shantipriyap/Odia-Santali-Dialect-Detection-Dataset",
+  "shantipriyap/Odia_Tokenizer",
+  "shantipriyap/SiloNLP_WAT2022",
+  "shantipriyap/hunyuan_odia_ocr",
+  "shantipriyap/odia-ocr-internvl2",
+  "shantipriyap/odia-ocr-qwen-finetuned",
+  "shantipriyap/odia-ocr-qwen7b-v3",
+  "shantipriyap/odia_asr",
+  "shantipriyap/odia_nlp",
+  "shantipriyap/wat2025",
+  // ── odisha-ml community ──
+  "odisha-ml/Awesome-Odia-AI",
+  "odisha-ml/OdiaInMLWeb",
+  "odisha-ml/odisha-ml.github.io",
+  "odisha-ml/website",
+  "odisha-ml/SummerSchool2022",
+  "odisha-ml/links",
+  // ── OdiaGenAI ──
+  "OdiaGenAI/GenerativeAI_and_LLM_Odia",
+  "OdiaGenAI/Olive_Odia_ASR",
+  "OdiaGenAI/iwslt-odia-speech",
+  // ── OdiaWikimedia ──
+  "OdiaWikimedia/Odia_OT_Jagannatha",
+  "OdiaWikimedia/Converter",
+  "OdiaWikimedia/Kunji-Binyasa",
+  "OdiaWikimedia/Wordlist",
+  "OdiaWikimedia/odiawikimedia.github.io",
+  "OdiaWikimedia/English-Odia",
+  // ── OdiaNLP ──
+  "OdiaNLP/NMT",
+  "OdiaNLP/wikipedia-corpus",
+  "OdiaNLP/SMT",
+  "OdiaNLP/dictionary",
+  "OdiaNLP/odianlp.github.io",
+  "OdiaNLP/word-embeddings",
+  "OdiaNLP/spelling-correction",
+  "OdiaNLP/language-modeling",
+  // ── Odia-Digital ──
+  "Odia-Digital/odia-keyboard",
+  "Odia-Digital/odia-editor",
+  "Odia-Digital/odia-books",
+  // ── ofdn (Odia-specific repos only) ──
+  "ofdn/Chapakala",
+  "ofdn/odia-wordlist-from-wikimedia-dump",
+  // ── Fonts & OS-level Odia support ──
+  "notofonts/noto-sans-oriya",
+  "notofonts/oriya",
+  "silnrsi/font-japa-sans-oriya",
+  "gooselinux/hunspell-or",
+  "gooselinux/hyphen-or",
+  "gooselinux/lohit-oriya-fonts",
+  "lohit-fonts/lohit-odia-fonts",
+  "nlci/orya-font-asika",
+  "nlci/orya-font-sans",
+  "nlci/orya-keybd-winscript",
+  "pld-linux/aspell-or",
 ];
 
 const githubToken = process.env.GITHUB_TOKEN;
@@ -85,31 +129,6 @@ const GH_HEADERS = {
   Accept: "application/vnd.github+json",
   ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
 };
-
-// Safety cap on pagination — current orgs are all well under 100 repos, but
-// without this a single org with >100 would be silently truncated.
-const MAX_PAGES = 5;
-
-async function fetchOwnerRepos(owner: string, isOrg: boolean): Promise<Repo[]> {
-  const kind = isOrg ? "orgs" : "users";
-  const all: Repo[] = [];
-  for (let page = 1; page <= MAX_PAGES; page++) {
-    try {
-      const r = await fetchWithTimeout(
-        `https://api.github.com/${kind}/${owner}/repos?per_page=100&sort=updated&page=${page}`,
-        { headers: GH_HEADERS },
-      );
-      if (!r.ok) break;
-      const batch = (await r.json()) as Repo[];
-      all.push(...batch);
-      if (batch.length < 100) break;
-    } catch (err) {
-      console.warn(`fetchOwnerRepos ${owner} page ${page}:`, err);
-      break;
-    }
-  }
-  return all;
-}
 
 async function fetchSingleRepo(ownerRepo: string): Promise<Repo | null> {
   try {
@@ -142,18 +161,9 @@ export const Route = createFileRoute("/api/repos")({
     handlers: {
       GET: async () => {
         try {
-          const [orgResults, userResults, pinnedResults] = await Promise.all([
-            Promise.all(ORGS.map((o) => fetchOwnerRepos(o, true))),
-            Promise.all(USERS.map((u) => fetchOwnerRepos(u, false))),
-            Promise.all(PINNED_REPOS.map(fetchSingleRepo)),
-          ]);
-          const pinnedRepos = pinnedResults.filter(Boolean) as Repo[];
-          const pinnedNames = new Set(pinnedRepos.map((r) => r.full_name));
-          const repos = [...orgResults.flat(), ...userResults.flat()]
-            .filter((r) => !r.fork && !r.archived)
-            .filter((r) => r.name.toLowerCase() !== "openodia") // featured separately
-            .filter((r) => !pinnedNames.has(r.full_name)) // avoid duplicates with pinned
-            .concat(pinnedRepos)
+          const pinnedResults = await Promise.all(PINNED_REPOS.map(fetchSingleRepo));
+          const repos = pinnedResults
+            .filter((r): r is Repo => r !== null && !r.fork && !r.archived)
             .sort((a, b) => b.stargazers_count - a.stargazers_count);
 
           return buildResponse({ repos }, 200);
