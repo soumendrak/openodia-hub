@@ -24,9 +24,7 @@ const ORGS: string[] = [
   "Odia-Digital",
 ];
 
-const USERS: string[] = [
-  "shantipriyap",
-];
+const USERS: string[] = ["shantipriyap"];
 
 const PINNED_REPOS: string[] = [
   // Original pinned
