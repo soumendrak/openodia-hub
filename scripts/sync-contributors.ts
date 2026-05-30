@@ -12,8 +12,54 @@
  *   CONTRIBUTORS_KV_NAMESPACE_ID  KV namespace ID from `wrangler kv namespace create`
  */
 
-const ORGS = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "OdiaNLP"];
+const ORGS = ["odisha-ml", "OdiagenAI", "OdiaWikimedia", "ofdn", "OdiaNLP", "Odia-Digital"];
 const USERS = ["shantipriyap"];
+
+// Pinned repos from large orgs where full-org fetch would be too noisy.
+// Contributors from these are fetched individually.
+const PINNED = [
+  "notofonts/noto-sans-oriya",
+  "notofonts/oriya",
+  "silnrsi/font-japa-sans-oriya",
+  "gooselinux/hunspell-or",
+  "gooselinux/hyphen-or",
+  "gooselinux/lohit-oriya-fonts",
+  "lohit-fonts/lohit-odia-fonts",
+  "nlci/orya-font-asika",
+  "nlci/orya-font-sans",
+  "nlci/orya-keybd-winscript",
+  "pld-linux/aspell-or",
+  "imsbg/odiabhasa",
+  "imsbg/odia-bhasa",
+  "imsbg/odiaapp",
+  "imsbg/odiagames",
+  "imsbg/odialipi",
+  "imsbg/Ganita-Bingya-App",
+  "imsbg/Atomic-Guru",
+  "coldbreeze16/Lekhani",
+  "coldbreeze16/Kunji-Binyasa",
+  "coldbreeze16/Meghaduta-Converter",
+  "dmort27/orimorph",
+  "dmort27/odia-tools",
+  "dmort27/odia-im",
+  "goru001/nlp-for-odia",
+  "sovopr/sovogpt",
+  "jyotishankar04/odialang",
+  "Deeptiman/Alphabet-Learning-Android-Application",
+  "Deeptiman/php-dom-parser-translation-tool",
+  "nsoum/odia-tex",
+  "SantoshNayak/Odia-Calendar",
+  "gyan111/gyan111.github.io",
+  "gyan111/twinkle-orwiki",
+  "odiaorg/purnachandraBhasakosha",
+  "odiaorg/odiaDictColln",
+  "shrixtacy/Subhadra-AI",
+  "HimanshuMohanty-Git24/OdiaLingua",
+  "GnsP/odia-keyboard",
+  "sushantamishra79/Odia-TTS-Dataset",
+  "mohitkdas/OdiaCalendarArchive",
+  "RajeebLochan/Sweatable",
+];
 const MIN_CONTRIBUTIONS = 10;
 const KV_KEY = "contributors:v1";
 
@@ -82,8 +128,22 @@ async function aggregate(token: string): Promise<Payload> {
   const userRepos = await Promise.all(USERS.map((u) => fetchRepos(u, false, token)));
   const allRepos = [...orgRepos.flat(), ...userRepos.flat()].filter((r) => !r.fork && !r.archived);
 
+  // Pinned repos are already in full_name format — wrap them to match the
+  // { full_name, name } shape used below so they flow through the same pipeline.
+  const pinnedWrapped: GitHubRepo[] = PINNED.map((fn) => ({
+    full_name: fn,
+    name: fn.split("/")[1],
+    fork: false,
+    archived: false,
+  }));
+
+  const unique = new Map<string, GitHubRepo>();
+  for (const r of [...allRepos, ...pinnedWrapped]) {
+    unique.set(r.full_name, r);
+  }
+
   const perRepo = await Promise.all(
-    allRepos.map(async (repo) => ({
+    Array.from(unique.values()).map(async (repo) => ({
       repo: repo.name,
       contributors: await fetchContributors(repo.full_name, token),
     })),
