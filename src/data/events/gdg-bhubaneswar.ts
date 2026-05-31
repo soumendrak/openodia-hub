@@ -61,6 +61,26 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
   },
   {
     year: "2025",
+    date: "22 Mar 2025",
+    title: "Build with AI Workshop Series: Implementing Imagen on Vertex AI with Python",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-workshop-series-implementing-imagen-on-vertex-ai-with-python/cohost-gdg-bhubaneswar",
+    type: "Workshop",
+    location: "Regional College of Management, Bhubaneswar",
+    description:
+      "The second event in GDG Bhubaneswar's Build with AI Workshop Series — a hands-on session guiding participants through setting up and deploying Imagen on Google's Vertex AI platform using Python, with real-time code labs and peer networking.",
+  },
+  {
+    year: "2025",
+    date: "16 Mar 2025",
+    title: "International Women's Day 2025: Redefine Possible",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-international-womens-day-2025-redefine-possible/",
+    type: "Talk",
+    location: "ITER, Siksha 'O' Anusandhan, Bhubaneswar",
+    description:
+      "A GDG Bhubaneswar celebration of International Women's Day 2025 under the theme 'Redefine Possible' — featuring inspiring sessions, career insights, and community connections to break barriers and empower every gender in technology.",
+  },
+  {
+    year: "2025",
     date: "2 Mar 2025",
     title: "Kickstart Your AI Journey with Vertex AI and Google Cloud",
     url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-kickstart-your-ai-journey-with-vertex-ai-and-google-cloud/",
