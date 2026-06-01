@@ -9,6 +9,16 @@ import type { Event } from "./types";
 
 export const gdgocNistBerhampurEvents: Omit<Event, "community">[] = [
   {
+    year: "2025",
+    date: "29 Mar 2025",
+    title: "Build with AI: Gemini Workshop",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-science-and-technology-berhampur-india-presents-build-with-ai-gemini-workshop/",
+    type: "Talk",
+    description:
+      "Join us for the Build with AI – Gemini Workshop, where you\'ll learn to create AI-powered chatbots using Gemini and Gradio. Gain hands-on skills in prompt engineering, API integration, and UI design.",
+  },
+
+  {
     year: "2026",
     date: "23 May 2026",
     title: "Agent Forge — Build with Google ADK",

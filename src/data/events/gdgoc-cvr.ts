@@ -9,6 +9,115 @@ import type { Event } from "./types";
 
 export const gdgocCvrEvents: Omit<Event, "community">[] = [
   {
+    year: "2025",
+    date: "29 Mar 2025",
+    title: "Cyber Security Bootcamp",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-cyber-security-bootcamp/",
+    type: "Workshop",
+    description:
+      "Dive into the world of cybersecurity with hands-on training in ethical hacking, network security, cryptography, and threat analysis. Learn how to protect systems, detect vulnerabilities, and counter cyber threats.",
+  },
+  {
+    year: "2025",
+    date: "29 Mar 2025",
+    title: "UI/UX Bootcamp",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-uiux-bootcamp/",
+    type: "Workshop",
+    description:
+      "Join our UI/UX Bootcamp to master the fundamentals of user interface and user experience design! Learn design principles, wireframing, prototyping, and usability testing through hands-on sessions.",
+  },
+  {
+    year: "2025",
+    date: "15 Mar 2025",
+    title: "Build with AI",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-build-with-ai/",
+    type: "Workshop",
+    description:
+      "Build with AI 🚀🤖 is an immersive event designed to empower developers, data scientists, and AI enthusiasts to innovate using the latest in artificial intelligence technology.",
+  },
+  {
+    year: "2025",
+    date: "22 Feb 2025",
+    title: "C!A Q/A",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-ca-qa/",
+    type: "Workshop",
+    description:
+      "A power-packed C!A Q/A & Strategy Workshop 🚀 covering expert tips, strategies, and insights to ace C!A and related competitions. Don’t miss out! 💻🔥.",
+  },
+  {
+    year: "2025",
+    date: "13 Feb 2025",
+    title: "C!A - CODE.INNOVATE.ACCELERATE",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-ca-codeinnovateaccelerate/",
+    type: "Hackathon",
+    description:
+      "The GDG C!A Innovation Tech Challenge invites students to create innovative software solutions for real-world challenges.",
+  },
+  {
+    year: "2025",
+    date: "8 Feb 2025",
+    title: "Web Development Bootcamp",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-web-development-bootcamp/",
+    type: "Workshop",
+    description:
+      "Join us for an interactive Web Development Bootcamp, where you\'ll dive into the fundamentals of HTML, CSS, JavaScript, and Tailwind.",
+  },
+  {
+    year: "2025",
+    date: "1 Feb 2025",
+    title: "Coding Session-01 "Hello World"",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-coding-session-01-hello-world/",
+    type: "Workshop",
+    description:
+      "🚀 Coding Session: 01 (HelloWorld) is a hands-on event focused on mastering array algorithms, It covers 🔍 Linear Search (searching), ➕Prefix Sum (range queries), 🔢 Sieve of Eratosthenes (prime generation), and 🎨 Dutch National Flag Algorithm (sorti...",
+  },
+  {
+    year: "2025",
+    date: "25 Jan 2025",
+    title: "Machine Learning Bootcamp",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-machine-learning-bootcamp/",
+    type: "Workshop",
+    description:
+      "✨Machine Learning Bootcamp : 🤔 Want to know how machines 🤖 learn and predict? Join us for an interactive ML Bootcamp! 🚀 Learn the basics of Machine Learning, 🛠 build your first model, and 🌍 explore how it\'s revolutionizing industries like healthc...",
+  },
+  {
+    year: "2025",
+    date: "18 Jan 2025",
+    title: "Google Solutions Challenge & Virtual Reality Exploration 🚀🌐",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-google-solutions-challenge-amp-virtual-reality-exploration/",
+    type: "Workshop",
+    description:
+      "Join us for an immersive experience that combines innovation with cutting-edge technology! 💡 Discover how to tackle real-world problems by leveraging the power of technology in the Google Solutions Challenge and explore the exciting world of Virtu...",
+  },
+  {
+    year: "2024",
+    date: "9 Dec 2024",
+    title: "GIT & GITHUB",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-git-amp-github/",
+    type: "Workshop",
+    description:
+      "Dive into the world of version control with Git and GitHub! 🌍 Master version control and seamless team collaboration! 🎯✨ Manage your code, track progress, and collaborate with ease using Git & GitHub.",
+  },
+  {
+    year: "2024",
+    date: "17 Nov 2024",
+    title: "Coding Contest 2.0",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-coding-contest-20/",
+    type: "Hackathon",
+    description:
+      "Codeforces Online Coding Contest!!📢 Get ready to put your coding skills to the test!! We are excited to announce an upcoming online coding contest on Codeforces, open to all coding enthusiasts.Whether you’re looking to showcase your skills or simp...",
+  },
+  {
+    year: "2024",
+    date: "26 Oct 2024",
+    title: "Coding Contest 1.0",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-coding-contest-10/",
+    type: "Hackathon",
+    description:
+      "Codeforces Online Coding Contest!!📢 Get ready to put your coding skills to the test!! We are excited to announce an upcoming online coding contest on Codeforces, open to all coding enthusiasts.Whether you’re looking to showcase your skills or simp...",
+  },
+
+  {
     year: "2026",
     date: "28 May 2026",
     title: "AI Bootcamp – Explore the Future of Artificial Intelligence",

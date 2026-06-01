@@ -9,6 +9,70 @@ import type { Event } from "./types";
 
 export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
   {
+    year: "2024",
+    date: "10 Aug 2024",
+    title: "Digital Pioneers Summit",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-digital-pioneers-summit/",
+    type: "Talk",
+    description:
+      "Join us for then next event of Women TechMakers, where technology enthusiasts, data engineers, and devops enthusiasts converge for a day of knowledge exchange and networking. This dynamic event, hosted on 10 Aug 2024!",
+  },
+  {
+    year: "2024",
+    date: "9 Jun 2024",
+    title: "Build With AI Roadshow",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-roadshow/",
+    type: "Talk",
+    description:
+      "Generative AI is transforming how we interact with technology. Build with AI events are community-led technical workshops or hackathons hosted by Google Developer Groups (GDG).",
+  },
+  {
+    year: "2024",
+    date: "7 Apr 2024",
+    title: "Build with AI technical workshop",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-technical-workshop/",
+    type: "Hackathon",
+    description:
+      "Generative AI is transforming how we interact with technology. Build with AI events are community-led technical workshops or hackathons hosted by Google Developer Groups (GDG).",
+  },
+  {
+    year: "2024",
+    date: "9 Mar 2024",
+    title: "International Women's Day 24!",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-international-womens-day-24/",
+    type: "Talk",
+    description:
+      "Impact the Future : We can use our skills, creativity and passion to create positive change and solve the problems that matter to us and our communities.",
+  },
+  {
+    year: "2024",
+    date: "3 Feb 2024",
+    title: "InnoTech Summit: Bridging Data Science and Startups",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-innotech-summit-bridging-data-science-and-startups/",
+    type: "Talk",
+    description:
+      "Join us at the first event of Women TechMakers, where technology enthusiasts, data engineers, and startup enthusiasts converge for a day of knowledge exchange and networking. This dynamic event, hosted on 03 Feb 2024!",
+  },
+  {
+    year: "2023",
+    date: "18 Nov 2023",
+    title: "DevFest 2023 Bhubaneswar",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-devfest-2023-bhubaneswar/",
+    type: "Conference",
+    description:
+      "The event promises to be a splendid experience for attendees as it seeks to cover the full spectrum of trendy technology. In addition to tech talks, crowd interaction networking, and hands-on sessions are in the limelight.",
+  },
+  {
+    year: "2023",
+    date: "30 Sep 2023",
+    title: "Keras Community Day 2023 Bhubaneswar",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-keras-community-day-2023-bhubaneswar/",
+    type: "Conference",
+    description:
+      "Are you passionate about the fascinating world of deep learning and artificial intelligence? If yes, mark your calendars and get ready for an unforgettable experience at the Keras Community Day Bhubaneswar! 🗓️.",
+  },
+
+  {
     year: "2026",
     date: "7–8 Apr 2026",
     title: "HackForge 2.0",
