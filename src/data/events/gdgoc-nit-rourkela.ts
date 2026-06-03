@@ -119,6 +119,17 @@ export const gdgocNitRourkelaEvents: Omit<Event, "community">[] = [
 
   {
     year: "2026",
+    date: "3 Jun 2026",
+    title: "Understanding Linear Regression: The Foundation of Predictive Modeling",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-understanding-linear-regression-the-foundation-of-predictive-modeling/",
+    type: "Workshop",
+    startDate: "2026-06-03",
+    endDate: "2026-06-03",
+    description:
+      "A beginner-friendly virtual session by GDGoC NIT Rourkela introducing linear regression fundamentals — covering OLS, gradient descent, and different regression types through intuitive explanations and practical examples — designed as a starting point for students curious about AI, data science, and machine learning.",
+  },
+  {
+    year: "2026",
     date: "11 Apr 2026",
     title: "Automate Your Meta Account Using Langchain and RAG",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-automate-your-meta-account-using-langchain-and-rag/",
