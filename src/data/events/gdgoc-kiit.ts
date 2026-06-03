@@ -33,7 +33,7 @@ export const gdgocKiitEvents: Omit<Event, "community">[] = [
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-overthinking-the-nature-of-intelligence-and-reasoning-1/",
     type: "Workshop",
     description:
-      "Join us at GDG KIIT’s \'Overthinking-- The Nature of Intelligence and Reasoning,\' and think over the intricacies of reasoning in LLMs.",
+      "Join us at GDG KIIT’s 'Overthinking-- The Nature of Intelligence and Reasoning,' and think over the intricacies of reasoning in LLMs.",
   },
   {
     year: "2024",
@@ -42,7 +42,7 @@ export const gdgocKiitEvents: Omit<Event, "community">[] = [
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-genai-study-jam-virtual-session/",
     type: "Workshop",
     description:
-      "Build with AI, this time\'s Gen AI Study Jam will soon be over. Join us for a virtual session where we\'ll guide you through the entire course, solve your doubts and queries and we can all have a discussion of our progress.",
+      "Build with AI, this time's Gen AI Study Jam will soon be over. Join us for a virtual session where we'll guide you through the entire course, solve your doubts and queries and we can all have a discussion of our progress.",
   },
   {
     year: "2024",

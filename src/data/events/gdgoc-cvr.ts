@@ -60,12 +60,12 @@ export const gdgocCvrEvents: Omit<Event, "community">[] = [
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-web-development-bootcamp/",
     type: "Workshop",
     description:
-      "Join us for an interactive Web Development Bootcamp, where you\'ll dive into the fundamentals of HTML, CSS, JavaScript, and Tailwind.",
+      "Join us for an interactive Web Development Bootcamp, where you'll dive into the fundamentals of HTML, CSS, JavaScript, and Tailwind.",
   },
   {
     year: "2025",
     date: "1 Feb 2025",
-    title: "Coding Session-01 "Hello World"",
+    title: 'Coding Session-01 "Hello World"',
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-coding-session-01-hello-world/",
     type: "Workshop",
     description:
@@ -78,7 +78,7 @@ export const gdgocCvrEvents: Omit<Event, "community">[] = [
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-machine-learning-bootcamp/",
     type: "Workshop",
     description:
-      "✨Machine Learning Bootcamp : 🤔 Want to know how machines 🤖 learn and predict? Join us for an interactive ML Bootcamp! 🚀 Learn the basics of Machine Learning, 🛠 build your first model, and 🌍 explore how it\'s revolutionizing industries like healthc...",
+      "✨Machine Learning Bootcamp : 🤔 Want to know how machines 🤖 learn and predict? Join us for an interactive ML Bootcamp! 🚀 Learn the basics of Machine Learning, 🛠 build your first model, and 🌍 explore how it's revolutionizing industries like healthc...",
   },
   {
     year: "2025",

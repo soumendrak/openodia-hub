@@ -60,7 +60,7 @@ export const gdgocIiitBbsrEvents: Omit<Event, "community">[] = [
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-blockchain-session/",
     type: "Workshop",
     description:
-      "We are thrilled to invite you to an Intro to Blockchain session hosted by GDG IIIT X Tech Society. Whether you\'re a beginner or someone looking to strengthen your fundamentals, this session will provide a solid foundation in blockchain technology...",
+      "We are thrilled to invite you to an Intro to Blockchain session hosted by GDG IIIT X Tech Society. Whether you're a beginner or someone looking to strengthen your fundamentals, this session will provide a solid foundation in blockchain technology...",
   },
   {
     year: "2025",
@@ -68,8 +68,7 @@ export const gdgocIiitBbsrEvents: Omit<Event, "community">[] = [
     title: "Flutter First Flight",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-flutter-first-flight/",
     type: "Workshop",
-    description:
-      "We are excited to announce the \"Flutter First Flight\" hands-on session, scheduled for January 28th. This session promises to be an excellent opportunity for you to dive into the world of Flutter and explore its vast potential along with it\'s ro...",
+    description: `We are excited to announce the "Flutter First Flight" hands-on session, scheduled for January 28th. This session promises to be an excellent opportunity for you to dive into the world of Flutter and explore its vast potential along with it's ro...`,
   },
   {
     year: "2024",

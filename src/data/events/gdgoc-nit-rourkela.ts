@@ -78,7 +78,7 @@ export const gdgocNitRourkelaEvents: Omit<Event, "community">[] = [
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-build-with-ai/",
     type: "Talk",
     description:
-      "🚀 Build Your Own AI Chatbot with React & Google\'s Gemini Model! Join this hands-on session to create a custom AI-powered chatbot using React, Gemini AI, and Gradio.",
+      "🚀 Build Your Own AI Chatbot with React & Google's Gemini Model! Join this hands-on session to create a custom AI-powered chatbot using React, Gemini AI, and Gradio.",
   },
   {
     year: "2024",
