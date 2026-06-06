@@ -19,6 +19,7 @@ const CURATED_REPOS: string[] = [
   // ── soumendrak ──
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
+  "soumendrak/openodia",
   // ── Individual high-value repos ──
   "goru001/nlp-for-odia",
   "sovopr/sovogpt",
@@ -27,6 +28,7 @@ const CURATED_REPOS: string[] = [
   "Deeptiman/php-dom-parser-translation-tool",
   "nsoum/odia-tex",
   "SantoshNayak/Odia-Calendar",
+  "SantoshNayak/Odia-Month",
   "gyan111/gyan111.github.io",
   "gyan111/twinkle-orwiki",
   "odiaorg/purnachandraBhasakosha",
@@ -37,6 +39,9 @@ const CURATED_REPOS: string[] = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
+  // ── OCR, datasets & speech ──
+  "Udayps2303/Line-Level-OCR-using-CNN-BiLSTM-CTC-loss",
+  "sushantamishra79/Odia-TTS-Dataset1",
   // ── imsbg — Odia educational apps ──
   "imsbg/odiabhasa",
   "imsbg/odia-bhasa",
@@ -45,6 +50,9 @@ const CURATED_REPOS: string[] = [
   "imsbg/odialipi",
   "imsbg/Ganita-Bingya-App",
   "imsbg/Atomic-Guru",
+  // ── Odia time & educational tools ──
+  "imsbg/oled-time",
+  "imsbg/Ama-Ganita",
   // ── coldbreeze16 — fonts, IME, converter ──
   "coldbreeze16/Lekhani",
   "coldbreeze16/Kunji-Binyasa",
@@ -77,6 +85,7 @@ const CURATED_REPOS: string[] = [
   "odisha-ml/website",
   "odisha-ml/SummerSchool2022",
   "odisha-ml/links",
+  "odisha-ml/OdishaVox",
   // ── OdiaGenAI ──
   "OdiaGenAI/GenerativeAI_and_LLM_Odia",
   "OdiaGenAI/Olive_Odia_ASR",
@@ -104,6 +113,15 @@ const CURATED_REPOS: string[] = [
   // ── ofdn (Odia-specific repos only) ──
   "ofdn/Chapakala",
   "ofdn/odia-wordlist-from-wikimedia-dump",
+  "ofdn/typori",
+  "ofdn/chapakhana",
+  // ── Additional Odia fonts & typing tools ──
+  "lecramyajiv/fonts-oriya-extra",
+  "jhellingman/oriya-tex",
+  "manojsahukar/TypeOdia",
+  // ── Odia learning platforms ──
+  "odiabhasa/odiabhasa.github.io",
+  "OdiaLanguage/Learn-Odia-Language",
   // ── Fonts & OS-level Odia support ──
   "notofonts/noto-sans-oriya",
   "notofonts/oriya",
