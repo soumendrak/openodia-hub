@@ -9,6 +9,19 @@ import type { Event } from "./types";
 
 export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
   {
+    year: "2026",
+    date: "28 Jun 2026",
+    title: "Build with AI Bhubaneswar 2026: Be Future Ready",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-bhubaneswar-2026-be-future-ready/",
+    type: "Workshop",
+    startDate: "2026-06-28",
+    endDate: "2026-06-28",
+    status: "upcoming",
+    location: "Pipul Padmaja Premium Hotel and Convention, Bhubaneswar",
+    description:
+      "A hands-on community-driven AI experience organized by GDG Bhubaneswar and GDG Cloud Bhubaneswar. Participants explore Gemini, Gemma, Vertex AI, and Agentic AI through technical sessions, live demonstrations, and networking with Google Developer Experts.",
+  },
+  {
     year: "2024",
     date: "10 Aug 2024",
     title: "Digital Pioneers Summit",

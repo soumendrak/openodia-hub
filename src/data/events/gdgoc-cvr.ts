@@ -9,6 +9,17 @@ import type { Event } from "./types";
 
 export const gdgocCvrEvents: Omit<Event, "community">[] = [
   {
+    year: "2026",
+    date: "11 Jun – 1 Jul 2026",
+    title: "INDIA RUNS",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-india-runs/",
+    type: "Hackathon",
+    startDate: "2026-06-11",
+    endDate: "2026-07-01",
+    description:
+      "India's most open hackathon with a ₹50 Lakh+ prize pool, in collaboration with GDG On Campus CVRGU. Open to anyone — any city, any stream, any background — with 3 tracks to build what next India runs on.",
+  },
+  {
     year: "2025",
     date: "29 Mar 2025",
     title: "Cyber Security Bootcamp",
