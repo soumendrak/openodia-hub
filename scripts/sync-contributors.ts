@@ -39,9 +39,13 @@ const CURATED_REPOS: string[] = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
+  "OmmDevgoswami/SikshaSathi---Odia-Gen-AI-Hackathon",
+  "biranchi2018/odia",
   // ── OCR, datasets & speech ──
   "Udayps2303/Line-Level-OCR-using-CNN-BiLSTM-CTC-loss",
   "sushantamishra79/Odia-TTS-Dataset1",
+  "sushantamishra79/odia-audio-processor",
+  "sushantamishra79/LLM-ODIA",
   // ── imsbg — Odia educational apps ──
   "imsbg/odiabhasa",
   "imsbg/odia-bhasa",
@@ -78,6 +82,12 @@ const CURATED_REPOS: string[] = [
   "shantipriyap/odia_asr",
   "shantipriyap/odia_nlp",
   "shantipriyap/wat2025",
+  // ── NLP & ASR resources ──
+  "ltrc/Odia-Sentiment-Analysis",
+  "UniversalDependencies/UD_Odia-ODTB",
+  "bikashkumars/rasa_core_nlu_oriya",
+  "AUOrga/OriyaNLUandASRModel",
+  "Sachin1724/Odia-TTS",
   // ── odisha-ml community ──
   "odisha-ml/Awesome-Odia-AI",
   "odisha-ml/OdiaInMLWeb",
@@ -122,6 +132,8 @@ const CURATED_REPOS: string[] = [
   // ── Odia learning platforms ──
   "odiabhasa/odiabhasa.github.io",
   "OdiaLanguage/Learn-Odia-Language",
+  "ramoh/oriya-vocab-builder",
+  "sanchaya/odia",
   // ── Fonts & OS-level Odia support ──
   "notofonts/noto-sans-oriya",
   "notofonts/oriya",
