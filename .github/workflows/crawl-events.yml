@@ -5,10 +5,6 @@ on:
     - cron: "0 6 * * *" # daily at 6:00 UTC (11:30 IST)
   workflow_dispatch: {}
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   crawl:
     runs-on: ubuntu-latest
@@ -18,8 +14,6 @@ jobs:
       - run: bun install --frozen-lockfile
       - name: Crawl events
         id: crawl
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           bun run scripts/crawl-events.mjs 2>&1 | tee /tmp/crawl-output.txt
           echo "has_changes=$(grep -c 'NEW_EVENTS_FOUND' /tmp/crawl-output.txt || true)" >> $GITHUB_OUTPUT
@@ -27,7 +21,7 @@ jobs:
         if: steps.crawl.outputs.has_changes != '0'
         uses: peter-evans/create-pull-request@v7
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT }}
           commit-message: "auto: crawl new Odia AI events"
           title: "New Odia AI events found — $(date +'%b %d')"
           body: |
