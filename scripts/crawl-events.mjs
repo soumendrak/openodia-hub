@@ -21,14 +21,46 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "src", "data", "events");
 const SOURCES = [
   // gdg.community.dev chapters — all use the same HTML structure
-  { id: "gdg-bhubaneswar", url: "https://gdg.community.dev/gdg-bhubaneswar/", file: "gdg-bhubaneswar.ts" },
-  { id: "gdgoc-nist-berhampur", url: "https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/", file: "gdgoc-nist-berhampur.ts" },
-  { id: "gdgoc-kiit", url: "https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/", file: "gdgoc-kiit.ts" },
-  { id: "gdgoc-cvr", url: "https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/", file: "gdgoc-cvr.ts" },
-  { id: "gdgoc-iiit-bbsr", url: "https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/", file: "gdgoc-iiit-bbsr.ts" },
-  { id: "gdgoc-iter-soa", url: "https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/", file: "gdgoc-iter-soa.ts" },
-  { id: "gdgoc-vssut-burla", url: "https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/", file: "gdgoc-vssut-burla.ts" },
-  { id: "gdgoc-nit-rourkela", url: "https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india", file: "gdgoc-nit-rourkela.ts" },
+  {
+    id: "gdg-bhubaneswar",
+    url: "https://gdg.community.dev/gdg-bhubaneswar/",
+    file: "gdg-bhubaneswar.ts",
+  },
+  {
+    id: "gdgoc-nist-berhampur",
+    url: "https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/",
+    file: "gdgoc-nist-berhampur.ts",
+  },
+  {
+    id: "gdgoc-kiit",
+    url: "https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/",
+    file: "gdgoc-kiit.ts",
+  },
+  {
+    id: "gdgoc-cvr",
+    url: "https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/",
+    file: "gdgoc-cvr.ts",
+  },
+  {
+    id: "gdgoc-iiit-bbsr",
+    url: "https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/",
+    file: "gdgoc-iiit-bbsr.ts",
+  },
+  {
+    id: "gdgoc-iter-soa",
+    url: "https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/",
+    file: "gdgoc-iter-soa.ts",
+  },
+  {
+    id: "gdgoc-vssut-burla",
+    url: "https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/",
+    file: "gdgoc-vssut-burla.ts",
+  },
+  {
+    id: "gdgoc-nit-rourkela",
+    url: "https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india",
+    file: "gdgoc-nit-rourkela.ts",
+  },
   // Other sources
   { id: "odishaai", url: "https://www.odishaai.org/conferences/", file: "odishaai.ts" },
   // OdiaGenAI — Wix-based, JS-rendered (partially parsable, try known workshop URLs)
@@ -66,7 +98,20 @@ function parseDate(dateStr) {
   // Try parsing as "DD Mon YYYY" or "Mon DD, YYYY"
   const d = new Date(cleaned);
   if (!isNaN(d.getTime()) && d.getFullYear() > 2020) {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     const day = d.getDate();
     const month = months[d.getMonth()];
     const year = d.getFullYear();
@@ -111,12 +156,15 @@ function parseGDGEventCards(html) {
     const title = titleMatch ? titleMatch[1].trim() : null;
 
     // Extract date
-    const dateMatch = before.match(/(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i);
+    const dateMatch = before.match(
+      /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i,
+    );
     const dateRaw = dateMatch ? dateMatch[1] : null;
 
     // Extract event type label
-    const typeMatch = html.slice(idx, idx + 500).match(/event-type[^>]*>([^<]+)</i) ||
-                       before.match(/label[^>]*>([^<]+)</i);
+    const typeMatch =
+      html.slice(idx, idx + 500).match(/event-type[^>]*>([^<]+)</i) ||
+      before.match(/label[^>]*>([^<]+)</i);
 
     if (title) {
       const parsed = parseDate(dateRaw);
@@ -145,7 +193,9 @@ async function parseOdishaAIEvents() {
         const yearHtml = await fetchText(`https://www.odishaai.org${path}`);
         // Extract conference details
         const confMatch = yearHtml.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-        const dateMatch = yearHtml.match(/(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i);
+        const dateMatch = yearHtml.match(
+          /(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i,
+        );
         const descMatch = yearHtml.match(/<p[^>]*>([^<]+)<\/p>/i);
 
         if (confMatch) {
@@ -226,8 +276,11 @@ async function main() {
         for (const wurl of KNOWN_WORKSHOP_URLS) {
           try {
             const html = await fetchText(wurl);
-            const titleMatch = html.match(/<h1[^>]*>([^<]+)<\/h1>/i) || html.match(/<title>([^<]+)<\/title>/i);
-            const dateMatch = html.match(/(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i);
+            const titleMatch =
+              html.match(/<h1[^>]*>([^<]+)<\/h1>/i) || html.match(/<title>([^<]+)<\/title>/i);
+            const dateMatch = html.match(
+              /(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i,
+            );
             if (titleMatch) {
               events.push({
                 title: titleMatch[1].replace(/–.*$/, "").replace(/\s+/g, " ").trim(),
@@ -241,7 +294,9 @@ async function main() {
           }
         }
         if (events.length === 0) {
-          console.log(`  ⚠️  No parsable content found (Wix-based, JS-rendered). Try manual check.`);
+          console.log(
+            `  ⚠️  No parsable content found (Wix-based, JS-rendered). Try manual check.`,
+          );
           continue;
         }
       } else {
@@ -287,9 +342,10 @@ async function main() {
 
     const formatted = newEvents.map(formatEventEntry).join("\n");
     // Insert after the opening array line, before the first existing entry
-    const insertPoint = existingContent.indexOf("export const") >= 0
-      ? existingContent.indexOf("[") + 1
-      : existingContent.lastIndexOf("]");
+    const insertPoint =
+      existingContent.indexOf("export const") >= 0
+        ? existingContent.indexOf("[") + 1
+        : existingContent.lastIndexOf("]");
 
     if (insertPoint > 0 && insertPoint < existingContent.length - 1) {
       const before = existingContent.slice(0, insertPoint).trimEnd();
@@ -305,7 +361,7 @@ async function main() {
           filePath,
           existingContent.slice(0, lastBracket).trimEnd() +
             `\n\n  // auto-crawled\n${formatted}\n` +
-            existingContent.slice(lastBracket)
+            existingContent.slice(lastBracket),
         );
       }
     }
