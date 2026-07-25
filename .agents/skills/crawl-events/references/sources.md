@@ -4,25 +4,35 @@ Each row: community name | source URL | data file | parsability | notes
 
 ---
 
-## ✅ Fully parsable (server-rendered HTML with chunks)
+## ✅ Fully parsable (structured data embedded in the page)
 
-| Community              | Source URL                                                                                                   | Data file                                                    |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
-| GDG Bhubaneswar        | https://gdg.community.dev/gdg-bhubaneswar/                                                                   | `src/data/events/gdg-bhubaneswar.ts`                         |
-| GDGoC NIST Berhampur   | https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/        | `src/data/events/gdgoc-nist-berhampur.ts`                    |
-| GDGoC KIIT             | https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/        | `src/data/events/gdgoc-kiit.ts`                              |
-| GDGoC CVR University   | https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/                       | `src/data/events/gdgoc-cvr.ts`                               |
-| GDGoC IIIT Bhubaneswar | https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/ | `src/data/events/gdgoc-iiit-bbsr.ts`                         |
-| GDGoC ITER SOA         | https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/         | `src/data/events/gdgoc-iter-soa.ts`                          |
-| GDGoC VSSUT Burla      | https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/              | `src/data/events/gdgoc-vssut-burla.ts`                         |
-| GDGoC NIT Rourkela     | https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india                      | `src/data/events/gdgoc-nit-rourkela.ts`                       |
-| Odisha AI              | https://www.odishaai.org/conferences/                                                                        | `src/data/events/odishaai.ts`                                |
+| Community              | Source URL                                                                                                   | Data file                                 |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
+| GDG Bhubaneswar        | https://gdg.community.dev/gdg-bhubaneswar/                                                                   | `src/data/events/gdg-bhubaneswar.ts`      |
+| GDGoC NIST Berhampur   | https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/        | `src/data/events/gdgoc-nist-berhampur.ts` |
+| GDGoC KIIT             | https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/        | `src/data/events/gdgoc-kiit.ts`           |
+| GDGoC CVR University   | https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/                       | `src/data/events/gdgoc-cvr.ts`            |
+| GDGoC IIIT Bhubaneswar | https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/ | `src/data/events/gdgoc-iiit-bbsr.ts`      |
+| GDGoC ITER SOA         | https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/         | `src/data/events/gdgoc-iter-soa.ts`       |
+| GDGoC VSSUT Burla      | https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/              | `src/data/events/gdgoc-vssut-burla.ts`    |
+| GDGoC NIT Rourkela     | https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india                      | `src/data/events/gdgoc-nit-rourkela.ts`   |
+| Odisha AI              | https://www.odishaai.org/conferences/                                                                        | `src/data/events/odishaai.ts`             |
 
-**gdg.community.dev pagination**: Each chapter page shows a limited list with a "Load more"
-button. The fetch only captures the initially visible events. Note this in your report.
+**gdg.community.dev**: Next.js site. Event data lives in the `__NEXT_DATA__` JSON blob
+(`props.pageProps.prerenderData.upcomingEvents.results` + `.pastEvents.results`), not scrapable
+HTML cards. Each event has `title`, `url`, `cohost_registration_url`, `start_date`, and
+`description_short`. Detail pages expose authoritative `start_date`, `end_date`,
+`event_timezone`, `venue_name`, and the complete HTML `description`; sanitize the complete
+description into a complete-sentence summary when `description_short` ends in an ellipsis.
+Store the cohost URL when present — that's what `/api/events` uses, so the Events page dedups
+static + live to a single card. Only the initially-rendered events are included (no "Load more"
+data); note this in your report.
 
-**odishaai.org**: Static Zola site. The `/conferences/` index page links to individual
-conference pages. Fetch the index, extract year links, then fetch each year page for details.
+**odishaai.org**: Client-rendered React SPA — the HTML shell is empty, so there are no year
+links to follow. Conference data is baked into the Vite JS bundle. Read the bundle URL from the
+shell (`/assets/index-*.js`, hash changes per deploy), fetch it, and extract the conference
+objects (`{slug, title, date, location, desc}`), anchoring each on its own `slug:`. Build URLs
+as `/conferences/<slug>/`.
 
 ---
 

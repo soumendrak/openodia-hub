@@ -8,6 +8,19 @@
 import type { Event } from "./types";
 
 export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
+  // auto-crawled
+  {
+    year: "2026",
+    date: "5 Jul 2026",
+    title: "Build with AI: Code for Communities",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-code-for-communities/cohost-gdg-bhubaneswar",
+    type: "Hackathon",
+    location: "Pipul Padmaja Premium Hotel and Convention",
+    startDate: "2026-07-05",
+    endDate: "2026-07-05",
+    description:
+      "Build with AI: Code for Communities is a nationwide AI hackathon designed to empower developers, students, designers, innovators, and technology enthusiasts to build impactful AI-powered solutions to real-world community challenges using Google Cloud and Google's latest AI technologies.",
+  },
   {
     year: "2026",
     date: "28 Jun 2026",

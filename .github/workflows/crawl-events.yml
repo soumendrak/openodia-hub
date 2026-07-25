@@ -9,14 +9,17 @@ jobs:
   crawl:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Crawl events
         id: crawl
         run: |
+          set -o pipefail
           bun run scripts/crawl-events.mjs 2>&1 | tee /tmp/crawl-output.txt
+          status=$?
           echo "has_changes=$(grep -c 'NEW_EVENTS_FOUND' /tmp/crawl-output.txt || true)" >> $GITHUB_OUTPUT
+          exit $status
       - name: Create PR if new events found
         if: steps.crawl.outputs.has_changes != '0'
         uses: peter-evans/create-pull-request@v7
