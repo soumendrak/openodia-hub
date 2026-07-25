@@ -84,17 +84,37 @@ const TYPE_KEYWORDS = [
   { words: ["fest", "devfest", "conference", "summit", "congregation"], type: "Conference" },
 ];
 
-function inferType(title = "", description = "") {
+// Thrown when a page is fetched successfully but its expected data structure
+// is missing/malformed. Distinguishing this from an empty-but-valid result lets
+// the crawler exit nonzero (and fail CI) instead of silently going dark.
+export class ParseError extends Error {}
+
+// Match a keyword at a leading word boundary (so short keywords like "ctf" or
+// "hack" don't match inside "impactful"/"shack", but brand concatenations like
+// "HackForge"/"HackFest" — where the keyword is a token prefix — still match).
+function keywordMatches(text, word) {
+  return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(text);
+}
+
+export function inferType(title = "", description = "") {
   // Match on title first (strong signal), then fall back to the description —
   // e.g. "Build with AI: Code for Communities" only reveals it's a hackathon
   // in its description.
   for (const source of [title, description]) {
-    const t = source.toLowerCase();
     for (const { words, type } of TYPE_KEYWORDS) {
-      if (words.some((w) => t.includes(w))) return type;
+      if (words.some((w) => keywordMatches(source, w))) return type;
     }
   }
   return "Workshop"; // default
+}
+
+// Skip pure orientation / planning / internal-organizer events per
+// references/type-mapping.md ("When to skip an event").
+const SKIP_PATTERNS =
+  /\b(orientation|onboarding|planning session|interest meeting|organizer meeting)\b/i;
+
+export function shouldSkip(title = "") {
+  return SKIP_PATTERNS.test(title);
 }
 
 function parseDate(dateStr) {
@@ -143,46 +163,102 @@ async function fetchText(url) {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
-// Build the date shape from an ISO date string, reading the date part directly
-// to avoid timezone drift (start_date is UTC "...Z").
-function isoToDate(iso) {
-  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (!m) return null;
-  const [, year, mm, dd] = m;
-  const day = Number(dd);
-  return {
-    display: `${day} ${MONTHS[Number(mm) - 1]} ${year}`,
-    year,
-    iso: `${year}-${mm}-${dd}`,
-  };
+// Community default when an event carries no timezone. GDG start_date is UTC
+// ("…Z"); slicing it directly misdates evening events (e.g. 2026-08-07T19:00Z
+// is Aug 8 in IST), so resolve the calendar date in the event's timezone.
+const DEFAULT_TZ = "Asia/Kolkata";
+
+// Resolve an ISO instant to its calendar-date shape in `timeZone`.
+export function tzDate(iso, timeZone = DEFAULT_TZ) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  // en-CA formats as YYYY-MM-DD; timeZone does the UTC→local conversion.
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(d);
+  const [year, mm, dd] = ymd.split("-");
+  return { year, iso: ymd, display: `${Number(dd)} ${MONTHS[Number(mm) - 1]} ${year}` };
 }
 
-// Extract events from gdg.community.dev — data now lives in the __NEXT_DATA__
-// JSON blob (Next.js), not scrapable HTML cards.
+// Human display for a (possibly multi-day) event: "8 Aug 2026", "8–9 Aug 2026",
+// or "30 Aug – 1 Sep 2026" when it spans months.
+export function formatDateRange(start, end) {
+  if (!start) return null;
+  if (!end || end.iso === start.iso) return start.display;
+  const [sy, sm, sd] = start.iso.split("-");
+  const [ey, em, ed] = end.iso.split("-");
+  if (sy === ey && sm === em) return `${Number(sd)}–${Number(ed)} ${MONTHS[Number(sm) - 1]} ${sy}`;
+  return `${start.display} – ${end.display}`;
+}
+
+// Extract events from gdg.community.dev — data lives in the __NEXT_DATA__ JSON
+// blob (Next.js), not scrapable HTML cards. Throws ParseError if the page was
+// fetched but the expected structure is gone (vs returning [] for a valid-but-
+// empty chapter), so a silent site change fails CI instead of going dark.
 function parseGDGEventCards(html) {
   const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
-  if (!m) return []; // ponytail: page shape changed again → 0 events, surfaced as "No events found"
+  if (!m) throw new ParseError("__NEXT_DATA__ script tag not found");
 
-  let results;
+  let pd;
   try {
-    const pd = JSON.parse(m[1]).props.pageProps.prerenderData;
-    results = [...(pd.upcomingEvents?.results || []), ...(pd.pastEvents?.results || [])];
-  } catch {
-    return [];
+    pd = JSON.parse(m[1]).props.pageProps.prerenderData;
+  } catch (e) {
+    throw new ParseError(`__NEXT_DATA__ JSON/shape invalid: ${e.message}`);
   }
+  if (!pd || (!pd.upcomingEvents && !pd.pastEvents)) {
+    throw new ParseError("prerenderData missing upcoming/past events");
+  }
+  const results = [...(pd.upcomingEvents?.results || []), ...(pd.pastEvents?.results || [])];
 
   return results
     .filter((e) => e.title && (e.cohost_registration_url || e.url))
     .map((e) => ({
       title: e.title.replace(/\s+/g, " ").trim(),
-      // Prefer the cohost URL — that's what /api/events stores and what the
-      // hand-written static entries use, so the Events page (which dedups by
-      // exact URL when merging static + live) sees one card, not two.
+      // Prefer the cohost URL for storage — that's what /api/events stores and
+      // what hand-written static entries use, so the Events page (dedups by
+      // exact URL when merging static + live) sees one card, not two. Keep the
+      // plain url to fetch the detail page (cohost URLs are registration links).
       url: e.cohost_registration_url || e.url,
+      detailUrl: e.url,
       dateRaw: e.start_date || null,
-      ...(isoToDate(e.start_date) || {}),
+      ...(tzDate(e.start_date) || {}),
       description: (e.description_short || "").replace(/\s+/g, " ").trim() || null,
     }));
+}
+
+// Enrich a listing event with detail-page data: authoritative end date,
+// timezone, full (untruncated) short description, and venue. Best-effort — a
+// detail-fetch failure leaves the listing data intact rather than failing the
+// whole run. Mutates and returns the event.
+async function enrichFromDetail(event) {
+  try {
+    const html = await fetchText(event.detailUrl);
+    const m = html.match(
+      /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/,
+    );
+    const ed = m && JSON.parse(m[1]).props?.pageProps?.eventData;
+    if (!ed) return event;
+
+    const tz = ed.event_timezone || DEFAULT_TZ;
+    const start = tzDate(ed.start_date, tz);
+    const end = tzDate(ed.end_date, tz);
+    if (start) {
+      event.year = start.year;
+      event.iso = start.iso;
+      event.endIso = end ? end.iso : start.iso;
+      event.display = formatDateRange(start, end);
+    }
+    // Detail-page description_short is the full text (the listing truncates it).
+    const desc = (ed.description_short || "").replace(/\s+/g, " ").trim();
+    if (desc) event.description = desc;
+    if (ed.venue_name) event.location = ed.venue_name.replace(/\s+/g, " ").trim();
+  } catch (e) {
+    console.error(`    ⚠️  detail enrich failed for ${event.detailUrl}: ${e.message}`);
+  }
+  return event;
 }
 
 // odishaai.org is a client-rendered React SPA — conference data is baked into
@@ -204,39 +280,36 @@ function odishaaiDate(date) {
 }
 
 async function parseOdishaAIEvents() {
-  const events = [];
-  try {
-    const shell = await fetchText("https://www.odishaai.org/conferences/");
-    const bundle = shell.match(/src="(\/assets\/index-[^"]+\.js)"/);
-    if (!bundle) {
-      console.error("  ⚠️ Could not locate JS bundle in odishaai.org shell");
-      return events;
-    }
-    const js = await fetchText(`https://www.odishaai.org${bundle[1]}`);
+  // fetch errors propagate (transient); structural problems throw ParseError so
+  // a silent site change fails CI. odishaai always lists conferences, so an
+  // empty extraction means the bundle shape changed, not "no events".
+  const shell = await fetchText("https://www.odishaai.org/conferences/");
+  const bundle = shell.match(/src="(\/assets\/index-[^"]+\.js)"/);
+  if (!bundle) throw new ParseError("JS bundle <script src> not found in shell");
+  const js = await fetchText(`https://www.odishaai.org${bundle[1]}`);
 
-    // Each conference detail object starts `{slug:` and uniquely carries a
-    // conference-covers image + a location field. Read fields forward from slug.
-    const idxs = [...js.matchAll(/\{slug:`/g)].map((m) => m.index);
-    const seen = new Set();
-    for (let i = 0; i < idxs.length; i++) {
-      const chunk = js.slice(idxs[i], idxs[i + 1] ?? idxs[i] + 900);
-      if (!chunk.includes("conference-covers") || !chunk.includes("location:")) continue;
-      const slug = fieldAfter(chunk, "slug");
-      const title = fieldAfter(chunk, "title");
-      if (!slug || !title || seen.has(slug)) continue;
-      seen.add(slug);
-      const date = fieldAfter(chunk, "date");
-      events.push({
-        title: title.trim(),
-        url: `https://www.odishaai.org/conferences/${slug}/`,
-        dateRaw: date,
-        ...(odishaaiDate(date) || {}),
-        description: (fieldAfter(chunk, "desc") || "").trim() || null,
-      });
-    }
-  } catch (e) {
-    console.error(`  ⚠️ Failed to fetch odishaai.org: ${e.message}`);
+  // Each conference detail object starts `{slug:` and uniquely carries a
+  // conference-covers image + a location field. Read fields forward from slug.
+  const events = [];
+  const idxs = [...js.matchAll(/\{slug:`/g)].map((m) => m.index);
+  const seen = new Set();
+  for (let i = 0; i < idxs.length; i++) {
+    const chunk = js.slice(idxs[i], idxs[i + 1] ?? idxs[i] + 900);
+    if (!chunk.includes("conference-covers") || !chunk.includes("location:")) continue;
+    const slug = fieldAfter(chunk, "slug");
+    const title = fieldAfter(chunk, "title");
+    if (!slug || !title || seen.has(slug)) continue;
+    seen.add(slug);
+    const date = fieldAfter(chunk, "date");
+    events.push({
+      title: title.trim(),
+      url: `https://www.odishaai.org/conferences/${slug}/`,
+      dateRaw: date,
+      ...(odishaaiDate(date) || {}),
+      description: (fieldAfter(chunk, "desc") || "").trim() || null,
+    });
   }
+  if (events.length === 0) throw new ParseError("no conference objects extracted from bundle");
   return events;
 }
 
@@ -244,7 +317,7 @@ async function parseOdishaAIEvents() {
 // Normalize a GDG event URL for dedup: the same event appears with and without
 // a trailing `/cohost-…` segment (e.g. `.../hackforge-20/` vs
 // `.../hackforge-20/cohost-gdg-bhubaneswar`). Strip that and any trailing slash.
-function normalizeUrl(url) {
+export function normalizeUrl(url) {
   return url.replace(/\/cohost-[^/]*\/?$/, "").replace(/\/+$/, "");
 }
 
@@ -264,9 +337,12 @@ function formatEventEntry(event) {
   lines.push(`    url: "${event.url}",`);
   const eventType = inferType(event.title, event.description || "");
   lines.push(`    type: "${eventType}",`);
+  if (event.location) {
+    lines.push(`    location: "${event.location.replace(/"/g, '\\"')}",`);
+  }
   if (event.iso) {
     lines.push(`    startDate: "${event.iso}",`);
-    lines.push(`    endDate: "${event.iso}",`);
+    lines.push(`    endDate: "${event.endIso || event.iso}",`);
   }
   if (event.description) {
     lines.push(`    description: "${event.description.replace(/"/g, '\\"').replace(/\n/g, " ")}",`);
@@ -277,6 +353,7 @@ function formatEventEntry(event) {
 
 async function main() {
   let totalNew = 0;
+  let parseFailures = 0;
 
   for (const source of SOURCES) {
     if (source.unparsable) {
@@ -330,7 +407,14 @@ async function main() {
         events = parseGDGEventCards(html);
       }
     } catch (e) {
-      console.error(`  ❌ Failed: ${e.message}`);
+      // Structural failure (fetched OK, data shape broken) must fail CI; a
+      // transient fetch/network error should not turn the daily job red.
+      if (e instanceof ParseError) {
+        console.error(`  ❌ Parse failed: ${e.message}`);
+        parseFailures++;
+      } else {
+        console.error(`  ⚠️  Fetch failed (transient): ${e.message}`);
+      }
       continue;
     }
 
@@ -347,11 +431,25 @@ async function main() {
 
     // Dedup strictly by normalized URL (handles the /cohost-… variant). Two
     // distinct events can share a title+year, so URL is the only safe key.
-    const newEvents = events.filter((e) => !existingUrls.has(normalizeUrl(e.url)));
+    // Also drop pure orientation/planning/admin events (type-mapping.md rules).
+    const newEvents = events.filter((e) => {
+      if (existingUrls.has(normalizeUrl(e.url))) return false;
+      if (shouldSkip(e.title)) {
+        console.log(`  ⏭  skipped (orientation/admin): ${e.title}`);
+        return false;
+      }
+      return true;
+    });
 
     if (newEvents.length === 0) {
       console.log(`  ✓ No new events`);
       continue;
+    }
+
+    // Enrich each new GDG event from its detail page (end date, timezone, full
+    // description, venue). odishaai/odiagenai have no per-event detail pages.
+    if (source.id !== "odishaai" && source.id !== "odiagenai") {
+      for (const e of newEvents) await enrichFromDetail(e);
     }
 
     console.log(`  🆕 ${newEvents.length} new event(s) found`);
@@ -395,10 +493,22 @@ async function main() {
   } else {
     console.log("✓ No new events found anywhere");
   }
+  if (parseFailures > 0) {
+    console.error(`❌ ${parseFailures} source(s) failed to parse — check for site changes`);
+  }
   console.log(`${"=".repeat(40)}`);
+  // Nonzero exit on structural parse failure so CI goes red instead of silently
+  // running an empty crawl forever.
+  return parseFailures > 0 ? 1 : 0;
 }
 
-main().catch((e) => {
-  console.error("FATAL:", e.message);
-  process.exit(1);
-});
+// Only run when executed directly (`bun scripts/crawl-events.mjs`), not when
+// imported by the test suite.
+if (process.argv[1]?.endsWith("crawl-events.mjs")) {
+  main()
+    .then((code) => process.exit(code))
+    .catch((e) => {
+      console.error("FATAL:", e.message);
+      process.exit(1);
+    });
+}

@@ -8,18 +8,6 @@
 import type { Event } from "./types";
 
 export const gdgocIiitBbsrEvents: Omit<Event, "community">[] = [
-  // auto-crawled
-  {
-    year: "2025",
-    date: "20 Sep 2025",
-    title: "GDG On Campus IIIT Bhubaneswar Info Session + D3 Fest Planning Session",
-    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-gdg-on-campus-iiit-bhubaneswar-info-session-d3-fest-planning-session/",
-    type: "Talk",
-    startDate: "2025-09-20",
-    endDate: "2025-09-20",
-    description:
-      "* Only for Students of IIIT Bhubaneswar *We are thrilled to invite you to the Google Developers Group on Campus: IIIT Bh...",
-  },
   {
     year: "2025",
     date: "29 Mar 2025",
