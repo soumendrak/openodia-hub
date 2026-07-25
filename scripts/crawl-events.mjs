@@ -89,11 +89,35 @@ const TYPE_KEYWORDS = [
 // the crawler exit nonzero (and fail CI) instead of silently going dark.
 export class ParseError extends Error {}
 
-// Match a keyword at a leading word boundary (so short keywords like "ctf" or
-// "hack" don't match inside "impactful"/"shack", but brand concatenations like
-// "HackForge"/"HackFest" — where the keyword is a token prefix — still match).
+export class HttpError extends Error {
+  constructor(status, url, configuredSource = false) {
+    super(`HTTP ${status} for ${url}`);
+    this.status = status;
+    this.configuredSource = configuredSource;
+  }
+}
+
+// Network errors, detail/asset fetches, and retryable HTTP responses should not
+// make the daily job flaky. A non-retryable client error on a configured source
+// means that source moved or became inaccessible and must fail loudly.
+export function isTransientFetchFailure(error) {
+  if (!(error instanceof HttpError)) return true;
+  const retryableStatus =
+    error.status === 408 || error.status === 425 || error.status === 429 || error.status >= 500;
+  return retryableStatus || !error.configuredSource;
+}
+
+export function isFatalCrawlFailure(error) {
+  return error instanceof ParseError || !isTransientFetchFailure(error);
+}
+
+const CONCATENATED_BRANDS = /\bhack(?:forge|fest)\b/i;
+
+// Match ordinary keywords as complete words. Intentional concatenated brands
+// such as HackForge/HackFest are handled explicitly above, so prefixes such as
+// "forge" in "forgetful" or "hack" in "hackneyed" do not become Hackathons.
 function keywordMatches(text, word) {
-  return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i").test(text);
+  return new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i").test(text);
 }
 
 export function inferType(title = "", description = "") {
@@ -101,6 +125,7 @@ export function inferType(title = "", description = "") {
   // e.g. "Build with AI: Code for Communities" only reveals it's a hackathon
   // in its description.
   for (const source of [title, description]) {
+    if (CONCATENATED_BRANDS.test(source)) return "Hackathon";
     for (const { words, type } of TYPE_KEYWORDS) {
       if (words.some((w) => keywordMatches(source, w))) return type;
     }
@@ -108,13 +133,20 @@ export function inferType(title = "", description = "") {
   return "Workshop"; // default
 }
 
-// Skip pure orientation / planning / internal-organizer events per
-// references/type-mapping.md ("When to skip an event").
-const SKIP_PATTERNS =
-  /\b(orientation|onboarding|planning session|interest meeting|organizer meeting)\b/i;
+// Skip only clearly administrative events per references/type-mapping.md.
+// A generic "planning session" can be a substantive product/technical event,
+// while an info/orientation session with an explicit technical agenda is kept.
+const INTERNAL_ADMIN_PATTERN =
+  /\b(?:(?:organizer|organiser|organizing|organising|committee|core team|work team)\s+(?:meeting|planning|session)|(?:meeting|planning|session)\s+(?:for|with)\s+(?:organizers|organisers|the committee|the core team|the work team))\b/i;
+const ORIENTATION_PATTERN = /\b(?:orientation|onboarding|info(?:rmation)? session)\b/i;
+const TECHNICAL_CONTENT_PATTERN =
+  /\b(?:hands-on (?:lab|workshop|coding)|code[- ]along|live (?:coding|demo)|technical (?:deep dive|talk|workshop|session)|(?:build|deploy|train|fine-tune|prototype) (?:an?|the|your) [a-z])/i;
 
-export function shouldSkip(title = "") {
-  return SKIP_PATTERNS.test(title);
+export function shouldSkip(title = "", description = "") {
+  const combined = `${title} ${description}`;
+  if (INTERNAL_ADMIN_PATTERN.test(combined)) return true;
+  if (!ORIENTATION_PATTERN.test(title)) return false;
+  return !TECHNICAL_CONTENT_PATTERN.test(description);
 }
 
 function parseDate(dateStr) {
@@ -149,7 +181,7 @@ function parseDate(dateStr) {
   return null;
 }
 
-async function fetchText(url) {
+async function fetchText(url, { configuredSource = false } = {}) {
   const resp = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; OpenOdiaBot/1.0; +https://openodia.org)",
@@ -157,7 +189,7 @@ async function fetchText(url) {
     },
     signal: AbortSignal.timeout(15000),
   });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} for ${url}`);
+  if (!resp.ok) throw new HttpError(resp.status, url, configuredSource);
   return await resp.text();
 }
 
@@ -198,7 +230,7 @@ export function formatDateRange(start, end) {
 // blob (Next.js), not scrapable HTML cards. Throws ParseError if the page was
 // fetched but the expected structure is gone (vs returning [] for a valid-but-
 // empty chapter), so a silent site change fails CI instead of going dark.
-function parseGDGEventCards(html) {
+export function parseGDGEventCards(html) {
   const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
   if (!m) throw new ParseError("__NEXT_DATA__ script tag not found");
 
@@ -208,14 +240,28 @@ function parseGDGEventCards(html) {
   } catch (e) {
     throw new ParseError(`__NEXT_DATA__ JSON/shape invalid: ${e.message}`);
   }
-  if (!pd || (!pd.upcomingEvents && !pd.pastEvents)) {
-    throw new ParseError("prerenderData missing upcoming/past events");
+  if (!pd) {
+    throw new ParseError("prerenderData missing");
   }
-  const results = [...(pd.upcomingEvents?.results || []), ...(pd.pastEvents?.results || [])];
+  for (const key of ["upcomingEvents", "pastEvents"]) {
+    if (!pd[key] || !Array.isArray(pd[key].results)) {
+      throw new ParseError(`prerenderData.${key}.results missing or not an array`);
+    }
+  }
+  const results = [...pd.upcomingEvents.results, ...pd.pastEvents.results];
 
-  return results
-    .filter((e) => e.title && (e.cohost_registration_url || e.url))
-    .map((e) => ({
+  return results.map((e, index) => {
+    if (
+      !e ||
+      typeof e.title !== "string" ||
+      !e.title.trim() ||
+      typeof e.url !== "string" ||
+      !e.url.trim() ||
+      (e.cohost_registration_url && typeof e.cohost_registration_url !== "string")
+    ) {
+      throw new ParseError(`event result ${index} missing title/url`);
+    }
+    return {
       title: e.title.replace(/\s+/g, " ").trim(),
       // Prefer the cohost URL for storage — that's what /api/events stores and
       // what hand-written static entries use, so the Events page (dedups by
@@ -226,11 +272,52 @@ function parseGDGEventCards(html) {
       dateRaw: e.start_date || null,
       ...(tzDate(e.start_date) || {}),
       description: (e.description_short || "").replace(/\s+/g, " ").trim() || null,
-    }));
+    };
+  });
+}
+
+const HTML_ENTITIES = {
+  amp: "&",
+  apos: "'",
+  gt: ">",
+  hellip: "…",
+  ldquo: "“",
+  lsquo: "‘",
+  lt: "<",
+  nbsp: " ",
+  quot: '"',
+  rdquo: "”",
+  rsquo: "’",
+};
+
+export function htmlToText(html = "") {
+  return html
+    .replace(/<(?:br|hr)\s*\/?>/gi, " ")
+    .replace(/<\/(?:p|div|li|h[1-6]|section|article)>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&#(\d+);/g, (_, value) => String.fromCodePoint(Number(value)))
+    .replace(/&#x([\da-f]+);/gi, (_, value) => String.fromCodePoint(Number.parseInt(value, 16)))
+    .replace(/&([a-z]+);/gi, (entity, name) => HTML_ENTITIES[name.toLowerCase()] ?? entity)
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function summarizeText(text, maxSentences = 2) {
+  const sentences = [...new Intl.Segmenter("en", { granularity: "sentence" }).segment(text)]
+    .map(({ segment }) => segment.trim())
+    .filter(Boolean);
+  return sentences.slice(0, maxSentences).join(" ");
+}
+
+export function detailDescription(eventData = {}) {
+  const short = (eventData.description_short || "").replace(/\s+/g, " ").trim();
+  const full = htmlToText(eventData.description || "");
+  if (full && (!short || /(?:\.{3}|…)$/.test(short))) return summarizeText(full);
+  return short || full || null;
 }
 
 // Enrich a listing event with detail-page data: authoritative end date,
-// timezone, full (untruncated) short description, and venue. Best-effort — a
+// timezone, an untruncated complete-sentence summary, and venue. Best-effort — a
 // detail-fetch failure leaves the listing data intact rather than failing the
 // whole run. Mutates and returns the event.
 async function enrichFromDetail(event) {
@@ -251,8 +338,7 @@ async function enrichFromDetail(event) {
       event.endIso = end ? end.iso : start.iso;
       event.display = formatDateRange(start, end);
     }
-    // Detail-page description_short is the full text (the listing truncates it).
-    const desc = (ed.description_short || "").replace(/\s+/g, " ").trim();
+    const desc = detailDescription(ed);
     if (desc) event.description = desc;
     if (ed.venue_name) event.location = ed.venue_name.replace(/\s+/g, " ").trim();
   } catch (e) {
@@ -283,7 +369,9 @@ async function parseOdishaAIEvents() {
   // fetch errors propagate (transient); structural problems throw ParseError so
   // a silent site change fails CI. odishaai always lists conferences, so an
   // empty extraction means the bundle shape changed, not "no events".
-  const shell = await fetchText("https://www.odishaai.org/conferences/");
+  const shell = await fetchText("https://www.odishaai.org/conferences/", {
+    configuredSource: true,
+  });
   const bundle = shell.match(/src="(\/assets\/index-[^"]+\.js)"/);
   if (!bundle) throw new ParseError("JS bundle <script src> not found in shell");
   const js = await fetchText(`https://www.odishaai.org${bundle[1]}`);
@@ -353,7 +441,7 @@ function formatEventEntry(event) {
 
 async function main() {
   let totalNew = 0;
-  let parseFailures = 0;
+  let fatalFailures = 0;
 
   for (const source of SOURCES) {
     if (source.unparsable) {
@@ -403,7 +491,7 @@ async function main() {
         }
       } else {
         // GDG community.dev pages
-        const html = await fetchText(source.url);
+        const html = await fetchText(source.url, { configuredSource: true });
         events = parseGDGEventCards(html);
       }
     } catch (e) {
@@ -411,7 +499,10 @@ async function main() {
       // transient fetch/network error should not turn the daily job red.
       if (e instanceof ParseError) {
         console.error(`  ❌ Parse failed: ${e.message}`);
-        parseFailures++;
+        fatalFailures++;
+      } else if (isFatalCrawlFailure(e)) {
+        console.error(`  ❌ Source fetch failed permanently: ${e.message}`);
+        fatalFailures++;
       } else {
         console.error(`  ⚠️  Fetch failed (transient): ${e.message}`);
       }
@@ -431,10 +522,16 @@ async function main() {
 
     // Dedup strictly by normalized URL (handles the /cohost-… variant). Two
     // distinct events can share a title+year, so URL is the only safe key.
-    // Also drop pure orientation/planning/admin events (type-mapping.md rules).
-    const newEvents = events.filter((e) => {
-      if (existingUrls.has(normalizeUrl(e.url))) return false;
-      if (shouldSkip(e.title)) {
+    const candidates = events.filter((e) => !existingUrls.has(normalizeUrl(e.url)));
+
+    // Enrich each new GDG event before applying the content-aware admin filter
+    // and formatting it (end date, timezone, full description, venue).
+    if (source.id !== "odishaai" && source.id !== "odiagenai") {
+      for (const e of candidates) await enrichFromDetail(e);
+    }
+
+    const newEvents = candidates.filter((e) => {
+      if (shouldSkip(e.title, e.description || "")) {
         console.log(`  ⏭  skipped (orientation/admin): ${e.title}`);
         return false;
       }
@@ -444,12 +541,6 @@ async function main() {
     if (newEvents.length === 0) {
       console.log(`  ✓ No new events`);
       continue;
-    }
-
-    // Enrich each new GDG event from its detail page (end date, timezone, full
-    // description, venue). odishaai/odiagenai have no per-event detail pages.
-    if (source.id !== "odishaai" && source.id !== "odiagenai") {
-      for (const e of newEvents) await enrichFromDetail(e);
     }
 
     console.log(`  🆕 ${newEvents.length} new event(s) found`);
@@ -493,13 +584,13 @@ async function main() {
   } else {
     console.log("✓ No new events found anywhere");
   }
-  if (parseFailures > 0) {
-    console.error(`❌ ${parseFailures} source(s) failed to parse — check for site changes`);
+  if (fatalFailures > 0) {
+    console.error(`❌ ${fatalFailures} source(s) failed permanently — check source configuration`);
   }
   console.log(`${"=".repeat(40)}`);
   // Nonzero exit on structural parse failure so CI goes red instead of silently
   // running an empty crawl forever.
-  return parseFailures > 0 ? 1 : 0;
+  return fatalFailures > 0 ? 1 : 0;
 }
 
 // Only run when executed directly (`bun scripts/crawl-events.mjs`), not when

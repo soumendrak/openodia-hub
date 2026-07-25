@@ -21,9 +21,12 @@ Each row: community name | source URL | data file | parsability | notes
 **gdg.community.dev**: Next.js site. Event data lives in the `__NEXT_DATA__` JSON blob
 (`props.pageProps.prerenderData.upcomingEvents.results` + `.pastEvents.results`), not scrapable
 HTML cards. Each event has `title`, `url`, `cohost_registration_url`, `start_date`, and
-`description_short`. Store the cohost URL when present — that's what `/api/events` uses, so the
-Events page dedups static + live to a single card. Only the initially-rendered events are
-included (no "Load more" data); note this in your report.
+`description_short`. Detail pages expose authoritative `start_date`, `end_date`,
+`event_timezone`, `venue_name`, and the complete HTML `description`; sanitize the complete
+description into a complete-sentence summary when `description_short` ends in an ellipsis.
+Store the cohost URL when present — that's what `/api/events` uses, so the Events page dedups
+static + live to a single card. Only the initially-rendered events are included (no "Load more"
+data); note this in your report.
 
 **odishaai.org**: Client-rendered React SPA — the HTML shell is empty, so there are no year
 links to follow. Conference data is baked into the Vite JS bundle. Read the bundle URL from the

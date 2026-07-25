@@ -15,6 +15,7 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     title: "Build with AI: Code for Communities",
     url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-code-for-communities/cohost-gdg-bhubaneswar",
     type: "Hackathon",
+    location: "Pipul Padmaja Premium Hotel and Convention",
     startDate: "2026-07-05",
     endDate: "2026-07-05",
     description:
