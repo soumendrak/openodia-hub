@@ -172,10 +172,13 @@ function parseGDGEventCards(html) {
   }
 
   return results
-    .filter((e) => e.title && e.url)
+    .filter((e) => e.title && (e.cohost_registration_url || e.url))
     .map((e) => ({
       title: e.title.replace(/\s+/g, " ").trim(),
-      url: e.url,
+      // Prefer the cohost URL — that's what /api/events stores and what the
+      // hand-written static entries use, so the Events page (which dedups by
+      // exact URL when merging static + live) sees one card, not two.
+      url: e.cohost_registration_url || e.url,
       dateRaw: e.start_date || null,
       ...(isoToDate(e.start_date) || {}),
       description: (e.description_short || "").replace(/\s+/g, " ").trim() || null,
@@ -252,13 +255,20 @@ function loadExistingUrls(filePath) {
   return new Set(urls);
 }
 
-// Check if a title already exists — normalize BOTH title and content the same
-// way (strip non-alphanumerics, lowercase) so punctuation/spacing can't hide a
-// match (e.g. title "HackForge 2.0" vs content "HackForge 2.0").
-function titleExists(title, content) {
-  const norm = (s) => s.replace(/[^a-z0-9]/gi, "").toLowerCase();
-  const key = norm(title).slice(0, 40);
-  return key.length > 0 && norm(content).includes(key);
+const normTitle = (s) => s.replace(/[^a-z0-9]/gi, "").toLowerCase();
+
+// Build a set of "normalizedTitle|year" keys from existing entries. Entries are
+// flat object literals, so match each `{…}` block and pair its title with its
+// year. Used as a dedup safety net that still allows a recurring event (same
+// title, different year — e.g. "AI Treasure Hunt" in 2025 and 2026).
+function loadExistingTitleYears(content) {
+  const keys = new Set();
+  for (const block of content.match(/\{[^{}]*\}/g) || []) {
+    const title = block.match(/title:\s*["']([^"']+)["']/)?.[1];
+    const year = block.match(/year:\s*["']([^"']+)["']/)?.[1];
+    if (title && year) keys.add(`${normTitle(title)}|${year}`);
+  }
+  return keys;
 }
 
 // Format a new event entry as TypeScript
@@ -350,11 +360,14 @@ async function main() {
     // Load existing events
     const existingUrls = loadExistingUrls(filePath);
     const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
+    const existingTitleYears = loadExistingTitleYears(existingContent);
 
-    // Find new events
+    // Find new events. Dedup on the normalized URL (primary), then on
+    // title+year as a safety net for renamed/re-hosted URLs — keyed on year so
+    // a recurring event in a new year is still treated as new.
     const newEvents = events.filter((e) => {
       if (existingUrls.has(normalizeUrl(e.url))) return false;
-      if (titleExists(e.title, existingContent)) return false;
+      if (e.year && existingTitleYears.has(`${normTitle(e.title)}|${e.year}`)) return false;
       return true;
     });
 

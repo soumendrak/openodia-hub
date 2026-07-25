@@ -13,7 +13,7 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     year: "2026",
     date: "5 Jul 2026",
     title: "Build with AI: Code for Communities",
-    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-code-for-communities/",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-code-for-communities/cohost-gdg-bhubaneswar",
     type: "Hackathon",
     startDate: "2026-07-05",
     endDate: "2026-07-05",
