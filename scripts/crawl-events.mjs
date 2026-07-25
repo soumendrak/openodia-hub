@@ -136,49 +136,45 @@ async function fetchText(url) {
   return await resp.text();
 }
 
-// Extract event cards from gdg.community.dev HTML
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Build the date shape from an ISO date string, reading the date part directly
+// to avoid timezone drift (start_date is UTC "...Z").
+function isoToDate(iso) {
+  const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return null;
+  const [, year, mm, dd] = m;
+  const day = Number(dd);
+  return {
+    display: `${day} ${MONTHS[Number(mm) - 1]} ${year}`,
+    year,
+    iso: `${year}-${mm}-${dd}`,
+  };
+}
+
+// Extract events from gdg.community.dev — data now lives in the __NEXT_DATA__
+// JSON blob (Next.js), not scrapable HTML cards.
 function parseGDGEventCards(html) {
-  const events = [];
-  // Match event card blocks — look for anchor tags with event detail URLs
-  const urlPattern = /https:\/\/gdg\.community\.dev\/events\/details\/[^"'\s]+/g;
-  const urls = [...new Set(html.match(urlPattern) || [])];
+  const m = html.match(/<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/);
+  if (!m) return []; // ponytail: page shape changed again → 0 events, surfaced as "No events found"
 
-  for (const url of urls) {
-    // Find the surrounding card context
-    const idx = html.indexOf(url);
-    if (idx < 0) continue;
-
-    // Look backwards for a heading/name
-    const before = html.slice(Math.max(0, idx - 2000), idx);
-
-    // Extract title — usually in an h3 or strong tag near the URL
-    const titleMatch = before.match(/<h3[^>]*>([^<]+)<\/h3>/i);
-    const title = titleMatch ? titleMatch[1].trim() : null;
-
-    // Extract date
-    const dateMatch = before.match(
-      /(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i,
-    );
-    const dateRaw = dateMatch ? dateMatch[1] : null;
-
-    // Extract event type label
-    const typeMatch =
-      html.slice(idx, idx + 500).match(/event-type[^>]*>([^<]+)</i) ||
-      before.match(/label[^>]*>([^<]+)</i);
-
-    if (title) {
-      const parsed = parseDate(dateRaw);
-      events.push({
-        title: title.replace(/\s+/g, " ").trim(),
-        url,
-        dateRaw,
-        ...(parsed || {}),
-        typeLabel: typeMatch ? typeMatch[1].trim() : null,
-      });
-    }
+  let results;
+  try {
+    const pd = JSON.parse(m[1]).props.pageProps.prerenderData;
+    results = [...(pd.upcomingEvents?.results || []), ...(pd.pastEvents?.results || [])];
+  } catch {
+    return [];
   }
 
-  return events;
+  return results
+    .filter((e) => e.title && e.url)
+    .map((e) => ({
+      title: e.title.replace(/\s+/g, " ").trim(),
+      url: e.url,
+      dateRaw: e.start_date || null,
+      ...(isoToDate(e.start_date) || {}),
+      description: (e.description_short || "").replace(/\s+/g, " ").trim() || null,
+    }));
 }
 
 // Extract event listing from odishaai.org /conferences/ page
@@ -341,29 +337,21 @@ async function main() {
     }
 
     const formatted = newEvents.map(formatEventEntry).join("\n");
-    // Insert after the opening array line, before the first existing entry
-    const insertPoint =
-      existingContent.indexOf("export const") >= 0
-        ? existingContent.indexOf("[") + 1
-        : existingContent.lastIndexOf("]");
+    // Insert at the top of the array literal (newest-first). Anchor on the
+    // array-opening `= [`, NOT the first `[` (that one's in the `Omit<…>[]` type).
+    const arrayOpen = existingContent.match(/=\s*\[/);
+    const insertPoint = arrayOpen ? arrayOpen.index + arrayOpen[0].length : -1;
 
-    if (insertPoint > 0 && insertPoint < existingContent.length - 1) {
-      const before = existingContent.slice(0, insertPoint).trimEnd();
-      const after = existingContent.slice(insertPoint);
-      // If there are already entries, add a newline before
-      const prefix = after.trimStart().startsWith("]") ? "\n" : "\n\n  // auto-crawled\n";
-      writeFileSync(filePath, `${before}${prefix}${formatted}\n${after.replace(/^\s*\n/, "")}`);
+    if (insertPoint > 0) {
+      const before = existingContent.slice(0, insertPoint);
+      const after = existingContent.slice(insertPoint).replace(/^\s*\n/, "");
+      // Empty array (`= []`) → no leading blank line before the closing `]`.
+      const isEmpty = after.trimStart().startsWith("]");
+      const block = isEmpty ? `\n${formatted}\n` : `\n  // auto-crawled\n${formatted}\n`;
+      writeFileSync(filePath, `${before}${block}${after}`);
     } else {
-      // Append before the closing ]
-      const lastBracket = existingContent.lastIndexOf("]");
-      if (lastBracket >= 0) {
-        writeFileSync(
-          filePath,
-          existingContent.slice(0, lastBracket).trimEnd() +
-            `\n\n  // auto-crawled\n${formatted}\n` +
-            existingContent.slice(lastBracket),
-        );
-      }
+      console.error(`  ❌ Could not locate array literal in ${source.file} — skipped`);
+      continue;
     }
 
     for (const evt of newEvents) {

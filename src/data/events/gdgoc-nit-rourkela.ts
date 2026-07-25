@@ -8,6 +8,18 @@
 import type { Event } from "./types";
 
 export const gdgocNitRourkelaEvents: Omit<Event, "community">[] = [
+  // auto-crawled
+  {
+    year: "2026",
+    date: "30 Jun 2026",
+    title: "Build Better Products using Design Engineering!",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-build-better-products-using-design-engineering/",
+    type: "Workshop",
+    startDate: "2026-06-30",
+    endDate: "2026-06-30",
+    description:
+      "Great products don't just work—they feel intuitive, delightful, and effortless to use. ✨Join GDSC NIT Rourkela for an ex...",
+  },
   {
     year: "2025",
     date: "19 Dec 2025",
