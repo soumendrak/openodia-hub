@@ -84,10 +84,15 @@ const TYPE_KEYWORDS = [
   { words: ["fest", "devfest", "conference", "summit", "congregation"], type: "Conference" },
 ];
 
-function inferType(title = "") {
-  const t = title.toLowerCase();
-  for (const { words, type } of TYPE_KEYWORDS) {
-    if (words.some((w) => t.includes(w))) return type;
+function inferType(title = "", description = "") {
+  // Match on title first (strong signal), then fall back to the description —
+  // e.g. "Build with AI: Code for Communities" only reveals it's a hackathon
+  // in its description.
+  for (const source of [title, description]) {
+    const t = source.toLowerCase();
+    for (const { words, type } of TYPE_KEYWORDS) {
+      if (words.some((w) => t.includes(w))) return type;
+    }
   }
   return "Workshop"; // default
 }
@@ -190,7 +195,9 @@ function odishaaiDate(date) {
   if (!date) return null;
   if (/[a-z]/i.test(date)) return parseDate(date); // has a month name
   const y = date.match(/\d{4}/);
-  return y ? { year: y[0] } : null;
+  // Year-only: still emit a `display` so formatEventEntry writes the required
+  // `date` field (no `iso`, so startDate/endDate are correctly omitted).
+  return y ? { year: y[0], display: y[0] } : null;
 }
 
 async function parseOdishaAIEvents() {
@@ -231,17 +238,27 @@ async function parseOdishaAIEvents() {
 }
 
 // Load existing event URLs from a .ts file
+// Normalize a GDG event URL for dedup: the same event appears with and without
+// a trailing `/cohost-…` segment (e.g. `.../hackforge-20/` vs
+// `.../hackforge-20/cohost-gdg-bhubaneswar`). Strip that and any trailing slash.
+function normalizeUrl(url) {
+  return url.replace(/\/cohost-[^/]*\/?$/, "").replace(/\/+$/, "");
+}
+
 function loadExistingUrls(filePath) {
   if (!existsSync(filePath)) return new Set();
   const content = readFileSync(filePath, "utf-8");
-  const urls = [...content.matchAll(/url:\s*["']([^"']+)["']/g)].map((m) => m[1]);
+  const urls = [...content.matchAll(/url:\s*["']([^"']+)["']/g)].map((m) => normalizeUrl(m[1]));
   return new Set(urls);
 }
 
-// Check if a title already exists (fuzzy match)
+// Check if a title already exists — normalize BOTH title and content the same
+// way (strip non-alphanumerics, lowercase) so punctuation/spacing can't hide a
+// match (e.g. title "HackForge 2.0" vs content "HackForge 2.0").
 function titleExists(title, content) {
-  const normalized = title.replace(/[^a-z0-9]/gi, "").toLowerCase();
-  return content.toLowerCase().includes(normalized.slice(0, 40));
+  const norm = (s) => s.replace(/[^a-z0-9]/gi, "").toLowerCase();
+  const key = norm(title).slice(0, 40);
+  return key.length > 0 && norm(content).includes(key);
 }
 
 // Format a new event entry as TypeScript
@@ -251,7 +268,7 @@ function formatEventEntry(event) {
   if (event.display) lines.push(`    date: "${event.display}",`);
   lines.push(`    title: "${event.title.replace(/"/g, '\\"')}",`);
   lines.push(`    url: "${event.url}",`);
-  const eventType = inferType(event.title);
+  const eventType = inferType(event.title, event.description || "");
   lines.push(`    type: "${eventType}",`);
   if (event.iso) {
     lines.push(`    startDate: "${event.iso}",`);
@@ -336,7 +353,7 @@ async function main() {
 
     // Find new events
     const newEvents = events.filter((e) => {
-      if (existingUrls.has(e.url)) return false;
+      if (existingUrls.has(normalizeUrl(e.url))) return false;
       if (titleExists(e.title, existingContent)) return false;
       return true;
     });

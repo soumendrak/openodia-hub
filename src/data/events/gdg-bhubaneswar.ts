@@ -14,44 +14,11 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     date: "5 Jul 2026",
     title: "Build with AI: Code for Communities",
     url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-code-for-communities/",
-    type: "Workshop",
+    type: "Hackathon",
     startDate: "2026-07-05",
     endDate: "2026-07-05",
     description:
       "Build with AI: Code for Communities is a nationwide AI hackathon designed to empower developers, students, designers, innovators, and technology enthusiasts to build impactful AI-powered solutions to real-world community challenges using Google Cloud and Google's latest AI technologies.",
-  },
-  {
-    year: "2026",
-    date: "7 Apr 2026",
-    title: "HackForge 2.0",
-    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-hackforge-20/",
-    type: "Hackathon",
-    startDate: "2026-04-07",
-    endDate: "2026-04-07",
-    description:
-      "Join us for Hackforge 2.0, a 24-hour hackathon designed by developers, for developers. This is where technical depth mee...",
-  },
-  {
-    year: "2026",
-    date: "17 Jan 2026",
-    title: "HackFest Bhubaneswar 2026",
-    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-hackfest-bhubaneswar-2026/",
-    type: "Hackathon",
-    startDate: "2026-01-17",
-    endDate: "2026-01-17",
-    description:
-      "Odisha’s Biggest AI + Tech Hackathon is Here! Organized by Google Developers Group Bhubaneswar Official Partner of AI Impact Summit 2026 — Govt. of India",
-  },
-  {
-    year: "2025",
-    date: "9 Nov 2025",
-    title: "DevFest 2025 – Bhubaneswar",
-    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-devfest-2025-bhubaneswar/",
-    type: "Conference",
-    startDate: "2025-11-09",
-    endDate: "2025-11-09",
-    description:
-      "DevFest is Google’s annual global developer festival, bringing together tech enthusiasts, professionals, and innovators to learn, share, and connect.",
   },
   {
     year: "2026",
