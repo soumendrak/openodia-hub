@@ -20,7 +20,7 @@ import { fileURLToPath } from "url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "src", "data", "events");
 const SOURCES = [
-  // gdg.community.dev chapters — all use the same HTML structure
+  // gdg.community.dev chapters — all expose events via the same __NEXT_DATA__ JSON
   {
     id: "gdg-bhubaneswar",
     url: "https://gdg.community.dev/gdg-bhubaneswar/",
@@ -255,22 +255,6 @@ function loadExistingUrls(filePath) {
   return new Set(urls);
 }
 
-const normTitle = (s) => s.replace(/[^a-z0-9]/gi, "").toLowerCase();
-
-// Build a set of "normalizedTitle|year" keys from existing entries. Entries are
-// flat object literals, so match each `{…}` block and pair its title with its
-// year. Used as a dedup safety net that still allows a recurring event (same
-// title, different year — e.g. "AI Treasure Hunt" in 2025 and 2026).
-function loadExistingTitleYears(content) {
-  const keys = new Set();
-  for (const block of content.match(/\{[^{}]*\}/g) || []) {
-    const title = block.match(/title:\s*["']([^"']+)["']/)?.[1];
-    const year = block.match(/year:\s*["']([^"']+)["']/)?.[1];
-    if (title && year) keys.add(`${normTitle(title)}|${year}`);
-  }
-  return keys;
-}
-
 // Format a new event entry as TypeScript
 function formatEventEntry(event) {
   const lines = ["  {"];
@@ -360,16 +344,10 @@ async function main() {
     // Load existing events
     const existingUrls = loadExistingUrls(filePath);
     const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
-    const existingTitleYears = loadExistingTitleYears(existingContent);
 
-    // Find new events. Dedup on the normalized URL (primary), then on
-    // title+year as a safety net for renamed/re-hosted URLs — keyed on year so
-    // a recurring event in a new year is still treated as new.
-    const newEvents = events.filter((e) => {
-      if (existingUrls.has(normalizeUrl(e.url))) return false;
-      if (e.year && existingTitleYears.has(`${normTitle(e.title)}|${e.year}`)) return false;
-      return true;
-    });
+    // Dedup strictly by normalized URL (handles the /cohost-… variant). Two
+    // distinct events can share a title+year, so URL is the only safe key.
+    const newEvents = events.filter((e) => !existingUrls.has(normalizeUrl(e.url)));
 
     if (newEvents.length === 0) {
       console.log(`  ✓ No new events`);
