@@ -8,6 +8,17 @@
 import type { Event } from "./types";
 
 export const odishaaiEvents: Omit<Event, "community">[] = [
+  // auto-crawled
+  {
+    year: "2026",
+    date: "10 Oct 2026",
+    title: "2026 Odisha AI Conference",
+    url: "https://www.odishaai.org/conferences/2026/",
+    type: "Conference",
+    startDate: "2026-10-10",
+    endDate: "2026-10-10",
+    description: "Seventh annual international congregation of Odias in AI.",
+  },
   {
     year: "2025",
     date: "21–22 Dec 2025",

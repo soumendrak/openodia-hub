@@ -5,9 +5,9 @@
  * Runs in GitHub Actions (see .github/workflows/crawl-events.yml).
  *
  * Strategy:
- *   - gdg.community.dev: fetch chapter page, parse event cards from HTML
- *   - odishaai.org: fetch /conferences/, follow year links, parse event details
- *   - Unparsable sources (SPA): log and skip (manual-only)
+ *   - gdg.community.dev: fetch chapter page, parse the __NEXT_DATA__ JSON blob
+ *   - odishaai.org (React SPA): read the JS bundle, extract conference objects
+ *   - Unparsable sources (SPA, no embedded data): log and skip (manual-only)
  *
  * Output: appends new events to the appropriate .ts data file.
  * Prints "NEW_EVENTS_FOUND" to stdout if any new events were added.
@@ -177,34 +177,52 @@ function parseGDGEventCards(html) {
     }));
 }
 
-// Extract event listing from odishaai.org /conferences/ page
+// odishaai.org is a client-rendered React SPA — conference data is baked into
+// the JS bundle, not the HTML. Read the bundle and extract the conference
+// objects ({slug, title, date, location, desc}).
+function fieldAfter(chunk, key) {
+  const m = chunk.match(new RegExp("^.*?" + key + ":`([^`]*)`"));
+  return m ? m[1] : null;
+}
+
+// Turn "10 Oct 2026" into the full date shape; a bare "2024" yields year only.
+function odishaaiDate(date) {
+  if (!date) return null;
+  if (/[a-z]/i.test(date)) return parseDate(date); // has a month name
+  const y = date.match(/\d{4}/);
+  return y ? { year: y[0] } : null;
+}
+
 async function parseOdishaAIEvents() {
   const events = [];
   try {
-    const html = await fetchText("https://www.odishaai.org/conferences/");
-    // Find year links
-    const yearLinks = [...html.matchAll(/href=["'](\/conferences\/\d{4}\/)["']/g)];
-    for (const [, path] of yearLinks) {
-      try {
-        const yearHtml = await fetchText(`https://www.odishaai.org${path}`);
-        // Extract conference details
-        const confMatch = yearHtml.match(/<h1[^>]*>([^<]+)<\/h1>/i);
-        const dateMatch = yearHtml.match(
-          /(\d{1,2}(?:st|nd|rd|th)?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})/i,
-        );
-        const descMatch = yearHtml.match(/<p[^>]*>([^<]+)<\/p>/i);
+    const shell = await fetchText("https://www.odishaai.org/conferences/");
+    const bundle = shell.match(/src="(\/assets\/index-[^"]+\.js)"/);
+    if (!bundle) {
+      console.error("  ⚠️ Could not locate JS bundle in odishaai.org shell");
+      return events;
+    }
+    const js = await fetchText(`https://www.odishaai.org${bundle[1]}`);
 
-        if (confMatch) {
-          events.push({
-            title: confMatch[1].trim(),
-            url: `https://www.odishaai.org${path}`,
-            dateRaw: dateMatch ? dateMatch[1] : null,
-            description: descMatch ? descMatch[1].trim() : null,
-          });
-        }
-      } catch (e) {
-        console.error(`  ⚠️ Failed to fetch ${path}: ${e.message}`);
-      }
+    // Each conference detail object starts `{slug:` and uniquely carries a
+    // conference-covers image + a location field. Read fields forward from slug.
+    const idxs = [...js.matchAll(/\{slug:`/g)].map((m) => m.index);
+    const seen = new Set();
+    for (let i = 0; i < idxs.length; i++) {
+      const chunk = js.slice(idxs[i], idxs[i + 1] ?? idxs[i] + 900);
+      if (!chunk.includes("conference-covers") || !chunk.includes("location:")) continue;
+      const slug = fieldAfter(chunk, "slug");
+      const title = fieldAfter(chunk, "title");
+      if (!slug || !title || seen.has(slug)) continue;
+      seen.add(slug);
+      const date = fieldAfter(chunk, "date");
+      events.push({
+        title: title.trim(),
+        url: `https://www.odishaai.org/conferences/${slug}/`,
+        dateRaw: date,
+        ...(odishaaiDate(date) || {}),
+        description: (fieldAfter(chunk, "desc") || "").trim() || null,
+      });
     }
   } catch (e) {
     console.error(`  ⚠️ Failed to fetch odishaai.org: ${e.message}`);
