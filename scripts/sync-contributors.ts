@@ -39,6 +39,7 @@ const CURATED_REPOS: string[] = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
+  "Sameetpatro/odlang",
   "OmmDevgoswami/SikshaSathi---Odia-Gen-AI-Hackathon",
   "biranchi2018/odia",
   // ── OCR, datasets & speech ──
@@ -46,6 +47,7 @@ const CURATED_REPOS: string[] = [
   "sushantamishra79/Odia-TTS-Dataset1",
   "sushantamishra79/odia-audio-processor",
   "sushantamishra79/LLM-ODIA",
+  "biranchikulesika/lipy",
   // ── imsbg — Odia educational apps ──
   "imsbg/odiabhasa",
   "imsbg/odia-bhasa",
