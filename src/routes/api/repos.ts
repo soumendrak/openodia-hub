@@ -25,7 +25,6 @@ const PINNED_REPOS: string[] = [
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
   "soumendrak/openodia",
-  "soumendrak/odia-numerals-clock",
   // ── Individual high-value repos ──
   "goru001/nlp-for-odia",
   "sovopr/sovogpt",
