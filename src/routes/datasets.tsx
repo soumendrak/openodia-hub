@@ -4,8 +4,10 @@ import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Search, ExternalLink, Heart, Download, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
+import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
+import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
 
 export const Route = createFileRoute("/datasets")({
   head: () => ({
@@ -46,12 +48,6 @@ function prettyTask(t: string): string {
   return t.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
-
 function DatasetsPage() {
   const PAGE_SIZE = 30;
   const [q, setQ] = useState("");
@@ -76,6 +72,15 @@ function DatasetsPage() {
     const counts = new Map<string, number>();
     for (const d of datasets) counts.set(d.task, (counts.get(d.task) ?? 0) + 1);
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [datasets]);
+
+  // Five datasets featured above the browser, drawn from a seeded shuffle keyed
+  // on the ISO week — same set for every visitor all week, rotates itself every
+  // Monday. Deterministic, so SSR and the client agree. See lib/weekly-picks.
+  const featured = useMemo(() => {
+    const { hero, reels } = pickWeeklyBy(datasets, new Date(), (d) => d.likes, MIN_LIKES);
+    const toItem = (d: Dataset) => ({ ...d, label: prettyTask(d.task) });
+    return { hero: hero.map(toItem), reels: reels.map(toItem) };
   }, [datasets]);
 
   const filtered = useMemo(() => {
@@ -125,6 +130,12 @@ function DatasetsPage() {
           classification, instruction-tuning. Click any card to preview on Hugging Face.
         </p>
       </Reveal>
+
+      {featured.hero.length > 0 && (
+        <Reveal delay={0.05} className="mt-12">
+          <FeaturedGallery hero={featured.hero} reels={featured.reels} />
+        </Reveal>
+      )}
 
       <Reveal delay={0.1} className="mt-10">
         <div className="relative max-w-xl">

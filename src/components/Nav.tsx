@@ -1,12 +1,17 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { Menu, X, Sun, Moon, Search, Languages } from "lucide-react";
+import { Menu, X, Sun, Moon, Search, Languages, Sparkles } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 
-const links: ReadonlyArray<{ to: string; labelKey: TranslationKey }> = [
+/** `highlight` gives Playground the accent treatment — it's the one tab that
+ *  runs something rather than listing something. */
+const links: ReadonlyArray<{ to: string; labelKey: TranslationKey; highlight?: boolean }> = [
   { to: "/", labelKey: "nav.home" },
   { to: "/tools", labelKey: "nav.tools" },
+  { to: "/models", labelKey: "nav.models" },
+  { to: "/datasets", labelKey: "nav.datasets" },
+  { to: "/playground", labelKey: "nav.playground", highlight: true },
   { to: "/tutorials", labelKey: "nav.tutorials" },
   { to: "/events", labelKey: "nav.events" },
   { to: "/about", labelKey: "nav.about" },
@@ -49,14 +54,19 @@ export function Nav() {
             <span className="font-display text-lg font-semibold tracking-tight">OpenOdia</span>
           </Link>
 
-          <nav className="hidden items-center gap-1 md:flex">
+          {/* Eight tabs no longer fit at md, so the desktop row starts at lg. */}
+          <nav className="hidden items-center gap-1 lg:flex">
             {links.map((l) => {
               const active = location.pathname === l.to;
               return (
                 <Link
                   key={l.to}
                   to={l.to}
-                  className="relative rounded-lg px-4 py-2 text-sm text-muted-foreground transition hover:text-foreground"
+                  className={`relative rounded-lg border px-3 py-2 text-sm transition ${
+                    l.highlight
+                      ? "border-neon/40 bg-neon/5 text-neon hover:border-neon hover:bg-neon/15"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
                 >
                   {active && (
                     <motion.span
@@ -65,7 +75,10 @@ export function Nav() {
                       transition={{ type: "spring", stiffness: 380, damping: 30 }}
                     />
                   )}
-                  <span className="relative">{t(l.labelKey)}</span>
+                  <span className="relative inline-flex items-center gap-1.5">
+                    {l.highlight && <Sparkles size={13} />}
+                    {t(l.labelKey)}
+                  </span>
                 </Link>
               );
             })}
@@ -100,7 +113,7 @@ export function Nav() {
             </button>
 
             <button
-              className="md:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
+              className="lg:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
               onClick={() => setOpen((v) => !v)}
               aria-label={t("nav.menu.aria")}
             >
@@ -115,15 +128,20 @@ export function Nav() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl md:hidden"
+              className="mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl lg:hidden"
             >
               {links.map((l) => (
                 <Link
                   key={l.to}
                   to={l.to}
                   onClick={() => setOpen(false)}
-                  className="rounded-lg px-4 py-3 text-sm hover:bg-surface-2"
+                  className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+                    l.highlight
+                      ? "border-neon/40 bg-neon/5 text-neon"
+                      : "border-transparent hover:bg-surface-2"
+                  }`}
                 >
+                  {l.highlight && <Sparkles size={14} />}
                   {t(l.labelKey)}
                 </Link>
               ))}

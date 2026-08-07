@@ -12,6 +12,9 @@ export const en = {
   // Nav
   "nav.home": "Home",
   "nav.tools": "Tools",
+  "nav.models": "Models",
+  "nav.datasets": "Datasets",
+  "nav.playground": "Playground",
   "nav.tutorials": "Tutorials",
   "nav.events": "Events",
   "nav.about": "About",

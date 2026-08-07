@@ -7,6 +7,7 @@ import { Reveal } from "../components/Reveal";
 import { GithubIcon } from "../components/icons";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
+import { pickWeeklyFeatured } from "../lib/weekly-picks";
 
 export const Route = createFileRoute("/tools")({
   head: () => ({
@@ -151,6 +152,14 @@ function ToolsPage() {
 
   const total = items.length;
 
+  // Five repos featured above the directory, drawn from a seeded shuffle keyed
+  // on the ISO week — same set for every visitor all week, rotates itself every
+  // Monday. Deterministic, so SSR and the client agree. See lib/weekly-picks.
+  const featured = useMemo(
+    () => pickWeeklyFeatured(reposData?.repos ?? [], new Date()),
+    [reposData],
+  );
+
   // Categories surfaced in the order they appear in the merged list, so the
   // curated Awesome ordering is preserved and "Code Repositories" lands last.
   const categories = useMemo(() => {
@@ -218,6 +227,27 @@ function ToolsPage() {
           Awesome-Odia-AI and the OpenOdia GitHub orgs.
         </p>
       </Reveal>
+
+      {featured.hero.length > 0 && (
+        <Reveal delay={0.05} className="mt-12">
+          <SectionLabel tag="★ Featured" note="rotates every Monday" />
+          <div className="grid gap-4 md:grid-cols-2">
+            {featured.hero.map((r) => (
+              <HeroCard key={r.full_name} repo={r} />
+            ))}
+          </div>
+          {featured.reels.length > 0 && (
+            <>
+              <SectionLabel tag="Also worth a look" />
+              <div className="grid gap-4 sm:grid-cols-3">
+                {featured.reels.map((r) => (
+                  <ReelCard key={r.full_name} repo={r} />
+                ))}
+              </div>
+            </>
+          )}
+        </Reveal>
+      )}
 
       <Reveal delay={0.1} className="mt-10">
         <div className="flex flex-wrap items-center gap-3">
@@ -392,6 +422,108 @@ function ToolsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function SectionLabel({ tag, note }: { tag: string; note?: string }) {
+  return (
+    <div className="mb-3 mt-6 flex items-center gap-3 text-[10px] uppercase tracking-[0.14em] text-muted-foreground first:mt-0">
+      <span className="whitespace-nowrap rounded-full border border-saffron/40 px-2 py-0.5 text-saffron">
+        {tag}
+      </span>
+      {note && <span>{note}</span>}
+      <span className="h-px flex-1 bg-border" />
+    </div>
+  );
+}
+
+function HeroCard({ repo }: { repo: Repo }) {
+  const owner = repo.full_name.split("/")[0];
+  return (
+    <motion.a
+      href={repo.html_url}
+      target="_blank"
+      rel="noreferrer"
+      whileHover={{ y: -4 }}
+      className="group relative flex min-h-[235px] items-end overflow-hidden rounded-2xl border border-border transition hover:border-neon/50"
+    >
+      {/* Blurred repo card as ambient backdrop — decorative, so alt="" */}
+      <img
+        src={`https://opengraph.githubassets.com/1/${repo.full_name}`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        className="absolute -inset-5 h-[calc(100%+2.5rem)] w-[calc(100%+2.5rem)] scale-110 object-cover opacity-40 blur-2xl saturate-150"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-background/40 to-background/95" />
+      <div className="relative w-full p-6">
+        <img
+          src={`https://github.com/${owner}.png?size=104`}
+          alt=""
+          aria-hidden="true"
+          loading="lazy"
+          className="mb-3 h-13 w-13 rounded-2xl border border-foreground/20"
+          width={52}
+          height={52}
+        />
+        <span className="text-[10px] uppercase tracking-[0.14em] text-neon">
+          {repo.language ?? "Resource"}
+        </span>
+        <h3 className="mt-1 break-words font-display text-xl font-semibold leading-tight md:text-2xl">
+          {repo.name}
+        </h3>
+        <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">
+          {repo.description || "No description."}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <Star size={12} className="text-saffron" />
+            {repo.stargazers_count}
+          </span>
+          {repo.language && (
+            <span className="rounded-full border border-border px-2 py-0.5">{repo.language}</span>
+          )}
+          <ExternalLink size={14} className="ml-auto transition group-hover:text-neon" />
+        </div>
+      </div>
+    </motion.a>
+  );
+}
+
+function ReelCard({ repo }: { repo: Repo }) {
+  const owner = repo.full_name.split("/")[0];
+  return (
+    <motion.a
+      href={repo.html_url}
+      target="_blank"
+      rel="noreferrer"
+      whileHover={{ y: -4 }}
+      className="group relative flex min-h-[118px] flex-col justify-end gap-1 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition hover:border-neon/50"
+    >
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-3/5 bg-[radial-gradient(140%_160%_at_12%_0%,color-mix(in_oklab,var(--neon)_22%,transparent),transparent_65%)]"
+      />
+      <img
+        src={`https://github.com/${owner}.png?size=76`}
+        alt=""
+        aria-hidden="true"
+        loading="lazy"
+        className="relative mb-1 h-9.5 w-9.5 rounded-xl border border-border bg-surface-2"
+        width={38}
+        height={38}
+      />
+      <h3 className="relative break-words font-display text-sm font-semibold leading-tight">
+        {repo.name}
+      </h3>
+      <span className="relative flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1">
+          <Star size={11} className="text-saffron" />
+          {repo.stargazers_count}
+        </span>
+        {repo.language ?? "Resource"}
+      </span>
+    </motion.a>
   );
 }
 

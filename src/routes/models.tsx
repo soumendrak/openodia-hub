@@ -4,8 +4,10 @@ import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Search, ExternalLink, Heart, Download, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
+import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
+import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
 
 export const Route = createFileRoute("/models")({
   head: () => ({
@@ -55,12 +57,6 @@ const TASK_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
-  return String(n);
-}
-
 function ModelsPage() {
   const PAGE_SIZE = 30;
   const [q, setQ] = useState("");
@@ -85,6 +81,15 @@ function ModelsPage() {
     const counts = new Map<string, number>();
     for (const m of models) counts.set(m.task, (counts.get(m.task) ?? 0) + 1);
     return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [models]);
+
+  // Five models featured above the registry, drawn from a seeded shuffle keyed
+  // on the ISO week — same set for every visitor all week, rotates itself every
+  // Monday. Deterministic, so SSR and the client agree. See lib/weekly-picks.
+  const featured = useMemo(() => {
+    const { hero, reels } = pickWeeklyBy(models, new Date(), (m) => m.likes, MIN_LIKES);
+    const toItem = (m: Model) => ({ ...m, label: TASK_LABEL[m.task] ?? m.task });
+    return { hero: hero.map(toItem), reels: reels.map(toItem) };
   }, [models]);
 
   const filtered = useMemo(() => {
@@ -133,6 +138,12 @@ function ModelsPage() {
           embeddings, classifiers. Click any card to open it on Hugging Face.
         </p>
       </Reveal>
+
+      {featured.hero.length > 0 && (
+        <Reveal delay={0.05} className="mt-12">
+          <FeaturedGallery hero={featured.hero} reels={featured.reels} />
+        </Reveal>
+      )}
 
       <Reveal delay={0.1} className="mt-10">
         <div className="relative max-w-xl">
