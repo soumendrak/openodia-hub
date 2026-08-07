@@ -9,9 +9,6 @@ const links: ReadonlyArray<{ to: string; labelKey: TranslationKey }> = [
   { to: "/tools", labelKey: "nav.tools" },
   { to: "/tutorials", labelKey: "nav.tutorials" },
   { to: "/events", labelKey: "nav.events" },
-  { to: "/community", labelKey: "nav.community" },
-  { to: "/roadmap", labelKey: "nav.roadmap" },
-  { to: "/blog", labelKey: "nav.blog" },
   { to: "/about", labelKey: "nav.about" },
 ];
 

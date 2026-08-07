@@ -249,14 +249,6 @@ export default {
                 responses: { "200": { description: "Array of categorized items" } },
               },
             },
-            "/api/community": {
-              get: {
-                summary: "GitHub Discussions",
-                description:
-                  "Recent discussions on the OpenOdia repo grouped by category. Falls back to an empty payload (never 5xx) when discussions are unavailable.",
-                responses: { "200": { description: "Categories with their discussions" } },
-              },
-            },
             "/api/contributors": {
               get: {
                 summary: "Contributors leaderboard",
@@ -326,14 +318,6 @@ export default {
                   },
                 ],
                 responses: { "200": { description: "Repository list" } },
-              },
-            },
-            "/api/roadmap": {
-              get: {
-                summary: "Public roadmap",
-                description:
-                  "Issues on the openodia-hub repo grouped by roadmap:planned, roadmap:in-progress, and roadmap:completed labels.",
-                responses: { "200": { description: "Roadmap groups" } },
               },
             },
             "/api/videos": {

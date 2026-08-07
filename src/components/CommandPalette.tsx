@@ -54,9 +54,6 @@ const PAGES: { label: string; path: string }[] = [
   { label: "Tutorials", path: "/tutorials" },
   { label: "Playground", path: "/playground" },
   { label: "Events", path: "/events" },
-  { label: "Community", path: "/community" },
-  { label: "Roadmap", path: "/roadmap" },
-  { label: "Blog", path: "/blog" },
   { label: "API", path: "/api" },
   { label: "About", path: "/about" },
 ];

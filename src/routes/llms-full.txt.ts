@@ -34,7 +34,6 @@ const SECTIONS: { heading: string; body: string }[] = [
       "- /datasets:        https://openodia.com/datasets — Live browser of Odia datasets on Hugging Face",
       "- /tutorials:       https://openodia.com/tutorials — YouTube tutorials from Odia AI channels",
       "- /events:          https://openodia.com/events — Community events (conferences, workshops, hackathons)",
-      "- /community:       https://openodia.com/community — GitHub Discussions surfaced on-site",
       "- /api:             https://openodia.com/api — Public API reference with interactive playground",
       "- /about:           https://openodia.com/about — About page with bio and links",
     ].join("\n"),
