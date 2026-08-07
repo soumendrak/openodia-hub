@@ -12,6 +12,18 @@ export const gdgocKiitEvents: Omit<Event, "community">[] = [
   {
     year: "2026",
     date: "8–9 Aug 2026",
+    title: "Deploy or [REDACTED]",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-deploy-or-redacted/",
+    type: "Hackathon",
+    location: "KIIT School of Computer Science and Engineering (New Block) Campus -25",
+    startDate: "2026-08-08",
+    endDate: "2026-08-09",
+    description: "Deploy or [REDACTED] is three good things happening back to back — a talk worth showing up for, a hackathon worth losing sleep over, and something you genuinely won't get to do anywhere else: hunting for real asteroids.",
+  },
+  // auto-crawled
+  {
+    year: "2026",
+    date: "8–9 Aug 2026",
     title: "Deploy or Die",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-deploy-or-die/",
     type: "Hackathon",
