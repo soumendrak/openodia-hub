@@ -158,42 +158,9 @@ flowchart TD
     style G stroke:#f59e0b
 ```
 
-### Static Content pages (`/about`, `/roadmap`)
+### Static Content pages (`/about`)
 
-Static layout pages with scroll-triggered `Reveal` animations. Roadmap fetches GitHub Issues with `roadmap:*` labels and groups them by status.
-
-```mermaid
-flowchart TD
-    A[Page Load] --> B{Which page?}
-    B -->|About| C[Static content: pillars + get involved sections]
-    B -->|Roadmap| D[useQuery: /api/roadmap]
-    C --> E[ContributorGrid + ContributorLeaderboard]
-    D --> F[GitHub Issues grouped by roadmap label]
-    F --> G[Render Planned / In Progress / Completed]
-    G --> H[Each issue: clickable card with priority badge]
-
-    style A stroke:#00d4ff
-    style C stroke:#ff2d95
-    style D stroke:#ff2d95
-```
-
-### Blog pages (`/blog`, `/blog/$slug`)
-
-Content-driven pages. The index uses `import.meta.glob` to read all `.md` files from `src/content/blog/`, parses YAML frontmatter, and renders a year-grouped timeline. Detail pages render the markdown body via `marked`.
-
-```mermaid
-flowchart TD
-    A[Blog Index] --> B[import.meta.glob: src/content/blog/*.md]
-    B --> C[Parse YAML frontmatter + sort by date]
-    C --> D[Render timeline grouped by year]
-    D --> E[User clicks a post]
-    E --> F[Blog Detail: loader reads specific .md]
-    F --> G[marked → HTML, render prose article]
-
-    style A stroke:#00d4ff
-    style B stroke:#ff2d95
-    style G stroke:#f59e0b
-```
+Static layout page with scroll-triggered `Reveal` animations: pillars + get involved sections, ContributorGrid + ContributorLeaderboard.
 
 ### Playground (`/playground`)
 
@@ -218,34 +185,12 @@ flowchart TD
     style I stroke:#f59e0b
 ```
 
-### Community page (`/community`)
-
-Fetches GitHub Discussions via GraphQL API, grouped by category with emoji icons.
-
-```mermaid
-flowchart TD
-    A[Page Load] --> B[useQuery: /api/community]
-    B --> C[GitHub GraphQL: discussionCategories + discussions]
-    C --> D{Discussions exist?}
-    D -->|Yes| E[Render categories with discussion cards]
-    D -->|No| F[Show empty state + Start discussion CTA]
-    E --> G[Each card: avatar, title, author, replies, external link]
-
-    style A stroke:#00d4ff
-    style B stroke:#ff2d95
-    style E stroke:#f59e0b
-```
-
----
-
 ## Data Sources
 
 | Source | What | Cache |
 |---|---|---|
 | **Hugging Face API** | Odia models & datasets | 1 hour |
 | **GitHub REST API** | Repos from 5 Odia orgs | 30 min |
-| **GitHub GraphQL** | Discussions | 5 min |
-| **GitHub Issues** | Roadmap items | 10 min |
 | **GitHub Raw** | Awesome-Odia-AI README | 1 hour |
 | **PyPI JSON API** | openodia package info | 1 hour |
 | **YouTube RSS** | Video feeds from 4 channels | 1 hour |

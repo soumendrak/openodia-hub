@@ -61,11 +61,6 @@ export function Footer() {
                   <Rss size={13} />
                 </a>
               </li>
-              <li>
-                <Link to="/community" className="hover:text-foreground">
-                  Community
-                </Link>
-              </li>
             </ul>
           </div>
 
@@ -80,16 +75,6 @@ export function Footer() {
               <li>
                 <Link to="/about" className="hover:text-foreground">
                   About
-                </Link>
-              </li>
-              <li>
-                <Link to="/roadmap" className="hover:text-foreground">
-                  Roadmap
-                </Link>
-              </li>
-              <li>
-                <Link to="/blog" className="hover:text-foreground">
-                  Blog
                 </Link>
               </li>
             </ul>
