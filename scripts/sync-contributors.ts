@@ -19,6 +19,7 @@ const CURATED_REPOS: string[] = [
   // ── soumendrak ──
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
+  "soumendrak/odia-numerals-clock",
   "soumendrak/openodia",
   // ── Individual high-value repos ──
   "goru001/nlp-for-odia",
@@ -27,7 +28,7 @@ const CURATED_REPOS: string[] = [
   "Deeptiman/Alphabet-Learning-Android-Application",
   "Deeptiman/php-dom-parser-translation-tool",
   "nsoum/odia-tex",
-  "SantoshNayak/Odia-Calendar",
+  "SantoshNayak/Odia_Calendar",
   "SantoshNayak/Odia-Month",
   "gyan111/gyan111.github.io",
   "gyan111/twinkle-orwiki",
