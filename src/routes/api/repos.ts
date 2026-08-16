@@ -45,6 +45,10 @@ const PINNED_REPOS: string[] = [
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
   "Sameetpatro/odlang",
+  "Infigent/Odia-Barajatri-nacha",
+  "SOHAN6925/odia-nostalgia",
+  "santilatanyak-design/Odia-puja-list-",
+  "nimatube7-ui/odia-old",
   "OmmDevgoswami/SikshaSathi---Odia-Gen-AI-Hackathon",
   "biranchi2018/odia",
   // ── OCR, datasets & speech ──
