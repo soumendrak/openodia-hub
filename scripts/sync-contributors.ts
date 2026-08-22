@@ -20,6 +20,7 @@ const CURATED_REPOS: string[] = [
   "soumendrak/aidaybbsr2025demo",
   "soumendrak/odia-2048",
   "soumendrak/openodia",
+  "soumendrak/odia-numerals-clock",
   // ── Individual high-value repos ──
   "goru001/nlp-for-odia",
   "sovopr/sovogpt",
@@ -35,9 +36,11 @@ const CURATED_REPOS: string[] = [
   "odiaorg/odiaDictColln",
   "shrixtacy/Subhadra-AI",
   "HimanshuMohanty-Git24/OdiaLingua",
+  "HimanshuMohanty-Git24/Odia_Lingua",
   "GnsP/odia-keyboard",
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
+  "mohitkdas/OdiaCalendarArchiveAdmin",
   "RajeebLochan/Sweatable",
   "Sameetpatro/odlang",
   "OmmDevgoswami/SikshaSathi---Odia-Gen-AI-Hackathon",
@@ -56,6 +59,7 @@ const CURATED_REPOS: string[] = [
   "imsbg/odialipi",
   "imsbg/Ganita-Bingya-App",
   "imsbg/Atomic-Guru",
+  "imsbg/number-increment",
   // ── Odia time & educational tools ──
   "imsbg/oled-time",
   "imsbg/Ama-Ganita",
@@ -90,6 +94,7 @@ const CURATED_REPOS: string[] = [
   "bikashkumars/rasa_core_nlu_oriya",
   "AUOrga/OriyaNLUandASRModel",
   "Sachin1724/Odia-TTS",
+  "shrivastava95/odia-dictionary",
   // ── odisha-ml community ──
   "odisha-ml/Awesome-Odia-AI",
   "odisha-ml/OdiaInMLWeb",
