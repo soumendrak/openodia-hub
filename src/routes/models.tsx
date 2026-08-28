@@ -18,6 +18,7 @@ import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 import { normalizeSpdx } from "../lib/license";
 import { refToPath } from "../lib/resource-id";
+import { pageHead } from "../lib/seo";
 import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
 import { loadModels, type Model } from "../lib/sources/huggingface";
 
@@ -36,21 +37,14 @@ const getModels = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/models")({
-  head: () => ({
-    meta: [
-      { title: "Models · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Live registry of Odia-language AI models on Hugging Face — LLMs, ASR, TTS, translation, embeddings, and more, with licenses and citations.",
-      },
-      { property: "og:title", content: "Models · OpenOdia" },
-      {
-        property: "og:description",
-        content: "Live registry of Odia-language AI models on Hugging Face.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "models",
+      title: "Models · OpenOdia",
+      description:
+        "Live registry of Odia-language AI models on Hugging Face — LLMs, ASR, TTS, translation, embeddings, and more, with licenses and citations.",
+      ogDescription: "Live registry of Odia-language AI models on Hugging Face.",
+    }),
   loader: () => getModels(),
   staleTime: 60 * 60 * 1000,
   component: ModelsPage,

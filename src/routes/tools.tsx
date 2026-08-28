@@ -8,6 +8,7 @@ import { GithubIcon } from "../components/icons";
 import { ActiveFilterBar, Chip, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
 import { ResourceMeta } from "../components/ResourceMeta";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
+import { pageHead } from "../lib/seo";
 import {
   computeFacets,
   toggleSelection,
@@ -42,22 +43,15 @@ const getDirectory = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/tools")({
-  head: () => ({
-    meta: [
-      { title: "Tools · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Every Odia open-source project — fonts, datasets, models, libraries, apps, repos, and tools — searchable by task and license, with citations.",
-      },
-      { property: "og:title", content: "Tools · OpenOdia" },
-      {
-        property: "og:description",
-        content:
-          "Unified directory of open-source Odia projects — repos, datasets, models, libraries, fonts, and more.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "tools",
+      title: "Tools · OpenOdia",
+      description:
+        "Every Odia open-source project — fonts, datasets, models, libraries, apps, repos, and tools — searchable by task and license, with citations.",
+      ogDescription:
+        "Unified directory of open-source Odia projects — repos, datasets, models, libraries, fonts, and more.",
+    }),
   loader: () => getDirectory(),
   staleTime: 60 * 60 * 1000,
   component: ToolsPage,

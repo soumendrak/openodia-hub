@@ -1,23 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef } from "react";
 import { Reveal } from "../../components/Reveal";
+import { pageHead } from "../../lib/seo";
 
 export const Route = createFileRoute("/api/")({
-  head: () => ({
-    meta: [
-      { title: "API · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Public API reference for OpenOdia — query repos, tools, events, contributors, and more.",
-      },
-      { property: "og:title", content: "API · OpenOdia" },
-      {
-        property: "og:description",
-        content: "OpenOdia public APIs for building on Odia open-source data.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "api",
+      title: "API · OpenOdia",
+      description:
+        "Public API reference for OpenOdia — query repos, tools, events, contributors, and more.",
+      ogDescription: "OpenOdia public APIs for building on Odia open-source data.",
+    }),
   component: ApiDocsPage,
 });
 

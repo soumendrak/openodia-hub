@@ -20,6 +20,7 @@ import { prettySize, sizeRank } from "../lib/dataset-size";
 import { normalizeSpdx } from "../lib/license";
 import { refToPath } from "../lib/resource-id";
 import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
+import { pageHead } from "../lib/seo";
 import { loadDatasets, type Dataset } from "../lib/sources/huggingface";
 
 /**
@@ -37,21 +38,14 @@ const getDatasets = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/datasets")({
-  head: () => ({
-    meta: [
-      { title: "Datasets · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Live browser of Odia-language datasets on Hugging Face — parallel corpora, speech, classification, instruction-tuning — with size, license, and citations.",
-      },
-      { property: "og:title", content: "Datasets · OpenOdia" },
-      {
-        property: "og:description",
-        content: "Live browser of Odia-language datasets on Hugging Face.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "datasets",
+      title: "Datasets · OpenOdia",
+      description:
+        "Live browser of Odia-language datasets on Hugging Face — parallel corpora, speech, classification, instruction-tuning — with size, license, and citations.",
+      ogDescription: "Live browser of Odia-language datasets on Hugging Face.",
+    }),
   loader: () => getDatasets(),
   staleTime: 60 * 60 * 1000,
   component: DatasetsPage,

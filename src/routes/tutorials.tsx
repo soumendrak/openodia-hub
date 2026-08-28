@@ -1,74 +1,50 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useState, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Play, ExternalLink, ListVideo, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { YoutubeIcon } from "../components/icons";
+import { JsonLd, breadcrumbSchema, videoListSchema } from "../lib/jsonld";
+import { pageHead } from "../lib/seo";
+import { loadVideos, type ChannelResult, type Playlist, type Video } from "../lib/sources/videos";
 
-export const Route = createFileRoute("/tutorials")({
-  head: () => ({
-    meta: [
-      { title: "Tutorials · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Video tutorials from the OpenOdia community — learn Odia language technology, open-source tools, font development, NLP, and more.",
-      },
-      { property: "og:title", content: "Tutorials · OpenOdia" },
-      {
-        property: "og:description",
-        content:
-          "OpenOdia tutorials covering Odia language tech, open-source tools, fonts, and community projects.",
-      },
-    ],
-  }),
-  component: TutorialsPage,
+/**
+ * Runs on the server during SSR, so the videos are in the HTML. Fetching them
+ * from the client meant every crawler and answer engine saw a page whose only
+ * content was the heading — nothing to index, nothing to cite.
+ */
+const getVideos = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    return { channels: await loadVideos() };
+  } catch (e) {
+    console.error("videos loader:", e);
+    return { channels: [] as ChannelResult[] };
+  }
 });
 
-type Video = {
-  id: string;
-  title: string;
-  published: string;
-  thumbnail: string;
-  channelName: string;
-  channelHandle: string;
-  channelUrl: string;
-  viewCount?: number;
-};
-
-type Playlist = {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail: string;
-  itemCount: number;
-};
-
-type ChannelResult = {
-  handle: string;
-  name: string;
-  url: string;
-  videos: Video[];
-  playlists: Playlist[];
-};
+export const Route = createFileRoute("/tutorials")({
+  head: () =>
+    pageHead({
+      path: "tutorials",
+      title: "Tutorials · OpenOdia",
+      description:
+        "Video tutorials from the OpenOdia community — learn Odia language technology, open-source tools, font development, NLP, and more.",
+      ogDescription:
+        "OpenOdia tutorials covering Odia language tech, open-source tools, fonts, and community projects.",
+    }),
+  loader: () => getVideos(),
+  staleTime: 60 * 60 * 1000,
+  component: TutorialsPage,
+});
 
 function TutorialsPage() {
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["videos"],
-    queryFn: async () => {
-      const r = await fetch("/api/videos");
-      if (!r.ok) throw new Error("videos");
-      return r.json() as Promise<{ channels: ChannelResult[] }>;
-    },
-  });
-
-  const channels = data?.channels ?? [];
+  const { channels } = Route.useLoaderData();
   const needle = query.trim().toLowerCase();
 
   const filteredVideos = needle
@@ -82,8 +58,17 @@ function TutorialsPage() {
       )
     : [];
 
+  const allVideos = channels.flatMap((c) => c.videos);
+
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "OpenOdia", url: "https://openodia.com" },
+          { name: "Tutorials", url: "https://openodia.com/tutorials" },
+        ])}
+      />
+      {allVideos.length > 0 && <JsonLd data={videoListSchema(allVideos)} />}
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Learn</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">Tutorials</h1>
@@ -163,7 +148,7 @@ function TutorialsPage() {
             )}
           </div>
         </section>
-      ) : isLoading ? (
+      ) : channels.length === 0 ? (
         <ChannelSkeleton />
       ) : (
         channels.map((channel) => <ChannelSection key={channel.handle} channel={channel} />)

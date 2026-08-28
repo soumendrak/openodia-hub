@@ -140,3 +140,83 @@ export function itemListSchema(
     })),
   };
 }
+
+/**
+ * ItemList of Events — the shape Google documents for a page that lists many
+ * events rather than describing one. Entries without a resolvable start date
+ * are skipped: `startDate` is required, and a guessed one is worse than none.
+ */
+export function eventListSchema(
+  events: {
+    name: string;
+    url: string;
+    description: string;
+    startDate: string;
+    endDate?: string;
+    location?: string;
+    organizer?: string;
+  }[],
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Odia AI community events",
+    numberOfItems: events.length,
+    itemListElement: events.map((e, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      item: {
+        "@type": "Event",
+        name: e.name,
+        url: e.url,
+        description: e.description,
+        startDate: e.startDate,
+        ...(e.endDate ? { endDate: e.endDate } : {}),
+        eventStatus: "https://schema.org/EventScheduled",
+        ...(e.location
+          ? {
+              eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+              location: { "@type": "Place", name: e.location, address: e.location },
+            }
+          : {
+              eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
+              location: { "@type": "VirtualLocation", url: e.url },
+            }),
+        ...(e.organizer ? { organizer: { "@type": "Organization", name: e.organizer } } : {}),
+      },
+    })),
+  };
+}
+
+/** ItemList of VideoObjects — the listing-page shape for video rich results. */
+export function videoListSchema(
+  videos: {
+    id: string;
+    title: string;
+    published: string;
+    thumbnail: string;
+    channelName: string;
+  }[],
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Odia language technology tutorials",
+    numberOfItems: videos.length,
+    itemListElement: videos.map((v, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      item: {
+        "@type": "VideoObject",
+        name: v.title,
+        description: `${v.title} — ${v.channelName}`,
+        thumbnailUrl: v.thumbnail,
+        uploadDate: v.published,
+        contentUrl: `https://www.youtube.com/watch?v=${v.id}`,
+        embedUrl: `https://www.youtube.com/embed/${v.id}`,
+        publisher: { "@type": "Organization", name: v.channelName },
+        inLanguage: "or",
+      },
+    })),
+  };
+}

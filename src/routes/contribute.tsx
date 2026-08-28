@@ -4,26 +4,20 @@ import { Check, Copy, ExternalLink } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon } from "../components/icons";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
+import { pageHead } from "../lib/seo";
 
 const AWESOME_REPO = "https://github.com/odisha-ml/Awesome-Odia-AI";
 const HUB_ISSUES = "https://github.com/soumendrak/openodia-hub/issues/new";
 
 export const Route = createFileRoute("/contribute")({
-  head: () => ({
-    meta: [
-      { title: "Add your project · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Get your Odia open-source project, model, or dataset listed on OpenOdia — the metadata template and the two routes for submitting it.",
-      },
-      { property: "og:title", content: "Add your project · OpenOdia" },
-      {
-        property: "og:description",
-        content: "How to get an Odia project, model, or dataset listed on OpenOdia.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "contribute",
+      title: "Add your project · OpenOdia",
+      description:
+        "Get your Odia open-source project, model, or dataset listed on OpenOdia — the metadata template and the two routes for submitting it.",
+      ogDescription: "How to get an Odia project, model, or dataset listed on OpenOdia.",
+    }),
   component: ContributePage,
 });
 

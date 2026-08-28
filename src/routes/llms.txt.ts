@@ -59,15 +59,19 @@ const LINES = [
   "- WebSite",
   "- BreadcrumbList (every page)",
   "- FAQPage (homepage: 7 Q&A pairs about Odia AI)",
-  "- ItemList (tools directory)",
+  "- ItemList (tools, models, and datasets directories)",
+  "- ItemList of Event (events page)",
+  "- ItemList of VideoObject (tutorials page)",
   "",
   "## Agent notes",
   "",
   "- This file follows the llms.txt standard (https://llmstxt.org/).",
   "- All API endpoints return JSON with CORS headers allowing cross-origin access.",
   "- The site is fully server-side rendered (SSR) via Cloudflare Workers.",
-  "- robots.txt allows GPTBot, ClaudeBot, CCBot, Google-Extended, and Googlebot.",
-  "- API endpoints under /api/ are disallowed for generic crawlers but fully accessible to agents.",
+  "- robots.txt names the answer-engine crawlers explicitly — GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-User, Claude-SearchBot, PerplexityBot, Perplexity-User, Google-Extended, Applebot-Extended, Amazonbot, meta-externalagent, MistralAI-User, DuckAssistBot, cohere-ai, CCBot and others — and gives each of them the whole site.",
+  "- API endpoints under /api/ are disallowed for generic crawlers but explicitly allowed for every named agent above.",
+  "- Every page carries a rel=canonical link and its own og:url.",
+  "- The sitemap lists each /r/ resource permalink with a lastmod, not just the section pages.",
 ];
 
 export const Route = createFileRoute("/llms/txt")({
