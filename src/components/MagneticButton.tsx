@@ -1,5 +1,4 @@
-import { useRef, useState, type ReactNode, type MouseEvent } from "react";
-import { motion } from "framer-motion";
+import { useRef, type ReactNode, type MouseEvent } from "react";
 
 type Props = {
   children: ReactNode;
@@ -19,31 +18,36 @@ export function MagneticButton({
   external,
 }: Props) {
   const ref = useRef<HTMLDivElement>(null);
-  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const inner = useRef<HTMLSpanElement>(null);
 
+  // The offset is written straight to the node rather than held in state.
+  // A setState per mousemove re-rendered this subtree at pointer frequency,
+  // and framer-motion then ran a spring on top of it — for a 6px nudge.
   const onMove = (e: MouseEvent) => {
     const el = ref.current;
-    if (!el) return;
+    const span = inner.current;
+    if (!el || !span) return;
     const r = el.getBoundingClientRect();
-    const x = e.clientX - (r.left + r.width / 2);
-    const y = e.clientY - (r.top + r.height / 2);
-    setPos({ x: x * 0.25, y: y * 0.25 });
+    const x = (e.clientX - (r.left + r.width / 2)) * 0.25;
+    const y = (e.clientY - (r.top + r.height / 2)) * 0.25;
+    span.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   };
-  const reset = () => setPos({ x: 0, y: 0 });
+  const reset = () => {
+    if (inner.current) inner.current.style.transform = "";
+  };
 
   const base =
     variant === "primary"
       ? "bg-gradient-to-r from-neon to-magenta text-primary-foreground"
       : "border border-border text-foreground hover:border-neon hover:text-neon";
 
-  const inner = (
-    <motion.span
-      animate={{ x: pos.x, y: pos.y }}
-      transition={{ type: "spring", stiffness: 220, damping: 18, mass: 0.6 }}
-      className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-medium ${base} ${className}`}
+  const content = (
+    <span
+      ref={inner}
+      className={`inline-flex items-center gap-2 rounded-full px-6 py-3 text-sm font-medium transition-transform duration-150 ease-out ${base} ${className}`}
     >
       {children}
-    </motion.span>
+    </span>
   );
 
   return (
@@ -55,16 +59,16 @@ export function MagneticButton({
           rel={external ? "noreferrer" : undefined}
           onClick={onClick}
         >
-          {inner}
+          {content}
         </a>
       ) : onClick ? (
         <button type="button" onClick={onClick}>
-          {inner}
+          {content}
         </button>
       ) : (
         // No href and no handler means this sits inside a <Link>; a <button>
         // there would be interactive-inside-interactive and a second tab stop.
-        inner
+        content
       )}
     </div>
   );

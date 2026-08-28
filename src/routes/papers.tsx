@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import { ChevronDown, ExternalLink, FileText, Search } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { ActiveFilterBar, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
@@ -172,18 +171,10 @@ function PapersPage() {
         {filtered.length === 0 ? (
           <EmptyResults query={q} filters={activeFilters} onClearAll={clearAll} noun="papers" />
         ) : (
-          filtered.slice(0, shownCount).map((p, i) => (
-            <motion.article
+          filtered.slice(0, shownCount).map((p) => (
+            <article
               key={p.id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                type: "spring",
-                stiffness: 200,
-                damping: 20,
-                delay: Math.min(i, 10) * 0.02,
-              }}
-              className="rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
+              className="anim-in rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
             >
               <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-wider text-muted-foreground">
                 {p.year && <span>{p.year}</span>}
@@ -235,7 +226,7 @@ function PapersPage() {
                   </a>
                 </span>
               </div>
-            </motion.article>
+            </article>
           ))
         )}
       </div>

@@ -11,7 +11,6 @@ import {
 import appCss from "../styles.css?url";
 import { Nav } from "../components/Nav";
 import { Footer } from "../components/Footer";
-import { SmoothScroll } from "../components/SmoothScroll";
 import { ScrollToTop } from "../components/ScrollToTop";
 import { CommandPalette } from "../components/CommandPalette";
 import { I18nProvider } from "../lib/i18n";
@@ -100,9 +99,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+      // Eight font files trimmed to four. Space Grotesk only ever sets
+      // headings (500/600/700 — never 400), and JetBrains Mono was a whole
+      // extra family for a handful of facet counts and the ⌘K hint, which
+      // the system mono stack renders just as well. See --font-mono.
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap",
       },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
     ],
@@ -156,7 +159,6 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <SmoothScroll />
         <ScrollToTop />
         <Nav />
         <CommandPalette />

@@ -1,1 +1,28 @@
 import "@testing-library/jest-dom/vitest";
+
+// jsdom implements none of these, and Radix/cmdk call them on mount. Stubbed
+// here rather than per-test so any component test can render real UI.
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = () => {};
+}
+
+if (!globalThis.ResizeObserver) {
+  globalThis.ResizeObserver = class {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  };
+}
+
+if (!globalThis.matchMedia) {
+  globalThis.matchMedia = ((query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener() {},
+    removeEventListener() {},
+    addListener() {},
+    removeListener() {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof globalThis.matchMedia;
+}
