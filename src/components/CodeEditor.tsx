@@ -21,6 +21,14 @@ import { useMemo, useRef, type ChangeEvent, type KeyboardEvent } from "react";
 import Prism from "prismjs";
 import "prismjs/components/prism-python";
 
+// Prism auto-highlights every `<pre><code class="language-*">` on the page once
+// the document is ready, and `highlightElement` adds `tabindex="0"` to the
+// <pre>. That mutates the DOM out from under React and shows up as a hydration
+// mismatch. We only use the string API (`Prism.highlight`), so switch the
+// automatic pass off. The flag is read when the deferred pass fires, so setting
+// it here — after the import evaluates — is in time.
+Prism.manual = true;
+
 const INDENT = "    "; // 4 spaces — PEP 8 default
 
 type Props = {

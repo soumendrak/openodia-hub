@@ -3,15 +3,27 @@ import type { en } from "./en";
 /**
  * Odia (ଓଡ଼ିଆ) translations.
  *
- * Each entry is either the translated string or null/missing — in which case
- * the runtime falls back to the English string from `en.ts`.
+ * Each entry is either the translated string or missing — in which case the
+ * runtime falls back to the English string from `en.ts`.
  *
- * TODO: bring in a native Odia speaker to fill in the missing keys. The
- * placeholders below are intentional — only one entry is filled in (the Odia
- * label for the language toggle itself, since that needs to be Odia by
- * definition).
+ * Coverage is the nav chrome only; page bodies are still English. Add keys to
+ * `en.ts` and translate them here as more of the UI gets routed through i18n.
+ *
+ * TODO: have a native Odia speaker review these strings.
  */
 export const or: Partial<Record<keyof typeof en, string>> = {
-  // Filled — required as the toggle's own label.
-  // (No keys yet for translated strings; add entries here as they're verified.)
+  "nav.home": "ମୂଳପୃଷ୍ଠା",
+  "nav.tools": "ଉପକରଣ",
+  "nav.models": "ମଡେଲ୍",
+  "nav.datasets": "ଡାଟାସେଟ୍",
+  "nav.playground": "ପରୀକ୍ଷାସ୍ଥଳ",
+  "nav.tutorials": "ଟ୍ୟୁଟୋରିଆଲ୍",
+  "nav.events": "କାର୍ଯ୍ୟକ୍ରମ",
+  "nav.leaderboard": "ମାନଦଣ୍ଡ",
+  "nav.about": "ପରିଚୟ",
+  "nav.contribute": "ପ୍ରକଳ୍ପ ଯୋଡ଼ନ୍ତୁ",
+  "nav.search.aria": "ସନ୍ଧାନ ଖୋଲନ୍ତୁ (Cmd+K)",
+  "nav.theme.aria": "ଥିମ୍ ବଦଳାନ୍ତୁ",
+  "nav.locale.aria": "ଭାଷା ବଦଳାନ୍ତୁ",
+  "nav.menu.aria": "ମେନୁ ବଦଳାନ୍ତୁ",
 };

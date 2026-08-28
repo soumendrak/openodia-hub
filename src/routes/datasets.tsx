@@ -1,13 +1,34 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Search, ExternalLink, Heart, Download, ChevronDown } from "lucide-react";
+import { Search, ExternalLink, Heart, Download, ChevronDown, Database } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
+import { ActiveFilterBar, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
+import { ResourceMeta } from "../components/ResourceMeta";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
+import { buildFacet, toggleValue, type ActiveFilter } from "../lib/facets";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
+import { prettySize, sizeRank } from "../lib/dataset-size";
+import { normalizeSpdx } from "../lib/license";
+import { refToPath } from "../lib/resource-id";
 import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
+import { loadDatasets, type Dataset } from "../lib/sources/huggingface";
+
+/**
+ * Runs on the server during SSR and over RPC on client navigation, so the
+ * browser is in the server HTML instead of arriving after hydration.
+ */
+const getDatasets = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    const page = await loadDatasets();
+    return { datasets: page.items, truncated: page.truncated, failed: false };
+  } catch (e) {
+    console.error("datasets loader:", e);
+    return { datasets: [] as Dataset[], truncated: false, failed: true };
+  }
+});
 
 export const Route = createFileRoute("/datasets")({
   head: () => ({
@@ -16,7 +37,7 @@ export const Route = createFileRoute("/datasets")({
       {
         name: "description",
         content:
-          "Live browser of Odia-language datasets on Hugging Face — parallel corpora, speech, classification, instruction-tuning, and more.",
+          "Live browser of Odia-language datasets on Hugging Face — parallel corpora, speech, classification, instruction-tuning — with size, license, and citations.",
       },
       { property: "og:title", content: "Datasets · OpenOdia" },
       {
@@ -25,54 +46,67 @@ export const Route = createFileRoute("/datasets")({
       },
     ],
   }),
+  loader: () => getDatasets(),
+  staleTime: 60 * 60 * 1000,
   component: DatasetsPage,
 });
-
-type Dataset = {
-  id: string;
-  author: string;
-  name: string;
-  url: string;
-  description: string;
-  task: string;
-  downloads: number;
-  likes: number;
-  tags: string[];
-  createdAt: string;
-};
-
-type Resp = { datasets: Dataset[]; fetchedAt: string };
 
 function prettyTask(t: string): string {
   if (t === "other") return "Other";
   return t.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+const PAGE_SIZE = 30;
+
 function DatasetsPage() {
-  const PAGE_SIZE = 30;
+  const { datasets, truncated, failed } = Route.useLoaderData();
   const [q, setQ] = useState("");
-  const [task, setTask] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<Set<string>>(new Set());
+  const [licenses, setLicenses] = useState<Set<string>>(new Set());
+  const [sizes, setSizes] = useState<Set<string>>(new Set());
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["datasets"],
-    queryFn: async () => {
-      const r = await fetch("/api/datasets");
-      if (!r.ok) throw new Error("datasets");
-      return (await r.json()) as Resp;
-    },
-    staleTime: 60 * 60 * 1000,
-  });
+  const resetPage = () => setShownCount(PAGE_SIZE);
 
-  const datasets = data?.datasets ?? [];
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) => {
+    setter((prev) => toggleValue(prev, value));
+    resetPage();
+  };
 
-  const tasks = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const d of datasets) counts.set(d.task, (counts.get(d.task) ?? 0) + 1);
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [datasets]);
+  const taskOptions = useMemo(() => buildFacet(datasets, (d) => d.task, prettyTask), [datasets]);
+  const licenseOptions = useMemo(
+    () => buildFacet(datasets, (d) => normalizeSpdx(d.license)),
+    [datasets],
+  );
+  const sizeOptions = useMemo(
+    () =>
+      buildFacet(datasets, (d) => d.sizeCategory, prettySize).sort(
+        (a, b) => sizeRank(a.value) - sizeRank(b.value),
+      ),
+    [datasets],
+  );
+
+  const activeFilters: ActiveFilter[] = [
+    ...[...tasks].map((v) => ({ facet: "task", value: v, label: prettyTask(v) })),
+    ...[...licenses].map((v) => ({ facet: "license", value: v, label: v })),
+    ...[...sizes].map((v) => ({ facet: "size", value: v, label: prettySize(v) })),
+  ];
+
+  const clearAll = () => {
+    setTasks(new Set());
+    setLicenses(new Set());
+    setSizes(new Set());
+    setQ("");
+    resetPage();
+  };
+
+  const removeFilter = (f: ActiveFilter) => {
+    if (f.facet === "task") toggle(setTasks)(f.value);
+    else if (f.facet === "license") toggle(setLicenses)(f.value);
+    else toggle(setSizes)(f.value);
+  };
 
   // Five datasets featured above the browser, drawn from a seeded shuffle keyed
   // on the ISO week — same set for every visitor all week, rotates itself every
@@ -86,7 +120,9 @@ function DatasetsPage() {
   const filtered = useMemo(() => {
     const lq = q.trim().toLowerCase();
     return datasets.filter((d) => {
-      if (task && d.task !== task) return false;
+      if (tasks.size > 0 && !tasks.has(d.task)) return false;
+      if (licenses.size > 0 && !licenses.has(normalizeSpdx(d.license))) return false;
+      if (sizes.size > 0 && !sizes.has(d.sizeCategory)) return false;
       if (!lq) return true;
       return (
         d.id.toLowerCase().includes(lq) ||
@@ -96,7 +132,7 @@ function DatasetsPage() {
         d.tags.some((t) => t.toLowerCase().includes(lq))
       );
     });
-  }, [datasets, q, task]);
+  }, [datasets, q, tasks, licenses, sizes]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -127,9 +163,18 @@ function DatasetsPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Live from Hugging Face — every dataset tagged for Odia. Parallel corpora, speech,
-          classification, instruction-tuning. Click any card to preview on Hugging Face.
+          classification, instruction-tuning, each with its size, license, and a citation.
         </p>
       </Reveal>
+
+      {failed && (
+        <p
+          role="status"
+          className="mt-6 rounded-2xl border border-saffron/40 bg-saffron/5 px-4 py-3 text-sm text-saffron"
+        >
+          Hugging Face is unreachable right now, so the browser is empty below. Reload in a minute.
+        </p>
+      )}
 
       {featured.hero.length > 0 && (
         <Reveal delay={0.05} className="mt-12">
@@ -148,57 +193,44 @@ function DatasetsPage() {
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
-              setShownCount(PAGE_SIZE);
+              resetPage();
             }}
             placeholder="Search datasets, authors, tags… [/]"
             className="w-full rounded-full border border-border bg-surface py-3 pl-11 pr-4 text-sm outline-none transition focus:border-neon"
           />
         </div>
 
-        {tasks.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Chip
-              active={task === null}
-              onClick={() => {
-                setTask(null);
-                setShownCount(PAGE_SIZE);
-              }}
-            >
-              All ({datasets.length})
-            </Chip>
-            {tasks.map(([t, count]) => (
-              <Chip
-                key={t}
-                active={task === t}
-                onClick={() => {
-                  setTask(task === t ? null : t);
-                  setShownCount(PAGE_SIZE);
-                }}
-              >
-                {prettyTask(t)} ({count})
-              </Chip>
-            ))}
-          </div>
-        )}
+        <div className="mt-5 space-y-3">
+          <FacetGroup
+            title="Task"
+            options={taskOptions}
+            selected={tasks}
+            onToggle={toggle(setTasks)}
+          />
+          <FacetGroup
+            title="Size"
+            options={sizeOptions}
+            selected={sizes}
+            onToggle={toggle(setSizes)}
+          />
+          <FacetGroup
+            title="License"
+            options={licenseOptions}
+            selected={licenses}
+            onToggle={toggle(setLicenses)}
+          />
+        </div>
+
+        <ActiveFilterBar filters={activeFilters} onRemove={removeFilter} onClearAll={clearAll} />
       </Reveal>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          Array.from({ length: 9 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-44 animate-pulse rounded-2xl border border-border bg-surface"
-            />
-          ))
-        ) : filtered.length === 0 ? (
-          <p className="col-span-full text-muted-foreground">No datasets matched.</p>
+        {filtered.length === 0 ? (
+          <EmptyResults query={q} filters={activeFilters} onClearAll={clearAll} noun="datasets" />
         ) : (
           filtered.slice(0, shownCount).map((d, i) => (
-            <motion.a
+            <motion.div
               key={d.id}
-              href={d.url}
-              target="_blank"
-              rel="noreferrer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
@@ -207,41 +239,73 @@ function DatasetsPage() {
                 damping: 20,
                 delay: Math.min(i, 12) * 0.02,
               }}
-              whileHover={{ y: -4 }}
-              className="group flex h-full flex-col rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
+              className="group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-surface transition hover:border-neon/40"
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {prettyTask(d.task)}
-                </span>
-                <ExternalLink
-                  size={14}
-                  className="text-muted-foreground transition group-hover:text-neon"
-                />
-              </div>
-              <h3 className="mt-3 font-display text-lg font-semibold leading-tight">{d.name}</h3>
-              <p className="mt-1 truncate text-xs text-muted-foreground">@{d.author}</p>
-              {d.description && (
-                <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{d.description}</p>
-              )}
-              <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Download size={12} /> {formatCount(d.downloads)}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Heart size={12} /> {formatCount(d.likes)}
-                </span>
-              </div>
-            </motion.a>
+              <Link
+                to={refToPath({ kind: "dataset", id: d.id })}
+                className="flex flex-1 flex-col p-5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {prettyTask(d.task)}
+                  </span>
+                  <ExternalLink
+                    size={14}
+                    className="text-muted-foreground transition group-hover:text-neon"
+                  />
+                </div>
+                <h3 className="mt-3 font-display text-lg font-semibold leading-tight">{d.name}</h3>
+                <p className="mt-1 truncate text-xs text-muted-foreground">@{d.author}</p>
+                {d.description && (
+                  <p className="mt-2 line-clamp-3 text-sm text-muted-foreground">{d.description}</p>
+                )}
+                <div className="mt-auto flex flex-wrap items-center gap-3 pt-4 text-xs text-muted-foreground">
+                  {d.sizeCategory && (
+                    <span
+                      className="inline-flex items-center gap-1"
+                      title="Rows, per the dataset's size_categories tag"
+                    >
+                      <Database size={12} /> {prettySize(d.sizeCategory)} rows
+                    </span>
+                  )}
+                  <span className="inline-flex items-center gap-1">
+                    <Download size={12} /> {formatCount(d.downloads)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Heart size={12} /> {formatCount(d.likes)}
+                  </span>
+                </div>
+              </Link>
+              <ResourceMeta
+                license={normalizeSpdx(d.license)}
+                entry={{ name: d.name, author: d.author, url: d.url, createdAt: d.createdAt }}
+                extra={d.modalities.map((m) => (
+                  <span
+                    key={m}
+                    className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
+                  >
+                    {m}
+                  </span>
+                ))}
+              />
+            </motion.div>
           ))
         )}
       </div>
 
-      {!isLoading && filtered.length > 0 && (
+      {filtered.length > 0 && (
         <div className="mt-10 flex flex-col items-center gap-3">
-          <p className="text-xs text-muted-foreground">
-            Showing {Math.min(shownCount, filtered.length)} of {filtered.length}
-          </p>
+          <ResultCount
+            shown={Math.min(shownCount, filtered.length)}
+            total={filtered.length}
+            noun="datasets"
+          />
+          {truncated && (
+            <p className="text-[11px] text-muted-foreground">
+              Hugging Face has more Odia-tagged datasets than this page loads; the browser stops at
+              the first {datasets.length}.
+            </p>
+          )}
           {filtered.length > shownCount && (
             <button
               onClick={() => setShownCount((n) => n + PAGE_SIZE)}
@@ -253,28 +317,5 @@ function DatasetsPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function Chip({
-  children,
-  active,
-  onClick,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs transition ${
-        active
-          ? "border-neon bg-neon/10 text-neon"
-          : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
-      }`}
-    >
-      {children}
-    </button>
   );
 }

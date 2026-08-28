@@ -5,8 +5,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 
 /** `highlight` gives Playground the accent treatment — it's the one tab that
- *  runs something rather than listing something. */
-const links: ReadonlyArray<{ to: string; labelKey: TranslationKey; highlight?: boolean }> = [
+ *  runs something rather than listing something. `menuOnly` keeps a destination
+ *  out of the desktop row: the header is capped at max-w-6xl, so ten tabs
+ *  overflow it at *every* width — they only ever looked fine because the
+ *  overflow was clipped. */
+const links: ReadonlyArray<{
+  to: string;
+  labelKey: TranslationKey;
+  highlight?: boolean;
+  menuOnly?: boolean;
+}> = [
   { to: "/", labelKey: "nav.home" },
   { to: "/tools", labelKey: "nav.tools" },
   { to: "/models", labelKey: "nav.models" },
@@ -14,7 +22,10 @@ const links: ReadonlyArray<{ to: string; labelKey: TranslationKey; highlight?: b
   { to: "/playground", labelKey: "nav.playground", highlight: true },
   { to: "/tutorials", labelKey: "nav.tutorials" },
   { to: "/events", labelKey: "nav.events" },
+  { to: "/leaderboard", labelKey: "nav.leaderboard" },
   { to: "/about", labelKey: "nav.about" },
+  // Reachable from the menu at any width, plus the footer and ⌘K.
+  { to: "/contribute", labelKey: "nav.contribute", menuOnly: true },
 ];
 
 export function Nav() {
@@ -54,34 +65,37 @@ export function Nav() {
             <span className="font-display text-lg font-semibold tracking-tight">OpenOdia</span>
           </Link>
 
-          {/* Eight tabs no longer fit at md, so the desktop row starts at lg. */}
-          <nav className="hidden items-center gap-1 lg:flex">
-            {links.map((l) => {
-              const active = location.pathname === l.to;
-              return (
-                <Link
-                  key={l.to}
-                  to={l.to}
-                  className={`relative rounded-lg border px-3 py-2 text-sm transition ${
-                    l.highlight
-                      ? "border-neon/40 bg-neon/5 text-neon hover:border-neon hover:bg-neon/15"
-                      : "border-transparent text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {active && (
-                    <motion.span
-                      layoutId="nav-pill"
-                      className="absolute inset-0 rounded-lg bg-surface-2"
-                      transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <span className="relative inline-flex items-center gap-1.5">
-                    {l.highlight && <Sparkles size={13} />}
-                    {t(l.labelKey)}
-                  </span>
-                </Link>
-              );
-            })}
+          {/* Nine tabs need ~1056px against a 1118px inner width, so the row
+              starts at xl; below that everything lives in the menu. */}
+          <nav className="hidden items-center gap-1 xl:flex">
+            {links
+              .filter((l) => !l.menuOnly)
+              .map((l) => {
+                const active = location.pathname === l.to;
+                return (
+                  <Link
+                    key={l.to}
+                    to={l.to}
+                    className={`relative rounded-lg border px-3 py-2 text-sm transition ${
+                      l.highlight
+                        ? "border-neon/40 bg-neon/5 text-neon hover:border-neon hover:bg-neon/15"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {active && (
+                      <motion.span
+                        layoutId="nav-pill"
+                        className="absolute inset-0 rounded-lg bg-surface-2"
+                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                      />
+                    )}
+                    <span className="relative inline-flex items-center gap-1.5">
+                      {l.highlight && <Sparkles size={13} />}
+                      {t(l.labelKey)}
+                    </span>
+                  </Link>
+                );
+              })}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -94,14 +108,19 @@ export function Nav() {
               <kbd className="hidden font-mono text-[10px] tracking-wider md:inline">⌘K</kbd>
             </button>
 
+            {/* Two locales, so a single toggle labeled in the *target* language
+                (USWDS pattern) — and visible at every width: mobile is the
+                majority of the audience. */}
             <button
               onClick={() => setLocale(locale === "en" ? "or" : "en")}
-              className="hidden items-center gap-1 rounded-xl border border-border bg-surface/40 px-2 py-2 text-xs text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer md:inline-flex"
+              className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface/40 px-2 py-2 text-xs text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"
               aria-label={t("nav.locale.aria")}
               title={t("nav.locale.aria")}
             >
-              <Languages size={14} />
-              <span className="font-mono">{locale === "or" ? "ଓ" : "EN"}</span>
+              <Languages size={14} className="hidden sm:block" />
+              <span lang={locale === "en" ? "or" : "en"}>
+                {locale === "en" ? "ଓଡ଼ିଆ" : "English"}
+              </span>
             </button>
 
             <button
@@ -113,7 +132,7 @@ export function Nav() {
             </button>
 
             <button
-              className="lg:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
+              className="xl:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
               onClick={() => setOpen((v) => !v)}
               aria-label={t("nav.menu.aria")}
             >
@@ -128,7 +147,7 @@ export function Nav() {
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl lg:hidden"
+              className="mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl xl:hidden"
             >
               {links.map((l) => (
                 <Link

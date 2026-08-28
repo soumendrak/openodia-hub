@@ -1,0 +1,16 @@
+name: Check catalog links
+
+# Dead links are the trust-killer of curated lists, and the site renders a 404
+# exactly like a live entry. Weekly, plus on demand.
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
+  workflow_dispatch: {}
+
+jobs:
+  check-links:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun scripts/check-links.mjs

@@ -1,12 +1,26 @@
 import React from "react";
 
 /**
+ * Serializes structured data for inline <script> embedding.
+ *
+ * `<` is escaped so a `</script>` sequence inside remote content (Awesome
+ * README blurbs, Hugging Face dataset descriptions) can't break out of the
+ * tag and execute. `\u003c` is valid JSON and parses back to `<`.
+ */
+export function serializeJsonLd(data: Record<string, unknown>): string {
+  return JSON.stringify(data).replace(/</g, "\\u003c");
+}
+
+/**
  * Renders a <script type="application/ld+json"> tag with the given structured data.
  * JSON-LD is valid in both <head> and <body>.
  */
 export function JsonLd({ data }: { data: Record<string, unknown> }) {
   return (
-    <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: serializeJsonLd(data) }}
+    />
   );
 }
 

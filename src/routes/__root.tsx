@@ -84,12 +84,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "https://openodia.com" },
-      { property: "og:image", content: "https://openodia.com/openodia-og.svg" },
+      // PNG, not the source SVG: Facebook, X, and LinkedIn all drop SVG
+      // previews. Regenerate with `bun scripts/build-og-image.mjs`.
+      { property: "og:image", content: "https://openodia.com/openodia-og.png" },
+      { property: "og:image:type", content: "image/png" },
       { property: "og:image:width", content: "1200" },
       { property: "og:image:height", content: "630" },
+      { property: "og:image:alt", content: "OpenOdia — open source for the Odia language" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@openodia" },
-      { name: "twitter:image", content: "https://openodia.com/openodia-og.svg" },
+      { name: "twitter:image", content: "https://openodia.com/openodia-og.png" },
       { name: "theme-color", content: "#0a0a14" },
     ],
     links: [
@@ -111,7 +115,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    // The bootstrap script below sets `class` and `lang` on <html> before
+    // React hydrates, so the server markup deliberately doesn't match.
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
         <JsonLd data={siteOrganization()} />

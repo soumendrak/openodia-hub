@@ -26,11 +26,22 @@
 
 ## What is OpenOdia?
 
-OpenOdia is the hub for Odia language open-source. Built and maintained by [Soumendra Kumar Sahoo](https://github.com/soumendrak), it spans three pillars:
+OpenOdia is the community hub for Odia language open-source. It was started by
+[Soumendra Kumar Sahoo](https://github.com/soumendrak) and is maintained by the community —
+[OdiaGenAI](https://github.com/OdiaGenAI), [OdiaNLP](https://github.com/OdiaNLP),
+[OdiaWikimedia](https://github.com/OdiaWikimedia), [Odisha AI](https://github.com/odisha-ml),
+[Odia-Digital](https://github.com/Odia-Digital), and many independent maintainers.
 
-- **[@openodia on YouTube](https://www.youtube.com/@openodia)** — tutorials, talks, and demos in Odia & English
-- **[OpenOdia · PyPI](https://pypi.org/project/openodia/)** — a Python package of practical tools for Odia language processing
-- **[Awesome-Odia-AI](https://github.com/odisha-ml/Awesome-Odia-AI)** — a curated, live directory of 60+ Odia datasets, models, and tools
+It gathers the ecosystem into three places to look:
+
+- **[Tools & libraries](https://openodia.com/tools)** — fonts, keyboards, transliterators, OCR, NLP toolkits and apps, curated from [Awesome-Odia-AI](https://github.com/odisha-ml/Awesome-Odia-AI) and the Odia GitHub organisations
+- **[Models & datasets](https://openodia.com/models)** — a live registry of every Odia-tagged model and dataset on Hugging Face, with licenses, sizes, and citations
+- **[Community & learning](https://openodia.com/tutorials)** — tutorials and talks from the community's channels, plus its meetups and conferences
+
+Individual projects sit *inside* those pillars — including
+[`openodia` (PyPI)](https://pypi.org/project/openodia/), a Python package of Odia text-processing
+utilities, and the [@openodia](https://www.youtube.com/@openodia) YouTube channel. Note the name
+collision: **OpenOdia** is this hub; **`openodia`** is one package listed in it.
 
 This repository is the web frontend that brings everything together.
 

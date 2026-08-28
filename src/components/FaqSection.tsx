@@ -1,33 +1,37 @@
 import { Reveal } from "./Reveal";
 
-const faqs = [
+/**
+ * Exported so the FAQPage JSON-LD on the home page is generated from the same
+ * array that renders — the two used to be hand-kept copies and had drifted.
+ */
+export const FAQS: { q: string; a: string }[] = [
   {
     q: "What is OpenOdia?",
-    a: "OpenOdia is a hub for Odia language open-source — a growing collection of tools, libraries, and resources making Odia a first-class citizen in modern AI and software. It spans a YouTube channel (@openodia), a Python package on PyPI, and the Awesome-Odia-AI directory.",
+    a: "OpenOdia is a community hub for open-source Odia language work. It brings the ecosystem into one place: tools and libraries, models and datasets, and the people teaching and building with them — from OdiaGenAI, OdiaNLP, OdiaWikimedia, Odisha AI, Odia-Digital and many independent maintainers.",
   },
   {
-    q: "How can I contribute to Odia AI?",
-    a: "You can contribute by joining the odisha-ml GitHub organization, submitting tools to Awesome-Odia-AI, publishing Odia-language Python packages to PyPI, creating tutorial content for @openodia, or participating in OdishaAI community events.",
+    q: "Who is behind OpenOdia?",
+    a: "The Odia open-source community. The hub was started by Soumendra Kumar Sahoo and is maintained with contributions from across the ecosystem — OdiaGenAI, OdiaNLP, OdiaWikimedia, Odisha AI (odisha-ml), Odia-Digital, and individual maintainers whose projects are listed in the directory.",
   },
   {
-    q: "What Odia language AI tools exist?",
-    a: "Over 60 tools and resources are listed in the Awesome-Odia-AI directory — including speech recognition (STT), text-to-speech (TTS), datasets, fine-tuned LLMs, transliteration libraries, and NLP toolkits. Browse them at openodia.com/tools.",
+    q: "How do I get my project listed?",
+    a: "Two routes. Add it to the Awesome-Odia-AI list (github.com/odisha-ml/Awesome-Odia-AI) and it appears in the directory on the next refresh, or open an issue on github.com/soumendrak/openodia-hub. Include a license, a one-line description, and — for datasets and models — the size and task, so the entry arrives citable.",
   },
   {
-    q: "Who maintains OpenOdia?",
-    a: "OpenOdia is built and maintained by Soumendra Kumar Sahoo, an observability engineer at PepsiCo. It is part of the broader OdishaAI community initiative uniting Odias in AI/ML globally.",
+    q: "What Odia language AI resources exist?",
+    a: "Speech recognition and text-to-speech, translation and transliteration, fine-tuned LLMs, embeddings, OCR, spell checkers, fonts, dictionaries, corpora, and language-learning apps. Browse tools at openodia.com/tools, models at /models, and datasets at /datasets — each entry carries its license and a citation.",
+  },
+  {
+    q: "How can I contribute to Odia open source?",
+    a: "Add or improve entries in Awesome-Odia-AI, contribute to a listed project, publish Odia-language packages (openodia on PyPI is one example), record tutorials for any of the community channels, or join Odisha AI community events listed at openodia.com/events.",
   },
   {
     q: "Where can I learn Odia NLP?",
-    a: "The @openodia YouTube channel features tutorials in both Odia and English covering AI, NLP, and language technology. The tutorials page lists all available playlists and videos organized by channel.",
+    a: "The tutorials page aggregates videos and playlists from the community's channels — OdiaGenAI, OpenOdia, Odias in ML, and TFUG Bhubaneswar — in both Odia and English. See openodia.com/tutorials.",
   },
   {
     q: "Is OpenOdia open source?",
-    a: "Yes. All code is open source under the MIT license. The website itself is on GitHub at github.com/soumendrak/openodia-hub and welcomes contributions.",
-  },
-  {
-    q: "What is the OpenOdia Python package?",
-    a: "The openodia PyPI package provides practical tools for Odia language processing — transliteration, text normalization, and language detection utilities. Install it with 'pip install openodia'.",
+    a: "Yes. The hub itself is MIT-licensed at github.com/soumendrak/openodia-hub. Listed projects carry their own licenses, shown on every card.",
   },
 ];
 
@@ -39,12 +43,12 @@ export function FaqSection() {
           Frequently asked questions
         </h2>
         <p className="mt-2 max-w-xl text-muted-foreground">
-          Everything you need to know about OpenOdia and the Odia AI ecosystem.
+          Everything you need to know about OpenOdia and the Odia open-source ecosystem.
         </p>
       </Reveal>
 
       <div className="mt-10 grid gap-4 md:grid-cols-2">
-        {faqs.map((faq, i) => (
+        {FAQS.map((faq, i) => (
           <Reveal key={i} delay={i * 0.03}>
             <details className="group rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/30">
               <summary className="flex cursor-pointer items-start justify-between gap-4 font-display text-lg font-semibold leading-tight [&::-webkit-details-marker]:hidden">

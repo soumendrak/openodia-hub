@@ -57,8 +57,14 @@ export function MagneticButton({
         >
           {inner}
         </a>
+      ) : onClick ? (
+        <button type="button" onClick={onClick}>
+          {inner}
+        </button>
       ) : (
-        <button onClick={onClick}>{inner}</button>
+        // No href and no handler means this sits inside a <Link>; a <button>
+        // there would be interactive-inside-interactive and a second tab stop.
+        inner
       )}
     </div>
   );
