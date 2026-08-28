@@ -194,7 +194,7 @@ function ModelsPage() {
           />
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           {FACETS.map((f) => (
             <FacetGroup
               key={f.key}

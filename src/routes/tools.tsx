@@ -295,7 +295,7 @@ function ToolsPage() {
           </button>
         </div>
 
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 flex flex-wrap items-center gap-2">
           {/* The limits differ per facet: categories and organisations have long
               tails, licenses do not. */}
           {facets.map((f) => (
