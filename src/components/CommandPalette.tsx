@@ -54,6 +54,10 @@ const PAGES: { label: string; path: string }[] = [
   { label: "Tutorials", path: "/tutorials" },
   { label: "Playground", path: "/playground" },
   { label: "Events", path: "/events" },
+  { label: "Benchmarks", path: "/leaderboard" },
+  { label: "Papers", path: "/papers" },
+  { label: "Treebank search", path: "/treebank" },
+  { label: "Add your project", path: "/contribute" },
   { label: "API", path: "/api" },
   { label: "About", path: "/about" },
 ];
@@ -178,9 +182,11 @@ export function CommandPalette() {
 
         {tools.length > 0 && (
           <CommandGroup heading="Tools & datasets">
-            {tools.map((t) => (
+            {/* The Awesome list reuses the same paper URL across entries, so the
+                index is part of the key — same reasoning as tools.tsx. */}
+            {tools.map((t, idx) => (
               <CommandItem
-                key={t.url}
+                key={`${idx}:${t.url}`}
                 value={`tool ${t.name} ${t.description} ${t.category}`}
                 onSelect={() => goExternal(t.url)}
               >

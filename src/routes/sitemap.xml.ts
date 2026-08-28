@@ -9,6 +9,10 @@ const pages = [
   { path: "tutorials", changefreq: "daily", priority: "0.9" },
   { path: "playground", changefreq: "monthly", priority: "0.6" },
   { path: "events", changefreq: "daily", priority: "0.9" },
+  { path: "leaderboard", changefreq: "weekly", priority: "0.8" },
+  { path: "papers", changefreq: "weekly", priority: "0.8" },
+  { path: "treebank", changefreq: "monthly", priority: "0.7" },
+  { path: "contribute", changefreq: "monthly", priority: "0.7" },
   { path: "api", changefreq: "monthly", priority: "0.5" },
 ] as const;
 

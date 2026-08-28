@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { events as staticEvents } from "../data/events";
 import { fetchChapterEvents, CHAPTERS } from "./api/events";
 import { settledValues } from "../lib/fetch-utils";
+import { mergeNonEmpty } from "../lib/utils";
 import type { Event } from "../data/events/types";
 
 function escapeXml(unsafe: string): string {
@@ -133,10 +134,7 @@ export const Route = createFileRoute("/events-feed")({
           fetchedEvents.forEach((e) => {
             const existing = allMergedEventsMap.get(e.url);
             if (existing) {
-              allMergedEventsMap.set(e.url, {
-                ...existing,
-                ...e,
-              });
+              allMergedEventsMap.set(e.url, mergeNonEmpty(existing, e));
             } else {
               allMergedEventsMap.set(e.url, e);
             }

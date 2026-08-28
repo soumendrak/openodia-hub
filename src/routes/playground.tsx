@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   Play,
@@ -17,16 +17,16 @@ import { CodeEditor } from "../components/CodeEditor";
 export const Route = createFileRoute("/playground")({
   head: () => ({
     meta: [
-      { title: "Playground · OpenOdia" },
+      { title: "Odia NLP playground · OpenOdia" },
       {
         name: "description",
         content:
-          "Run Python in the browser with the openodia package — tokenization, name generation, alphabet exploration. No setup, no install.",
+          "Try Odia language tools in your browser — normalisation, sentence segmentation, syllables, numerals, stopwords, and frequency stats. No setup, no install.",
       },
-      { property: "og:title", content: "Playground · OpenOdia" },
+      { property: "og:title", content: "Odia NLP playground · OpenOdia" },
       {
         property: "og:description",
-        content: "Browser-based Python playground with the openodia package pre-loaded.",
+        content: "Run Odia language tools in the browser. No install, no setup.",
       },
     ],
   }),
@@ -102,6 +102,69 @@ print("Vowels:", alphabet.vowels)
 print("Consonants:", alphabet.consonants[:5], "...")
 print("Digits:", alphabet.numbers)
 print("Matras:", alphabet.matras)
+`,
+  },
+  {
+    label: "Clean & segment",
+    code: `# Normalise, clean, then split into sentences.
+# Odia uses ।  (danda) as its full stop, so a Latin-only splitter
+# runs whole paragraphs together.
+from openodia import normalize, clean, sentences
+
+raw = "  ଓଡ଼ିଆ ଏକ ଭାରତୀୟ ଭାଷା।  ଏହା ଓଡ଼ିଶାର ରାଜ୍ୟ ଭାଷା।  Odia is also written in Latin.  "
+
+text = clean(normalize(raw))
+print("cleaned:", text)
+
+for i, s in enumerate(sentences(text), 1):
+    print(f"{i}. {s}")
+
+print("\\nStrict mode (Odia terminators only):")
+for s in sentences(text, mode="strict"):
+    print(" -", s)
+`,
+  },
+  {
+    label: "Syllables & numerals",
+    code: `# Aksharas (orthographic syllables) and Odia number words.
+from openodia import syllable, numbers
+
+word = "ଭୁବନେଶ୍ୱର"
+print(word, "->", syllable.split(word))
+print("aksharas:", syllable.count(word))
+print("hyphenated:", syllable.hyphenate(word))
+
+print()
+for n in (7, 42, 1000, 250000):
+    print(n, "->", numbers.to_words(n))
+
+print()
+print("ASCII digits to Odia:", numbers.ascii_to_odia("2026"))
+print("Odia digits to ASCII:", numbers.odia_to_ascii("୨୦୨୬"))
+`,
+  },
+  {
+    label: "Corpus stats",
+    code: `# Frequency distribution, n-grams, and stopword coverage
+# over a small Odia sample.
+from openodia import FreqDist, ngrams, Stopwords, sentences
+
+text = (
+    "ଓଡ଼ିଆ ଭାଷା ଏକ ପ୍ରାଚୀନ ଭାଷା। "
+    "ଓଡ଼ିଆ ଭାଷା ଓଡ଼ିଶାର ରାଜ୍ୟ ଭାଷା। "
+    "ଏହି ଭାଷା ଭାରତର ଶାସ୍ତ୍ରୀୟ ଭାଷା ମଧ୍ୟରେ ଅନ୍ୟତମ।"
+)
+
+fd = FreqDist(text)
+print("tokens:", fd.total_count)          # property, not a call
+print("most common:", fd.most_common(5))
+print("type-token ratio:", round(fd.ttr, 3))
+print("entropy:", round(fd.entropy(), 3))
+
+print("\\nbigrams:", list(ngrams(text, 2))[:5])
+
+stop = Stopwords.default()
+print("\\nstopword coverage:", round(stop.coverage(text.split()), 3))
 `,
   },
 ];
@@ -257,12 +320,14 @@ function PlaygroundPage() {
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Playground</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Run <span className="text-gradient">openodia</span> in your browser.
+          Try Odia language tools <span className="text-gradient">in your browser</span>.
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
-          The openodia Python package, pre-loaded and ready in the browser via Pyodide. No install,
-          no setup — try the Quick tour or pick a feature below.
+          Real Python, running locally in your tab via Pyodide — no install, no setup, nothing sent
+          to a server. The engine loaded today is <code>openodia (PyPI)</code>; it is the first of
+          several, not the point of the page.
         </p>
+        <Engines />
       </Reveal>
 
       <Reveal delay={0.1} className="mt-8">
@@ -384,6 +449,38 @@ function PlaygroundPage() {
           </p>
         </div>
       </Reveal>
+    </div>
+  );
+}
+
+/**
+ * R5: the playground is about Odia language tooling, so it names the engine it
+ * is running rather than presenting one package as the whole page. Engines that
+ * are not wired up yet say so instead of being implied.
+ */
+function Engines() {
+  return (
+    <div className="mt-6 flex flex-wrap items-center gap-2 text-xs">
+      <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Engines</span>
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-neon/40 bg-neon/5 px-3 py-1 text-neon">
+        <span className="h-1.5 w-1.5 rounded-full bg-neon" />
+        openodia (PyPI) · loaded
+      </span>
+      <span
+        className="rounded-full border border-border px-3 py-1 text-muted-foreground"
+        title="No open transliteration endpoint is reachable to wire this to yet."
+      >
+        Transliteration · not yet
+      </span>
+      <span
+        className="rounded-full border border-border px-3 py-1 text-muted-foreground"
+        title="Inference demos for community models are planned."
+      >
+        Community model inference · planned
+      </span>
+      <Link to="/contribute" className="text-neon hover:underline">
+        Suggest an engine →
+      </Link>
     </div>
   );
 }

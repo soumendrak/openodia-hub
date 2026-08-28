@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
+import { mergeNonEmpty } from "../lib/utils";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
 
@@ -48,7 +49,9 @@ function EventCard({ event, index }: { event: Event; index: number }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.05 }}
       whileHover={{ y: -3 }}
-      className={`group flex flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
+      // min-w-0: grid items default to min-width:auto, so a long unbroken venue
+      // or title sets the card's minimum width and pushes the row past 375px.
+      className={`group flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
         isLive
           ? "border-green-500/60 hover:border-green-400"
           : isUpcoming
@@ -224,10 +227,7 @@ function EventsPage() {
   fetchedEvents.forEach((e) => {
     const existing = allMergedEventsMap.get(e.url);
     if (existing) {
-      allMergedEventsMap.set(e.url, {
-        ...existing,
-        ...e,
-      });
+      allMergedEventsMap.set(e.url, mergeNonEmpty(existing, e));
     } else {
       allMergedEventsMap.set(e.url, e);
     }
@@ -283,7 +283,9 @@ function EventsPage() {
   const isSearching = !!needle;
   const isFiltering = !!needle || !!activeType || !!activeCommunity;
 
-  const filteredPastEvents = filtered.filter((e) => !e.status || e.status === "past");
+  // Past events are the ones the status pass left undefined; "past" is not a
+  // value Event["status"] can hold.
+  const filteredPastEvents = filtered.filter((e) => !e.status);
   const filteredUpcomingEvents = filtered.filter(
     (e) => e.status === "upcoming" || e.status === "live",
   );

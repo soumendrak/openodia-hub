@@ -10,19 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
+import { Route as TreebankRouteImport } from './routes/treebank'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as PapersRouteImport } from './routes/papers'
 import { Route as ModelsRouteImport } from './routes/models'
+import { Route as LeaderboardRouteImport } from './routes/leaderboard'
 import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DatasetsRouteImport } from './routes/datasets'
+import { Route as ContributeRouteImport } from './routes/contribute'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
+import { Route as RSplatRouteImport } from './routes/r.$'
 import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
+import { Route as ApiResourcesRouteImport } from './routes/api/resources'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
 import { Route as ApiModelsRouteImport } from './routes/api/models'
@@ -35,6 +41,11 @@ const TutorialsRoute = TutorialsRouteImport.update({
   path: '/tutorials',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TreebankRoute = TreebankRouteImport.update({
+  id: '/treebank',
+  path: '/treebank',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ToolsRoute = ToolsRouteImport.update({
   id: '/tools',
   path: '/tools',
@@ -45,9 +56,19 @@ const PlaygroundRoute = PlaygroundRouteImport.update({
   path: '/playground',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PapersRoute = PapersRouteImport.update({
+  id: '/papers',
+  path: '/papers',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ModelsRoute = ModelsRouteImport.update({
   id: '/models',
   path: '/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardRoute = LeaderboardRouteImport.update({
+  id: '/leaderboard',
+  path: '/leaderboard',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EventsFeedRoute = EventsFeedRouteImport.update({
@@ -63,6 +84,11 @@ const EventsRoute = EventsRouteImport.update({
 const DatasetsRoute = DatasetsRouteImport.update({
   id: '/datasets',
   path: '/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContributeRoute = ContributeRouteImport.update({
+  id: '/contribute',
+  path: '/contribute',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -85,6 +111,11 @@ const SitemapXmlRoute = SitemapXmlRouteImport.update({
   path: '/sitemap/xml',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RSplatRoute = RSplatRouteImport.update({
+  id: '/r/$',
+  path: '/r/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LlmsTxtRoute = LlmsTxtRouteImport.update({
   id: '/llms/txt',
   path: '/llms/txt',
@@ -98,6 +129,11 @@ const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
 const ApiVideosRoute = ApiVideosRouteImport.update({
   id: '/api/videos',
   path: '/api/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiResourcesRoute = ApiResourcesRouteImport.update({
+  id: '/api/resources',
+  path: '/api/resources',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiReposRoute = ApiReposRouteImport.update({
@@ -134,12 +170,16 @@ const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/contribute': typeof ContributeRoute
   '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/models': typeof ModelsRoute
+  '/papers': typeof PapersRoute
   '/playground': typeof PlaygroundRoute
   '/tools': typeof ToolsRoute
+  '/treebank': typeof TreebankRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/datasets': typeof ApiDatasetsRoute
@@ -147,21 +187,27 @@ export interface FileRoutesByFullPath {
   '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/resources': typeof ApiResourcesRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
+  '/r/$': typeof RSplatRoute
   '/sitemap/xml': typeof SitemapXmlRoute
   '/api/': typeof ApiIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/contribute': typeof ContributeRoute
   '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/models': typeof ModelsRoute
+  '/papers': typeof PapersRoute
   '/playground': typeof PlaygroundRoute
   '/tools': typeof ToolsRoute
+  '/treebank': typeof TreebankRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/datasets': typeof ApiDatasetsRoute
@@ -169,9 +215,11 @@ export interface FileRoutesByTo {
   '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/resources': typeof ApiResourcesRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
+  '/r/$': typeof RSplatRoute
   '/sitemap/xml': typeof SitemapXmlRoute
   '/api': typeof ApiIndexRoute
 }
@@ -179,12 +227,16 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/contribute': typeof ContributeRoute
   '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
   '/events-feed': typeof EventsFeedRoute
+  '/leaderboard': typeof LeaderboardRoute
   '/models': typeof ModelsRoute
+  '/papers': typeof PapersRoute
   '/playground': typeof PlaygroundRoute
   '/tools': typeof ToolsRoute
+  '/treebank': typeof TreebankRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
   '/api/datasets': typeof ApiDatasetsRoute
@@ -192,9 +244,11 @@ export interface FileRoutesById {
   '/api/models': typeof ApiModelsRoute
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
+  '/api/resources': typeof ApiResourcesRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
+  '/r/$': typeof RSplatRoute
   '/sitemap/xml': typeof SitemapXmlRoute
   '/api/': typeof ApiIndexRoute
 }
@@ -203,12 +257,16 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/contribute'
     | '/datasets'
     | '/events'
     | '/events-feed'
+    | '/leaderboard'
     | '/models'
+    | '/papers'
     | '/playground'
     | '/tools'
+    | '/treebank'
     | '/tutorials'
     | '/api/awesome'
     | '/api/datasets'
@@ -216,21 +274,27 @@ export interface FileRouteTypes {
     | '/api/models'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/resources'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
+    | '/r/$'
     | '/sitemap/xml'
     | '/api/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/contribute'
     | '/datasets'
     | '/events'
     | '/events-feed'
+    | '/leaderboard'
     | '/models'
+    | '/papers'
     | '/playground'
     | '/tools'
+    | '/treebank'
     | '/tutorials'
     | '/api/awesome'
     | '/api/datasets'
@@ -238,21 +302,27 @@ export interface FileRouteTypes {
     | '/api/models'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/resources'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
+    | '/r/$'
     | '/sitemap/xml'
     | '/api'
   id:
     | '__root__'
     | '/'
     | '/about'
+    | '/contribute'
     | '/datasets'
     | '/events'
     | '/events-feed'
+    | '/leaderboard'
     | '/models'
+    | '/papers'
     | '/playground'
     | '/tools'
+    | '/treebank'
     | '/tutorials'
     | '/api/awesome'
     | '/api/datasets'
@@ -260,9 +330,11 @@ export interface FileRouteTypes {
     | '/api/models'
     | '/api/pypi'
     | '/api/repos'
+    | '/api/resources'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
+    | '/r/$'
     | '/sitemap/xml'
     | '/api/'
   fileRoutesById: FileRoutesById
@@ -270,12 +342,16 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  ContributeRoute: typeof ContributeRoute
   DatasetsRoute: typeof DatasetsRoute
   EventsRoute: typeof EventsRoute
   EventsFeedRoute: typeof EventsFeedRoute
+  LeaderboardRoute: typeof LeaderboardRoute
   ModelsRoute: typeof ModelsRoute
+  PapersRoute: typeof PapersRoute
   PlaygroundRoute: typeof PlaygroundRoute
   ToolsRoute: typeof ToolsRoute
+  TreebankRoute: typeof TreebankRoute
   TutorialsRoute: typeof TutorialsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
   ApiDatasetsRoute: typeof ApiDatasetsRoute
@@ -283,9 +359,11 @@ export interface RootRouteChildren {
   ApiModelsRoute: typeof ApiModelsRoute
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
+  ApiResourcesRoute: typeof ApiResourcesRoute
   ApiVideosRoute: typeof ApiVideosRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
+  RSplatRoute: typeof RSplatRoute
   SitemapXmlRoute: typeof SitemapXmlRoute
   ApiIndexRoute: typeof ApiIndexRoute
 }
@@ -297,6 +375,13 @@ declare module '@tanstack/react-router' {
       path: '/tutorials'
       fullPath: '/tutorials'
       preLoaderRoute: typeof TutorialsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/treebank': {
+      id: '/treebank'
+      path: '/treebank'
+      fullPath: '/treebank'
+      preLoaderRoute: typeof TreebankRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tools': {
@@ -313,11 +398,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PlaygroundRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/papers': {
+      id: '/papers'
+      path: '/papers'
+      fullPath: '/papers'
+      preLoaderRoute: typeof PapersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/models': {
       id: '/models'
       path: '/models'
       fullPath: '/models'
       preLoaderRoute: typeof ModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboard': {
+      id: '/leaderboard'
+      path: '/leaderboard'
+      fullPath: '/leaderboard'
+      preLoaderRoute: typeof LeaderboardRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/events-feed': {
@@ -339,6 +438,13 @@ declare module '@tanstack/react-router' {
       path: '/datasets'
       fullPath: '/datasets'
       preLoaderRoute: typeof DatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contribute': {
+      id: '/contribute'
+      path: '/contribute'
+      fullPath: '/contribute'
+      preLoaderRoute: typeof ContributeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -369,6 +475,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SitemapXmlRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/r/$': {
+      id: '/r/$'
+      path: '/r/$'
+      fullPath: '/r/$'
+      preLoaderRoute: typeof RSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/llms/txt': {
       id: '/llms/txt'
       path: '/llms/txt'
@@ -388,6 +501,13 @@ declare module '@tanstack/react-router' {
       path: '/api/videos'
       fullPath: '/api/videos'
       preLoaderRoute: typeof ApiVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/resources': {
+      id: '/api/resources'
+      path: '/api/resources'
+      fullPath: '/api/resources'
+      preLoaderRoute: typeof ApiResourcesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/repos': {
@@ -438,12 +558,16 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  ContributeRoute: ContributeRoute,
   DatasetsRoute: DatasetsRoute,
   EventsRoute: EventsRoute,
   EventsFeedRoute: EventsFeedRoute,
+  LeaderboardRoute: LeaderboardRoute,
   ModelsRoute: ModelsRoute,
+  PapersRoute: PapersRoute,
   PlaygroundRoute: PlaygroundRoute,
   ToolsRoute: ToolsRoute,
+  TreebankRoute: TreebankRoute,
   TutorialsRoute: TutorialsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,
   ApiDatasetsRoute: ApiDatasetsRoute,
@@ -451,9 +575,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiModelsRoute: ApiModelsRoute,
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
+  ApiResourcesRoute: ApiResourcesRoute,
   ApiVideosRoute: ApiVideosRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,
+  RSplatRoute: RSplatRoute,
   SitemapXmlRoute: SitemapXmlRoute,
   ApiIndexRoute: ApiIndexRoute,
 }

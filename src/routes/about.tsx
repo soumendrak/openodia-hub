@@ -2,10 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { Reveal } from "../components/Reveal";
 import { MagneticButton } from "../components/MagneticButton";
-import { GithubIcon, YoutubeIcon, PythonIcon } from "../components/icons";
+import { GithubIcon, YoutubeIcon } from "../components/icons";
 import { ContributorGrid } from "../components/ContributorGrid";
 import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
-import { ArrowRight, Star, Users, BookOpen } from "lucide-react";
+import { ArrowRight, Boxes, Database, Users, BookOpen } from "lucide-react";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
@@ -32,10 +32,13 @@ export const Route = createFileRoute("/about")({
           name: "OpenOdia",
           url: "https://openodia.com",
           description:
-            "Open source community building tools, datasets, and educational content for the Odia language.",
+            "Community hub for open-source Odia: tools and libraries, models and datasets, tutorials and events.",
           sameAs: [
             "https://github.com/soumendrak/openodia-hub",
-            "https://www.youtube.com/@openodia",
+            "https://github.com/odisha-ml",
+            "https://github.com/OdiaGenAI",
+            "https://github.com/OdiaNLP",
+            "https://github.com/OdiaWikimedia",
           ],
         }),
       },
@@ -44,32 +47,35 @@ export const Route = createFileRoute("/about")({
   component: About,
 });
 
+/**
+ * The same three ecosystem pillars as the home page. Individual projects —
+ * `openodia` on PyPI, the @openodia channel, OdiaGenAI's models — are entries
+ * inside these, not pillars of their own.
+ */
 const pillars = [
   {
-    icon: <YoutubeIcon size={22} />,
-    title: "Education",
-    body: "The @openodia YouTube channel produces tutorials, talks, and demos in Odia and English — covering NLP, AI, and language technology for Odia speakers and builders.",
-    href: "https://www.youtube.com/@openodia",
-    cta: "Watch on YouTube",
-    color: "from-magenta to-saffron",
-    external: true,
-  },
-  {
-    icon: <PythonIcon size={22} />,
-    title: "Tooling",
-    body: "The openodia Python package provides practical, install-and-use utilities for Odia text processing — transliteration, normalization, tokenization, and curated datasets.",
-    href: "https://pypi.org/project/openodia/",
-    cta: "Explore the package",
-    color: "from-neon to-magenta",
-    external: true,
-  },
-  {
-    icon: <Star size={22} />,
-    title: "Community",
-    body: "Awesome-Odia-AI is a living, community-curated directory of 60+ Odia datasets, models, libraries, and research papers — the go-to index for anyone building with Odia.",
+    icon: <Boxes size={22} />,
+    title: "Tools & libraries",
+    body: "Fonts, keyboards, transliterators, spell checkers, OCR, NLP toolkits, and apps from across the ecosystem — OdiaNLP, OdiaWikimedia, Odia-Digital, openodia (PyPI), and dozens of independent maintainers.",
     href: "/tools",
     cta: "Browse the directory",
     color: "from-saffron to-neon",
+  },
+  {
+    icon: <Database size={22} />,
+    title: "Models & datasets",
+    body: "A live registry of every Odia-tagged model and dataset on Hugging Face — OdiaGenAI's LLMs and ASR, AI4Bharat's corpora, community fine-tunes — each with its license, size, and a citation.",
+    href: "/models",
+    cta: "Open the registry",
+    color: "from-neon to-magenta",
+  },
+  {
+    icon: <Users size={22} />,
+    title: "Community & learning",
+    body: "Tutorials and talks from OdiaGenAI, OpenOdia, Odias in ML, and TFUG Bhubaneswar, plus the meetups and conferences the Odisha AI community runs.",
+    href: "/tutorials",
+    cta: "Start learning",
+    color: "from-magenta to-saffron",
   },
 ];
 
@@ -82,8 +88,10 @@ function About() {
           Open source for <span className="text-gradient">ଓଡ଼ିଆ</span>.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-          OpenOdia is a community-driven ecosystem making the Odia language — spoken by 50+ million
-          people — a first-class citizen in modern AI and open-source software.
+          OpenOdia is a community hub for the Odia language — spoken by 50+ million people — and the
+          open-source work making it a first-class citizen in modern AI and software. It was started
+          by Soumendra Kumar Sahoo and is maintained by the community: OdiaGenAI, OdiaNLP,
+          OdiaWikimedia, Odisha AI, Odia-Digital, and many independent maintainers.
         </p>
       </Reveal>
 
@@ -99,9 +107,9 @@ function About() {
       {/* Three pillars */}
       <section className="mt-20">
         <Reveal>
-          <h2 className="font-display text-3xl font-semibold md:text-4xl">What we build</h2>
+          <h2 className="font-display text-3xl font-semibold md:text-4xl">What's here</h2>
           <p className="mt-2 max-w-xl text-muted-foreground">
-            Three pillars — education, tooling, and community — working together for Odia.
+            Many maintainers, many organisations — gathered into three places to look.
           </p>
         </Reveal>
 
@@ -119,23 +127,12 @@ function About() {
                     <h3 className="font-display text-xl font-semibold">{p.title}</h3>
                     <p className="mt-2 text-muted-foreground">{p.body}</p>
                     <div className="mt-4">
-                      {p.external ? (
-                        <a
-                          href={p.href}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-sm font-medium text-neon hover:underline"
-                        >
-                          {p.cta} <ArrowRight size={14} />
-                        </a>
-                      ) : (
-                        <Link
-                          to={p.href}
-                          className="inline-flex items-center gap-1 text-sm font-medium text-neon hover:underline"
-                        >
-                          {p.cta} <ArrowRight size={14} />
-                        </Link>
-                      )}
+                      <Link
+                        to={p.href}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-neon hover:underline"
+                      >
+                        {p.cta} <ArrowRight size={14} />
+                      </Link>
                     </div>
                   </div>
                 </div>
@@ -154,7 +151,8 @@ function About() {
         <Reveal>
           <h2 className="font-display text-3xl font-semibold md:text-4xl">Get involved</h2>
           <p className="mt-2 max-w-xl text-muted-foreground">
-            OpenOdia is open source and community-driven. Here's how you can contribute.
+            The hub is open source and the ecosystem it lists is community-owned. Here's how to join
+            in.
           </p>
         </Reveal>
 
@@ -169,7 +167,7 @@ function About() {
             {
               icon: <BookOpen size={18} />,
               title: "Add to the directory",
-              body: "Found a dataset, model, or tool missing from Awesome-Odia-AI? Open a PR to add it.",
+              body: "Missing a dataset, model, or tool? Open a PR on Awesome-Odia-AI with its license, size, and task — it appears here on the next refresh.",
               href: "https://github.com/odisha-ml/Awesome-Odia-AI",
             },
             {

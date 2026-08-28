@@ -65,11 +65,37 @@ export function Footer() {
           </div>
 
           <div>
+            <h4 className="text-sm font-semibold">Research</h4>
+            <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
+              <li>
+                <Link to="/leaderboard" className="hover:text-foreground">
+                  Benchmarks
+                </Link>
+              </li>
+              <li>
+                <Link to="/papers" className="hover:text-foreground">
+                  Papers
+                </Link>
+              </li>
+              <li>
+                <Link to="/treebank" className="hover:text-foreground">
+                  Treebank search
+                </Link>
+              </li>
+            </ul>
+          </div>
+
+          <div>
             <h4 className="text-sm font-semibold">Develop</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link to="/api" className="hover:text-foreground">
                   API
+                </Link>
+              </li>
+              <li>
+                <Link to="/contribute" className="hover:text-foreground">
+                  Add your project
                 </Link>
               </li>
               <li>
@@ -108,7 +134,8 @@ export function Footer() {
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
           <p>
             © {new Date().getFullYear()} OpenOdia · Built with{" "}
-            <Heart size={12} className="inline text-magenta" /> in Odisha
+            <Heart size={12} className="inline text-magenta" aria-hidden="true" />
+            <span className="sr-only">love</span> in Odisha
           </p>
           <p>ଓଡ଼ିଆ ଭାଷା ପାଇଁ ଓପନ୍ ସୋର୍ସ</p>
         </div>

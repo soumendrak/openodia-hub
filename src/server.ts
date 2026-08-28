@@ -5,6 +5,9 @@ import { renderErrorPage } from "./lib/error-page";
 import { readEventsFromD1, syncEventsToD1, type D1Like } from "./lib/events-store";
 import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
 import { settledValues } from "./lib/fetch-utils";
+import { loadAwesome } from "./lib/sources/awesome";
+import { loadRepos } from "./lib/sources/repos";
+import { loadDatasets, loadModels } from "./lib/sources/huggingface";
 import type { Event } from "./data/events/types";
 
 type KVRead = { get: (key: string) => Promise<string | null> };
@@ -232,21 +235,11 @@ export default {
               get: {
                 summary: "Awesome-Odia-AI directory",
                 description:
-                  "Curated open-source Odia tools, datasets, and models parsed from the Awesome-Odia-AI README. Supports cursor pagination.",
-                parameters: [
-                  {
-                    name: "cursor",
-                    in: "query",
-                    schema: { type: "string" },
-                    description: "Numeric offset returned as nextCursor.",
-                  },
-                  {
-                    name: "limit",
-                    in: "query",
-                    schema: { type: "integer", maximum: 50, default: 30 },
-                  },
-                ],
-                responses: { "200": { description: "Array of categorized items" } },
+                  "Curated open-source Odia tools, datasets, and models parsed from the Awesome-Odia-AI README. Returns the full list; use /api/resources for filtering and pagination.",
+                responses: {
+                  "200": { description: "Array of categorized items" },
+                  "503": { description: "The README is unreachable" },
+                },
               },
             },
             "/api/contributors": {
@@ -281,16 +274,22 @@ export default {
               get: {
                 summary: "Odia AI models",
                 description:
-                  "Live registry of models tagged for Odia on Hugging Face. Returns normalized fields (author, name, task, downloads, likes, tags).",
-                responses: { "200": { description: "Array of models" } },
+                  "Live registry of models tagged for Odia on Hugging Face. Returns normalized fields (author, name, task, license, downloads, likes, tags) and a `truncated` flag when the page cap stopped the fetch, in which case the count is a floor.",
+                responses: {
+                  "200": { description: "Array of models" },
+                  "503": { description: "Hugging Face unreachable" },
+                },
               },
             },
             "/api/datasets": {
               get: {
                 summary: "Odia datasets",
                 description:
-                  "Live browser of datasets with `language:or` on Hugging Face. Returns normalized fields including extracted task category.",
-                responses: { "200": { description: "Array of datasets" } },
+                  "Live browser of datasets with `language:or` on Hugging Face. Returns normalized fields including task category, SPDX license, size bucket, and modalities, plus a `truncated` flag when the page cap stopped the fetch.",
+                responses: {
+                  "200": { description: "Array of datasets" },
+                  "503": { description: "Hugging Face unreachable" },
+                },
               },
             },
             "/api/pypi": {
@@ -304,20 +303,54 @@ export default {
               get: {
                 summary: "GitHub repositories",
                 description:
-                  "Repos across the OpenOdia orgs, users, and pinned repos. Supports cursor pagination.",
+                  "The curated set of Odia GitHub repositories. Returns the full list; there is no pagination.",
+                responses: {
+                  "200": { description: "Repository list" },
+                  "503": { description: "GitHub unreachable or rate-limiting" },
+                },
+              },
+            },
+            "/api/resources": {
+              get: {
+                summary: "Unified catalog",
+                description:
+                  "One normalised record per resource across every source, deduplicated by permalink — a curated Awesome-Odia-AI entry and the repo it points at are one record, not two. This is the machine-readable catalog: stable `permalink`, SPDX `license`, `task`, `sizeCategory`, and the `sources` that contributed each record.",
                 parameters: [
                   {
-                    name: "cursor",
+                    name: "kind",
                     in: "query",
+                    description: "Filter by resource type.",
+                    schema: { type: "string", enum: ["gh", "model", "dataset", "link"] },
+                  },
+                  {
+                    name: "license",
+                    in: "query",
+                    description: "Exact SPDX id, e.g. `Apache-2.0`.",
+                    schema: { type: "string" },
+                  },
+                  {
+                    name: "author",
+                    in: "query",
+                    description: "Owning account or organisation, e.g. `OdiaGenAI`.",
+                    schema: { type: "string" },
+                  },
+                  {
+                    name: "q",
+                    in: "query",
+                    description: "Free-text match over name, description, task, and tags.",
                     schema: { type: "string" },
                   },
                   {
                     name: "limit",
                     in: "query",
-                    schema: { type: "integer", maximum: 50, default: 24 },
+                    schema: { type: "integer", maximum: 200, default: 50 },
                   },
+                  { name: "offset", in: "query", schema: { type: "integer", default: 0 } },
                 ],
-                responses: { "200": { description: "Repository list" } },
+                responses: {
+                  "200": { description: "`{ resources, total, limit, offset, fetchedAt }`" },
+                  "503": { description: "Every upstream source is unreachable" },
+                },
               },
             },
             "/api/videos": {
@@ -381,6 +414,24 @@ export default {
   // Cloudflare cron trigger (configured in wrangler.jsonc). Refreshes the
   // EVENTS_DB from Bevy daily so the request path never has to scrape.
   async scheduled(_event: unknown, env: Env | undefined, _ctx: unknown): Promise<void> {
+    // Populate the edge cache for the catalog sources. Without this the first
+    // visitor to a cold colo pays the full GitHub + Hugging Face fan-out, and
+    // the home page's ecosystem counts hit their deadline and drop a tile.
+    await Promise.allSettled(
+      [
+        ["awesome", loadAwesome],
+        ["repos", loadRepos],
+        ["hf-models", loadModels],
+        ["hf-datasets", loadDatasets],
+      ].map(async ([label, load]) => {
+        try {
+          await (load as () => Promise<unknown>)();
+        } catch (err) {
+          console.warn(`cache warm ${label as string} failed`, err);
+        }
+      }),
+    );
+
     if (!env?.EVENTS_DB) {
       console.warn("scheduled: EVENTS_DB not bound; skipping events sync");
       return;

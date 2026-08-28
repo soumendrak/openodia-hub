@@ -1,16 +1,60 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Link } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
-import { ArrowRight, Sparkles, Package, Star } from "lucide-react";
+import { ArrowRight, Sparkles, Boxes, Database, Users } from "lucide-react";
 import { MagneticButton } from "../components/MagneticButton";
 import { Reveal } from "../components/Reveal";
 import { Marquee } from "../components/Marquee";
-import { FEATURED_VIDEOS, YOUTUBE_CHANNEL } from "../data/videos";
-import { YoutubeIcon, GithubIcon, PythonIcon } from "../components/icons";
-import { FaqSection } from "../components/FaqSection";
+import { FEATURED_VIDEOS } from "../data/videos";
+import { YoutubeIcon } from "../components/icons";
+import { FaqSection, FAQS } from "../components/FaqSection";
 import { ContributorGrid } from "../components/ContributorGrid";
 import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
 import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
+import { withDeadline } from "../lib/fetch-utils";
+import { loadAwesome } from "../lib/sources/awesome";
+import { loadRepos } from "../lib/sources/repos";
+import { loadDatasets, loadModels } from "../lib/sources/huggingface";
+
+/**
+ * Ecosystem counts for the hero stats — the numbers the hub is actually about.
+ * Every source is read through the shared cache, and a source that's down
+ * simply drops out rather than showing a wrong number.
+ */
+const STATS_DEADLINE_MS = 6000;
+
+/**
+ * Ecosystem counts for the hero stats — the numbers the hub is actually about.
+ *
+ * Every source is read through the shared cache, so in steady state this is
+ * free. On a cold cache each source gets a deadline and drops its tile rather
+ * than holding the home page open behind a 150-repo fan-out; the directory
+ * pages populate the same cache, so the tiles fill in.
+ */
+const getEcosystemStats = createServerFn({ method: "GET" }).handler(async () => {
+  const none = { value: null as number | null, approx: false };
+  const count = (items: unknown[] | null) => (items === null ? null : items.length);
+
+  const [awesome, repos, models, datasets] = await Promise.all([
+    withDeadline(loadAwesome(), STATS_DEADLINE_MS, null),
+    withDeadline(loadRepos(), STATS_DEADLINE_MS, null),
+    withDeadline(loadModels(), STATS_DEADLINE_MS, null),
+    withDeadline(loadDatasets(), STATS_DEADLINE_MS, null),
+  ]);
+
+  const curated = count(awesome);
+  const repoCount = count(repos);
+  // "+" when the page cap stopped the fetch — the count is a floor, not a total.
+  const page = (p: { items: unknown[]; truncated: boolean } | null) =>
+    p === null ? none : { value: p.items.length, approx: p.truncated };
+
+  return {
+    projects: curated === null && repoCount === null ? null : (curated ?? 0) + (repoCount ?? 0),
+    models: page(models),
+    datasets: page(datasets),
+  };
+});
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -19,7 +63,7 @@ export const Route = createFileRoute("/")({
       {
         name: "description",
         content:
-          "A home for open-source Odia language projects: from the OpenOdia Python package and the @openodia YouTube channel to a curated directory of Odia tools, fonts, models, and datasets.",
+          "The hub for open-source Odia: a directory of tools and libraries, a live registry of Odia models and datasets, and the community teaching and building with them.",
       },
       { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
       {
@@ -29,6 +73,8 @@ export const Route = createFileRoute("/")({
       },
     ],
   }),
+  loader: () => getEcosystemStats(),
+  staleTime: 60 * 60 * 1000,
   component: Home,
 });
 
@@ -40,49 +86,11 @@ function Home() {
       <Hero />
       <Pillars />
       <Stats />
-      <Videos />
+      <CommunityVideos />
       <ContributorGrid />
       <ContributorLeaderboard limit={5} />
       <FaqSection />
-      <JsonLd
-        data={faqPageSchema([
-          {
-            question: "What is OpenOdia?",
-            answer:
-              "OpenOdia is a hub for Odia language open-source — a growing collection of tools, fonts, datasets, models, libraries, and resources. It spans a YouTube channel (@openodia), a Python package on PyPI, and a curated directory of Odia projects.",
-          },
-          {
-            question: "How can I contribute to Odia open source?",
-            answer:
-              "You can contribute by joining the odisha-ml GitHub organization, submitting tools and projects to our directory, publishing Odia-language libraries to PyPI, creating tutorial content for @openodia, or sharing your own Odia open-source projects.",
-          },
-          {
-            question: "What kinds of Odia tools are listed here?",
-            answer:
-              "Everything open source: fonts, transliterators, spell checkers, speech models, NLP libraries, datasets, dictionaries, OCR tools, games, language learning apps, and more. Browse them at openodia.com/tools.",
-          },
-          {
-            question: "Who maintains OpenOdia?",
-            answer:
-              "OpenOdia is built and maintained by Soumendra Kumar Sahoo, an observability engineer at PepsiCo, with contributions from the Odia open-source community worldwide.",
-          },
-          {
-            question: "Where can I learn about Odia language technology?",
-            answer:
-              "The @openodia YouTube channel features tutorials in both Odia and English covering language processing, open-source tools, font development, and more. See openodia.com/tutorials.",
-          },
-          {
-            question: "Is OpenOdia open source?",
-            answer:
-              "Yes. All code is open source under the MIT license. The website is at github.com/soumendrak/openodia-hub.",
-          },
-          {
-            question: "What is the OpenOdia Python package?",
-            answer:
-              "The openodia PyPI package provides practical tools for Odia language processing including transliteration, text normalization, and language detection. Install with 'pip install openodia'.",
-          },
-        ])}
-      />
+      <JsonLd data={faqPageSchema(FAQS.map((f) => ({ question: f.q, answer: f.a })))} />
       <JsonLd data={breadcrumbSchema([{ name: "Home", url: "https://openodia.com" }])} />
       <Marquee
         items={[
@@ -139,8 +147,8 @@ function Hero() {
         transition={{ delay: 0.7 }}
         className="mt-6 max-w-2xl text-lg text-muted-foreground"
       >
-        A growing constellation of tools, libraries, and resources making the Odia language a
-        first-class citizen in modern AI and software.
+        A growing constellation of tools, libraries, models, and datasets — built by the Odia
+        community to make ଓଡ଼ିଆ a first-class citizen in modern AI and software.
       </motion.p>
 
       <motion.div
@@ -149,14 +157,18 @@ function Hero() {
         transition={{ delay: 0.85 }}
         className="mt-8 flex flex-wrap items-center gap-3"
       >
+        {/* Both CTAs point into the ecosystem — the hub is the directory, not
+            any one project inside it. */}
         <Link to="/tools">
           <MagneticButton>
             Explore the directory <ArrowRight size={16} />
           </MagneticButton>
         </Link>
-        <MagneticButton variant="ghost" href={YOUTUBE_CHANNEL} external>
-          <YoutubeIcon size={16} /> Watch on YouTube
-        </MagneticButton>
+        <Link to="/models">
+          <MagneticButton variant="ghost">
+            <Boxes size={16} /> Browse models & datasets
+          </MagneticButton>
+        </Link>
       </motion.div>
 
       <motion.div
@@ -172,42 +184,45 @@ function Hero() {
   );
 }
 
+/**
+ * Ecosystem pillars, not project properties: every individual project — the
+ * openodia PyPI package and the @openodia channel included — is an entry
+ * inside one of these, not a pillar of its own.
+ */
 const pillars = [
   {
-    icon: <YoutubeIcon size={22} />,
-    title: "YouTube channel",
-    desc: "Tutorials, talks, and demos in Odia & English covering language tech, open source, and AI.",
-    href: YOUTUBE_CHANNEL,
-    color: "from-magenta to-saffron",
-    cta: "Visit channel",
-    external: true,
-  },
-  {
-    icon: <PythonIcon size={22} />,
-    title: "OpenOdia · PyPI",
-    desc: "A Python package of practical tools for the Odia language.",
-    href: "https://pypi.org/project/openodia/",
-    color: "from-neon to-magenta",
-    cta: "See package",
-    external: true,
-  },
-  {
-    icon: <Star size={22} />,
-    title: "Odia Tools Directory",
-    desc: "A curated, live directory of Odia fonts, datasets, models, libraries, and tools.",
+    icon: <Boxes size={22} />,
+    title: "Tools & libraries",
+    desc: "Fonts, keyboards, transliterators, spell checkers, OCR, NLP toolkits and apps — curated from Awesome-Odia-AI and the Odia GitHub organisations.",
     href: "/tools",
     color: "from-saffron to-neon",
-    cta: "Browse tools",
+    cta: "Browse the directory",
   },
-];
+  {
+    icon: <Database size={22} />,
+    title: "Models & datasets",
+    desc: "A live registry of every Odia-tagged model and dataset on Hugging Face, with licenses, sizes, and ready-to-paste citations.",
+    href: "/models",
+    color: "from-neon to-magenta",
+    cta: "Open the registry",
+  },
+  {
+    icon: <Users size={22} />,
+    title: "Community & learning",
+    desc: "Tutorials and talks from OdiaGenAI, OpenOdia, Odias in ML and TFUG Bhubaneswar, plus the community's meetups and conferences.",
+    href: "/tutorials",
+    color: "from-magenta to-saffron",
+    cta: "Start learning",
+  },
+] as const;
 
 function Pillars() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
       <Reveal>
-        <h2 className="font-display text-3xl font-semibold md:text-5xl">Three pillars.</h2>
+        <h2 className="font-display text-3xl font-semibold md:text-5xl">One ecosystem.</h2>
         <p className="mt-2 max-w-xl text-muted-foreground">
-          Education, tooling, and community — coming together for Odia.
+          Many maintainers, many organisations — gathered into three places to look.
         </p>
       </Reveal>
 
@@ -223,57 +238,61 @@ function Pillars() {
 }
 
 function PillarCard(p: (typeof pillars)[number]) {
-  const inner = (
-    <motion.div
-      whileHover={{ y: -6, rotate: -0.4 }}
-      transition={{ type: "spring", stiffness: 250, damping: 18 }}
-      className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface p-6"
-    >
-      <div
-        className={`mb-5 grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br ${p.color} text-primary-foreground`}
-      >
-        {p.icon}
-      </div>
-      <h3 className="font-display text-xl font-semibold">{p.title}</h3>
-      <p className="mt-2 flex-1 text-sm text-muted-foreground">{p.desc}</p>
-      <span className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-neon">
-        {p.cta} <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-      </span>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br from-neon/20 to-magenta/20 blur-3xl"
-      />
-    </motion.div>
-  );
-
-  return p.external ? (
-    <a href={p.href} target="_blank" rel="noreferrer" className="block h-full">
-      {inner}
-    </a>
-  ) : (
+  return (
     <Link to={p.href} className="block h-full">
-      {inner}
+      <motion.div
+        whileHover={{ y: -6, rotate: -0.4 }}
+        transition={{ type: "spring", stiffness: 250, damping: 18 }}
+        className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface p-6"
+      >
+        <div
+          className={`mb-5 grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br ${p.color} text-primary-foreground`}
+        >
+          {p.icon}
+        </div>
+        <h3 className="font-display text-xl font-semibold">{p.title}</h3>
+        <p className="mt-2 flex-1 text-sm text-muted-foreground">{p.desc}</p>
+        <span className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-neon">
+          {p.cta}{" "}
+          <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+        </span>
+        <div
+          aria-hidden
+          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br from-neon/20 to-magenta/20 blur-3xl"
+        />
+      </motion.div>
     </Link>
   );
 }
 
-const stats = [
-  { label: "OSS initiatives", value: "10+" },
-  { label: "Curated tools", value: "60+" },
-  { label: "Open contributors", value: "100+" },
-  { label: "Years building", value: "5+" },
-];
-
 function Stats() {
+  const { projects, models, datasets } = Route.useLoaderData();
+
+  // Counts come from the same sources the directories render, so the hero can't
+  // contradict the pages it links to. A source that's down drops its tile
+  // rather than showing a stale claim.
+  const tiles = [
+    { label: "Projects listed", value: projects, approx: false, href: "/tools" },
+    { label: "Odia models", value: models.value, approx: models.approx, href: "/models" },
+    { label: "Odia datasets", value: datasets.value, approx: datasets.approx, href: "/datasets" },
+    { label: "Community channels", value: 4, approx: false, href: "/tutorials" },
+  ] as const;
+  const shown = tiles.filter((t) => t.value !== null);
+
+  if (shown.length === 0) return null;
+
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-4">
-        {stats.map((s, i) => (
-          <Reveal key={s.label} delay={i * 0.05} className="bg-surface p-8">
-            <div className="font-display text-4xl font-bold text-gradient md:text-5xl">
-              {s.value}
-            </div>
-            <div className="mt-1 text-sm text-muted-foreground">{s.label}</div>
+        {shown.map((s, i) => (
+          <Reveal key={s.label} delay={i * 0.05} className="bg-surface">
+            <Link to={s.href} className="block p-8 transition hover:bg-surface-2">
+              <div className="font-display text-4xl font-bold text-gradient md:text-5xl">
+                {s.value}
+                {s.approx ? "+" : ""}
+              </div>
+              <div className="mt-1 text-sm text-muted-foreground">{s.label}</div>
+            </Link>
           </Reveal>
         ))}
       </div>
@@ -281,29 +300,55 @@ function Stats() {
   );
 }
 
-function Videos() {
+type CommunityVideo = { id: string; title: string; channelName: string; published?: string };
+
+/**
+ * The rail draws from every community channel the tutorials page aggregates,
+ * not just one. The static list is the fallback while the feed loads or if it
+ * is unreachable.
+ */
+function CommunityVideos() {
+  const { data } = useQuery({
+    queryKey: ["home", "community-videos"],
+    queryFn: async () => {
+      const r = await fetch("/api/videos");
+      if (!r.ok) throw new Error("videos");
+      return (await r.json()) as {
+        channels: { name: string; videos: { id: string; title: string; published: string }[] }[];
+      };
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+
+  const live: CommunityVideo[] = (data?.channels ?? [])
+    .flatMap((c) => c.videos.map((v) => ({ ...v, channelName: c.name })))
+    .sort((a, b) => (b.published ?? "").localeCompare(a.published ?? ""))
+    .slice(0, 3);
+
+  const videos: CommunityVideo[] =
+    live.length === 3
+      ? live
+      : FEATURED_VIDEOS.map((v) => ({ id: v.id, title: v.title, channelName: "OpenOdia" }));
+
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">
       <Reveal className="flex items-end justify-between gap-4">
         <div>
-          <h2 className="font-display text-3xl font-semibold md:text-5xl">Featured videos</h2>
-          <p className="mt-2 text-muted-foreground">From the @openodia channel.</p>
+          <h2 className="font-display text-3xl font-semibold md:text-5xl">From the community</h2>
+          <p className="mt-2 text-muted-foreground">
+            Latest from the Odia AI channels — OdiaGenAI, OpenOdia, Odias in ML, TFUG Bhubaneswar.
+          </p>
         </div>
-        <a
-          href={YOUTUBE_CHANNEL}
-          target="_blank"
-          rel="noreferrer"
-          className="hidden text-sm text-neon hover:underline md:inline"
-        >
-          All videos →
-        </a>
+        <Link to="/tutorials" className="hidden text-sm text-neon hover:underline md:inline">
+          All tutorials →
+        </Link>
       </Reveal>
 
       <div className="mt-8 grid gap-4 md:grid-cols-3">
-        {FEATURED_VIDEOS.map((v, i) => (
-          <Reveal key={i} delay={i * 0.06}>
+        {videos.map((v, i) => (
+          <Reveal key={v.id} delay={i * 0.06}>
             <a
-              href={`https://www.youtube.com/watch?v=${v.id}${v.startTime ? `&t=${v.startTime}s` : ""}`}
+              href={`https://www.youtube.com/watch?v=${v.id}`}
               target="_blank"
               rel="noreferrer"
               className="group block overflow-hidden rounded-2xl border border-border bg-surface"
@@ -322,7 +367,8 @@ function Videos() {
                 </div>
               </div>
               <div className="p-4">
-                <h3 className="font-medium">{v.title}</h3>
+                <h3 className="font-medium leading-tight">{v.title}</h3>
+                <p className="mt-1 text-xs text-muted-foreground">{v.channelName}</p>
               </div>
             </a>
           </Reveal>
@@ -331,7 +377,3 @@ function Videos() {
     </section>
   );
 }
-
-// suppress unused import warning
-void Package;
-void GithubIcon;

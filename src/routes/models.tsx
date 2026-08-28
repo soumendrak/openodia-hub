@@ -1,13 +1,33 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Search, ExternalLink, Heart, Download, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
+import { ActiveFilterBar, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
+import { buildFacet, toggleValue, type ActiveFilter } from "../lib/facets";
+import { ResourceMeta } from "../components/ResourceMeta";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
+import { normalizeSpdx } from "../lib/license";
+import { refToPath } from "../lib/resource-id";
 import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
+import { loadModels, type Model } from "../lib/sources/huggingface";
+
+/**
+ * Runs on the server during SSR and over RPC on client navigation, so the
+ * registry is in the server HTML instead of arriving after hydration.
+ */
+const getModels = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    const page = await loadModels();
+    return { models: page.items, truncated: page.truncated, failed: false };
+  } catch (e) {
+    console.error("models loader:", e);
+    return { models: [] as Model[], truncated: false, failed: true };
+  }
+});
 
 export const Route = createFileRoute("/models")({
   head: () => ({
@@ -16,7 +36,7 @@ export const Route = createFileRoute("/models")({
       {
         name: "description",
         content:
-          "Live registry of Odia-language AI models on Hugging Face — LLMs, ASR, TTS, translation, embeddings, and more.",
+          "Live registry of Odia-language AI models on Hugging Face — LLMs, ASR, TTS, translation, embeddings, and more, with licenses and citations.",
       },
       { property: "og:title", content: "Models · OpenOdia" },
       {
@@ -25,23 +45,10 @@ export const Route = createFileRoute("/models")({
       },
     ],
   }),
+  loader: () => getModels(),
+  staleTime: 60 * 60 * 1000,
   component: ModelsPage,
 });
-
-type Model = {
-  id: string;
-  author: string;
-  name: string;
-  url: string;
-  task: string;
-  library: string;
-  downloads: number;
-  likes: number;
-  tags: string[];
-  createdAt: string;
-};
-
-type Resp = { models: Model[]; fetchedAt: string };
 
 const TASK_LABEL: Record<string, string> = {
   "text-generation": "Text generation",
@@ -50,52 +57,77 @@ const TASK_LABEL: Record<string, string> = {
   translation: "Translation",
   "automatic-speech-recognition": "Speech recognition",
   "text-to-speech": "Text-to-speech",
+  "text-to-audio": "Text-to-audio",
+  "audio-classification": "Audio classification",
   "feature-extraction": "Embeddings",
+  "sentence-similarity": "Sentence similarity",
   "fill-mask": "Fill mask",
   summarization: "Summarization",
   "question-answering": "Question answering",
+  "image-to-text": "Image-to-text",
   other: "Other",
 };
 
+/** HF pipeline tags are kebab-case; humanise the ones the table doesn't name. */
+function taskLabel(task: string): string {
+  return TASK_LABEL[task] ?? task.replace(/-/g, " ").replace(/^./, (c) => c.toUpperCase());
+}
+
+const PAGE_SIZE = 30;
+
 function ModelsPage() {
-  const PAGE_SIZE = 30;
+  const { models, truncated, failed } = Route.useLoaderData();
   const [q, setQ] = useState("");
-  const [task, setTask] = useState<string | null>(null);
+  const [tasks, setTasks] = useState<Set<string>>(new Set());
+  const [licenses, setLicenses] = useState<Set<string>>(new Set());
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["models"],
-    queryFn: async () => {
-      const r = await fetch("/api/models");
-      if (!r.ok) throw new Error("models");
-      return (await r.json()) as Resp;
-    },
-    staleTime: 60 * 60 * 1000,
-  });
+  const resetPage = () => setShownCount(PAGE_SIZE);
 
-  const models = data?.models ?? [];
+  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) => {
+    setter((prev) => toggleValue(prev, value));
+    resetPage();
+  };
 
-  const tasks = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const m of models) counts.set(m.task, (counts.get(m.task) ?? 0) + 1);
-    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
-  }, [models]);
+  const taskOptions = useMemo(() => buildFacet(models, (m) => m.task, taskLabel), [models]);
+  const licenseOptions = useMemo(
+    () => buildFacet(models, (m) => normalizeSpdx(m.license)),
+    [models],
+  );
+
+  const activeFilters: ActiveFilter[] = [
+    ...[...tasks].map((v) => ({ facet: "task", value: v, label: taskLabel(v) })),
+    ...[...licenses].map((v) => ({ facet: "license", value: v, label: v })),
+  ];
+
+  const clearAll = () => {
+    setTasks(new Set());
+    setLicenses(new Set());
+    setQ("");
+    resetPage();
+  };
+
+  const removeFilter = (f: ActiveFilter) => {
+    if (f.facet === "task") toggle(setTasks)(f.value);
+    else toggle(setLicenses)(f.value);
+  };
 
   // Five models featured above the registry, drawn from a seeded shuffle keyed
   // on the ISO week — same set for every visitor all week, rotates itself every
   // Monday. Deterministic, so SSR and the client agree. See lib/weekly-picks.
   const featured = useMemo(() => {
     const { hero, reels } = pickWeeklyBy(models, new Date(), (m) => m.likes, MIN_LIKES);
-    const toItem = (m: Model) => ({ ...m, label: TASK_LABEL[m.task] ?? m.task });
+    const toItem = (m: Model) => ({ ...m, label: taskLabel(m.task) });
     return { hero: hero.map(toItem), reels: reels.map(toItem) };
   }, [models]);
 
   const filtered = useMemo(() => {
     const lq = q.trim().toLowerCase();
     return models.filter((m) => {
-      if (task && m.task !== task) return false;
+      if (tasks.size > 0 && !tasks.has(m.task)) return false;
+      if (licenses.size > 0 && !licenses.has(normalizeSpdx(m.license))) return false;
       if (!lq) return true;
       return (
         m.id.toLowerCase().includes(lq) ||
@@ -104,7 +136,7 @@ function ModelsPage() {
         m.tags.some((t) => t.toLowerCase().includes(lq))
       );
     });
-  }, [models, q, task]);
+  }, [models, q, tasks, licenses]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -120,7 +152,7 @@ function ModelsPage() {
             models.slice(0, 50).map((m) => ({
               name: m.id,
               url: m.url,
-              description: TASK_LABEL[m.task] ?? m.task,
+              description: taskLabel(m.task),
             })),
             "Odia AI Models",
             "Live registry of Odia-language models on Hugging Face.",
@@ -135,9 +167,18 @@ function ModelsPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Live from Hugging Face — every model tagged for Odia. LLMs, ASR, TTS, translation,
-          embeddings, classifiers. Click any card to open it on Hugging Face.
+          embeddings, classifiers. Each card carries its license and a ready-to-paste citation.
         </p>
       </Reveal>
+
+      {failed && (
+        <p
+          role="status"
+          className="mt-6 rounded-2xl border border-saffron/40 bg-saffron/5 px-4 py-3 text-sm text-saffron"
+        >
+          Hugging Face is unreachable right now, so the registry is empty below. Reload in a minute.
+        </p>
+      )}
 
       {featured.hero.length > 0 && (
         <Reveal delay={0.05} className="mt-12">
@@ -156,57 +197,38 @@ function ModelsPage() {
             value={q}
             onChange={(e) => {
               setQ(e.target.value);
-              setShownCount(PAGE_SIZE);
+              resetPage();
             }}
             placeholder="Search models, authors, tags… [/]"
             className="w-full rounded-full border border-border bg-surface py-3 pl-11 pr-4 text-sm outline-none transition focus:border-neon"
           />
         </div>
 
-        {tasks.length > 0 && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Chip
-              active={task === null}
-              onClick={() => {
-                setTask(null);
-                setShownCount(PAGE_SIZE);
-              }}
-            >
-              All ({models.length})
-            </Chip>
-            {tasks.map(([t, count]) => (
-              <Chip
-                key={t}
-                active={task === t}
-                onClick={() => {
-                  setTask(task === t ? null : t);
-                  setShownCount(PAGE_SIZE);
-                }}
-              >
-                {TASK_LABEL[t] ?? t} ({count})
-              </Chip>
-            ))}
-          </div>
-        )}
+        <div className="mt-5 space-y-3">
+          <FacetGroup
+            title="Task"
+            options={taskOptions}
+            selected={tasks}
+            onToggle={toggle(setTasks)}
+          />
+          <FacetGroup
+            title="License"
+            options={licenseOptions}
+            selected={licenses}
+            onToggle={toggle(setLicenses)}
+          />
+        </div>
+
+        <ActiveFilterBar filters={activeFilters} onRemove={removeFilter} onClearAll={clearAll} />
       </Reveal>
 
       <div className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {isLoading ? (
-          Array.from({ length: 9 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-44 animate-pulse rounded-2xl border border-border bg-surface"
-            />
-          ))
-        ) : filtered.length === 0 ? (
-          <p className="col-span-full text-muted-foreground">No models matched.</p>
+        {filtered.length === 0 ? (
+          <EmptyResults query={q} filters={activeFilters} onClearAll={clearAll} noun="models" />
         ) : (
           filtered.slice(0, shownCount).map((m, i) => (
-            <motion.a
+            <motion.div
               key={m.id}
-              href={m.url}
-              target="_blank"
-              rel="noreferrer"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{
@@ -215,41 +237,66 @@ function ModelsPage() {
                 damping: 20,
                 delay: Math.min(i, 12) * 0.02,
               }}
-              whileHover={{ y: -4 }}
-              className="group flex h-full flex-col rounded-2xl border border-border bg-surface p-5 transition hover:border-neon/40"
+              className="group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-surface transition hover:border-neon/40"
             >
-              <div className="flex items-center justify-between gap-2">
-                <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
-                  {TASK_LABEL[m.task] ?? m.task}
-                </span>
-                <ExternalLink
-                  size={14}
-                  className="text-muted-foreground transition group-hover:text-neon"
-                />
-              </div>
-              <h3 className="mt-3 font-display text-lg font-semibold leading-tight">{m.name}</h3>
-              <p className="mt-1 truncate text-xs text-muted-foreground">@{m.author}</p>
-              <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1">
-                  <Download size={12} /> {formatCount(m.downloads)}
-                </span>
-                <span className="inline-flex items-center gap-1">
-                  <Heart size={12} /> {formatCount(m.likes)}
-                </span>
-                {m.library && (
-                  <span className="rounded-full border border-border px-2 py-0.5">{m.library}</span>
-                )}
-              </div>
-            </motion.a>
+              {/* Internal permalink: the detail page is what a researcher can
+                  cite and link to. Upstream is one click on from there. */}
+              <Link
+                to={refToPath({ kind: "model", id: m.id })}
+                className="flex flex-1 flex-col p-5"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="rounded-full border border-border bg-surface-2 px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {taskLabel(m.task)}
+                  </span>
+                  <ExternalLink
+                    size={14}
+                    className="text-muted-foreground transition group-hover:text-neon"
+                  />
+                </div>
+                <h3 className="mt-3 font-display text-lg font-semibold leading-tight">{m.name}</h3>
+                <p className="mt-1 truncate text-xs text-muted-foreground">@{m.author}</p>
+                <div className="mt-auto flex items-center gap-3 pt-4 text-xs text-muted-foreground">
+                  <span className="inline-flex items-center gap-1">
+                    <Download size={12} /> {formatCount(m.downloads)}
+                  </span>
+                  <span className="inline-flex items-center gap-1">
+                    <Heart size={12} /> {formatCount(m.likes)}
+                  </span>
+                  {m.library && (
+                    <span className="rounded-full border border-border px-2 py-0.5">
+                      {m.library}
+                    </span>
+                  )}
+                </div>
+              </Link>
+              <ResourceMeta
+                license={normalizeSpdx(m.license)}
+                entry={{
+                  name: m.name,
+                  author: m.author,
+                  url: m.url,
+                  createdAt: m.createdAt,
+                }}
+              />
+            </motion.div>
           ))
         )}
       </div>
 
-      {!isLoading && filtered.length > 0 && (
+      {filtered.length > 0 && (
         <div className="mt-10 flex flex-col items-center gap-3">
-          <p className="text-xs text-muted-foreground">
-            Showing {Math.min(shownCount, filtered.length)} of {filtered.length}
-          </p>
+          <ResultCount
+            shown={Math.min(shownCount, filtered.length)}
+            total={filtered.length}
+            noun="models"
+          />
+          {truncated && (
+            <p className="text-[11px] text-muted-foreground">
+              Hugging Face has more Odia-tagged models than this page loads; the registry stops at
+              the first {models.length}.
+            </p>
+          )}
           {filtered.length > shownCount && (
             <button
               onClick={() => setShownCount((n) => n + PAGE_SIZE)}
@@ -261,28 +308,5 @@ function ModelsPage() {
         </div>
       )}
     </div>
-  );
-}
-
-function Chip({
-  children,
-  active,
-  onClick,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-  onClick?: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`rounded-full border px-3 py-1.5 text-xs transition ${
-        active
-          ? "border-neon bg-neon/10 text-neon"
-          : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
-      }`}
-    >
-      {children}
-    </button>
   );
 }
