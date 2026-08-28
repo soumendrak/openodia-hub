@@ -9,6 +9,20 @@
  *     line up over their textarea equivalents.
  *   - A line-number gutter on the left, kept aligned via shared line-height.
  *
+ * Nothing soft-wraps. Wrapping used to put the caret on the wrong line: `rows`
+ * sizes the textarea in *logical* lines, so a wrapped line overflowed it, the
+ * vertical scrollbar took 15px off the textarea's content width, and the two
+ * layers then broke lines at different columns — the <pre> laid out 31 visual
+ * lines where the textarea laid out 32, so a click below the first divergence
+ * landed a line or more off. It also made one gutter number cover two rows.
+ * With `white-space: pre` a logical line is a visual line everywhere, and the
+ * overlay mirrors the textarea's horizontal scroll offset.
+ *
+ * The textarea is also not user-resizable. It already grows to fit every line,
+ * so the handle only let you drag it *shorter* than its content — and the
+ * gutter then held the flex row open at full height while the textarea scrolled
+ * inside it, which the overlay had no way to follow.
+ *
  * Layered conveniences on the textarea:
  *   - Tab inserts 4 spaces (Shift+Tab dedents); selections indent/dedent block-wise
  *   - Enter preserves the previous line's indent, and adds an extra level
@@ -17,7 +31,7 @@
  * Token colors live in styles.css (scoped to `.code-editor-pre`) so they
  * cooperate with the site's dark/light theme variables.
  */
-import { useMemo, useRef, type ChangeEvent, type KeyboardEvent } from "react";
+import { useMemo, useRef, type ChangeEvent, type KeyboardEvent, type UIEvent } from "react";
 import Prism from "prismjs";
 import "prismjs/components/prism-python";
 
@@ -46,9 +60,13 @@ function getLineRange(text: string, selStart: number, selEnd: number) {
 
 export function CodeEditor({ value, onChange, rows, disabled }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
+  const preRef = useRef<HTMLPreElement>(null);
 
   const lineCount = useMemo(() => value.split("\n").length, [value]);
-  const visibleRows = Math.max(rows ?? 16, lineCount);
+  // One row of slack: without wrapping a long line brings a horizontal
+  // scrollbar, which eats ~15px of the box's height and would otherwise pull
+  // in a vertical scrollbar for those 15px alone.
+  const visibleRows = Math.max(rows ?? 16, lineCount) + 1;
 
   // Trailing newline makes the overlay match the textarea's final empty line.
   const highlighted = useMemo(
@@ -67,6 +85,18 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
 
   function handleChange(e: ChangeEvent<HTMLTextAreaElement>) {
     onChange(e.target.value);
+  }
+
+  /**
+   * Long lines scroll the textarea sideways; the overlay has to travel with it
+   * or the highlighting drifts away from the caret. `overflow: hidden` still
+   * permits a programmatic scroll, which is what moves the <pre> here.
+   *
+   * Only the horizontal offset needs mirroring: the textarea is sized to hold
+   * every line (see `visibleRows`), so it never scrolls vertically.
+   */
+  function handleScroll(e: UIEvent<HTMLTextAreaElement>) {
+    if (preRef.current) preRef.current.scrollLeft = e.currentTarget.scrollLeft;
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -150,8 +180,9 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
       </div>
       <div className="relative flex-1">
         <pre
+          ref={preRef}
           aria-hidden
-          className="code-editor-pre pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre-wrap break-words p-4 leading-[1.5]"
+          className="code-editor-pre pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre p-4 leading-[1.5]"
         >
           <code className="language-python" dangerouslySetInnerHTML={{ __html: highlighted }} />
         </pre>
@@ -160,10 +191,14 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onScroll={handleScroll}
           spellCheck={false}
           rows={visibleRows}
+          // `wrap="off"` is the attribute browsers honour for textarea soft
+          // wrapping; the CSS below keeps the overlay in the same mode.
+          wrap="off"
           disabled={disabled}
-          className="relative block w-full resize-y bg-transparent p-4 leading-[1.5] text-transparent outline-none disabled:opacity-50"
+          className="relative block w-full resize-none overflow-x-auto overflow-y-hidden whitespace-pre bg-transparent p-4 leading-[1.5] text-transparent outline-none disabled:opacity-50"
           style={{ caretColor: "var(--color-foreground)" }}
         />
       </div>
