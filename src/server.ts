@@ -2,6 +2,7 @@ import "./lib/error-capture";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
+import { estimateTokens, htmlToMarkdown } from "./lib/html-to-markdown";
 import { readEventsFromD1, syncEventsToD1, type D1Like } from "./lib/events-store";
 import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
 import { settledValues } from "./lib/fetch-utils";
@@ -91,6 +92,66 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 
   console.error(consumeLastCapturedError() ?? new Error(`h3 swallowed SSR error: ${body}`));
   return brandedErrorResponse();
+}
+
+// RFC 8288 Link headers so agents can find the machine-readable surface from any
+// HTML page without guessing paths. Relations are IANA-registered.
+const AGENT_LINK_HEADER = [
+  '</.well-known/openapi.json>; rel="service-desc"; type="application/json"',
+  '</api>; rel="service-doc"; type="text/html"',
+  '</llms.txt>; rel="alternate"; type="text/plain"',
+].join(", ");
+
+export function withAgentLinks(response: Response): Response {
+  if (!(response.headers.get("content-type") ?? "").includes("text/html")) return response;
+  const headers = new Headers(response.headers);
+  headers.append("Link", AGENT_LINK_HEADER);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
+}
+
+function acceptHtml(headers: Headers): Headers {
+  const next = new Headers(headers);
+  next.set("accept", "text/html");
+  return next;
+}
+
+export function wantsMarkdown(request: Request): boolean {
+  if (request.method !== "GET" && request.method !== "HEAD") return false;
+  return (request.headers.get("accept") ?? "")
+    .split(",")
+    .some((part) => part.trim().toLowerCase().startsWith("text/markdown"));
+}
+
+/**
+ * TanStack Start hard-500s any Accept it does not recognise
+ * (`{"error":"Only HTML requests are supported here"}` — see
+ * @tanstack/start-server-core createStartHandler). Render as HTML, then convert
+ * the result, so `Accept: text/markdown` gets a page instead of an error.
+ */
+export async function toMarkdownResponse(response: Response): Promise<Response> {
+  if (!(response.headers.get("content-type") ?? "").includes("text/html")) return response;
+
+  const markdown = htmlToMarkdown(await response.text());
+  const headers = new Headers(response.headers);
+  headers.set("content-type", "text/markdown; charset=utf-8");
+  headers.set("x-markdown-tokens", String(estimateTokens(markdown)));
+  headers.delete("content-length");
+
+  // HTML and markdown share a URL, so caches must key on Accept.
+  const vary = headers.get("vary") ?? "";
+  if (!/(^|,)\s*accept\s*(,|$)/i.test(vary)) {
+    headers.set("vary", vary ? `${vary}, Accept` : "Accept");
+  }
+
+  return new Response(markdown, {
+    status: response.status,
+    statusText: response.statusText,
+    headers,
+  });
 }
 
 async function handleContributors(env: Env | undefined): Promise<Response> {
@@ -413,9 +474,17 @@ export default {
       const rewrittenRequest =
         url.pathname !== originalPath ? new Request(url.toString(), request) : request;
 
+      // Ask the SSR handler for HTML even when the agent asked for markdown —
+      // it rejects any other Accept outright — and convert on the way out.
+      const markdown = wantsMarkdown(request);
+      const ssrRequest = markdown
+        ? new Request(rewrittenRequest, { headers: acceptHtml(rewrittenRequest.headers) })
+        : rewrittenRequest;
+
       const handler = await getServerEntry();
-      const response = await handler.fetch(rewrittenRequest, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      const response = await handler.fetch(ssrRequest, env, ctx);
+      const html = withAgentLinks(await normalizeCatastrophicSsrResponse(response));
+      return markdown ? await toMarkdownResponse(html) : html;
     } catch (error) {
       console.error(error);
       return brandedErrorResponse();
