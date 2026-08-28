@@ -187,3 +187,69 @@ describe("parseReadme", () => {
     expect(parseReadme("* [Text Corpora](#text-corpora)\n")).toEqual([]);
   });
 });
+
+describe("paper deduplication", () => {
+  it("collapses records that share a DOI under different titles", async () => {
+    const { dedupeForTest } = await import("../src/lib/sources/papers");
+    const out = dedupeForTest([
+      {
+        id: "https://doi.org/10.48550/arXiv.2109.10534",
+        title: "Odia Corpus: A Study",
+        authors: ["A"],
+        year: 2021,
+        venue: "arXiv",
+        url: "https://arxiv.org/abs/2109.10534",
+        abstract: "short",
+        openAccess: true,
+        tasks: ["Corpora & resources"],
+        sources: ["arxiv"],
+      },
+      {
+        id: "https://doi.org/10.48550/arxiv.2109.10534",
+        title: "Odia Corpus — A Study",
+        authors: ["A", "B"],
+        year: 2021,
+        venue: "LREC",
+        url: "https://doi.org/10.48550/arxiv.2109.10534",
+        abstract: "a much longer abstract with more detail",
+        openAccess: true,
+        tasks: ["Translation"],
+        sources: ["openalex"],
+      },
+    ]);
+
+    expect(out).toHaveLength(1);
+    expect(out[0].venue).toBe("LREC");
+    expect(out[0].abstract).toContain("longer abstract");
+    expect(out[0].authors).toEqual(["A", "B"]);
+    expect(out[0].tasks.sort()).toEqual(["Corpora & resources", "Translation"]);
+    expect(out[0].sources.sort()).toEqual(["arxiv", "openalex"]);
+  });
+
+  it("gives every surviving record a unique id — duplicate React keys drop rows", async () => {
+    const { dedupeForTest } = await import("../src/lib/sources/papers");
+    const base = {
+      authors: [],
+      year: 2020,
+      venue: "",
+      abstract: "",
+      openAccess: false,
+      tasks: [],
+      sources: [],
+    };
+    const out = dedupeForTest([
+      // Same DOI (registrant prefixes are 4-9 digits), different titles.
+      { ...base, id: "https://doi.org/10.18653/v1/2020.acl-1", title: "One", url: "u1" },
+      {
+        ...base,
+        id: "https://doi.org/10.18653/V1/2020.ACL-1",
+        title: "One but different",
+        url: "u2",
+      },
+      { ...base, id: "arxiv:1", title: "Two", url: "u3" },
+      { ...base, id: "arxiv:2", title: "two", url: "u4" },
+    ]);
+    expect(new Set(out.map((p) => p.id)).size).toBe(out.length);
+    expect(out).toHaveLength(2);
+  });
+});

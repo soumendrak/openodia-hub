@@ -510,6 +510,65 @@ sweep of all 14 routes at 375px / 1024px / 1280px / 1440px on a clean browser se
 
 ---
 
+### Follow-up: facet counts were lying (reported after review)
+
+**The bug.** Facet counts were computed over the *unfiltered* list, so they went
+stale the moment a first filter was applied. With `License = Apache-2.0` active
+(42 datasets), the Task facet still advertised "Translation (56)" — and selecting
+it returned 4, or for some combinations nothing at all. A count that doesn't
+survive being clicked is worse than no count.
+
+**The fix.** `lib/facets.ts` now computes each facet against the *other* facets'
+selections but not its own — standard disjunctive faceting. Selecting inside a
+facet is OR (picking MIT must not hide Apache-2.0 beside it); across facets it is
+AND. The invariant this buys: an option showing (n) with n > 0 returns exactly n,
+and where that facet already has a value selected, adding another widens the OR
+so the total grows past n. A positive count can never lead to a blank page.
+
+`computeFacets` also replaced four hand-rolled filter/count blocks across
+`/tools`, `/models`, `/datasets` and `/papers`, so the pages now share one
+implementation instead of four that could drift.
+
+**The design question it raised.** What should an option that has dropped to zero
+look like? Hiding it makes the row jump every time a filter changes and hides the
+shape of the data; leaving it clickable is the bug. So there are three chip
+states, distinguished by border treatment — solid (available), filled neon
+(selected), dashed + dimmed + `disabled` + explanatory `title` (out of reach).
+Zero options sort last, a *selected* option is never disabled (you must be able
+to undo what emptied the page), and counts are set in tabular figures so a chip
+does not change width when 44 becomes 8.
+
+`/treebank` had the same bug plus a subtler one: its facets counted *tokens*
+while its results are *sentences*. Both counts are now cross-filtered and
+counted in sentences — `deprel=root` takes the part-of-speech facet from
+"NOUN 446 / VERB 437" to "VERB 426 / NOUN 14", which is both correct and
+linguistically obvious in hindsight.
+
+**Found while validating this**
+
+| Found by | Fix |
+|----------|-----|
+| A duplicate React key on `/papers` | Papers were deduplicated by normalised title only, so one work indexed under two title spellings kept both records sharing a DOI — and React drops rows on duplicate keys. Records now merge on DOI *or* title, and the survivor takes the merge key as its id, unique by construction. 180 → 178 papers. |
+| The test for that fix | `(doi && map.get(doi)) ?? …` returns `""` for a missing DOI, and `??` does not fall through on `""` — so **every DOI-less paper would have collapsed into a single record**. Caught before it shipped because the test asserted uniqueness rather than just "it dedupes". |
+
+**Verification**
+
+Unit: a property test walks 8 filter combinations × every facet × every option
+and asserts the count matches the result exactly (or widens, within a facet).
+Tests 124 → 144.
+
+In-browser: on `/tools`, 42 option selections across all four facets with a hard
+reset between each — **42/42 exact, 0 failures, 27 zero-count options seen and 0
+of them clickable**. On `/datasets`, `License = Apache-2.0` takes Task from
+"Text Generation (107)" to "Other (13) / Text Generation (8) / Translation (4)",
+and each of those returns exactly what it promises. `/papers` 180 → 64 on a year
+filter with 12/12 exact. `/treebank` 5/5 exact.
+
+Gate re-run: `tsc` 0 errors · `lint` 0 errors / 16 warnings · `test` 157/157 ·
+`build` ok · 53/53 end-to-end assertions · 0 console errors.
+
+---
+
 ## 6. What is left
 
 Not attempted, and why — so the next pass starts from the truth rather than this document's

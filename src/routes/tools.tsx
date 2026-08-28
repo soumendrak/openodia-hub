@@ -8,7 +8,13 @@ import { GithubIcon } from "../components/icons";
 import { ActiveFilterBar, Chip, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
 import { ResourceMeta } from "../components/ResourceMeta";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
-import { buildFacet, toggleValue, type ActiveFilter } from "../lib/facets";
+import {
+  computeFacets,
+  toggleSelection,
+  type ActiveFilter,
+  type FacetDef,
+  type Selection,
+} from "../lib/facets";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 import { licenseFromProse, normalizeSpdx } from "../lib/license";
 import { refFromUrl, refToPath } from "../lib/resource-id";
@@ -90,17 +96,14 @@ function ToolsPage() {
   // hundreds of cards already visible.
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const [q, setQ] = useState("");
-  const [categories, setCategories] = useState<Set<string>>(new Set());
-  const [types, setTypes] = useState<Set<string>>(new Set());
-  const [licenses, setLicenses] = useState<Set<string>>(new Set());
-  const [orgs, setOrgs] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Selection>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
   const resetPage = () => setShownCount(PAGE_SIZE);
 
-  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) => {
-    setter((prev) => toggleValue(prev, value));
+  const toggle = (facet: string) => (value: string) => {
+    setSelected((prev) => toggleSelection(prev, facet, value));
     resetPage();
   };
 
@@ -158,75 +161,58 @@ function ToolsPage() {
   // Monday. Deterministic, so SSR and the client agree. See lib/weekly-picks.
   const featured = useMemo(() => pickWeeklyFeatured(repos, new Date()), [repos]);
 
-  // Categories surfaced in the order they appear in the merged list, so the
-  // curated Awesome ordering is preserved and "Code Repositories" lands last.
-  const categoryOptions = useMemo(() => {
-    const order: string[] = [];
-    const counts = new Map<string, number>();
-    for (const i of items) {
-      if (!counts.has(i.category)) order.push(i.category);
-      counts.set(i.category, (counts.get(i.category) ?? 0) + 1);
-    }
-    return order.map((value) => ({ value, label: value, count: counts.get(value) ?? 0 }));
+  // Categories keep the order they appear in the merged list, so the curated
+  // Awesome ordering is preserved and "Code Repositories" lands last.
+  const categoryOrder = useMemo(() => {
+    const order = new Map<string, number>();
+    for (const i of items) if (!order.has(i.category)) order.set(i.category, order.size);
+    return order;
   }, [items]);
 
-  const typeOptions = useMemo(
-    () =>
-      buildFacet(
-        items,
-        (i) => i.source,
-        (v) => TYPE_LABEL[v] ?? v,
-      ),
-    [items],
+  const facets: FacetDef<DirectoryItem>[] = useMemo(
+    () => [
+      { key: "type", title: "Source", values: (i) => [i.source], label: (v) => TYPE_LABEL[v] ?? v },
+      {
+        key: "category",
+        title: "Category",
+        values: (i) => [i.category],
+        order: (a, b) =>
+          (categoryOrder.get(a.value) ?? Infinity) - (categoryOrder.get(b.value) ?? Infinity),
+      },
+      // R7: the hub visibly hosts many actors, so the owning organisation is a
+      // first-class way to browse. Only entries resolving to a GitHub/HF
+      // account have one — a bare arxiv.org link is a paper, not an actor.
+      { key: "org", title: "Organisation", values: (i) => [i.org ?? ""] },
+      { key: "license", title: "License", values: (i) => [i.license] },
+    ],
+    [categoryOrder],
   );
-  const licenseOptions = useMemo(() => buildFacet(items, (i) => i.license), [items]);
-  // R7: the hub visibly hosts many actors, so the owning organisation is a
-  // first-class way to browse — not just a line of small text on a card.
-  // Only entries that resolve to a GitHub/Hugging Face account have an owning
-  // organisation. A bare link to arxiv.org is a paper, not an actor.
-  const orgOptions = useMemo(() => buildFacet(items, (i) => i.org ?? ""), [items]);
-
-  const activeFilters: ActiveFilter[] = [
-    ...[...types].map((v) => ({ facet: "type", value: v, label: TYPE_LABEL[v] ?? v })),
-    ...[...categories].map((v) => ({ facet: "category", value: v, label: v })),
-    ...[...licenses].map((v) => ({ facet: "license", value: v, label: v })),
-    ...[...orgs].map((v) => ({ facet: "org", value: v, label: v })),
-  ];
 
   const clearAll = () => {
-    setTypes(new Set());
-    setCategories(new Set());
-    setLicenses(new Set());
-    setOrgs(new Set());
+    setSelected({});
     setQ("");
     resetPage();
   };
 
-  const removeFilter = (f: ActiveFilter) => {
-    if (f.facet === "type") toggle(setTypes)(f.value);
-    else if (f.facet === "category") toggle(setCategories)(f.value);
-    else if (f.facet === "org") toggle(setOrgs)(f.value);
-    else toggle(setLicenses)(f.value);
-  };
+  const removeFilter = (f: ActiveFilter) => toggle(f.facet)(f.value);
 
-  const filtered = useMemo(() => {
-    if (!items.length) return [];
+  // Cross-filtered counts: each facet is counted against the *other* facets'
+  // selections, so a number is always what selecting it returns.
+  const {
+    filtered,
+    options,
+    active: activeFilters,
+  } = useMemo(() => {
     const lq = q.trim().toLowerCase();
-    return items.filter((i) => {
-      if (types.size > 0 && !types.has(i.source)) return false;
-      if (categories.size > 0 && !categories.has(i.category)) return false;
-      if (licenses.size > 0 && !licenses.has(i.license)) return false;
-      if (orgs.size > 0 && !(i.org && orgs.has(i.org))) return false;
-      if (!lq) return true;
-      return (
-        i.name.toLowerCase().includes(lq) ||
-        i.description.toLowerCase().includes(lq) ||
-        i.category.toLowerCase().includes(lq) ||
-        (i.subcategory ?? "").toLowerCase().includes(lq) ||
-        (i.language ?? "").toLowerCase().includes(lq)
-      );
-    });
-  }, [items, q, categories, types, licenses, orgs]);
+    const search = (i: DirectoryItem) =>
+      !lq ||
+      i.name.toLowerCase().includes(lq) ||
+      i.description.toLowerCase().includes(lq) ||
+      i.category.toLowerCase().includes(lq) ||
+      (i.subcategory ?? "").toLowerCase().includes(lq) ||
+      (i.language ?? "").toLowerCase().includes(lq);
+    return computeFacets(items, facets, selected, search);
+  }, [items, q, selected, facets]);
 
   const visibleItems = filtered.slice(0, shownCount);
   const hasMore = filtered.length > shownCount;
@@ -314,43 +300,18 @@ function ToolsPage() {
         </div>
 
         <div className="mt-5 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              Source
-            </span>
-            <Chip active={types.size === 0} onClick={() => setTypes(new Set())}>
-              All ({total})
-            </Chip>
-            {typeOptions.map((o) => (
-              <Chip
-                key={o.value}
-                active={types.has(o.value)}
-                onClick={() => toggle(setTypes)(o.value)}
-              >
-                {o.label} ({o.count})
-              </Chip>
-            ))}
-          </div>
-          <FacetGroup
-            title="Category"
-            options={categoryOptions}
-            selected={categories}
-            onToggle={toggle(setCategories)}
-            limit={8}
-          />
-          <FacetGroup
-            title="Organisation"
-            options={orgOptions}
-            selected={orgs}
-            onToggle={toggle(setOrgs)}
-            limit={10}
-          />
-          <FacetGroup
-            title="License"
-            options={licenseOptions}
-            selected={licenses}
-            onToggle={toggle(setLicenses)}
-          />
+          {/* The limits differ per facet: categories and organisations have long
+              tails, licenses do not. */}
+          {facets.map((f) => (
+            <FacetGroup
+              key={f.key}
+              title={f.title}
+              options={options[f.key]}
+              selected={selected[f.key] ?? new Set()}
+              onToggle={toggle(f.key)}
+              limit={f.key === "category" ? 8 : f.key === "org" ? 10 : 12}
+            />
+          ))}
         </div>
 
         <ActiveFilterBar filters={activeFilters} onRemove={removeFilter} onClearAll={clearAll} />
