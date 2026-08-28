@@ -7,13 +7,18 @@ import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
 import { settledValues } from "./lib/fetch-utils";
 import { loadAwesome } from "./lib/sources/awesome";
 import { loadRepos } from "./lib/sources/repos";
-import { setExecutionContext } from "./lib/sources/cache";
+import { setCacheStore, setExecutionContext } from "./lib/sources/cache";
 import { loadDatasets, loadModels } from "./lib/sources/huggingface";
 import type { Event } from "./data/events/types";
 
 type KVRead = { get: (key: string) => Promise<string | null> };
+type KVReadWrite = KVRead & {
+  put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>;
+};
 type Env = {
   CONTRIBUTORS_KV?: KVRead;
+  /** Global store behind cachedJson — see lib/sources/cache. */
+  CATALOG_KV?: KVReadWrite;
   EVENTS_DB?: D1Like;
 };
 
@@ -164,6 +169,9 @@ export default {
   async fetch(request: Request, env: Env | undefined, ctx: unknown) {
     // Lets cachedJson keep a background refresh alive past the response.
     setExecutionContext(ctx);
+    // The globally-replicated layer behind the in-isolate memo. Without it a
+    // cold isolate re-runs the whole upstream fan-out on the request path.
+    setCacheStore(env?.CATALOG_KV);
     try {
       // URL rewrites: map dot-path URLs to TanStack Router paths
       // TanStack Router treats dots as path separators in file-based routing,
@@ -414,12 +422,17 @@ export default {
     }
   },
 
-  // Cloudflare cron trigger (configured in wrangler.jsonc). Refreshes the
-  // EVENTS_DB from Bevy daily so the request path never has to scrape.
-  async scheduled(_event: unknown, env: Env | undefined, _ctx: unknown): Promise<void> {
-    // Populate the edge cache for the catalog sources. Without this the first
-    // visitor to a cold colo pays the full GitHub + Hugging Face fan-out, and
-    // the home page's ecosystem counts hit their deadline and drop a tile.
+  // Cloudflare cron trigger (configured in wrangler.jsonc, every 6h). Warms the
+  // catalog cache and refreshes EVENTS_DB from Bevy so the request path never
+  // has to fan out or scrape.
+  async scheduled(_event: unknown, env: Env | undefined, ctx: unknown): Promise<void> {
+    setExecutionContext(ctx);
+    setCacheStore(env?.CATALOG_KV);
+    // Refresh the catalog sources into KV. This used to warm `caches.default`,
+    // which is per-colo — so it only ever helped the one colo the cron happened
+    // to run in, and every other colo still paid the full GitHub + Hugging Face
+    // fan-out on the request path. KV is replicated, so one run warms all of
+    // them, and the home page's ecosystem counts stop hitting their deadline.
     await Promise.allSettled(
       [
         ["awesome", loadAwesome],

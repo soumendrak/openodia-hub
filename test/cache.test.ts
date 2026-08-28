@@ -75,4 +75,80 @@ describe("cachedJson", () => {
     expect(await cachedJson("k", TTL, load)).toBe("v2");
     expect(lastCacheLayer()).toBe("MISS");
   });
+
+  /**
+   * The layer that matters. `caches.default` was per-colo, so it never served a
+   * cold isolate outside the one colo that wrote it — in production ~85% of
+   * requests reported MISS and re-ran the whole upstream fan-out. A store that
+   * is not consulted on a cold memo is the bug, so that is what is asserted.
+   */
+  describe("the global store", () => {
+    /** Minimal stand-in for the KV binding. */
+    function fakeKv() {
+      const data = new Map<string, string>();
+      return {
+        data,
+        get: vi.fn(async (k: string) => data.get(k) ?? null),
+        put: vi.fn(async (k: string, v: string) => void data.set(k, v)),
+      };
+    }
+
+    it("serves a cold isolate from the store instead of re-running the loader", async () => {
+      const kv = fakeKv();
+
+      const first = await freshCache();
+      first.setCacheStore(kv);
+      const load = vi.fn(async () => "v1");
+      expect(await first.cachedJson("k", TTL, load)).toBe("v1");
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(kv.put).toHaveBeenCalledTimes(1);
+
+      // A new isolate: empty memo, same replicated store.
+      const second = await freshCache();
+      second.setCacheStore(kv);
+      const coldLoad = vi.fn(async () => "v2");
+      expect(await second.cachedJson("k", TTL, coldLoad)).toBe("v1");
+      expect(coldLoad).not.toHaveBeenCalled();
+      expect(second.lastCacheLayer()).toBe("KV");
+    });
+
+    it("still writes through the store on a refresh so other colos see it", async () => {
+      const kv = fakeKv();
+      const mod = await freshCache();
+      mod.setCacheStore(kv);
+
+      await mod.cachedJson("k", TTL, async () => "v1");
+      vi.advanceTimersByTime(TTL + 1);
+      await mod.cachedJson("k", TTL, async () => "v2"); // stale -> refresh behind
+      await vi.waitFor(() => expect(kv.put).toHaveBeenCalledTimes(2));
+
+      const cold = await freshCache();
+      cold.setCacheStore(kv);
+      expect(await cold.cachedJson("k", TTL, async () => "unused")).toBe("v2");
+    });
+
+    it("degrades to memo-only when the namespace is not bound", async () => {
+      const mod = await freshCache();
+      mod.setCacheStore(undefined); // binding absent
+
+      const load = vi.fn(async () => "v1");
+      expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+      expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(mod.lastCacheLayer()).toBe("MEMO");
+    });
+
+    it("survives a store that throws rather than failing the request", async () => {
+      const mod = await freshCache();
+      mod.setCacheStore({
+        get: async () => {
+          throw new Error("kv down");
+        },
+        put: async () => {
+          throw new Error("kv down");
+        },
+      });
+      expect(await mod.cachedJson("k", TTL, async () => "v1")).toBe("v1");
+    });
+  });
 });
