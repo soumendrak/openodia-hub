@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Quote } from "lucide-react";
 import { isPermissive } from "../lib/license";
 import { toApa, toBibTeX, type CitableEntry } from "../lib/citation";
@@ -10,6 +10,11 @@ import { toApa, toBibTeX, type CitableEntry } from "../lib/citation";
  * The whole row lives *outside* the card's anchor — a <button> inside an <a>
  * is invalid HTML and doubles the tab stop. Disclosure is a native <details>,
  * so citations cost no JS until someone asks for them.
+ *
+ * The body is also not *rendered* until then. It used to be: a closed <details>
+ * hides its contents visually but still ships, parses and hydrates them, and on
+ * /tools that was 30 cards x (two copy buttons, two inline SVGs, a BibTeX blob
+ * and an APA blob) — 58% of the page's markup for a panel almost nobody opens.
  */
 
 export function LicenseBadge({ spdx }: { spdx: string }) {
@@ -85,8 +90,22 @@ export function ResourceMeta({
   entry: CitableEntry;
   extra?: React.ReactNode;
 }) {
+  const ref = useRef<HTMLDetailsElement>(null);
+  const [open, setOpen] = useState(false);
+
+  // A click that lands before hydration toggles the element without firing our
+  // React handler, so the panel would stay empty until it was closed and
+  // reopened. Read the DOM's own state once on mount to catch that.
+  useEffect(() => {
+    if (ref.current?.open) setOpen(true);
+  }, []);
+
   return (
-    <details className="border-t border-border">
+    <details
+      ref={ref}
+      className="border-t border-border"
+      onToggle={(e) => setOpen(e.currentTarget.open)}
+    >
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-5 py-3 [&::-webkit-details-marker]:hidden">
         <LicenseBadge spdx={license} />
         {extra}
@@ -95,13 +114,16 @@ export function ResourceMeta({
           Cite
         </span>
       </summary>
-      <div className="px-5 pb-4">
-        <CopyRow label="BibTeX" value={toBibTeX(entry)} />
-        <CopyRow label="APA" value={toApa(entry)} />
-        <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
-          Generated from the catalog entry. If the project publishes its own citation, prefer that.
-        </p>
-      </div>
+      {open && (
+        <div className="px-5 pb-4">
+          <CopyRow label="BibTeX" value={toBibTeX(entry)} />
+          <CopyRow label="APA" value={toApa(entry)} />
+          <p className="mt-2 text-[10px] leading-relaxed text-muted-foreground">
+            Generated from the catalog entry. If the project publishes its own citation, prefer
+            that.
+          </p>
+        </div>
+      )}
     </details>
   );
 }
