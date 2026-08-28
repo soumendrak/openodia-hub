@@ -1,10 +1,16 @@
 /**
  * Two-layer cache for upstream fan-outs, with stale-while-revalidate.
  *
- *   1. An in-isolate memo — the layer that actually fires, and the only one
- *      that works in local dev (`caches.default` is a no-op there).
- *   2. The Workers edge cache — shared across isolates in the same colo, so a
- *      cold isolate doesn't have to re-fan-out.
+ *   1. An in-isolate memo — the fastest layer, but it dies with the isolate.
+ *   2. Workers KV — globally replicated, so a cold isolate in *any* colo reads
+ *      a value another colo (or the cron) wrote.
+ *
+ * Layer 2 used to be `caches.default`. That cache is per-colo, so it only ever
+ * warmed the one colo that happened to populate it: measured in production,
+ * ~85% of /api/repos requests reported MISS and paid the full ~130-call GitHub
+ * fan-out at 3.6-5.0s TTFB, and the EDGE layer was never once observed serving.
+ * The daily cron warm-up had the same blind spot — it warms whichever colo it
+ * runs in and no other. KV is replicated, so one write serves every colo.
  *
  * Values are cached, not Responses, because route loaders (SSR) and the
  * `/api/*` handlers both consume them.
@@ -16,16 +22,28 @@
  * arriving on a cold key triggers one fan-out, not one per request.
  */
 
-type EdgeCache = {
-  match: (key: string) => Promise<Response | undefined>;
-  put: (key: string, response: Response) => Promise<void>;
+/** The slice of the Workers KV binding this uses. */
+type KvStore = {
+  get: (key: string) => Promise<string | null>;
+  put: (key: string, value: string, options?: { expirationTtl?: number }) => Promise<void>;
 };
 
 /** `{ at, value }` — the age has to travel with the value for SWR to work. */
 type Entry<T> = { at: number; value: T };
 
-function edgeCache(): EdgeCache | undefined {
-  return (globalThis as { caches?: { default?: EdgeCache } }).caches?.default;
+let store: KvStore | undefined;
+
+/**
+ * Hands the Worker's KV binding to the cache. Called from both the fetch and
+ * scheduled handlers; without it the cache degrades to memo-only, which is
+ * exactly the behaviour this replaced, so an unbound namespace is survivable
+ * rather than fatal.
+ */
+export function setCacheStore(binding: unknown): void {
+  const kv = binding as KvStore | undefined;
+  if (kv && typeof kv.get === "function" && typeof kv.put === "function") {
+    store = kv;
+  }
 }
 
 /**
@@ -35,8 +53,9 @@ function edgeCache(): EdgeCache | undefined {
  */
 const STALE_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-// v2: entries are `{ at, value }` envelopes now, so old bodies must not be read.
-const CACHE_PREFIX = "https://openodia.com/__cache/v2/";
+// v3: the store moved from the Cache API to KV, so keys are plain strings and
+// nothing written under the old scheme should be read.
+const CACHE_PREFIX = "cache:v3:";
 
 const memo = new Map<string, Entry<unknown>>();
 const inflight = new Map<string, Promise<unknown>>();
@@ -57,7 +76,7 @@ export function setExecutionContext(ctx: unknown): void {
 }
 
 /** Where a value came from — surfaced as `X-Cache` on the `/api/*` responses. */
-export type CacheLayer = "MEMO" | "EDGE" | "STALE" | "MISS";
+export type CacheLayer = "MEMO" | "KV" | "STALE" | "MISS";
 
 let lastLayer: CacheLayer = "MISS";
 
@@ -66,15 +85,22 @@ export function lastCacheLayer(): CacheLayer {
   return lastLayer;
 }
 
-async function readEdge<T>(key: string): Promise<Entry<T> | undefined> {
+async function readStore<T>(key: string): Promise<Entry<T> | undefined> {
   try {
-    const stored = await edgeCache()?.match(CACHE_PREFIX + key);
-    if (!stored) return undefined;
-    const entry = (await stored.json()) as Entry<T>;
+    const raw = await store?.get(CACHE_PREFIX + key);
+    if (!raw) return undefined;
+    const entry = JSON.parse(raw) as Entry<T>;
     return typeof entry?.at === "number" ? entry : undefined;
   } catch {
     return undefined;
   }
+}
+
+async function writeStore<T>(key: string, entry: Entry<T>, ttlMs: number): Promise<void> {
+  // The stored copy has to outlive the TTL for stale serving to work. KV's
+  // floor for expirationTtl is 60s, which every caller here clears comfortably.
+  const expirationTtl = Math.round((ttlMs + STALE_WINDOW_MS) / 1000);
+  await store?.put(CACHE_PREFIX + key, JSON.stringify(entry), { expirationTtl });
 }
 
 /**
@@ -91,18 +117,14 @@ function refresh<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise
     const value = await load();
     const entry: Entry<T> = { at: Date.now(), value };
     memo.set(key, entry);
-    await edgeCache()
-      ?.put(
-        CACHE_PREFIX + key,
-        new Response(JSON.stringify(entry), {
-          headers: {
-            "Content-Type": "application/json",
-            // The edge copy has to outlive the TTL for stale serving to work.
-            "Cache-Control": `public, s-maxage=${Math.round((ttlMs + STALE_WINDOW_MS) / 1000)}`,
-          },
-        }),
-      )
-      .catch(() => {});
+    // The caller is already waiting on the fan-out; don't make it wait on the
+    // write too. waitUntil keeps it alive past the response where there is a
+    // ctx to hang it on, and the cron path has none, so it awaits.
+    const write = writeStore(key, entry, ttlMs).catch((err) => {
+      console.warn(`cache write ${key}:`, err);
+    });
+    if (executionCtx) executionCtx.waitUntil(write);
+    else await write;
     return value;
   })().finally(() => inflight.delete(key));
 
@@ -119,10 +141,10 @@ export async function cachedJson<T>(
   let layer: CacheLayer = "MEMO";
 
   if (!entry) {
-    entry = await readEdge<T>(key);
+    entry = await readStore<T>(key);
     if (entry) {
       memo.set(key, entry);
-      layer = "EDGE";
+      layer = "KV";
     }
   }
 
