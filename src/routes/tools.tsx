@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useMemo, useState, useRef } from "react";
-import { motion } from "framer-motion";
+import { useDeferredValue, useMemo, useState, useRef } from "react";
 import { Search, ExternalLink, RefreshCw, Star, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon } from "../components/icons";
@@ -148,8 +147,6 @@ function ToolsPage() {
     return [...tools, ...repoItems];
   }, [awesome, repos]);
 
-  const total = items.length;
-
   // Five repos featured above the directory, drawn from a seeded shuffle keyed
   // on the ISO week — same set for every visitor all week, rotates itself every
   // Monday. Deterministic, so SSR and the client agree. See lib/weekly-picks.
@@ -192,12 +189,17 @@ function ToolsPage() {
 
   // Cross-filtered counts: each facet is counted against the *other* facets'
   // selections, so a number is always what selecting it returns.
+  // The input renders from `q` so keystrokes always land immediately; the
+  // ~300-item facet recount runs off the deferred copy, so a fast typist is
+  // never waiting on a grid re-render between characters.
+  const deferredQ = useDeferredValue(q);
+
   const {
     filtered,
     options,
     active: activeFilters,
   } = useMemo(() => {
-    const lq = q.trim().toLowerCase();
+    const lq = deferredQ.trim().toLowerCase();
     const search = (i: DirectoryItem) =>
       !lq ||
       i.name.toLowerCase().includes(lq) ||
@@ -206,7 +208,7 @@ function ToolsPage() {
       (i.subcategory ?? "").toLowerCase().includes(lq) ||
       (i.language ?? "").toLowerCase().includes(lq);
     return computeFacets(items, facets, selected, search);
-  }, [items, q, selected, facets]);
+  }, [items, deferredQ, selected, facets]);
 
   const visibleItems = filtered.slice(0, shownCount);
   const hasMore = filtered.length > shownCount;
@@ -335,18 +337,15 @@ function ToolsPage() {
         {visibleItems.length === 0 ? (
           <EmptyResults query={q} filters={activeFilters} onClearAll={clearAll} noun="projects" />
         ) : (
-          visibleItems.map((item, i) => (
-            <motion.div
+          // No entrance animation and no stagger on the cards. Thirty JS
+          // springs re-running on every keystroke, filter toggle, and Load
+          // more was the single slowest thing on this page — and a result
+          // that fades in after you have already read the count reads as
+          // lag, not polish. Results appear the instant they are filtered.
+          visibleItems.map((item) => (
+            <div
               key={item.key}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                type: "spring",
-                stiffness: 200,
-                damping: 20,
-                delay: Math.min(i, 12) * 0.02,
-              }}
-              className="group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-surface transition hover:border-neon/40"
+              className="group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-surface transition-colors hover:border-neon/40"
             >
               <CardLink item={item}>
                 <div className="flex items-center justify-between gap-2">
@@ -400,7 +399,7 @@ function ToolsPage() {
                   createdAt: item.createdAt,
                 }}
               />
-            </motion.div>
+            </div>
           ))
         )}
       </div>
@@ -481,12 +480,11 @@ function SectionLabel({ tag, note }: { tag: string; note?: string }) {
 function HeroCard({ repo }: { repo: Repo }) {
   const owner = repo.full_name.split("/")[0];
   return (
-    <motion.a
+    <a
       href={repo.html_url}
       target="_blank"
       rel="noreferrer"
-      whileHover={{ y: -4 }}
-      className="group relative flex min-h-[235px] items-end overflow-hidden rounded-2xl border border-border bg-surface transition hover:border-neon/50"
+      className="group hover-lift relative flex min-h-[235px] items-end overflow-hidden rounded-2xl border border-border bg-surface transition-colors hover:border-neon/50"
     >
       {/* Blurred repo card as ambient backdrop — decorative, so alt="".
           opengraph.githubassets.com rate-limits hard (429); hide the broken
@@ -532,19 +530,18 @@ function HeroCard({ repo }: { repo: Repo }) {
           <ExternalLink size={14} className="ml-auto transition group-hover:text-neon" />
         </div>
       </div>
-    </motion.a>
+    </a>
   );
 }
 
 function ReelCard({ repo }: { repo: Repo }) {
   const owner = repo.full_name.split("/")[0];
   return (
-    <motion.a
+    <a
       href={repo.html_url}
       target="_blank"
       rel="noreferrer"
-      whileHover={{ y: -4 }}
-      className="group relative flex min-h-[118px] flex-col justify-end gap-1 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition hover:border-neon/50"
+      className="group hover-lift relative flex min-h-[118px] flex-col justify-end gap-1 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition-colors hover:border-neon/50"
     >
       <span
         aria-hidden="true"
@@ -569,6 +566,6 @@ function ReelCard({ repo }: { repo: Repo }) {
         </span>
         {repo.language ?? "Resource"}
       </span>
-    </motion.a>
+    </a>
   );
 }

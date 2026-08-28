@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { motion } from "framer-motion";
 import { ArrowRight, Sparkles, Boxes, Database, Users } from "lucide-react";
 import { MagneticButton } from "../components/MagneticButton";
 import { Reveal } from "../components/Reveal";
@@ -106,51 +105,25 @@ function Hero() {
   const words = HEADLINE.split(" ");
   return (
     <section className="relative mx-auto max-w-6xl px-4 pb-24 pt-12 md:pt-20">
-      <motion.span
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md"
-      >
+      <span className="anim-in inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md">
         <Sparkles size={14} className="text-neon" />
         Open source community for the Odia language
-      </motion.span>
+      </span>
 
       <h1 className="mt-6 font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
         {words.map((w, i) => (
-          <motion.span
-            key={i}
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{
-              type: "spring",
-              stiffness: 90,
-              damping: 14,
-              delay: 0.15 + i * 0.08,
-            }}
-            className="mr-3 inline-block"
-          >
+          <span key={i} className="anim-in mr-3 inline-block">
             {w === "ଓଡ଼ିଆ." ? <span className="text-gradient">{w}</span> : w}
-          </motion.span>
+          </span>
         ))}
       </h1>
 
-      <motion.p
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7 }}
-        className="mt-6 max-w-2xl text-lg text-muted-foreground"
-      >
+      <p className="anim-in mt-6 max-w-2xl text-lg text-muted-foreground">
         A growing constellation of tools, libraries, models, and datasets — built by the Odia
         community to make ଓଡ଼ିଆ a first-class citizen in modern AI and software.
-      </motion.p>
+      </p>
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.85 }}
-        className="mt-8 flex flex-wrap items-center gap-3"
-      >
+      <div className="anim-in mt-8 flex flex-wrap items-center gap-3">
         {/* Both CTAs point into the ecosystem — the hub is the directory, not
             any one project inside it. */}
         <Link to="/tools">
@@ -163,17 +136,14 @@ function Hero() {
             <Boxes size={16} /> Browse models & datasets
           </MagneticButton>
         </Link>
-      </motion.div>
+      </div>
 
-      <motion.div
+      <div
         aria-hidden
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.4, type: "spring" }}
-        className="pointer-events-none absolute right-4 top-12 hidden text-[18rem] font-display font-bold leading-none text-neon/10 md:block animate-float"
+        className="anim-fade pointer-events-none absolute right-4 top-12 hidden text-[18rem] font-display font-bold leading-none text-neon/10 md:block animate-float"
       >
         ଓ
-      </motion.div>
+      </div>
     </section>
   );
 }
@@ -234,11 +204,7 @@ function Pillars() {
 function PillarCard(p: (typeof pillars)[number]) {
   return (
     <Link to={p.href} className="block h-full">
-      <motion.div
-        whileHover={{ y: -6, rotate: -0.4 }}
-        transition={{ type: "spring", stiffness: 250, damping: 18 }}
-        className="group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface p-6"
-      >
+      <div className="hover-lift group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface p-6">
         <div
           className={`mb-5 grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br ${p.color} text-primary-foreground`}
         >
@@ -254,7 +220,7 @@ function PillarCard(p: (typeof pillars)[number]) {
           aria-hidden
           className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br from-neon/20 to-magenta/20 blur-3xl"
         />
-      </motion.div>
+      </div>
     </Link>
   );
 }

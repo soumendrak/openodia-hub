@@ -1,7 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useMemo, useState, useRef } from "react";
-import { motion } from "framer-motion";
 import { Search, ExternalLink, Heart, Download, ChevronDown, Database } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
@@ -205,18 +204,10 @@ function DatasetsPage() {
         {filtered.length === 0 ? (
           <EmptyResults query={q} filters={activeFilters} onClearAll={clearAll} noun="datasets" />
         ) : (
-          filtered.slice(0, shownCount).map((d, i) => (
-            <motion.div
+          filtered.slice(0, shownCount).map((d) => (
+            <div
               key={d.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{
-                type: "spring",
-                stiffness: 200,
-                damping: 20,
-                delay: Math.min(i, 12) * 0.02,
-              }}
-              className="group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-surface transition hover:border-neon/40"
+              className="anim-in group flex h-full min-w-0 flex-col rounded-2xl border border-border bg-surface transition hover:border-neon/40"
             >
               <Link
                 to={refToPath({ kind: "dataset", id: d.id })}
@@ -265,7 +256,7 @@ function DatasetsPage() {
                   </span>
                 ))}
               />
-            </motion.div>
+            </div>
           ))
         )}
       </div>

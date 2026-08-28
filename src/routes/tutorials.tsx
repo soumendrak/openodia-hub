@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useState, useRef } from "react";
-import { motion } from "framer-motion";
 import { Play, ExternalLink, ListVideo, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
@@ -171,13 +170,11 @@ function VideoCard({ video, index }: { video: Video; index: number }) {
 
   return (
     <Reveal delay={(index % 4) * 0.05}>
-      <motion.a
-        whileHover={{ y: -4 }}
-        transition={{ type: "spring", stiffness: 250, damping: 18 }}
+      <a
         href={`https://www.youtube.com/watch?v=${video.id}`}
         target="_blank"
         rel="noreferrer"
-        className="group block overflow-hidden rounded-2xl border border-border bg-surface transition hover:border-neon/40"
+        className="hover-lift group block overflow-hidden rounded-2xl border border-border bg-surface transition hover:border-neon/40"
       >
         <div className="relative aspect-video overflow-hidden bg-surface-2">
           <img
@@ -206,7 +203,7 @@ function VideoCard({ video, index }: { video: Video; index: number }) {
             {video.title}
           </h3>
         </div>
-      </motion.a>
+      </a>
     </Reveal>
   );
 }
@@ -214,13 +211,11 @@ function VideoCard({ video, index }: { video: Video; index: number }) {
 function PlaylistCard({ playlist, index }: { playlist: Playlist; index: number }) {
   return (
     <Reveal delay={(index % 4) * 0.05}>
-      <motion.a
-        whileHover={{ y: -3 }}
-        transition={{ type: "spring", stiffness: 250, damping: 18 }}
+      <a
         href={`https://www.youtube.com/playlist?list=${playlist.id}`}
         target="_blank"
         rel="noreferrer"
-        className="group flex gap-3 rounded-xl border border-border bg-surface p-3 transition hover:border-neon/40"
+        className="hover-lift group flex gap-3 rounded-xl border border-border bg-surface p-3 transition hover:border-neon/40"
       >
         <div
           className="relative shrink-0 overflow-hidden rounded-lg"
@@ -251,7 +246,7 @@ function PlaylistCard({ playlist, index }: { playlist: Playlist; index: number }
             </p>
           )}
         </div>
-      </motion.a>
+      </a>
     </Reveal>
   );
 }

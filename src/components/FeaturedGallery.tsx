@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import { Download, ExternalLink, Heart } from "lucide-react";
 
 /**
@@ -67,12 +66,11 @@ function SectionLabel({ tag, note }: { tag: string; note?: string }) {
 
 function HeroCard({ item }: { item: FeaturedItem }) {
   return (
-    <motion.a
+    <a
       href={item.url}
       target="_blank"
       rel="noreferrer"
-      whileHover={{ y: -4 }}
-      className="group relative flex min-h-[210px] items-end overflow-hidden rounded-2xl border border-border bg-surface transition hover:border-neon/50"
+      className="hover-lift group relative flex min-h-[210px] items-end overflow-hidden rounded-2xl border border-border bg-surface transition hover:border-neon/50"
     >
       <span
         aria-hidden="true"
@@ -107,18 +105,17 @@ function HeroCard({ item }: { item: FeaturedItem }) {
           <ExternalLink size={14} className="ml-auto transition group-hover:text-neon" />
         </div>
       </div>
-    </motion.a>
+    </a>
   );
 }
 
 function ReelCard({ item }: { item: FeaturedItem }) {
   return (
-    <motion.a
+    <a
       href={item.url}
       target="_blank"
       rel="noreferrer"
-      whileHover={{ y: -4 }}
-      className="group relative flex min-h-[118px] flex-col justify-end gap-1 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition hover:border-neon/50"
+      className="hover-lift group relative flex min-h-[118px] flex-col justify-end gap-1 overflow-hidden rounded-2xl border border-border bg-surface p-4 transition hover:border-neon/50"
     >
       <span
         aria-hidden="true"
@@ -138,6 +135,6 @@ function ReelCard({ item }: { item: FeaturedItem }) {
           <Heart size={11} className="text-saffron" /> {formatCount(item.likes)}
         </span>
       </span>
-    </motion.a>
+    </a>
   );
 }

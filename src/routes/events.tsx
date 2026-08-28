@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { motion, AnimatePresence } from "framer-motion";
 import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
@@ -40,21 +39,17 @@ const TYPE_COLORS: Record<Event["type"], string> = {
   Talk: "border-sky-500/40 text-sky-400",
 };
 
-function EventCard({ event, index }: { event: Event; index: number }) {
+function EventCard({ event }: { event: Event }) {
   const isUpcoming = event.status === "upcoming";
   const isLive = event.status === "live";
   return (
-    <motion.a
+    <a
       href={event.url}
       target="_blank"
       rel="noreferrer"
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ type: "spring", stiffness: 200, damping: 20, delay: index * 0.05 }}
-      whileHover={{ y: -3 }}
       // min-w-0: grid items default to min-width:auto, so a long unbroken venue
       // or title sets the card's minimum width and pushes the row past 375px.
-      className={`group flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
+      className={`anim-in hover-lift group flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
         isLive
           ? "border-green-500/60 hover:border-green-400"
           : isUpcoming
@@ -105,7 +100,7 @@ function EventCard({ event, index }: { event: Event; index: number }) {
       {event.theme && <p className="text-xs italic text-neon/80">&ldquo;{event.theme}&rdquo;</p>}
 
       <p className="text-sm leading-relaxed text-muted-foreground">{event.description}</p>
-    </motion.a>
+    </a>
   );
 }
 
@@ -622,7 +617,7 @@ function EventsPage() {
           ) : (
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               {filtered.map((e, i) => (
-                <EventCard key={e.url + i} event={e} index={i} />
+                <EventCard key={e.url + i} event={e} />
               ))}
             </div>
           )}
@@ -694,45 +689,37 @@ function EventsPage() {
                       </div>
 
                       {/* Sub-months accordion */}
-                      <AnimatePresence initial={false}>
-                        {isActiveYear && months.length > 0 && (
-                          <motion.div
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: 0.25, ease: "easeInOut" }}
-                            className="overflow-hidden flex flex-col gap-2 py-1.5"
-                          >
-                            {months.map((month) => {
-                              const isMonthActive = activeMonth === month;
-                              return (
+                      {isActiveYear && months.length > 0 && (
+                        <div className="anim-fade overflow-hidden flex flex-col gap-2 py-1.5">
+                          {months.map((month) => {
+                            const isMonthActive = activeMonth === month;
+                            return (
+                              <div
+                                key={month}
+                                onClick={() => scrollToId(`month-${year}-${month.toLowerCase()}`)}
+                                className="flex items-center cursor-pointer group/month relative py-0.5 pl-8"
+                              >
                                 <div
-                                  key={month}
-                                  onClick={() => scrollToId(`month-${year}-${month.toLowerCase()}`)}
-                                  className="flex items-center cursor-pointer group/month relative py-0.5 pl-8"
+                                  className={`absolute left-[13px] w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                                    isMonthActive
+                                      ? "bg-neon glow scale-125"
+                                      : "bg-muted-foreground/30 group-hover/month:bg-neon/60"
+                                  }`}
+                                />
+                                <span
+                                  className={`text-xs transition-colors duration-300 ${
+                                    isMonthActive
+                                      ? "text-neon font-medium"
+                                      : "text-muted-foreground group-hover/month:text-foreground"
+                                  }`}
                                 >
-                                  <div
-                                    className={`absolute left-[13px] w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                                      isMonthActive
-                                        ? "bg-neon glow scale-125"
-                                        : "bg-muted-foreground/30 group-hover/month:bg-neon/60"
-                                    }`}
-                                  />
-                                  <span
-                                    className={`text-xs transition-colors duration-300 ${
-                                      isMonthActive
-                                        ? "text-neon font-medium"
-                                        : "text-muted-foreground group-hover/month:text-foreground"
-                                    }`}
-                                  >
-                                    {month}
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
+                                  {month}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -753,7 +740,7 @@ function EventsPage() {
                   </div>
                   <div className="mt-6 grid gap-4 sm:grid-cols-2">
                     {filteredUpcomingEvents.map((e, i) => (
-                      <EventCard key={e.url + i} event={e} index={i} />
+                      <EventCard key={e.url + i} event={e} />
                     ))}
                   </div>
                 </Reveal>
@@ -807,7 +794,7 @@ function EventsPage() {
                             </Reveal>
                             <div className="grid gap-4 sm:grid-cols-2">
                               {evs.map((e, i) => (
-                                <EventCard key={e.url + i} event={e} index={i} />
+                                <EventCard key={e.url + i} event={e} />
                               ))}
                             </div>
                           </div>

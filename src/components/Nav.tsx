@@ -1,7 +1,6 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Menu, X, Sun, Moon, Search, Languages, Sparkles } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 
 /** `highlight` gives Playground the accent treatment — it's the one tab that
@@ -81,13 +80,7 @@ export function Nav() {
                         : "border-transparent text-muted-foreground hover:text-foreground"
                     }`}
                   >
-                    {active && (
-                      <motion.span
-                        layoutId="nav-pill"
-                        className="absolute inset-0 rounded-lg bg-surface-2"
-                        transition={{ type: "spring", stiffness: 380, damping: 30 }}
-                      />
-                    )}
+                    {active && <span className="absolute inset-0 rounded-lg bg-surface-2" />}
                     <span className="relative inline-flex items-center gap-1.5">
                       {l.highlight && <Sparkles size={13} />}
                       {t(l.labelKey)}
@@ -140,32 +133,25 @@ export function Nav() {
           </div>
         </div>
 
-        <AnimatePresence>
-          {open && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl xl:hidden"
-            >
-              {links.map((l) => (
-                <Link
-                  key={l.to}
-                  to={l.to}
-                  onClick={() => setOpen(false)}
-                  className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
-                    l.highlight
-                      ? "border-neon/40 bg-neon/5 text-neon"
-                      : "border-transparent hover:bg-surface-2"
-                  }`}
-                >
-                  {l.highlight && <Sparkles size={14} />}
-                  {t(l.labelKey)}
-                </Link>
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {open && (
+          <div className="anim-in mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl xl:hidden">
+            {links.map((l) => (
+              <Link
+                key={l.to}
+                to={l.to}
+                onClick={() => setOpen(false)}
+                className={`flex items-center gap-2 rounded-lg border px-4 py-3 text-sm ${
+                  l.highlight
+                    ? "border-neon/40 bg-neon/5 text-neon"
+                    : "border-transparent hover:bg-surface-2"
+                }`}
+              >
+                {l.highlight && <Sparkles size={14} />}
+                {t(l.labelKey)}
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </header>
   );

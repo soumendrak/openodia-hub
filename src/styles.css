@@ -7,7 +7,7 @@
 @theme inline {
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -216,9 +216,12 @@
       box-shadow 0.2s ease;
   }
 
+  html {
+    background-color: var(--color-background);
+  }
+
   html,
   body {
-    background-color: var(--color-background);
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
@@ -229,9 +232,21 @@
       box-shadow 0.3s ease;
   }
 
-  body {
+  /* The hero wash sits on its own fixed layer rather than on the body as
+     `background-attachment: fixed`. That property makes the browser
+     re-rasterise three full-viewport radial gradients on every scroll frame,
+     which was most of the scroll jank on the long catalog pages. A fixed
+     pseudo-element is painted once and composited from then on.
+
+     The background-color stays on <html> so it still propagates to the canvas;
+     giving <body> one as well would paint over this layer. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
     background-image: var(--gradient-hero);
-    background-attachment: fixed;
     background-repeat: no-repeat;
   }
 
@@ -301,6 +316,66 @@
 }
 .animate-float {
   animation: float 8s ease-in-out infinite;
+}
+
+/* ── Motion vocabulary ──────────────────────────────────────────────────
+   Every entrance and hover on the site is CSS, not JS. It runs on the
+   compositor, costs nothing on the main thread, and needs no hydration
+   before content is visible.
+
+   The timings are the point. The previous framer-motion version held
+   content behind an IntersectionObserver and then sprang it in over
+   ~600ms; a page you have to wait to read feels slow no matter how fast
+   it loaded. 220ms reads as "crisp", anything past ~350ms reads as
+   "still loading". `both` so the element is never painted at its
+   pre-animation opacity after the animation ends.
+
+   prefers-reduced-motion is handled by the global block below. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 12px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.anim-in {
+  animation: rise-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Fade with no travel — for things already in place, like a dropdown. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.anim-fade {
+  animation: fade-in 0.16s ease-out both;
+}
+
+/* Card hover lift. Deliberately faster than the entrance: a hover that
+   takes 300ms to respond feels broken, because the pointer is already
+   somewhere else. */
+.hover-lift {
+  /* border-color and box-shadow are re-declared here on purpose. This rule is
+     unlayered, so its shorthand beats Tailwind's `transition`/`transition-colors`
+     utilities on the same element — declaring transform alone would silently
+     drop the border fade these cards rely on and make the hover snap. */
+  transition:
+    transform 0.16s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
 }
 
 @media (prefers-reduced-motion: reduce) {
