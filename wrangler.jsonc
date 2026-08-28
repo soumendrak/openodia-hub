@@ -12,18 +12,13 @@
   // One-time setup: `wrangler kv namespace create CONTRIBUTORS_KV`,
   // then paste the returned id below. Populated daily by .github/workflows/sync-contributors.yml.
   // CATALOG_KV backs cachedJson (lib/sources/cache) as the globally-replicated
-  // layer under the in-isolate memo. Without it a cold isolate re-runs the whole
-  // upstream fan-out on the request path — measured at 3.6-5.0s TTFB on /tools
-  // and / for ~85% of requests. The code treats the binding as optional and
-  // degrades to memo-only, so this stays commented out until the namespace
-  // exists; an id that isn't real would fail `wrangler deploy`.
-  //
-  // To enable:
-  //   bunx wrangler kv namespace create CATALOG_KV
-  //   then paste the returned id below and uncomment the entry.
+  // layer under the in-isolate memo, and is written by the 6-hourly cron below.
+  // Without it a cold isolate re-runs the whole upstream fan-out on the request
+  // path — measured at 3.6-5.0s TTFB on /tools and / for ~85% of requests.
+  // Created with `wrangler kv namespace create CATALOG_KV`.
   "kv_namespaces": [
     { "binding": "CONTRIBUTORS_KV", "id": "9aee3dc0e2df42f2aa81426a744364ec", "remote": true },
-    // { "binding": "CATALOG_KV", "id": "<paste id here>", "remote": true },
+    { "binding": "CATALOG_KV", "id": "4b00056a873143c48c4c7b7b1d614194" },
   ],
   // One-time setup:
   //   bunx wrangler d1 create openodia-events
