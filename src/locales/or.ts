@@ -19,7 +19,6 @@ export const or: Partial<Record<keyof typeof en, string>> = {
   "nav.playground": "ପରୀକ୍ଷାସ୍ଥଳ",
   "nav.tutorials": "ଟ୍ୟୁଟୋରିଆଲ୍",
   "nav.events": "କାର୍ଯ୍ୟକ୍ରମ",
-  "nav.leaderboard": "ମାନଦଣ୍ଡ",
   "nav.about": "ପରିଚୟ",
   "nav.contribute": "ପ୍ରକଳ୍ପ ଯୋଡ଼ନ୍ତୁ",
   "nav.search.aria": "ସନ୍ଧାନ ଖୋଲନ୍ତୁ (Cmd+K)",

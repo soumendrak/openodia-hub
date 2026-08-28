@@ -22,7 +22,6 @@ const links: ReadonlyArray<{
   { to: "/playground", labelKey: "nav.playground", highlight: true },
   { to: "/tutorials", labelKey: "nav.tutorials" },
   { to: "/events", labelKey: "nav.events" },
-  { to: "/leaderboard", labelKey: "nav.leaderboard" },
   { to: "/about", labelKey: "nav.about" },
   // Reachable from the menu at any width, plus the footer and ⌘K.
   { to: "/contribute", labelKey: "nav.contribute", menuOnly: true },

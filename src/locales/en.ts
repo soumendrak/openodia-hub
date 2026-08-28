@@ -17,7 +17,6 @@ export const en = {
   "nav.playground": "Playground",
   "nav.tutorials": "Tutorials",
   "nav.events": "Events",
-  "nav.leaderboard": "Benchmarks",
   "nav.about": "About",
   "nav.contribute": "Add project",
   "nav.search.aria": "Open search (Cmd+K)",
