@@ -141,40 +141,48 @@ export type TreebankResult = {
   tokenCount: number;
 };
 
-function tokenMatches(token: Token, query: TreebankQuery, needle: string): boolean {
-  if (query.upos && token.upos !== query.upos) return false;
-  if (query.deprel && token.deprel !== query.deprel) return false;
-  if (!needle) return true;
-  return (
-    token.form.toLowerCase().includes(needle) ||
-    token.translit.toLowerCase().includes(needle) ||
-    token.feats.toLowerCase().includes(needle)
-  );
-}
-
 export function searchTreebank(corpus: Treebank, query: TreebankQuery): TreebankResult {
   const needle = query.q.trim().toLowerCase();
   const hasCriteria = Boolean(needle || query.upos || query.deprel);
 
+  const textMatches = (t: Token) =>
+    !needle ||
+    t.form.toLowerCase().includes(needle) ||
+    t.translit.toLowerCase().includes(needle) ||
+    t.feats.toLowerCase().includes(needle);
+
+  // Counts are cross-filtered and counted in *sentences*, the unit the results
+  // are in: the part-of-speech numbers are computed with the relation filter
+  // applied and vice versa, so picking an option always leaves that many
+  // sentences rather than a number that turns out to be zero.
   const uposCounts = new Map<string, number>();
   const deprelCounts = new Map<string, number>();
-  for (const s of corpus.sentences) {
-    for (const t of s.tokens) {
-      if (t.upos !== "PUNCT") uposCounts.set(t.upos, (uposCounts.get(t.upos) ?? 0) + 1);
-      if (t.deprel !== "punct") deprelCounts.set(t.deprel, (deprelCounts.get(t.deprel) ?? 0) + 1);
-    }
-  }
 
   const hits: Concordance[] = [];
   let total = 0;
+
   for (const sentence of corpus.sentences) {
     const matches: number[] = [];
+    const uposHere = new Set<string>();
+    const deprelHere = new Set<string>();
+
     sentence.tokens.forEach((token, i) => {
-      if (tokenMatches(token, query, needle)) matches.push(i);
+      if (!textMatches(token)) return;
+      const uposOk = !query.upos || token.upos === query.upos;
+      const deprelOk = !query.deprel || token.deprel === query.deprel;
+
+      if (uposOk && deprelOk) matches.push(i);
+      // For the part-of-speech facet, hold its own selection out.
+      if (deprelOk && token.upos !== "PUNCT") uposHere.add(token.upos);
+      if (uposOk && token.deprel !== "punct") deprelHere.add(token.deprel);
     });
-    // With no criteria every token "matches"; show the sentence, highlight none.
+
+    for (const v of uposHere) uposCounts.set(v, (uposCounts.get(v) ?? 0) + 1);
+    for (const v of deprelHere) deprelCounts.set(v, (deprelCounts.get(v) ?? 0) + 1);
+
     if (matches.length === 0) continue;
     total++;
+    // With no criteria every token "matches"; show the sentence, highlight none.
     if (hits.length < query.limit) {
       hits.push({ sentence, matches: hasCriteria ? matches : [] });
     }

@@ -6,7 +6,13 @@ import { ChevronDown, ExternalLink, FileText, Search } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { ActiveFilterBar, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
-import { buildFacet, toggleValue, type ActiveFilter } from "../lib/facets";
+import {
+  computeFacets,
+  toggleSelection,
+  type ActiveFilter,
+  type FacetDef,
+  type Selection,
+} from "../lib/facets";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 import { loadPapers, type Paper } from "../lib/sources/papers";
 
@@ -53,66 +59,55 @@ function yearBucket(year: number | null): string {
 
 const BUCKET_ORDER = ["2024–now", "2020–2023", "2015–2019", "Before 2015"];
 
+// A paper carries several task tags, so `values` returns them all: selecting
+// two tasks is OR within the facet, and AND against the year facet.
+const FACETS: FacetDef<Paper>[] = [
+  { key: "task", title: "Task", values: (p) => p.tasks },
+  {
+    key: "year",
+    title: "Year",
+    values: (p) => [yearBucket(p.year)],
+    order: (a, b) => BUCKET_ORDER.indexOf(a.value) - BUCKET_ORDER.indexOf(b.value),
+  },
+];
+
 function PapersPage() {
   const { papers, failed } = Route.useLoaderData();
   const [q, setQ] = useState("");
-  const [tasks, setTasks] = useState<Set<string>>(new Set());
-  const [years, setYears] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Selection>({});
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
   const resetPage = () => setShownCount(PAGE_SIZE);
-  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) => {
-    setter((prev) => toggleValue(prev, value));
+
+  const toggle = (facet: string) => (value: string) => {
+    setSelected((prev) => toggleSelection(prev, facet, value));
     resetPage();
   };
 
-  const taskOptions = useMemo(
-    () =>
-      buildFacet(
-        papers.flatMap((p) => p.tasks.map((t) => ({ t }))),
-        (x) => x.t,
-      ),
-    [papers],
-  );
-  const yearOptions = useMemo(
-    () =>
-      buildFacet(papers, (p) => yearBucket(p.year)).sort(
-        (a, b) => BUCKET_ORDER.indexOf(a.value) - BUCKET_ORDER.indexOf(b.value),
-      ),
-    [papers],
-  );
-
-  const activeFilters: ActiveFilter[] = [
-    ...[...tasks].map((v) => ({ facet: "task", value: v, label: v })),
-    ...[...years].map((v) => ({ facet: "year", value: v, label: v })),
-  ];
-
   const clearAll = () => {
-    setTasks(new Set());
-    setYears(new Set());
+    setSelected({});
     setQ("");
     resetPage();
   };
 
-  const removeFilter = (f: ActiveFilter) =>
-    f.facet === "task" ? toggle(setTasks)(f.value) : toggle(setYears)(f.value);
+  const removeFilter = (f: ActiveFilter) => toggle(f.facet)(f.value);
 
-  const filtered = useMemo(() => {
+  const {
+    filtered,
+    options,
+    active: activeFilters,
+  } = useMemo(() => {
     const lq = q.trim().toLowerCase();
-    return papers.filter((p) => {
-      if (tasks.size > 0 && !p.tasks.some((t) => tasks.has(t))) return false;
-      if (years.size > 0 && !years.has(yearBucket(p.year))) return false;
-      if (!lq) return true;
-      return (
-        p.title.toLowerCase().includes(lq) ||
-        p.abstract.toLowerCase().includes(lq) ||
-        p.venue.toLowerCase().includes(lq) ||
-        p.authors.some((a) => a.toLowerCase().includes(lq))
-      );
-    });
-  }, [papers, q, tasks, years]);
+    const search = (p: Paper) =>
+      !lq ||
+      p.title.toLowerCase().includes(lq) ||
+      p.abstract.toLowerCase().includes(lq) ||
+      p.venue.toLowerCase().includes(lq) ||
+      p.authors.some((a) => a.toLowerCase().includes(lq));
+    return computeFacets(papers, FACETS, selected, search);
+  }, [papers, q, selected]);
 
   return (
     <div className="mx-auto max-w-4xl px-4 pb-24">
@@ -165,18 +160,15 @@ function PapersPage() {
         </div>
 
         <div className="mt-5 space-y-3">
-          <FacetGroup
-            title="Task"
-            options={taskOptions}
-            selected={tasks}
-            onToggle={toggle(setTasks)}
-          />
-          <FacetGroup
-            title="Year"
-            options={yearOptions}
-            selected={years}
-            onToggle={toggle(setYears)}
-          />
+          {FACETS.map((f) => (
+            <FacetGroup
+              key={f.key}
+              title={f.title}
+              options={options[f.key]}
+              selected={selected[f.key] ?? new Set()}
+              onToggle={toggle(f.key)}
+            />
+          ))}
         </div>
 
         <ActiveFilterBar filters={activeFilters} onRemove={removeFilter} onClearAll={clearAll} />

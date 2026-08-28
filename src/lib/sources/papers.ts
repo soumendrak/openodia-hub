@@ -179,27 +179,62 @@ async function fetchArxiv(): Promise<Paper[]> {
   });
 }
 
-/** OpenAlex carries duplicate records for some works, and arXiv overlaps it. */
+/** Bare DOI, so `https://doi.org/10.x/y` and `10.X/Y` compare equal. */
+function doiKey(value: string | undefined): string {
+  if (!value) return "";
+  const m = /10\.\d{4,9}\/\S+/i.exec(value);
+  return m ? m[0].toLowerCase().replace(/[.,;)]+$/, "") : "";
+}
+
+function mergePapers(a: Paper, b: Paper): Paper {
+  return {
+    ...a,
+    // Prefer whichever record has more of what a reader needs.
+    abstract: a.abstract.length >= b.abstract.length ? a.abstract : b.abstract,
+    venue: a.venue && a.venue !== "arXiv" ? a.venue : b.venue,
+    pdfUrl: a.pdfUrl ?? b.pdfUrl,
+    openAccess: a.openAccess || b.openAccess,
+    year: a.year ?? b.year,
+    authors: a.authors.length >= b.authors.length ? a.authors : b.authors,
+    tasks: [...new Set([...a.tasks, ...b.tasks])],
+    sources: [...new Set([...a.sources, ...b.sources])],
+  };
+}
+
+/**
+ * OpenAlex carries duplicate records for some works, and arXiv overlaps it.
+ *
+ * Matching on the title alone is not enough: the same DOI turns up under
+ * slightly different titles (subtitle present or not, arXiv's LaTeX vs the
+ * publisher's Unicode), which left two records sharing one `id` — a duplicate
+ * React key, and React drops rows when that happens. So records merge on DOI
+ * *or* title, and the surviving record takes the merge key as its id, which is
+ * unique by construction.
+ */
 function dedupe(papers: Paper[]): Paper[] {
   const byKey = new Map<string, Paper>();
-  for (const p of papers) {
-    const key = titleKey(p.title);
+  const keyByDoi = new Map<string, string>();
+  const keyByTitle = new Map<string, string>();
+
+  for (const paper of papers) {
+    const doi = doiKey(paper.id) || doiKey(paper.url);
+    const title = titleKey(paper.title);
+
+    // `??` only falls through on null/undefined, so this must not hand it the
+    // empty string a missing DOI would produce — every DOI-less paper would
+    // then share the key "" and collapse into one record.
+    const key =
+      (doi ? keyByDoi.get(doi) : undefined) ??
+      keyByTitle.get(title) ??
+      (doi ? `doi:${doi}` : `title:${title}`);
+
+    if (doi) keyByDoi.set(doi, key);
+    if (title) keyByTitle.set(title, key);
+
     const existing = byKey.get(key);
-    if (!existing) {
-      byKey.set(key, p);
-      continue;
-    }
-    byKey.set(key, {
-      ...existing,
-      // Prefer whichever record has more of what a reader needs.
-      abstract: existing.abstract.length >= p.abstract.length ? existing.abstract : p.abstract,
-      venue: existing.venue && existing.venue !== "arXiv" ? existing.venue : p.venue,
-      pdfUrl: existing.pdfUrl ?? p.pdfUrl,
-      openAccess: existing.openAccess || p.openAccess,
-      tasks: [...new Set([...existing.tasks, ...p.tasks])],
-      sources: [...new Set([...existing.sources, ...p.sources])],
-    });
+    byKey.set(key, existing ? mergePapers(existing, paper) : { ...paper, id: key });
   }
+
   return [...byKey.values()].sort((a, b) => (b.year ?? 0) - (a.year ?? 0));
 }
 
@@ -217,3 +252,6 @@ export async function loadPapers(): Promise<Paper[]> {
     return dedupe(all);
   });
 }
+
+/** Exposed for tests — the merge rules are the part worth pinning down. */
+export const dedupeForTest = dedupe;

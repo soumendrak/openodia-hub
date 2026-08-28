@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { licenseFromProse, normalizeSpdx, isPermissive } from "../src/lib/license";
 import { toBibTeX, toApa } from "../src/lib/citation";
-import { buildFacet, toggleValue } from "../src/lib/facets";
+import { toggleValue } from "../src/lib/facets";
 import { prettySize, sizeRank } from "../src/lib/dataset-size";
 import { summarize } from "../src/lib/sources/huggingface";
 
@@ -99,26 +99,6 @@ describe("summarize", () => {
   it("handles a card with no sentence punctuation", () => {
     expect(summarize("odia asr dataset")).toBe("odia asr dataset");
     expect(summarize("")).toBe("");
-  });
-});
-
-describe("buildFacet", () => {
-  const rows = [{ t: "a" }, { t: "b" }, { t: "a" }, { t: "" }];
-
-  it("counts, drops blanks, and sorts by frequency", () => {
-    expect(buildFacet(rows, (r) => r.t)).toEqual([
-      { value: "a", label: "a", count: 2 },
-      { value: "b", label: "b", count: 1 },
-    ]);
-  });
-
-  it("applies the display label without changing the filter value", () => {
-    const [first] = buildFacet(
-      rows,
-      (r) => r.t,
-      (v) => v.toUpperCase(),
-    );
-    expect(first).toEqual({ value: "a", label: "A", count: 2 });
   });
 });
 

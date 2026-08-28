@@ -8,7 +8,13 @@ import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
 import { ActiveFilterBar, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
 import { ResourceMeta } from "../components/ResourceMeta";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
-import { buildFacet, toggleValue, type ActiveFilter } from "../lib/facets";
+import {
+  computeFacets,
+  toggleSelection,
+  type ActiveFilter,
+  type FacetDef,
+  type Selection,
+} from "../lib/facets";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
 import { prettySize, sizeRank } from "../lib/dataset-size";
 import { normalizeSpdx } from "../lib/license";
@@ -58,55 +64,40 @@ function prettyTask(t: string): string {
 
 const PAGE_SIZE = 30;
 
+const FACETS: FacetDef<Dataset>[] = [
+  { key: "task", title: "Task", values: (d) => [d.task], label: prettyTask },
+  {
+    key: "size",
+    title: "Size",
+    values: (d) => [d.sizeCategory],
+    label: prettySize,
+    order: (a, b) => sizeRank(a.value) - sizeRank(b.value),
+  },
+  { key: "license", title: "License", values: (d) => [normalizeSpdx(d.license)] },
+];
+
 function DatasetsPage() {
   const { datasets, truncated, failed } = Route.useLoaderData();
   const [q, setQ] = useState("");
-  const [tasks, setTasks] = useState<Set<string>>(new Set());
-  const [licenses, setLicenses] = useState<Set<string>>(new Set());
-  const [sizes, setSizes] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Selection>({});
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
   const resetPage = () => setShownCount(PAGE_SIZE);
 
-  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) => {
-    setter((prev) => toggleValue(prev, value));
+  const toggle = (facet: string) => (value: string) => {
+    setSelected((prev) => toggleSelection(prev, facet, value));
     resetPage();
   };
 
-  const taskOptions = useMemo(() => buildFacet(datasets, (d) => d.task, prettyTask), [datasets]);
-  const licenseOptions = useMemo(
-    () => buildFacet(datasets, (d) => normalizeSpdx(d.license)),
-    [datasets],
-  );
-  const sizeOptions = useMemo(
-    () =>
-      buildFacet(datasets, (d) => d.sizeCategory, prettySize).sort(
-        (a, b) => sizeRank(a.value) - sizeRank(b.value),
-      ),
-    [datasets],
-  );
-
-  const activeFilters: ActiveFilter[] = [
-    ...[...tasks].map((v) => ({ facet: "task", value: v, label: prettyTask(v) })),
-    ...[...licenses].map((v) => ({ facet: "license", value: v, label: v })),
-    ...[...sizes].map((v) => ({ facet: "size", value: v, label: prettySize(v) })),
-  ];
-
   const clearAll = () => {
-    setTasks(new Set());
-    setLicenses(new Set());
-    setSizes(new Set());
+    setSelected({});
     setQ("");
     resetPage();
   };
 
-  const removeFilter = (f: ActiveFilter) => {
-    if (f.facet === "task") toggle(setTasks)(f.value);
-    else if (f.facet === "license") toggle(setLicenses)(f.value);
-    else toggle(setSizes)(f.value);
-  };
+  const removeFilter = (f: ActiveFilter) => toggle(f.facet)(f.value);
 
   // Five datasets featured above the browser, drawn from a seeded shuffle keyed
   // on the ISO week — same set for every visitor all week, rotates itself every
@@ -117,22 +108,23 @@ function DatasetsPage() {
     return { hero: hero.map(toItem), reels: reels.map(toItem) };
   }, [datasets]);
 
-  const filtered = useMemo(() => {
+  // Cross-filtered counts: each facet is counted against the *other* facets'
+  // selections, so "Translation (12)" always yields 12.
+  const {
+    filtered,
+    options,
+    active: activeFilters,
+  } = useMemo(() => {
     const lq = q.trim().toLowerCase();
-    return datasets.filter((d) => {
-      if (tasks.size > 0 && !tasks.has(d.task)) return false;
-      if (licenses.size > 0 && !licenses.has(normalizeSpdx(d.license))) return false;
-      if (sizes.size > 0 && !sizes.has(d.sizeCategory)) return false;
-      if (!lq) return true;
-      return (
-        d.id.toLowerCase().includes(lq) ||
-        d.author.toLowerCase().includes(lq) ||
-        d.task.toLowerCase().includes(lq) ||
-        d.description.toLowerCase().includes(lq) ||
-        d.tags.some((t) => t.toLowerCase().includes(lq))
-      );
-    });
-  }, [datasets, q, tasks, licenses, sizes]);
+    const search = (d: Dataset) =>
+      !lq ||
+      d.id.toLowerCase().includes(lq) ||
+      d.author.toLowerCase().includes(lq) ||
+      d.task.toLowerCase().includes(lq) ||
+      d.description.toLowerCase().includes(lq) ||
+      d.tags.some((t) => t.toLowerCase().includes(lq));
+    return computeFacets(datasets, FACETS, selected, search);
+  }, [datasets, q, selected]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -201,24 +193,15 @@ function DatasetsPage() {
         </div>
 
         <div className="mt-5 space-y-3">
-          <FacetGroup
-            title="Task"
-            options={taskOptions}
-            selected={tasks}
-            onToggle={toggle(setTasks)}
-          />
-          <FacetGroup
-            title="Size"
-            options={sizeOptions}
-            selected={sizes}
-            onToggle={toggle(setSizes)}
-          />
-          <FacetGroup
-            title="License"
-            options={licenseOptions}
-            selected={licenses}
-            onToggle={toggle(setLicenses)}
-          />
+          {FACETS.map((f) => (
+            <FacetGroup
+              key={f.key}
+              title={f.title}
+              options={options[f.key]}
+              selected={selected[f.key] ?? new Set()}
+              onToggle={toggle(f.key)}
+            />
+          ))}
         </div>
 
         <ActiveFilterBar filters={activeFilters} onRemove={removeFilter} onClearAll={clearAll} />

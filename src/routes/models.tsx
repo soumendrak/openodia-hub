@@ -6,7 +6,13 @@ import { Search, ExternalLink, Heart, Download, ChevronDown } from "lucide-react
 import { Reveal } from "../components/Reveal";
 import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
 import { ActiveFilterBar, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
-import { buildFacet, toggleValue, type ActiveFilter } from "../lib/facets";
+import {
+  computeFacets,
+  toggleSelection,
+  type ActiveFilter,
+  type FacetDef,
+  type Selection,
+} from "../lib/facets";
 import { ResourceMeta } from "../components/ResourceMeta";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema, itemListSchema } from "../lib/jsonld";
@@ -75,44 +81,33 @@ function taskLabel(task: string): string {
 
 const PAGE_SIZE = 30;
 
+const FACETS: FacetDef<Model>[] = [
+  { key: "task", title: "Task", values: (m) => [m.task], label: taskLabel },
+  { key: "license", title: "License", values: (m) => [normalizeSpdx(m.license)] },
+];
+
 function ModelsPage() {
   const { models, truncated, failed } = Route.useLoaderData();
   const [q, setQ] = useState("");
-  const [tasks, setTasks] = useState<Set<string>>(new Set());
-  const [licenses, setLicenses] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Selection>({});
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
   const resetPage = () => setShownCount(PAGE_SIZE);
 
-  const toggle = (setter: React.Dispatch<React.SetStateAction<Set<string>>>) => (value: string) => {
-    setter((prev) => toggleValue(prev, value));
+  const toggle = (facet: string) => (value: string) => {
+    setSelected((prev) => toggleSelection(prev, facet, value));
     resetPage();
   };
 
-  const taskOptions = useMemo(() => buildFacet(models, (m) => m.task, taskLabel), [models]);
-  const licenseOptions = useMemo(
-    () => buildFacet(models, (m) => normalizeSpdx(m.license)),
-    [models],
-  );
-
-  const activeFilters: ActiveFilter[] = [
-    ...[...tasks].map((v) => ({ facet: "task", value: v, label: taskLabel(v) })),
-    ...[...licenses].map((v) => ({ facet: "license", value: v, label: v })),
-  ];
-
   const clearAll = () => {
-    setTasks(new Set());
-    setLicenses(new Set());
+    setSelected({});
     setQ("");
     resetPage();
   };
 
-  const removeFilter = (f: ActiveFilter) => {
-    if (f.facet === "task") toggle(setTasks)(f.value);
-    else toggle(setLicenses)(f.value);
-  };
+  const removeFilter = (f: ActiveFilter) => toggle(f.facet)(f.value);
 
   // Five models featured above the registry, drawn from a seeded shuffle keyed
   // on the ISO week — same set for every visitor all week, rotates itself every
@@ -123,20 +118,22 @@ function ModelsPage() {
     return { hero: hero.map(toItem), reels: reels.map(toItem) };
   }, [models]);
 
-  const filtered = useMemo(() => {
+  // Counts are cross-filtered here: each facet is counted against the other
+  // facet's selection, so a number is always what selecting it returns.
+  const {
+    filtered,
+    options,
+    active: activeFilters,
+  } = useMemo(() => {
     const lq = q.trim().toLowerCase();
-    return models.filter((m) => {
-      if (tasks.size > 0 && !tasks.has(m.task)) return false;
-      if (licenses.size > 0 && !licenses.has(normalizeSpdx(m.license))) return false;
-      if (!lq) return true;
-      return (
-        m.id.toLowerCase().includes(lq) ||
-        m.author.toLowerCase().includes(lq) ||
-        m.task.toLowerCase().includes(lq) ||
-        m.tags.some((t) => t.toLowerCase().includes(lq))
-      );
-    });
-  }, [models, q, tasks, licenses]);
+    const search = (m: Model) =>
+      !lq ||
+      m.id.toLowerCase().includes(lq) ||
+      m.author.toLowerCase().includes(lq) ||
+      m.task.toLowerCase().includes(lq) ||
+      m.tags.some((t) => t.toLowerCase().includes(lq));
+    return computeFacets(models, FACETS, selected, search);
+  }, [models, q, selected]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -205,18 +202,15 @@ function ModelsPage() {
         </div>
 
         <div className="mt-5 space-y-3">
-          <FacetGroup
-            title="Task"
-            options={taskOptions}
-            selected={tasks}
-            onToggle={toggle(setTasks)}
-          />
-          <FacetGroup
-            title="License"
-            options={licenseOptions}
-            selected={licenses}
-            onToggle={toggle(setLicenses)}
-          />
+          {FACETS.map((f) => (
+            <FacetGroup
+              key={f.key}
+              title={f.title}
+              options={options[f.key]}
+              selected={selected[f.key] ?? new Set()}
+              onToggle={toggle(f.key)}
+            />
+          ))}
         </div>
 
         <ActiveFilterBar filters={activeFilters} onRemove={removeFilter} onClearAll={clearAll} />

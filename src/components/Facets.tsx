@@ -2,11 +2,21 @@ import { X } from "lucide-react";
 import type { ActiveFilter, FacetOption } from "../lib/facets";
 
 /**
- * Faceted filtering shared by /tools, /models and /datasets.
+ * Faceted filtering shared by the catalog pages.
  *
- * Facets are multi-select with live counts, and every active selection gets a
- * removable chip — the two things NN/g finds catalog users need in order to
- * back out of a filter combination that returned nothing.
+ * Counts are cross-filtered upstream (see lib/facets), so a number here is
+ * always what selecting it returns. That leaves one thing for this layer to
+ * express: an option that the current combination has put out of reach.
+ *
+ * Three states, three border treatments — solid, filled, dashed:
+ *   available  solid border, hover lifts it
+ *   selected   filled neon
+ *   out of reach  dashed border, dimmed, inert
+ *
+ * Dashed reads as "exists in the data, not in this combination" without
+ * shouting. Hiding them instead would make the row jump every time a filter
+ * changes and hide the shape of the data; leaving them clickable is what the
+ * lying counts did.
  */
 
 export function Chip({
@@ -14,27 +24,44 @@ export function Chip({
   active,
   onClick,
   ariaLabel,
+  disabled,
+  title,
 }: {
   children: React.ReactNode;
   active?: boolean;
   onClick?: () => void;
   ariaLabel?: string;
+  /** No results in the current combination — present, but not a choice. */
+  disabled?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       aria-pressed={active}
       aria-label={ariaLabel}
-      className={`rounded-full border px-3 py-1.5 text-xs transition ${
+      title={title}
+      className={`rounded-full border px-3 py-1.5 text-xs transition duration-200 ${
         active
           ? "border-neon bg-neon/10 text-neon"
-          : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
+          : disabled
+            ? "cursor-not-allowed border-dashed border-border/60 text-muted-foreground/40"
+            : "border-border text-muted-foreground hover:border-foreground/40 hover:text-foreground"
       }`}
     >
       {children}
     </button>
   );
+}
+
+/**
+ * The count, set in tabular figures so a chip doesn't change width — and the
+ * row doesn't reflow — when 44 becomes 8.
+ */
+function Count({ n }: { n: number }) {
+  return <span className="font-mono tabular-nums opacity-70">({n})</span>;
 }
 
 /**
@@ -59,26 +86,40 @@ export function FacetGroup({
   const head = options.slice(0, limit);
   const tail = options.slice(limit);
 
+  // A selected option stays live even at zero — you must always be able to
+  // undo the choice that emptied the page.
+  const renderChip = (o: FacetOption) => {
+    const isSelected = selected.has(o.value);
+    const unreachable = o.count === 0 && !isSelected;
+    return (
+      <Chip
+        key={o.value}
+        active={isSelected}
+        disabled={unreachable}
+        title={
+          unreachable
+            ? `No ${title.toLowerCase()} results left with the current filters`
+            : undefined
+        }
+        onClick={() => onToggle(o.value)}
+      >
+        {o.label} <Count n={o.count} />
+      </Chip>
+    );
+  };
+
+  const tailReachable = tail.filter((o) => o.count > 0 || selected.has(o.value)).length;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{title}</span>
-      {head.map((o) => (
-        <Chip key={o.value} active={selected.has(o.value)} onClick={() => onToggle(o.value)}>
-          {o.label} ({o.count})
-        </Chip>
-      ))}
+      {head.map(renderChip)}
       {tail.length > 0 && (
         <details className="inline">
           <summary className="inline-flex cursor-pointer list-none rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-foreground/40 hover:text-foreground [&::-webkit-details-marker]:hidden">
-            +{tail.length} more
+            +{tailReachable > 0 ? tailReachable : tail.length} more
           </summary>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {tail.map((o) => (
-              <Chip key={o.value} active={selected.has(o.value)} onClick={() => onToggle(o.value)}>
-                {o.label} ({o.count})
-              </Chip>
-            ))}
-          </div>
+          <div className="mt-2 flex flex-wrap gap-2">{tail.map(renderChip)}</div>
         </details>
       )}
     </div>
