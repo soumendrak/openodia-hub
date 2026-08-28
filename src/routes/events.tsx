@@ -8,23 +8,26 @@ import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { mergeNonEmpty } from "../lib/utils";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
+import { pageHead } from "../lib/seo";
+import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/events")({
-  head: () => ({
-    meta: [
-      { title: "Events · Odia AI Community" },
-      {
-        name: "description",
-        content:
-          "Past and upcoming events from the Odia AI ecosystem — conferences, workshops, and summits.",
-      },
-      { property: "og:title", content: "Events · Odia AI Community" },
-      {
-        property: "og:description",
-        content: "Odia AI community events — conferences, workshops, and summits.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "events",
+      title: "Events · Odia AI Community",
+      description:
+        "Past and upcoming events from the Odia AI ecosystem — conferences, workshops, and summits.",
+      ogDescription: "Odia AI community events — conferences, workshops, and summits.",
+      links: [
+        {
+          rel: "alternate",
+          type: "application/rss+xml",
+          title: "OpenOdia events",
+          href: "https://openodia.com/events-feed",
+        },
+      ],
+    }),
   component: EventsPage,
 });
 
@@ -439,8 +442,30 @@ function EventsPage() {
     }
   };
 
+  // Only the statically-bundled events are in the server HTML, so those are the
+  // ones the schema describes. `startDate` is required by schema.org/Event, and
+  // a handful of entries only carry a prose date that never parsed.
+  const schemaEvents = events
+    .filter((e) => !!e.startDate)
+    .map((e) => ({
+      name: e.title,
+      url: e.url,
+      description: e.description,
+      startDate: e.startDate as string,
+      endDate: e.endDate,
+      location: e.location,
+      organizer: e.community,
+    }));
+
   return (
     <div className="mx-auto max-w-5xl px-4 pb-24">
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "OpenOdia", url: "https://openodia.com" },
+          { name: "Events", url: "https://openodia.com/events" },
+        ])}
+      />
+      {schemaEvents.length > 0 && <JsonLd data={eventListSchema(schemaEvents)} />}
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Community</p>
         <h1 className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-display text-5xl font-bold md:text-7xl">

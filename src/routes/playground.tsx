@@ -13,23 +13,18 @@ import {
 import { Reveal } from "../components/Reveal";
 import { PythonIcon } from "../components/icons";
 import { CodeEditor } from "../components/CodeEditor";
+import { pageHead } from "../lib/seo";
+import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/playground")({
-  head: () => ({
-    meta: [
-      { title: "Odia NLP playground · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Try Odia language tools in your browser — normalisation, sentence segmentation, syllables, numerals, stopwords, and frequency stats. No setup, no install.",
-      },
-      { property: "og:title", content: "Odia NLP playground · OpenOdia" },
-      {
-        property: "og:description",
-        content: "Run Odia language tools in the browser. No install, no setup.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "playground",
+      title: "Odia NLP playground · OpenOdia",
+      description:
+        "Try Odia language tools in your browser — normalisation, sentence segmentation, syllables, numerals, stopwords, and frequency stats. No setup, no install.",
+      ogDescription: "Run Odia language tools in the browser. No install, no setup.",
+    }),
   component: PlaygroundPage,
 });
 
@@ -317,6 +312,12 @@ function PlaygroundPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "OpenOdia", url: "https://openodia.com" },
+          { name: "Playground", url: "https://openodia.com/playground" },
+        ])}
+      />
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Playground</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">

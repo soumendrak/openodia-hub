@@ -15,6 +15,7 @@ import {
 } from "../lib/facets";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 import { loadPapers, type Paper } from "../lib/sources/papers";
+import { pageHead } from "../lib/seo";
 
 const getPapers = createServerFn({ method: "GET" }).handler(async () => {
   try {
@@ -26,21 +27,14 @@ const getPapers = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/papers")({
-  head: () => ({
-    meta: [
-      { title: "Papers · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Research index for Odia language technology — translation, speech, OCR, parsing, and corpora — from OpenAlex and arXiv, filterable by task and year.",
-      },
-      { property: "og:title", content: "Papers · OpenOdia" },
-      {
-        property: "og:description",
-        content: "Research papers on Odia NLP, indexed by task and year.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "papers",
+      title: "Papers · OpenOdia",
+      description:
+        "Research index for Odia language technology — translation, speech, OCR, parsing, and corpora — from OpenAlex and arXiv, filterable by task and year.",
+      ogDescription: "Research papers on Odia NLP, indexed by task and year.",
+    }),
   loader: () => getPapers(),
   staleTime: 24 * 60 * 60 * 1000,
   component: PapersPage,

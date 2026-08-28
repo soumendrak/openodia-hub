@@ -40,6 +40,8 @@ export type Dataset = {
   likes: number;
   tags: string[];
   createdAt: string;
+  /** HF `lastModified`. Only the datasets endpoint returns it. */
+  updatedAt?: string;
 };
 
 type HFModel = {
@@ -59,6 +61,7 @@ type HFDataset = {
   likes?: number;
   tags?: string[];
   createdAt?: string;
+  lastModified?: string;
 };
 
 const MODELS_URL =
@@ -155,6 +158,7 @@ function normalizeDataset(d: HFDataset): Dataset {
     likes: d.likes ?? 0,
     tags,
     createdAt: d.createdAt ?? "",
+    updatedAt: d.lastModified,
   };
 }
 

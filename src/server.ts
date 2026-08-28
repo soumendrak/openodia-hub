@@ -7,6 +7,7 @@ import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
 import { settledValues } from "./lib/fetch-utils";
 import { loadAwesome } from "./lib/sources/awesome";
 import { loadRepos } from "./lib/sources/repos";
+import { setExecutionContext } from "./lib/sources/cache";
 import { loadDatasets, loadModels } from "./lib/sources/huggingface";
 import type { Event } from "./data/events/types";
 
@@ -161,6 +162,8 @@ async function handleEvents(env: Env | undefined, request: Request): Promise<Res
 
 export default {
   async fetch(request: Request, env: Env | undefined, ctx: unknown) {
+    // Lets cachedJson keep a background refresh alive past the response.
+    setExecutionContext(ctx);
     try {
       // URL rewrites: map dot-path URLs to TanStack Router paths
       // TanStack Router treats dots as path separators in file-based routing,

@@ -6,23 +6,19 @@ import { GithubIcon, YoutubeIcon } from "../components/icons";
 import { ContributorGrid } from "../components/ContributorGrid";
 import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
 import { ArrowRight, Boxes, Database, Users, BookOpen } from "lucide-react";
+import { pageHead } from "../lib/seo";
+import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/about")({
   head: () => ({
-    meta: [
-      { title: "About · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "OpenOdia is a community-driven ecosystem of open-source tools, datasets, and educational content for the Odia language.",
-      },
-      { property: "og:title", content: "About · OpenOdia" },
-      {
-        property: "og:description",
-        content:
-          "A community-driven ecosystem for the Odia language — open-source tools, datasets, and education.",
-      },
-    ],
+    ...pageHead({
+      path: "about",
+      title: "About · OpenOdia",
+      description:
+        "OpenOdia is a community-driven ecosystem of open-source tools, datasets, and educational content for the Odia language.",
+      ogDescription:
+        "A community-driven ecosystem for the Odia language — open-source tools, datasets, and education.",
+    }),
     scripts: [
       {
         type: "application/ld+json",
@@ -82,6 +78,12 @@ const pillars = [
 function About() {
   return (
     <div className="mx-auto max-w-4xl px-4 pb-24">
+      <JsonLd
+        data={breadcrumbSchema([
+          { name: "OpenOdia", url: "https://openodia.com" },
+          { name: "About", url: "https://openodia.com/about" },
+        ])}
+      />
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">About</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">

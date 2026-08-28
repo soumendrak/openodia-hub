@@ -168,13 +168,36 @@ const GH_HEADERS = {
   ...(githubToken ? { Authorization: `Bearer ${githubToken}` } : {}),
 };
 
+/**
+ * GitHub's repo response carries ~100 fields, most of them URL templates. The
+ * whole list is cached *and* serialized into the /tools SSR payload, so keeping
+ * the raw objects put ~700KB of dead JSON in the HTML. Take only what the page
+ * and the catalog read.
+ */
+function pickRepo(raw: Repo): Repo {
+  return {
+    name: raw.name,
+    full_name: raw.full_name,
+    html_url: raw.html_url,
+    description: raw.description ?? null,
+    stargazers_count: raw.stargazers_count,
+    language: raw.language ?? null,
+    updated_at: raw.updated_at,
+    fork: raw.fork,
+    archived: raw.archived,
+    created_at: raw.created_at,
+    license: raw.license?.spdx_id ? { spdx_id: raw.license.spdx_id } : null,
+    topics: raw.topics ?? [],
+  };
+}
+
 async function fetchSingleRepo(ownerRepo: string): Promise<Repo | null> {
   try {
     const r = await fetchWithTimeout(`https://api.github.com/repos/${ownerRepo}`, {
       headers: GH_HEADERS,
     });
     if (!r.ok) return null;
-    return (await r.json()) as Repo;
+    return pickRepo((await r.json()) as Repo);
   } catch (err) {
     console.warn(`fetchSingleRepo ${ownerRepo}:`, err);
     return null;
@@ -191,7 +214,7 @@ export async function loadRepos(): Promise<Repo[]> {
   return cachedJson("repos", TTL_MS, async () => {
     // Bounded, not Promise.all: 150 simultaneous fetches saturate the socket
     // pool and the tail aborts on its own timeout.
-    const results = await mapWithConcurrency(PINNED_REPOS, 12, fetchSingleRepo);
+    const results = await mapWithConcurrency(PINNED_REPOS, 24, fetchSingleRepo);
     const repos = results
       .filter((r): r is Repo => r !== null && !r.fork && !r.archived)
       .sort((a, b) => b.stargazers_count - a.stargazers_count);

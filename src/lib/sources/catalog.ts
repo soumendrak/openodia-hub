@@ -183,6 +183,7 @@ export async function loadCatalog(): Promise<CatalogEntry[]> {
         likes: d.likes,
         tags: d.tags,
         createdAt: d.createdAt,
+        updatedAt: d.updatedAt,
         sources: ["huggingface"],
       });
     }

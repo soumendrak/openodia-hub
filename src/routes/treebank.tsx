@@ -12,6 +12,7 @@ import {
   TREEBANK,
   type TreebankResult,
 } from "../lib/sources/treebank";
+import { pageHead } from "../lib/seo";
 
 const LIMIT = 25;
 
@@ -59,21 +60,14 @@ export const Route = createFileRoute("/treebank")({
     deprel: search.deprel ?? "",
   }),
   loader: ({ deps }) => runSearch({ data: deps }),
-  head: () => ({
-    meta: [
-      { title: "Treebank search · OpenOdia" },
-      {
-        name: "description",
-        content:
-          "Search the UD_Odia-ODTB Universal Dependencies treebank — concordance by word form, part of speech, and dependency relation, with English glosses.",
-      },
-      { property: "og:title", content: "Treebank search · OpenOdia" },
-      {
-        property: "og:description",
-        content: "Concordance search over the Odia Universal Dependencies treebank.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "treebank",
+      title: "Treebank search · OpenOdia",
+      description:
+        "Search the UD_Odia-ODTB Universal Dependencies treebank — concordance by word form, part of speech, and dependency relation, with English glosses.",
+      ogDescription: "Concordance search over the Odia Universal Dependencies treebank.",
+    }),
   component: TreebankPage,
 });
 

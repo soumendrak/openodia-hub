@@ -13,6 +13,7 @@ import { ContributorGrid } from "../components/ContributorGrid";
 import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
 import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
 import { withDeadline } from "../lib/fetch-utils";
+import { pageHead } from "../lib/seo";
 import { loadAwesome } from "../lib/sources/awesome";
 import { loadRepos } from "../lib/sources/repos";
 import { loadDatasets, loadModels } from "../lib/sources/huggingface";
@@ -57,22 +58,15 @@ const getEcosystemStats = createServerFn({ method: "GET" }).handler(async () => 
 });
 
 export const Route = createFileRoute("/")({
-  head: () => ({
-    meta: [
-      { title: "OpenOdia — Open source for the Odia language" },
-      {
-        name: "description",
-        content:
-          "The hub for open-source Odia: a directory of tools and libraries, a live registry of Odia models and datasets, and the community teaching and building with them.",
-      },
-      { property: "og:title", content: "OpenOdia — Open source for the Odia language" },
-      {
-        property: "og:description",
-        content:
-          "Open-source repos, tools, datasets, models, libraries, fonts, and resources for the Odia language.",
-      },
-    ],
-  }),
+  head: () =>
+    pageHead({
+      path: "",
+      title: "OpenOdia — Open source for the Odia language",
+      description:
+        "The hub for open-source Odia: a directory of tools and libraries, a live registry of Odia models and datasets, and the community teaching and building with them.",
+      ogDescription:
+        "Open-source repos, tools, datasets, models, libraries, fonts, and resources for the Odia language.",
+    }),
   loader: () => getEcosystemStats(),
   staleTime: 60 * 60 * 1000,
   component: Home,
