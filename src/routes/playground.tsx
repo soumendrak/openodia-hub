@@ -9,6 +9,8 @@ import {
   Clipboard,
   Check,
   Trash2,
+  Maximize2,
+  Minimize2,
 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { PythonIcon } from "../components/icons";
@@ -182,6 +184,57 @@ type PyodideInterface = {
   setStderr: (opts: { batched: (s: string) => void }) => void;
 };
 
+/**
+ * One shared boot for the whole tab. React StrictMode mounts the page twice in
+ * dev, and the second pass used to find the <script id="pyodide-script"> tag
+ * already in the DOM, assume it had finished loading, and blow up with
+ * "loadPyodide missing" while the CDN request was still in flight. Memoising
+ * the promise means the second caller waits on the first boot instead of
+ * racing it — and a remount reuses the ~20 MB runtime rather than re-fetching.
+ */
+let bootPromise: Promise<PyodideInterface> | null = null;
+let onBootStatus: (msg: string) => void = () => {};
+
+function bootPyodide(onStatus: (msg: string) => void) {
+  onBootStatus = onStatus;
+  bootPromise ??= (async () => {
+    onBootStatus("Downloading Pyodide runtime (~10 MB)…");
+    await new Promise<void>((resolve, reject) => {
+      const s = document.createElement("script");
+      s.id = "pyodide-script";
+      s.src = PYODIDE_SRC;
+      s.onload = () => resolve();
+      s.onerror = () => reject(new Error("Failed to load Pyodide from CDN"));
+      document.body.appendChild(s);
+    });
+
+    if (!window.loadPyodide) throw new Error("Pyodide script loaded but loadPyodide missing");
+
+    onBootStatus("Initializing Python runtime…");
+    const py = await window.loadPyodide({
+      indexURL: `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`,
+    });
+
+    // pygments is a Pyodide-native package (faster than micropip) but
+    // not auto-loaded. `rich` (a transitive dep of openodia) imports it
+    // eagerly, so we need it on the path before openodia is imported.
+    onBootStatus("Loading numpy + pygments…");
+    await py.loadPackage(["numpy", "pygments"]);
+
+    onBootStatus("Loading micropip and installing openodia…");
+    await py.loadPackage("micropip");
+    const micropip = py.pyimport("micropip");
+    await micropip.install(["deep-translator", "faker", "rich", "openodia"]);
+
+    return py;
+  })().catch((err: unknown) => {
+    // A failed boot must not be cached, or a retry can never recover.
+    bootPromise = null;
+    throw err;
+  });
+  return bootPromise;
+}
+
 function PlaygroundPage() {
   const [code, setCode] = useState(SAMPLES[0].code);
   const [output, setOutput] = useState("");
@@ -190,6 +243,8 @@ function PlaygroundPage() {
   const [running, setRunning] = useState(false);
   const [formatting, setFormatting] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isFull, setIsFull] = useState(false);
+  const shellRef = useRef<HTMLDivElement>(null);
   const pyodideRef = useRef<PyodideInterface | null>(null);
   // Lazy-install black on first format click rather than at boot — it's a
   // few extra MB and not every visitor cares about formatting.
@@ -197,67 +252,45 @@ function PlaygroundPage() {
 
   useEffect(() => {
     let cancelled = false;
+    setStatus("loading");
 
-    async function bootstrap() {
-      setStatus("loading");
-      setStatusMsg("Downloading Pyodide runtime (~10 MB)…");
-
-      const existing = document.getElementById("pyodide-script") as HTMLScriptElement | null;
-      if (!existing) {
-        await new Promise<void>((resolve, reject) => {
-          const s = document.createElement("script");
-          s.id = "pyodide-script";
-          s.src = PYODIDE_SRC;
-          s.onload = () => resolve();
-          s.onerror = () => reject(new Error("Failed to load Pyodide from CDN"));
-          document.body.appendChild(s);
-        });
-      }
-
-      if (cancelled) return;
-      if (!window.loadPyodide) throw new Error("Pyodide script loaded but loadPyodide missing");
-
-      setStatusMsg("Initializing Python runtime…");
-      const py = await window.loadPyodide({
-        indexURL: `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/`,
+    bootPyodide(setStatusMsg)
+      .then((py) => {
+        if (cancelled) return;
+        // Pyodide's batched stdout/stderr fires once per line with the
+        // trailing newline stripped. We append it back so multi-line prints
+        // render as multi-line text in the <pre>. Rebound per mount so the
+        // handlers write to *this* component's state.
+        py.setStdout({ batched: (s) => setOutput((o) => o + s + "\n") });
+        py.setStderr({ batched: (s) => setOutput((o) => o + s + "\n") });
+        pyodideRef.current = py;
+        setStatus("ready");
+        setStatusMsg("Ready. Hit Run to execute.");
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        console.error("playground bootstrap failed", err);
+        setStatus("error");
+        setStatusMsg(err instanceof Error ? err.message : "Failed to initialize");
       });
-      if (cancelled) return;
-
-      // Pyodide's batched stdout/stderr fires once per line with the
-      // trailing newline stripped. We append it back so multi-line prints
-      // render as multi-line text in the <pre>.
-      py.setStdout({ batched: (s) => setOutput((o) => o + s + "\n") });
-      py.setStderr({ batched: (s) => setOutput((o) => o + s + "\n") });
-
-      // pygments is a Pyodide-native package (faster than micropip) but
-      // not auto-loaded. `rich` (a transitive dep of openodia) imports it
-      // eagerly, so we need it on the path before openodia is imported.
-      setStatusMsg("Loading numpy + pygments…");
-      await py.loadPackage(["numpy", "pygments"]);
-      if (cancelled) return;
-
-      setStatusMsg("Loading micropip and installing openodia…");
-      await py.loadPackage("micropip");
-      const micropip = py.pyimport("micropip");
-      await micropip.install(["deep-translator", "faker", "rich", "openodia"]);
-      if (cancelled) return;
-
-      pyodideRef.current = py;
-      setStatus("ready");
-      setStatusMsg("Ready. Hit Run to execute.");
-    }
-
-    bootstrap().catch((err: unknown) => {
-      if (cancelled) return;
-      console.error("playground bootstrap failed", err);
-      setStatus("error");
-      setStatusMsg(err instanceof Error ? err.message : "Failed to initialize");
-    });
 
     return () => {
       cancelled = true;
     };
   }, []);
+
+  // Native Fullscreen API: the browser already gives us Esc-to-exit, the
+  // OS-level chrome hiding, and the `fullscreenchange` event to sync state.
+  useEffect(() => {
+    const sync = () => setIsFull(document.fullscreenElement === shellRef.current);
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  function toggleFullscreen() {
+    if (document.fullscreenElement) void document.exitFullscreen();
+    else void shellRef.current?.requestFullscreen();
+  }
 
   async function copyOutput() {
     if (!output) return;
@@ -363,70 +396,87 @@ function PlaygroundPage() {
       </Reveal>
 
       <Reveal delay={0.2} className="mt-6">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-border bg-surface overflow-hidden">
-            <div className="flex items-center justify-between border-b border-border px-4 py-2">
-              <span className="font-mono text-xs text-muted-foreground">main.py</span>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={format}
-                  disabled={status !== "ready" || formatting || running}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon disabled:opacity-40"
-                  title="Format with black"
-                >
-                  {formatting ? (
-                    <Loader2 size={12} className="animate-spin" />
-                  ) : (
-                    <Sparkles size={12} />
-                  )}
-                  Format
-                </button>
-                <button
-                  onClick={run}
-                  disabled={status !== "ready" || running}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-neon to-magenta px-4 py-1.5 text-xs font-medium text-primary-foreground transition disabled:opacity-40"
-                >
-                  {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-                  Run
-                </button>
+        <div ref={shellRef} className={isFull ? "h-full bg-background p-4" : ""}>
+          <div className={`grid gap-4 lg:grid-cols-2 ${isFull ? "h-full" : ""}`}>
+            <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-surface overflow-hidden">
+              <div className="flex items-center justify-between border-b border-border px-4 py-2">
+                <span className="font-mono text-xs text-muted-foreground">main.py</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={toggleFullscreen}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon"
+                    title={isFull ? "Exit full screen (Esc)" : "Full screen"}
+                    aria-label={isFull ? "Exit full screen" : "Full screen"}
+                  >
+                    {isFull ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                  </button>
+                  <button
+                    onClick={format}
+                    disabled={status !== "ready" || formatting || running}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon disabled:opacity-40"
+                    title="Format with black"
+                  >
+                    {formatting ? (
+                      <Loader2 size={12} className="animate-spin" />
+                    ) : (
+                      <Sparkles size={12} />
+                    )}
+                    Format
+                  </button>
+                  <button
+                    onClick={run}
+                    disabled={status !== "ready" || running}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-neon to-magenta px-4 py-1.5 text-xs font-medium text-primary-foreground transition disabled:opacity-40"
+                  >
+                    {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+                    Run
+                  </button>
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                <CodeEditor
+                  value={code}
+                  onChange={setCode}
+                  rows={16}
+                  disabled={status === "loading"}
+                />
               </div>
             </div>
-            <CodeEditor value={code} onChange={setCode} rows={16} disabled={status === "loading"} />
-          </div>
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-surface">
-            <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground">
-              <Terminal size={12} />
-              <span className="font-mono">output</span>
-              <div className="flex-1" />
-              {output && (
-                <>
-                  <button
-                    onClick={copyOutput}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-neon"
-                    title="Copy output"
-                    aria-label="Copy output"
-                  >
-                    {copied ? <Check size={12} /> : <Clipboard size={12} />}
-                  </button>
-                  <button
-                    onClick={() => setOutput("")}
-                    className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-destructive"
-                    title="Clear output"
-                    aria-label="Clear output"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </>
-              )}
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface">
+              <div className="flex items-center gap-2 border-b border-border px-4 py-2 text-xs text-muted-foreground">
+                <Terminal size={12} />
+                <span className="font-mono">output</span>
+                <div className="flex-1" />
+                {output && (
+                  <>
+                    <button
+                      onClick={copyOutput}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-neon"
+                      title="Copy output"
+                      aria-label="Copy output"
+                    >
+                      {copied ? <Check size={12} /> : <Clipboard size={12} />}
+                    </button>
+                    <button
+                      onClick={() => setOutput("")}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition hover:text-destructive"
+                      title="Clear output"
+                      aria-label="Clear output"
+                    >
+                      <Trash2 size={12} />
+                    </button>
+                  </>
+                )}
+              </div>
+              <pre className="block min-h-[24rem] flex-1 overflow-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed text-foreground">
+                {output || (
+                  <span className="text-muted-foreground">
+                    Output appears here after you click Run.
+                  </span>
+                )}
+              </pre>
             </div>
-            <pre className="block min-h-[24rem] overflow-x-auto whitespace-pre-wrap p-4 font-mono text-sm leading-relaxed text-foreground">
-              {output || (
-                <span className="text-muted-foreground">
-                  Output appears here after you click Run.
-                </span>
-              )}
-            </pre>
           </div>
         </div>
       </Reveal>
