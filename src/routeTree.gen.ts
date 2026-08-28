@@ -9,80 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AboutRouteImport } from './routes/about'
-import { Route as ContributeRouteImport } from './routes/contribute'
-import { Route as DatasetsRouteImport } from './routes/datasets'
-import { Route as EventsRouteImport } from './routes/events'
-import { Route as EventsFeedRouteImport } from './routes/events-feed'
-import { Route as ModelsRouteImport } from './routes/models'
-import { Route as PapersRouteImport } from './routes/papers'
-import { Route as PlaygroundRouteImport } from './routes/playground'
-import { Route as ToolsRouteImport } from './routes/tools'
-import { Route as TreebankRouteImport } from './routes/treebank'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
+import { Route as TreebankRouteImport } from './routes/treebank'
+import { Route as ToolsRouteImport } from './routes/tools'
+import { Route as PlaygroundRouteImport } from './routes/playground'
+import { Route as PapersRouteImport } from './routes/papers'
+import { Route as ModelsRouteImport } from './routes/models'
+import { Route as EventsFeedRouteImport } from './routes/events-feed'
+import { Route as EventsRouteImport } from './routes/events'
+import { Route as DatasetsRouteImport } from './routes/datasets'
+import { Route as ContributeRouteImport } from './routes/contribute'
+import { Route as AboutRouteImport } from './routes/about'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
-import { Route as ApiAwesomeRouteImport } from './routes/api/awesome'
-import { Route as ApiDatasetsRouteImport } from './routes/api/datasets'
-import { Route as ApiEventsRouteImport } from './routes/api/events'
-import { Route as ApiModelsRouteImport } from './routes/api/models'
-import { Route as ApiPypiRouteImport } from './routes/api/pypi'
-import { Route as ApiReposRouteImport } from './routes/api/repos'
-import { Route as ApiResourcesRouteImport } from './routes/api/resources'
-import { Route as ApiVideosRouteImport } from './routes/api/videos'
-import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
-import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
-import { Route as RSplatRouteImport } from './routes/r.$'
 import { Route as SitemapXmlRouteImport } from './routes/sitemap.xml'
+import { Route as RSplatRouteImport } from './routes/r.$'
+import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
+import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
+import { Route as ApiVideosRouteImport } from './routes/api/videos'
+import { Route as ApiResourcesRouteImport } from './routes/api/resources'
+import { Route as ApiReposRouteImport } from './routes/api/repos'
+import { Route as ApiPypiRouteImport } from './routes/api/pypi'
+import { Route as ApiModelsRouteImport } from './routes/api/models'
+import { Route as ApiEventsRouteImport } from './routes/api/events'
+import { Route as ApiDatasetsRouteImport } from './routes/api/datasets'
+import { Route as ApiAwesomeRouteImport } from './routes/api/awesome'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ContributeRoute = ContributeRouteImport.update({
-  id: '/contribute',
-  path: '/contribute',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DatasetsRoute = DatasetsRouteImport.update({
-  id: '/datasets',
-  path: '/datasets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventsRoute = EventsRouteImport.update({
-  id: '/events',
-  path: '/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const EventsFeedRoute = EventsFeedRouteImport.update({
-  id: '/events-feed',
-  path: '/events-feed',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ModelsRoute = ModelsRouteImport.update({
-  id: '/models',
-  path: '/models',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PapersRoute = PapersRouteImport.update({
-  id: '/papers',
-  path: '/papers',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PlaygroundRoute = PlaygroundRouteImport.update({
-  id: '/playground',
-  path: '/playground',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ToolsRoute = ToolsRouteImport.update({
-  id: '/tools',
-  path: '/tools',
+const TutorialsRoute = TutorialsRouteImport.update({
+  id: '/tutorials',
+  path: '/tutorials',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TreebankRoute = TreebankRouteImport.update({
@@ -90,9 +45,54 @@ const TreebankRoute = TreebankRouteImport.update({
   path: '/treebank',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TutorialsRoute = TutorialsRouteImport.update({
-  id: '/tutorials',
-  path: '/tutorials',
+const ToolsRoute = ToolsRouteImport.update({
+  id: '/tools',
+  path: '/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PlaygroundRoute = PlaygroundRouteImport.update({
+  id: '/playground',
+  path: '/playground',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PapersRoute = PapersRouteImport.update({
+  id: '/papers',
+  path: '/papers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ModelsRoute = ModelsRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsFeedRoute = EventsFeedRouteImport.update({
+  id: '/events-feed',
+  path: '/events-feed',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const EventsRoute = EventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatasetsRoute = DatasetsRouteImport.update({
+  id: '/datasets',
+  path: '/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContributeRoute = ContributeRouteImport.update({
+  id: '/contribute',
+  path: '/contribute',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AboutRoute = AboutRouteImport.update({
+  id: '/about',
+  path: '/about',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiIndexRoute = ApiIndexRouteImport.update({
@@ -100,54 +100,9 @@ const ApiIndexRoute = ApiIndexRouteImport.update({
   path: '/api/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
-  id: '/api/awesome',
-  path: '/api/awesome',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiDatasetsRoute = ApiDatasetsRouteImport.update({
-  id: '/api/datasets',
-  path: '/api/datasets',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiEventsRoute = ApiEventsRouteImport.update({
-  id: '/api/events',
-  path: '/api/events',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiModelsRoute = ApiModelsRouteImport.update({
-  id: '/api/models',
-  path: '/api/models',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPypiRoute = ApiPypiRouteImport.update({
-  id: '/api/pypi',
-  path: '/api/pypi',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiReposRoute = ApiReposRouteImport.update({
-  id: '/api/repos',
-  path: '/api/repos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiResourcesRoute = ApiResourcesRouteImport.update({
-  id: '/api/resources',
-  path: '/api/resources',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiVideosRoute = ApiVideosRouteImport.update({
-  id: '/api/videos',
-  path: '/api/videos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
-  id: '/llms-full/txt',
-  path: '/llms-full/txt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LlmsTxtRoute = LlmsTxtRouteImport.update({
-  id: '/llms/txt',
-  path: '/llms/txt',
+const SitemapXmlRoute = SitemapXmlRouteImport.update({
+  id: '/sitemap/xml',
+  path: '/sitemap/xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RSplatRoute = RSplatRouteImport.update({
@@ -155,9 +110,54 @@ const RSplatRoute = RSplatRouteImport.update({
   path: '/r/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SitemapXmlRoute = SitemapXmlRouteImport.update({
-  id: '/sitemap/xml',
-  path: '/sitemap/xml',
+const LlmsTxtRoute = LlmsTxtRouteImport.update({
+  id: '/llms/txt',
+  path: '/llms/txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsFullTxtRoute = LlmsFullTxtRouteImport.update({
+  id: '/llms-full/txt',
+  path: '/llms-full/txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiVideosRoute = ApiVideosRouteImport.update({
+  id: '/api/videos',
+  path: '/api/videos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiResourcesRoute = ApiResourcesRouteImport.update({
+  id: '/api/resources',
+  path: '/api/resources',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReposRoute = ApiReposRouteImport.update({
+  id: '/api/repos',
+  path: '/api/repos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPypiRoute = ApiPypiRouteImport.update({
+  id: '/api/pypi',
+  path: '/api/pypi',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiModelsRoute = ApiModelsRouteImport.update({
+  id: '/api/models',
+  path: '/api/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEventsRoute = ApiEventsRouteImport.update({
+  id: '/api/events',
+  path: '/api/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDatasetsRoute = ApiDatasetsRouteImport.update({
+  id: '/api/datasets',
+  path: '/api/datasets',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
+  id: '/api/awesome',
+  path: '/api/awesome',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -357,74 +357,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/contribute': {
-      id: '/contribute'
-      path: '/contribute'
-      fullPath: '/contribute'
-      preLoaderRoute: typeof ContributeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/datasets': {
-      id: '/datasets'
-      path: '/datasets'
-      fullPath: '/datasets'
-      preLoaderRoute: typeof DatasetsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/events': {
-      id: '/events'
-      path: '/events'
-      fullPath: '/events'
-      preLoaderRoute: typeof EventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/events-feed': {
-      id: '/events-feed'
-      path: '/events-feed'
-      fullPath: '/events-feed'
-      preLoaderRoute: typeof EventsFeedRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/models': {
-      id: '/models'
-      path: '/models'
-      fullPath: '/models'
-      preLoaderRoute: typeof ModelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/papers': {
-      id: '/papers'
-      path: '/papers'
-      fullPath: '/papers'
-      preLoaderRoute: typeof PapersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/playground': {
-      id: '/playground'
-      path: '/playground'
-      fullPath: '/playground'
-      preLoaderRoute: typeof PlaygroundRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tools': {
-      id: '/tools'
-      path: '/tools'
-      fullPath: '/tools'
-      preLoaderRoute: typeof ToolsRouteImport
+    '/tutorials': {
+      id: '/tutorials'
+      path: '/tutorials'
+      fullPath: '/tutorials'
+      preLoaderRoute: typeof TutorialsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/treebank': {
@@ -434,11 +371,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TreebankRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/tutorials': {
-      id: '/tutorials'
-      path: '/tutorials'
-      fullPath: '/tutorials'
-      preLoaderRoute: typeof TutorialsRouteImport
+    '/tools': {
+      id: '/tools'
+      path: '/tools'
+      fullPath: '/tools'
+      preLoaderRoute: typeof ToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/playground': {
+      id: '/playground'
+      path: '/playground'
+      fullPath: '/playground'
+      preLoaderRoute: typeof PlaygroundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/papers': {
+      id: '/papers'
+      path: '/papers'
+      fullPath: '/papers'
+      preLoaderRoute: typeof PapersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/models': {
+      id: '/models'
+      path: '/models'
+      fullPath: '/models'
+      preLoaderRoute: typeof ModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events-feed': {
+      id: '/events-feed'
+      path: '/events-feed'
+      fullPath: '/events-feed'
+      preLoaderRoute: typeof EventsFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/events': {
+      id: '/events'
+      path: '/events'
+      fullPath: '/events'
+      preLoaderRoute: typeof EventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datasets': {
+      id: '/datasets'
+      path: '/datasets'
+      fullPath: '/datasets'
+      preLoaderRoute: typeof DatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contribute': {
+      id: '/contribute'
+      path: '/contribute'
+      fullPath: '/contribute'
+      preLoaderRoute: typeof ContributeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/about': {
+      id: '/about'
+      path: '/about'
+      fullPath: '/about'
+      preLoaderRoute: typeof AboutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/': {
@@ -448,74 +448,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/awesome': {
-      id: '/api/awesome'
-      path: '/api/awesome'
-      fullPath: '/api/awesome'
-      preLoaderRoute: typeof ApiAwesomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/datasets': {
-      id: '/api/datasets'
-      path: '/api/datasets'
-      fullPath: '/api/datasets'
-      preLoaderRoute: typeof ApiDatasetsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/events': {
-      id: '/api/events'
-      path: '/api/events'
-      fullPath: '/api/events'
-      preLoaderRoute: typeof ApiEventsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/models': {
-      id: '/api/models'
-      path: '/api/models'
-      fullPath: '/api/models'
-      preLoaderRoute: typeof ApiModelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/pypi': {
-      id: '/api/pypi'
-      path: '/api/pypi'
-      fullPath: '/api/pypi'
-      preLoaderRoute: typeof ApiPypiRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/repos': {
-      id: '/api/repos'
-      path: '/api/repos'
-      fullPath: '/api/repos'
-      preLoaderRoute: typeof ApiReposRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/resources': {
-      id: '/api/resources'
-      path: '/api/resources'
-      fullPath: '/api/resources'
-      preLoaderRoute: typeof ApiResourcesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/videos': {
-      id: '/api/videos'
-      path: '/api/videos'
-      fullPath: '/api/videos'
-      preLoaderRoute: typeof ApiVideosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/llms-full/txt': {
-      id: '/llms-full/txt'
-      path: '/llms-full/txt'
-      fullPath: '/llms-full/txt'
-      preLoaderRoute: typeof LlmsFullTxtRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/llms/txt': {
-      id: '/llms/txt'
-      path: '/llms/txt'
-      fullPath: '/llms/txt'
-      preLoaderRoute: typeof LlmsTxtRouteImport
+    '/sitemap/xml': {
+      id: '/sitemap/xml'
+      path: '/sitemap/xml'
+      fullPath: '/sitemap/xml'
+      preLoaderRoute: typeof SitemapXmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/r/$': {
@@ -525,11 +462,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sitemap/xml': {
-      id: '/sitemap/xml'
-      path: '/sitemap/xml'
-      fullPath: '/sitemap/xml'
-      preLoaderRoute: typeof SitemapXmlRouteImport
+    '/llms/txt': {
+      id: '/llms/txt'
+      path: '/llms/txt'
+      fullPath: '/llms/txt'
+      preLoaderRoute: typeof LlmsTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms-full/txt': {
+      id: '/llms-full/txt'
+      path: '/llms-full/txt'
+      fullPath: '/llms-full/txt'
+      preLoaderRoute: typeof LlmsFullTxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/videos': {
+      id: '/api/videos'
+      path: '/api/videos'
+      fullPath: '/api/videos'
+      preLoaderRoute: typeof ApiVideosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/resources': {
+      id: '/api/resources'
+      path: '/api/resources'
+      fullPath: '/api/resources'
+      preLoaderRoute: typeof ApiResourcesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/repos': {
+      id: '/api/repos'
+      path: '/api/repos'
+      fullPath: '/api/repos'
+      preLoaderRoute: typeof ApiReposRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/pypi': {
+      id: '/api/pypi'
+      path: '/api/pypi'
+      fullPath: '/api/pypi'
+      preLoaderRoute: typeof ApiPypiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/models': {
+      id: '/api/models'
+      path: '/api/models'
+      fullPath: '/api/models'
+      preLoaderRoute: typeof ApiModelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/events': {
+      id: '/api/events'
+      path: '/api/events'
+      fullPath: '/api/events'
+      preLoaderRoute: typeof ApiEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/datasets': {
+      id: '/api/datasets'
+      path: '/api/datasets'
+      fullPath: '/api/datasets'
+      preLoaderRoute: typeof ApiDatasetsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/awesome': {
+      id: '/api/awesome'
+      path: '/api/awesome'
+      fullPath: '/api/awesome'
+      preLoaderRoute: typeof ApiAwesomeRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
