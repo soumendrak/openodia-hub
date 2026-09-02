@@ -47,6 +47,15 @@ export function Footer() {
                   Playground
                 </Link>
               </li>
+              <li>
+                <Link
+                  to="/playground"
+                  search={{ tab: "translit" }}
+                  className="hover:text-foreground"
+                >
+                  Transliteration
+                </Link>
+              </li>
               <li className="flex items-center gap-1.5">
                 <Link to="/events" className="hover:text-foreground">
                   Events
