@@ -1,5 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Play,
   Loader2,
@@ -18,10 +18,15 @@ import { generateJavaScript } from "@devsuvam/odialang/dist/codegen/generate";
 import { Reveal } from "../components/Reveal";
 import { PythonIcon } from "../components/icons";
 import { CodeEditor } from "../components/CodeEditor";
+import { Transliterate } from "../components/Transliterate";
 import { pageHead } from "../lib/seo";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 
 export const Route = createFileRoute("/playground")({
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } =>
+    search.tab === "odia" || search.tab === "translit" || search.tab === "python"
+      ? { tab: search.tab }
+      : {},
   head: () =>
     pageHead({
       path: "playground",
@@ -136,11 +141,11 @@ print(word, "->", syllable.split(word))
 print("aksharas:", syllable.count(word))
 print("hyphenated:", syllable.hyphenate(word))
 
-print()
+print("\\nNumbers spelled out in Odia:")
 for n in (7, 42, 1000, 250000):
-    print(n, "->", numbers.to_words(n))
+    print(" ", n, "->", numbers.to_words(n))
 
-print()
+print("\\nDigits:")
 print("ASCII digits to Odia:", numbers.ascii_to_odia("2026"))
 print("Odia digits to ASCII:", numbers.odia_to_ascii("୨୦୨୬"))
 `,
@@ -167,6 +172,94 @@ print("\\nbigrams:", list(ngrams(text, 2))[:5])
 
 stop = Stopwords.default()
 print("\\nstopword coverage:", round(stop.coverage(text.split()), 3))
+`,
+  },
+  {
+    label: "Same word, two spellings",
+    code: `# Odia can write ଡ଼ as one letter, or as ଡ with a nukta dot under it.
+# Both look identical on screen, but Python sees different text — which
+# quietly breaks search, dedup and word counts.
+# indic-nlp-library is installed on demand when you run this.
+import unicodedata
+from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
+
+def spell_out(text):
+    for c in text:
+        print(f"    {c}   {unicodedata.name(c).replace('ORIYA ', '').lower()}")
+
+one_letter = "ଓ" + chr(0x0B5C) + "ିଶା"
+with_nukta = "ଓ" + chr(0x0B21) + chr(0x0B3C) + "ିଶା"
+
+print("A:", one_letter, f"— {len(one_letter)} characters")
+print("B:", with_nukta, f"— {len(with_nukta)} characters")
+print("Same word?", one_letter == with_nukta)
+
+print("\\nA is built from:")
+spell_out(one_letter)
+print("B is built from:")
+spell_out(with_nukta)
+
+normalizer = IndicNormalizerFactory().get_normalizer("or")
+a, b = normalizer.normalize(one_letter), normalizer.normalize(with_nukta)
+print("\\nAfter normalizing — same word?", a == b)
+print("Both are now spelt the B way, with the nukta written out.")
+
+# The same normalizer settles two more Odia spelling choices:
+print("\\nଵ (va) folded to ବ (ba):", normalizer.normalize("ଵାରାଣସୀ"))
+typed = "କ" + chr(0x0B47) + chr(0x0B3E)   # କ + vowel e + vowel aa
+print("Vowel e + aa typed separately:", typed, "->", normalizer.normalize(typed),
+      "(one vowel sign o)")
+`,
+  },
+  {
+    label: "Odia to other Indic lang transliteration",
+    code: `# Indic scripts share a codepoint layout, so an akshara can be mapped
+# across them arithmetically — no model, no network, no lookup table.
+# It is lossy, and this sample says exactly where.
+import unicodedata
+from indicnlp.transliterate.unicode_transliterate import UnicodeIndicTransliterator
+from indicnlp.normalize.indic_normalize import IndicNormalizerFactory
+
+SCRIPTS = [("hi", "Devanagari"), ("bn", "Bengali"), ("gu", "Gujarati"),
+           ("pa", "Gurmukhi"), ("ta", "Tamil"), ("te", "Telugu"),
+           ("kn", "Kannada"), ("ml", "Malayalam")]
+
+def what_went_missing(text, target):
+    """Letters the target script has no home for. Printing them would show boxes."""
+    stayed_odia, empty_slots = [], 0
+    for c in UnicodeIndicTransliterator.transliterate(text, "or", target):
+        if c.isspace():
+            continue
+        try:
+            unicodedata.name(c)
+        except ValueError:
+            empty_slots += 1          # the arithmetic landed on an unused number
+            continue
+        if 0x0B00 <= ord(c) <= 0x0B7F and c not in stayed_odia:
+            stayed_odia.append(c)
+    notes = [f"{c} has no counterpart, stays Odia" for c in stayed_odia]
+    if empty_slots:
+        verb = "mark lands" if empty_slots == 1 else "marks land"
+        notes.append(f"{empty_slots} {verb} on an unused slot — shown as a box")
+    return "; ".join(notes) if notes else "maps cleanly"
+
+sentence = "ଓଡ଼ିଶାର ରାଜଧାନୀ ଭୁବନେଶ୍ୱର"
+print("as typed:", sentence)
+for code, script in SCRIPTS:
+    print(f"  {script:<12} {what_went_missing(sentence, code)}")
+
+# Two Odia letters cause every problem above: ଡ଼ carries a nukta (Tamil has no
+# nukta at all), and ୱ exists in no other script. Normalising both away costs a
+# little fidelity and makes the sentence portable.
+normalizer = IndicNormalizerFactory().get_normalizer("or", remove_nuktas=True, do_remap_wa=True)
+portable = normalizer.normalize(sentence)
+print("\\nnormalized:", portable)
+for code, script in SCRIPTS:
+    print(f"  {script:<12} {UnicodeIndicTransliterator.transliterate(portable, 'or', code)}")
+
+# Mapping runs both ways, so it round-trips — minus what normalising dropped.
+hindi = UnicodeIndicTransliterator.transliterate(portable, "or", "hi")
+print("\\nback from Devanagari:", UnicodeIndicTransliterator.transliterate(hindi, "hi", "or"))
 `,
   },
 ];
@@ -244,12 +337,17 @@ dekha "Yoga: " + yoga(nums)
 
 const SAMPLES: Record<Lang, Sample[]> = { python: PYTHON_SAMPLES, odia: ODIA_SAMPLES };
 
+type Tab = "python" | "odia" | "translit";
+/** The two tabs that are a code editor; "translit" is a tool, not an editor. */
 type Lang = "python" | "odia";
 
-const LANGS: { id: Lang; label: string; file: string }[] = [
-  { id: "python", label: "Python · openodia", file: "main.py" },
-  { id: "odia", label: "Odialang", file: "main.odia" },
+const TABS: { id: Tab; label: string }[] = [
+  { id: "python", label: "Python · openodia" },
+  { id: "odia", label: "Odialang" },
+  { id: "translit", label: "Transliteration" },
 ];
+
+const FILENAME: Record<Lang, string> = { python: "main.py", odia: "main.odia" };
 
 /**
  * Odialang is a compiler, not a runtime: tokenize → parse → emit JS. The three
@@ -333,7 +431,17 @@ function bootPyodide(onStatus: (msg: string) => void) {
 }
 
 function PlaygroundPage() {
-  const [lang, setLang] = useState<Lang>("python");
+  const navigate = useNavigate({ from: "/playground" });
+  const { tab: tabFromUrl } = Route.useSearch();
+  const [tab, setTabState] = useState<Tab>(tabFromUrl ?? "python");
+  // The URL carries the tab so /playground?tab=translit is linkable (the footer
+  // points at it). Replace rather than push: tab flipping is not history.
+  const setTab = (next: Tab) => {
+    setTabState(next);
+    void navigate({ search: next === "python" ? {} : { tab: next }, replace: true });
+  };
+  // Everything below the tab bar is written against the two editor tabs.
+  const lang: Lang = tab === "odia" ? "odia" : "python";
   // Per-language buffers, so switching tabs doesn't throw away an edit.
   const [codes, setCodes] = useState<Record<Lang, string>>({
     python: PYTHON_SAMPLES[0].code,
@@ -353,11 +461,16 @@ function PlaygroundPage() {
   // Lazy-install black on first format click rather than at boot — it's a
   // few extra MB and not every visitor cares about formatting.
   const blackInstalledRef = useRef(false);
+  // Same deal for indic-nlp-library: only the samples that import `indicnlp`
+  // and the transliteration tab need it, and it drags pandas in behind it.
+  // A promise, not a boolean: debounced typing can ask for it twice at once.
+  const indicRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     // Odialang compiles in-tab with no runtime to fetch — don't make an Odialang
-    // visitor pay for a Python runtime download they never asked for.
-    if (lang !== "python") return;
+    // visitor pay for a Python runtime download they never asked for. The
+    // transliteration tab does need it: indic-nlp-library is a Python library.
+    if (tab === "odia") return;
     let cancelled = false;
     setStatus("loading");
 
@@ -384,9 +497,23 @@ function PlaygroundPage() {
     return () => {
       cancelled = true;
     };
-  }, [lang]);
+  }, [tab]);
 
-  const ready = lang === "odia" || status === "ready";
+  const ready = tab === "odia" || status === "ready";
+
+  const ensureIndic = useCallback(() => {
+    indicRef.current ??= (async () => {
+      const py = pyodideRef.current;
+      if (!py) throw new Error("Python runtime is still loading");
+      setStatusMsg("Installing indic-nlp-library…");
+      await py.pyimport("micropip").install("indic-nlp-library");
+      setStatusMsg("Ready.");
+    })().catch((err: unknown) => {
+      indicRef.current = null; // a failed install must stay retryable
+      throw err;
+    });
+    return indicRef.current;
+  }, []);
 
   // Native Fullscreen API: the browser already gives us Esc-to-exit, the
   // OS-level chrome hiding, and the `fullscreenchange` event to sync state.
@@ -423,11 +550,16 @@ function PlaygroundPage() {
       }
       return;
     }
-    if (!pyodideRef.current) return;
+    const py = pyodideRef.current;
+    if (!py) return;
     setRunning(true);
     setOutput("");
     try {
-      await pyodideRef.current.runPythonAsync(code);
+      if (/\bindicnlp\b/.test(code)) {
+        await ensureIndic();
+        setStatusMsg("Ready. Hit Run to execute.");
+      }
+      await py.runPythonAsync(code);
     } catch (err) {
       setOutput((o) => o + String(err));
     } finally {
@@ -477,25 +609,26 @@ function PlaygroundPage() {
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
           Real code, running locally in your tab — no install, no setup, nothing sent to a server.
-          Two engines so far: <code>openodia (PyPI)</code> in Python via Pyodide, and{" "}
-          <code>odialang</code>, a language with Odia keywords that compiles to JavaScript.
+          Write Python against <code>openodia (PyPI)</code>, run <code>odialang</code> (a language
+          with Odia keywords that compiles to JavaScript), or convert Odia into another Indic script
+          as you type.
         </p>
         <Engines />
       </Reveal>
 
       <Reveal delay={0.1} className="mt-8">
         <div className="flex flex-wrap gap-2">
-          {LANGS.map((l) => (
+          {TABS.map((t) => (
             <button
-              key={l.id}
-              onClick={() => setLang(l.id)}
+              key={t.id}
+              onClick={() => setTab(t.id)}
               className={`rounded-full border px-4 py-1.5 text-xs transition ${
-                lang === l.id
+                tab === t.id
                   ? "border-neon bg-neon/10 text-neon"
                   : "border-border bg-surface text-muted-foreground hover:border-neon hover:text-neon"
               }`}
             >
-              {l.label}
+              {t.label}
             </button>
           ))}
         </div>
@@ -511,43 +644,52 @@ function PlaygroundPage() {
                 : "border-border bg-surface text-muted-foreground"
           }`}
         >
-          {lang === "python" && status === "loading" && (
+          {tab !== "odia" && status === "loading" && (
             <Loader2 size={14} className="animate-spin shrink-0" />
           )}
           {ready && <PythonIcon size={14} />}
-          {lang === "python" && status === "error" && (
-            <AlertCircle size={14} className="shrink-0" />
-          )}
+          {tab !== "odia" && status === "error" && <AlertCircle size={14} className="shrink-0" />}
           <span>
-            {lang === "odia"
+            {tab === "odia"
               ? "Ready. Odialang compiles to JavaScript in this tab — nothing to download."
-              : statusMsg || "Click Run when ready"}
+              : tab === "translit" && status === "ready"
+                ? "Ready. Conversion runs as you type, in this tab."
+                : statusMsg || "Click Run when ready"}
           </span>
         </div>
       </Reveal>
 
-      <Reveal delay={0.15} className="mt-6">
-        <div className="flex flex-wrap gap-2">
-          {SAMPLES[lang].map((s) => (
-            <button
-              key={s.label}
-              onClick={() => setCode(s.code)}
-              className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon"
-            >
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </Reveal>
+      {tab !== "translit" && (
+        <Reveal delay={0.15} className="mt-6">
+          <div className="flex flex-wrap gap-2">
+            {SAMPLES[lang].map((s) => (
+              <button
+                key={s.label}
+                onClick={() => setCode(s.code)}
+                className="rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </Reveal>
+      )}
 
-      <Reveal delay={0.2} className="mt-6">
+      {tab === "translit" && (
+        <Reveal delay={0.15} className="mt-6">
+          <Transliterate
+            py={status === "ready" ? pyodideRef.current : null}
+            ensureIndic={ensureIndic}
+          />
+        </Reveal>
+      )}
+
+      <Reveal delay={0.2} className="mt-6" hidden={tab === "translit"}>
         <div ref={shellRef} className={isFull ? "h-full bg-background p-4" : ""}>
           <div className={`grid gap-4 lg:grid-cols-2 ${isFull ? "h-full" : ""}`}>
             <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-surface overflow-hidden">
               <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                <span className="font-mono text-xs text-muted-foreground">
-                  {LANGS.find((l) => l.id === lang)!.file}
-                </span>
+                <span className="font-mono text-xs text-muted-foreground">{FILENAME[lang]}</span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={toggleFullscreen}
@@ -634,8 +776,9 @@ function PlaygroundPage() {
       <Reveal delay={0.25} className="mt-10">
         <div className="rounded-2xl border border-border bg-surface p-5 text-sm text-muted-foreground">
           <p>
-            <strong>Heads up:</strong> the Python tab downloads ~2 MB of WebAssembly and wheels on
-            first load (the Odialang tab downloads nothing). After that it stays in cache.{" "}
+            <strong>Heads up:</strong> the Python and Transliteration tabs download ~2 MB of
+            WebAssembly and wheels on first load (the Odialang tab downloads nothing). After that it
+            stays in cache.{" "}
             <a
               href="https://pypi.org/project/openodia/"
               target="_blank"
@@ -644,7 +787,16 @@ function PlaygroundPage() {
             >
               See the openodia package docs
             </a>{" "}
-            for full API. Features that need outbound HTTP (e.g. translation via{" "}
+            for full API. Transliteration and the two Indic-script samples pull in{" "}
+            <a
+              href="https://github.com/anoopkunchukuttan/indic_nlp_library"
+              target="_blank"
+              rel="noreferrer"
+              className="text-neon hover:underline"
+            >
+              indic-nlp-library
+            </a>{" "}
+            the first time you use them. Features that need outbound HTTP (e.g. translation via{" "}
             <code className="font-mono">deep-translator</code>) may be blocked by CORS in the
             browser sandbox.
           </p>
@@ -663,10 +815,15 @@ function Engines() {
   return (
     <div className="mt-6 flex flex-wrap items-center gap-2 text-xs">
       <span className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">Engines</span>
-      <span className="inline-flex items-center gap-1.5 rounded-full border border-neon/40 bg-neon/5 px-3 py-1 text-neon">
+      <a
+        href="https://pypi.org/project/openodia/"
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-full border border-neon/40 bg-neon/5 px-3 py-1 text-neon"
+      >
         <span className="h-1.5 w-1.5 rounded-full bg-neon" />
         openodia (PyPI) · loaded
-      </span>
+      </a>
       <a
         href="https://github.com/jyotishankar04/odialang"
         target="_blank"
@@ -677,12 +834,6 @@ function Engines() {
         <span className="h-1.5 w-1.5 rounded-full bg-neon" />
         odialang · loaded
       </a>
-      <span
-        className="rounded-full border border-border px-3 py-1 text-muted-foreground"
-        title="No open transliteration endpoint is reachable to wire this to yet."
-      >
-        Transliteration · not yet
-      </span>
       <span
         className="rounded-full border border-border px-3 py-1 text-muted-foreground"
         title="Inference demos for community models are planned."
