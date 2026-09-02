@@ -20,6 +20,7 @@ import { licenseFromProse, normalizeSpdx } from "../lib/license";
 import { refFromUrl, refToPath } from "../lib/resource-id";
 import { pickWeeklyFeatured } from "../lib/weekly-picks";
 import { loadAwesome, type Item as AwesomeItem } from "../lib/sources/awesome";
+import { loadAwesomeLicenses, type LicenseMap } from "../lib/sources/awesome-licenses";
 import { loadRepos, type Repo } from "../lib/sources/repos";
 
 /**
@@ -30,12 +31,19 @@ import { loadRepos, type Repo } from "../lib/sources/repos";
  * curated list down with it.
  */
 const getDirectory = createServerFn({ method: "GET" }).handler(async () => {
-  const [awesome, repos] = await Promise.allSettled([loadAwesome(), loadRepos()]);
+  const [awesome, repos, licenses] = await Promise.allSettled([
+    loadAwesome(),
+    loadRepos(),
+    loadAwesomeLicenses(),
+  ]);
   if (awesome.status === "rejected") console.error("awesome loader:", awesome.reason);
   if (repos.status === "rejected") console.error("repos loader:", repos.reason);
+  if (licenses.status === "rejected") console.error("awesome licenses loader:", licenses.reason);
   return {
     awesome: awesome.status === "fulfilled" ? awesome.value : ([] as AwesomeItem[]),
     repos: repos.status === "fulfilled" ? repos.value : ([] as Repo[]),
+    // Missing licenses degrade to "No license", the old behaviour — never fatal.
+    licenses: licenses.status === "fulfilled" ? licenses.value : ({} as LicenseMap),
     awesomeFailed: awesome.status === "rejected",
     reposFailed: repos.status === "rejected",
   };
@@ -81,7 +89,7 @@ const PAGE_SIZE = 30;
 const TYPE_LABEL: Record<string, string> = { repo: "Repos", tool: "Curated" };
 
 function ToolsPage() {
-  const { awesome, repos, awesomeFailed, reposFailed } = Route.useLoaderData();
+  const { awesome, repos, licenses, awesomeFailed, reposFailed } = Route.useLoaderData();
   const router = useRouter();
 
   // Load More — show items 0..shownCount, button bumps by PAGE_SIZE. Filters
@@ -107,23 +115,27 @@ function ToolsPage() {
     // paper URL across several entries (e.g. one paper covers both a dataset
     // and a model). Without the index React sees duplicate keys, drops cards,
     // and keeps stale DOM nodes alive when filters change.
-    const tools: DirectoryItem[] = awesome.map((a, idx) => ({
-      source: "tool" as const,
-      key: `tool:${idx}:${a.url}`,
-      name: a.name,
-      url: a.url,
-      description: a.description,
-      category: a.category,
-      subcategory: a.subcategory,
-      // Awesome-Odia-AI states the license inline in the blurb; nothing else
-      // on these entries carries it.
-      license: licenseFromProse(a.description),
+    const tools: DirectoryItem[] = awesome.map((a, idx) => {
       // A curated row that points at GitHub or Hugging Face is the same
       // resource as the repo/model card, so it gets the same permalink.
-      href: awesomeHref(a.url),
-      author: hostOwner(a.url),
-      org: refFromUrl(a.url)?.id.split("/")[0],
-    }));
+      const href = awesomeHref(a.url);
+      return {
+        source: "tool" as const,
+        key: `tool:${idx}:${a.url}`,
+        name: a.name,
+        url: a.url,
+        description: a.description,
+        category: a.category,
+        subcategory: a.subcategory,
+        // Awesome-Odia-AI states the license inline in the blurb for a
+        // minority of rows; the rest inherit it from the repo or model card
+        // the row points at.
+        license: licenseFromProse(a.description) || (href ? (licenses[href] ?? "") : ""),
+        href,
+        author: hostOwner(a.url),
+        org: refFromUrl(a.url)?.id.split("/")[0],
+      };
+    });
     const toolUrls = new Set(awesome.map((a) => a.url));
     const repoItems: DirectoryItem[] = repos
       .filter((r) => !toolUrls.has(r.html_url))
@@ -145,7 +157,7 @@ function ToolsPage() {
       }))
       .sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0));
     return [...tools, ...repoItems];
-  }, [awesome, repos]);
+  }, [awesome, repos, licenses]);
 
   // Five repos featured above the directory, drawn from a seeded shuffle keyed
   // on the ISO week — same set for every visitor all week, rotates itself every

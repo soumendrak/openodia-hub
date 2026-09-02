@@ -12,6 +12,9 @@ import {
   Maximize2,
   Minimize2,
 } from "lucide-react";
+import { tokenize } from "@devsuvam/odialang/dist/lexer/tokenizer";
+import { Parser } from "@devsuvam/odialang/dist/parser/parser";
+import { generateJavaScript } from "@devsuvam/odialang/dist/codegen/generate";
 import { Reveal } from "../components/Reveal";
 import { PythonIcon } from "../components/icons";
 import { CodeEditor } from "../components/CodeEditor";
@@ -33,7 +36,9 @@ export const Route = createFileRoute("/playground")({
 const PYODIDE_VERSION = "0.27.0";
 const PYODIDE_SRC = `https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.js`;
 
-const SAMPLES: { label: string; code: string }[] = [
+type Sample = { label: string; code: string };
+
+const PYTHON_SAMPLES: Sample[] = [
   {
     label: "Quick tour",
     code: `# A whirlwind tour of openodia — tokenization, language detection,
@@ -166,6 +171,98 @@ print("\\nstopword coverage:", round(stop.coverage(text.split()), 3))
   },
 ];
 
+const ODIA_SAMPLES: Sample[] = [
+  {
+    label: "Namaskar",
+    code: `# Odialang — Odia keywords, compiles to JavaScript.
+# dhara = let, dekha = print, karya = function, sesa = end.
+dhara nama = "Odisha"
+dekha "Namaskar, " + nama + "!"
+
+karya swagata(kie)
+  fera "Swagata, " + kie + "!"
+sesa
+
+dekha swagata("bandhu")
+`,
+  },
+  {
+    label: "Conditions",
+    code: `dhara marks = 85
+
+jadi marks >= 60 tahale
+  dekha "Pass — " + marks
+nahele
+  dekha "Fail — " + marks
+sesa
+
+dhara khusi = sata
+jadi khusi tahale
+  dekha "Khusi achi!"
+sesa
+`,
+  },
+  {
+    label: "Loops",
+    code: `# jebe = while
+dhara ganana = 1
+jebe ganana <= 5
+  dekha "Ganana: " + ganana
+  ganana = ganana + 1
+sesa
+
+# aarambha i = 1 ru 5  ->  for i in 1..5
+aarambha i = 1 ru 5
+  jadi i == 3 tahale
+    chala
+  sesa
+  dekha "Sankhya: " + i
+sesa
+`,
+  },
+  {
+    label: "Arrays & functions",
+    code: `dhara nums = [10, 20, 30, 40, 50]
+dekha "Length: " + nums.length
+dekha "First: " + nums[0]
+
+nums[0] = 100
+dekha "Updated: " + nums
+
+karya yoga(list)
+  dhara total = 0
+  aarambha i = 0 ru 4
+    total = total + list[i]
+  sesa
+  fera total
+sesa
+
+dekha "Yoga: " + yoga(nums)
+`,
+  },
+];
+
+const SAMPLES: Record<Lang, Sample[]> = { python: PYTHON_SAMPLES, odia: ODIA_SAMPLES };
+
+type Lang = "python" | "odia";
+
+const LANGS: { id: Lang; label: string; file: string }[] = [
+  { id: "python", label: "Python · openodia", file: "main.py" },
+  { id: "odia", label: "Odialang", file: "main.odia" },
+];
+
+/**
+ * Odialang is a compiler, not a runtime: tokenize → parse → emit JS. The three
+ * modules we import are pure (no fs/vm), so the whole pipeline runs in the tab.
+ * `dekha` emits `console.log`, so passing a shim as the function's `console`
+ * parameter shadows the global and captures the output.
+ */
+function runOdia(src: string, write: (line: string) => void) {
+  const js = generateJavaScript(new Parser(tokenize(src)).parseProgram());
+  const log = (...args: unknown[]) => write(args.map((a) => String(a)).join(" "));
+  new Function("console", js)({ log, error: log, warn: log, info: log });
+}
+
 type PyodideStatus = "idle" | "loading" | "ready" | "error";
 
 declare global {
@@ -190,7 +287,7 @@ type PyodideInterface = {
  * already in the DOM, assume it had finished loading, and blow up with
  * "loadPyodide missing" while the CDN request was still in flight. Memoising
  * the promise means the second caller waits on the first boot instead of
- * racing it — and a remount reuses the ~20 MB runtime rather than re-fetching.
+ * racing it — and a remount reuses the loaded runtime rather than re-fetching.
  */
 let bootPromise: Promise<PyodideInterface> | null = null;
 let onBootStatus: (msg: string) => void = () => {};
@@ -198,7 +295,7 @@ let onBootStatus: (msg: string) => void = () => {};
 function bootPyodide(onStatus: (msg: string) => void) {
   onBootStatus = onStatus;
   bootPromise ??= (async () => {
-    onBootStatus("Downloading Pyodide runtime (~10 MB)…");
+    onBootStatus("Downloading Pyodide runtime…");
     await new Promise<void>((resolve, reject) => {
       const s = document.createElement("script");
       s.id = "pyodide-script";
@@ -236,7 +333,14 @@ function bootPyodide(onStatus: (msg: string) => void) {
 }
 
 function PlaygroundPage() {
-  const [code, setCode] = useState(SAMPLES[0].code);
+  const [lang, setLang] = useState<Lang>("python");
+  // Per-language buffers, so switching tabs doesn't throw away an edit.
+  const [codes, setCodes] = useState<Record<Lang, string>>({
+    python: PYTHON_SAMPLES[0].code,
+    odia: ODIA_SAMPLES[0].code,
+  });
+  const code = codes[lang];
+  const setCode = (next: string) => setCodes((c) => ({ ...c, [lang]: next }));
   const [output, setOutput] = useState("");
   const [status, setStatus] = useState<PyodideStatus>("idle");
   const [statusMsg, setStatusMsg] = useState("");
@@ -251,6 +355,9 @@ function PlaygroundPage() {
   const blackInstalledRef = useRef(false);
 
   useEffect(() => {
+    // Odialang compiles in-tab with no runtime to fetch — don't make an Odialang
+    // visitor pay for a Python runtime download they never asked for.
+    if (lang !== "python") return;
     let cancelled = false;
     setStatus("loading");
 
@@ -277,7 +384,9 @@ function PlaygroundPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [lang]);
+
+  const ready = lang === "odia" || status === "ready";
 
   // Native Fullscreen API: the browser already gives us Esc-to-exit, the
   // OS-level chrome hiding, and the `fullscreenchange` event to sync state.
@@ -304,7 +413,17 @@ function PlaygroundPage() {
   }
 
   async function run() {
-    if (!pyodideRef.current || running) return;
+    if (running) return;
+    if (lang === "odia") {
+      setOutput("");
+      try {
+        runOdia(code, (line) => setOutput((o) => o + line + "\n"));
+      } catch (err) {
+        setOutput((o) => o + String(err));
+      }
+      return;
+    }
+    if (!pyodideRef.current) return;
     setRunning(true);
     setOutput("");
     try {
@@ -357,33 +476,59 @@ function PlaygroundPage() {
           Try Odia language tools <span className="text-gradient">in your browser</span>.
         </h1>
         <p className="mt-4 max-w-2xl text-muted-foreground">
-          Real Python, running locally in your tab via Pyodide — no install, no setup, nothing sent
-          to a server. The engine loaded today is <code>openodia (PyPI)</code>; it is the first of
-          several, not the point of the page.
+          Real code, running locally in your tab — no install, no setup, nothing sent to a server.
+          Two engines so far: <code>openodia (PyPI)</code> in Python via Pyodide, and{" "}
+          <code>odialang</code>, a language with Odia keywords that compiles to JavaScript.
         </p>
         <Engines />
       </Reveal>
 
       <Reveal delay={0.1} className="mt-8">
+        <div className="flex flex-wrap gap-2">
+          {LANGS.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => setLang(l.id)}
+              className={`rounded-full border px-4 py-1.5 text-xs transition ${
+                lang === l.id
+                  ? "border-neon bg-neon/10 text-neon"
+                  : "border-border bg-surface text-muted-foreground hover:border-neon hover:text-neon"
+              }`}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
+      </Reveal>
+
+      <Reveal delay={0.12} className="mt-4">
         <div
           className={`flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm ${
-            status === "error"
-              ? "border-destructive/50 bg-destructive/10 text-destructive"
-              : status === "ready"
-                ? "border-neon/40 bg-neon/5 text-foreground"
+            ready
+              ? "border-neon/40 bg-neon/5 text-foreground"
+              : status === "error"
+                ? "border-destructive/50 bg-destructive/10 text-destructive"
                 : "border-border bg-surface text-muted-foreground"
           }`}
         >
-          {status === "loading" && <Loader2 size={14} className="animate-spin shrink-0" />}
-          {status === "ready" && <PythonIcon size={14} />}
-          {status === "error" && <AlertCircle size={14} className="shrink-0" />}
-          <span>{statusMsg || "Click Run when ready"}</span>
+          {lang === "python" && status === "loading" && (
+            <Loader2 size={14} className="animate-spin shrink-0" />
+          )}
+          {ready && <PythonIcon size={14} />}
+          {lang === "python" && status === "error" && (
+            <AlertCircle size={14} className="shrink-0" />
+          )}
+          <span>
+            {lang === "odia"
+              ? "Ready. Odialang compiles to JavaScript in this tab — nothing to download."
+              : statusMsg || "Click Run when ready"}
+          </span>
         </div>
       </Reveal>
 
       <Reveal delay={0.15} className="mt-6">
         <div className="flex flex-wrap gap-2">
-          {SAMPLES.map((s) => (
+          {SAMPLES[lang].map((s) => (
             <button
               key={s.label}
               onClick={() => setCode(s.code)}
@@ -400,7 +545,9 @@ function PlaygroundPage() {
           <div className={`grid gap-4 lg:grid-cols-2 ${isFull ? "h-full" : ""}`}>
             <div className="flex min-h-0 flex-col rounded-2xl border border-border bg-surface overflow-hidden">
               <div className="flex items-center justify-between border-b border-border px-4 py-2">
-                <span className="font-mono text-xs text-muted-foreground">main.py</span>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {LANGS.find((l) => l.id === lang)!.file}
+                </span>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={toggleFullscreen}
@@ -410,22 +557,24 @@ function PlaygroundPage() {
                   >
                     {isFull ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                   </button>
-                  <button
-                    onClick={format}
-                    disabled={status !== "ready" || formatting || running}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon disabled:opacity-40"
-                    title="Format with black"
-                  >
-                    {formatting ? (
-                      <Loader2 size={12} className="animate-spin" />
-                    ) : (
-                      <Sparkles size={12} />
-                    )}
-                    Format
-                  </button>
+                  {lang === "python" && (
+                    <button
+                      onClick={format}
+                      disabled={!ready || formatting || running}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon disabled:opacity-40"
+                      title="Format with black"
+                    >
+                      {formatting ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Sparkles size={12} />
+                      )}
+                      Format
+                    </button>
+                  )}
                   <button
                     onClick={run}
-                    disabled={status !== "ready" || running}
+                    disabled={!ready || running}
                     className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-neon to-magenta px-4 py-1.5 text-xs font-medium text-primary-foreground transition disabled:opacity-40"
                   >
                     {running ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
@@ -438,7 +587,8 @@ function PlaygroundPage() {
                   value={code}
                   onChange={setCode}
                   rows={16}
-                  disabled={status === "loading"}
+                  language={lang === "odia" ? "odialang" : "python"}
+                  disabled={lang === "python" && status === "loading"}
                 />
               </div>
             </div>
@@ -484,8 +634,8 @@ function PlaygroundPage() {
       <Reveal delay={0.25} className="mt-10">
         <div className="rounded-2xl border border-border bg-surface p-5 text-sm text-muted-foreground">
           <p>
-            <strong>Heads up:</strong> first load downloads ~20 MB of WebAssembly and Python wheels.
-            After that it stays in cache.{" "}
+            <strong>Heads up:</strong> the Python tab downloads ~2 MB of WebAssembly and wheels on
+            first load (the Odialang tab downloads nothing). After that it stays in cache.{" "}
             <a
               href="https://pypi.org/project/openodia/"
               target="_blank"
@@ -517,6 +667,16 @@ function Engines() {
         <span className="h-1.5 w-1.5 rounded-full bg-neon" />
         openodia (PyPI) · loaded
       </span>
+      <a
+        href="https://github.com/jyotishankar04/odialang"
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1.5 rounded-full border border-neon/40 bg-neon/5 px-3 py-1 text-neon"
+        title="Odia-keyword language that compiles to JavaScript"
+      >
+        <span className="h-1.5 w-1.5 rounded-full bg-neon" />
+        odialang · loaded
+      </a>
       <span
         className="rounded-full border border-border px-3 py-1 text-muted-foreground"
         title="No open transliteration endpoint is reachable to wire this to yet."

@@ -5,6 +5,7 @@
  * loader (SSR) read the same data through the same cache.
  */
 import { fetchWithTimeout, mapWithConcurrency } from "../fetch-utils";
+import { licenseFromText } from "../license";
 import { cachedJson, UpstreamUnavailableError } from "./cache";
 
 export type Repo = {
@@ -191,13 +192,45 @@ function pickRepo(raw: Repo): Repo {
   };
 }
 
+/**
+ * Reads the license file GitHub found but could not classify.
+ *
+ * `NOASSERTION` means "there is a LICENSE file here and licensee didn't
+ * recognise it" — which covers every OFL font (`OFL.txt`), every CC-licensed
+ * corpus, and any copy with an extra copyright line on top. Across the pinned
+ * list that was ~12% of repos badged "No license" while carrying a plain
+ * Apache-2.0 or CC-BY-SA-4.0 text. `null` is left alone: that one genuinely
+ * means no license file, and is not worth a request.
+ */
+export async function licenseFromRepoFile(ownerRepo: string): Promise<string> {
+  try {
+    const r = await fetchWithTimeout(`https://api.github.com/repos/${ownerRepo}/license`, {
+      headers: GH_HEADERS,
+    });
+    if (!r.ok) return "";
+    const body = (await r.json()) as { content?: string; encoding?: string };
+    if (!body.content || body.encoding !== "base64") return "";
+    // License texts are ASCII, so atob is enough — and it is what the Workers
+    // runtime gives us; there is no Buffer here.
+    return licenseFromText(atob(body.content.replace(/\s/g, "")));
+  } catch (err) {
+    console.warn(`licenseFromRepoFile ${ownerRepo}:`, err);
+    return "";
+  }
+}
+
 async function fetchSingleRepo(ownerRepo: string): Promise<Repo | null> {
   try {
     const r = await fetchWithTimeout(`https://api.github.com/repos/${ownerRepo}`, {
       headers: GH_HEADERS,
     });
     if (!r.ok) return null;
-    return pickRepo((await r.json()) as Repo);
+    const repo = pickRepo((await r.json()) as Repo);
+    if (repo.license?.spdx_id === "NOASSERTION") {
+      const detected = await licenseFromRepoFile(ownerRepo);
+      repo.license = detected ? { spdx_id: detected } : null;
+    }
+    return repo;
   } catch (err) {
     console.warn(`fetchSingleRepo ${ownerRepo}:`, err);
     return null;

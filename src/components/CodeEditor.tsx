@@ -35,6 +35,20 @@ import { useMemo, useRef, type ChangeEvent, type KeyboardEvent, type UIEvent } f
 import Prism from "prismjs";
 import "prismjs/components/prism-python";
 
+// Odialang (github.com/jyotishankar04/odialang) has no Prism grammar of its
+// own. It is small enough that the whole language fits here: ASCII identifiers,
+// `#` / `//` comments, JS-style strings and operators.
+Prism.languages.odialang = {
+  comment: /(?:#|\/\/).*/,
+  string: /"(?:\\.|[^"\\])*"/,
+  keyword:
+    /\b(?:dhara|dekha|jadi|tahale|nahele|jebe|karya|fera|sata|micha|sesa|kar|aarambha|ru|ruha|chala)\b/,
+  number: /\b\d+(?:\.\d+)?\b/,
+  function: /\b[a-zA-Z_]\w*(?=\s*\()/,
+  operator: /[+\-*/%]=?|[=!<>]=?|&&|\|\|/,
+  punctuation: /[[\](),.]/,
+};
+
 // Prism auto-highlights every `<pre><code class="language-*">` on the page once
 // the document is ready, and `highlightElement` adds `tabindex="0"` to the
 // <pre>. That mutates the DOM out from under React and shows up as a hydration
@@ -50,6 +64,7 @@ type Props = {
   onChange: (next: string) => void;
   rows?: number;
   disabled?: boolean;
+  language?: "python" | "odialang";
 };
 
 function getLineRange(text: string, selStart: number, selEnd: number) {
@@ -58,7 +73,7 @@ function getLineRange(text: string, selStart: number, selEnd: number) {
   return { lineStart, lineEnd: lineEnd === -1 ? text.length : lineEnd };
 }
 
-export function CodeEditor({ value, onChange, rows, disabled }: Props) {
+export function CodeEditor({ value, onChange, rows, disabled, language = "python" }: Props) {
   const taRef = useRef<HTMLTextAreaElement>(null);
   const preRef = useRef<HTMLPreElement>(null);
 
@@ -70,8 +85,8 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
 
   // Trailing newline makes the overlay match the textarea's final empty line.
   const highlighted = useMemo(
-    () => Prism.highlight(value, Prism.languages.python, "python") + "\n",
-    [value],
+    () => Prism.highlight(value, Prism.languages[language], language) + "\n",
+    [value, language],
   );
 
   function setSelection(start: number, end: number) {
@@ -184,7 +199,10 @@ export function CodeEditor({ value, onChange, rows, disabled }: Props) {
           aria-hidden
           className="code-editor-pre pointer-events-none absolute inset-0 m-0 overflow-hidden whitespace-pre p-4 leading-[1.5]"
         >
-          <code className="language-python" dangerouslySetInnerHTML={{ __html: highlighted }} />
+          <code
+            className={`language-${language}`}
+            dangerouslySetInnerHTML={{ __html: highlighted }}
+          />
         </pre>
         <textarea
           ref={taRef}
