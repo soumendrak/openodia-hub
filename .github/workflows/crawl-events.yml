@@ -21,7 +21,7 @@ jobs:
           echo "has_changes=$(grep -c 'NEW_EVENTS_FOUND' /tmp/crawl-output.txt || true)" >> $GITHUB_OUTPUT
           exit $status
       - name: Create PR if event data changed
-        if: steps.crawl.outputs.has_changes != '0'
+        if: (success() || failure()) && steps.crawl.outputs.has_changes != '0'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.PAT }}

@@ -11,6 +11,18 @@ export const gdgocNitRourkelaEvents: Omit<Event, "community">[] = [
   // auto-crawled
   {
     year: "2026",
+    date: "24–25 Aug 2026",
+    title: "Beyond ChatGPT",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-beyond-chatgpt/",
+    type: "Workshop",
+    startDate: "2026-08-24",
+    endDate: "2026-08-25",
+    description:
+      "Join GDSC NIT Rourkela on August 24th at 6:30 PM for 'Mastering AI: Tools & Workflows Every Student Should Know.' Discover how to make AI your ultimate co-pilot for academics and projects. Learn effective prompting, essential AI tools, and smart workflows. Ideal for students setting a strong tech foundation early in their college journey. Meeting link: https://meet.google.com/cvf-xkaj-vfj",
+  },
+  // auto-crawled
+  {
+    year: "2026",
     date: "30 Jun 2026",
     title: "Build Better Products using Design Engineering!",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-build-better-products-using-design-engineering/",
