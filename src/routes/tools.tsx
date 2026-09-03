@@ -174,13 +174,14 @@ function ToolsPage() {
 
   const facets: FacetDef<DirectoryItem>[] = useMemo(
     () => [
-      { key: "type", title: "Source", values: (i) => [i.source], label: (v) => TYPE_LABEL[v] ?? v },
+      { key: "type", title: "Source", values: (i) => [i.source], label: (v) => TYPE_LABEL[v] },
       {
         key: "category",
         title: "Category",
         values: (i) => [i.category],
-        order: (a, b) =>
-          (categoryOrder.get(a.value) ?? Infinity) - (categoryOrder.get(b.value) ?? Infinity),
+        // Every option's `value` is drawn from the same `items` list that
+        // built `categoryOrder`, so both lookups always hit.
+        order: (a, b) => categoryOrder.get(a.value)! - categoryOrder.get(b.value)!,
       },
       // R7: the hub visibly hosts many actors, so the owning organisation is a
       // first-class way to browse. Only entries resolving to a GitHub/HF

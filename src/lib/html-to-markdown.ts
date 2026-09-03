@@ -45,7 +45,9 @@ export function decodeEntities(text: string): string {
 function attrs(raw: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const m of raw.matchAll(ATTR)) {
-    out[m[1].toLowerCase()] = decodeEntities(m[2] ?? m[3] ?? m[4] ?? "");
+    // ATTR's value group is a mandatory 3-way alternation, so whenever the
+    // pattern matches, exactly one of these is set.
+    out[m[1].toLowerCase()] = decodeEntities(m[2] ?? m[3] ?? m[4]);
   }
   return out;
 }

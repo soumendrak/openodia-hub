@@ -172,8 +172,8 @@ export function CodeEditor({ value, onChange, rows, disabled, language = "python
       e.preventDefault();
       const lineStart = text.lastIndexOf("\n", selectionStart - 1) + 1;
       const currentLine = text.slice(lineStart, selectionStart);
-      const indentMatch = currentLine.match(/^[ \t]*/);
-      let indent = indentMatch ? indentMatch[0] : "";
+      // `*` always matches (possibly zero-width), so this is never null.
+      let indent = currentLine.match(/^[ \t]*/)![0];
       if (currentLine.trimEnd().endsWith(":")) indent += INDENT;
       const insert = "\n" + indent;
       const next = text.slice(0, selectionStart) + insert + text.slice(selectionEnd);

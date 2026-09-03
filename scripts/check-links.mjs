@@ -21,7 +21,7 @@ const UA = "openodia.com link checker (+https://github.com/soumendrak/openodia-h
 /** Hosts that answer HEAD with a 4xx but are fine on GET. */
 const GET_ONLY = /(^|\.)(huggingface\.co|arxiv\.org|aclanthology\.org)$/i;
 
-async function fetchWithTimeout(url, init) {
+export async function fetchWithTimeout(url, init) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
@@ -31,7 +31,7 @@ async function fetchWithTimeout(url, init) {
   }
 }
 
-async function checkOne(url) {
+export async function checkOne(url) {
   const host = (() => {
     try {
       return new URL(url).host;
@@ -73,7 +73,7 @@ async function checkOne(url) {
   return { url, ok: false, status: 0, reason: "unreachable" };
 }
 
-async function mapWithConcurrency(items, limit, fn) {
+export async function mapWithConcurrency(items, limit, fn) {
   const results = new Array(items.length);
   let cursor = 0;
   async function worker() {
@@ -86,7 +86,7 @@ async function mapWithConcurrency(items, limit, fn) {
   return results;
 }
 
-function extractUrls(markdown) {
+export function extractUrls(markdown) {
   const urls = new Set();
   for (const [, url] of markdown.matchAll(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g)) {
     urls.add(url.replace(/[.,;]+$/, ""));
@@ -94,7 +94,7 @@ function extractUrls(markdown) {
   return [...urls];
 }
 
-async function main() {
+export async function main() {
   const json = process.argv.includes("--json");
 
   const res = await fetchWithTimeout(README_URL, { headers: { "User-Agent": UA } });
@@ -126,4 +126,6 @@ async function main() {
   process.exit(dead.length > 0 ? 1 : 0);
 }
 
-await main();
+if (process.argv[1]?.endsWith("check-links.mjs")) {
+  await main();
+}

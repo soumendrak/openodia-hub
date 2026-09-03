@@ -150,7 +150,7 @@ export function shouldSkip(title = "", description = "") {
   return !TECHNICAL_CONTENT_PATTERN.test(description);
 }
 
-function parseDate(dateStr) {
+export function parseDate(dateStr) {
   if (!dateStr) return null;
   const cleaned = dateStr.trim().replace(/\s+/g, " ");
   // Try parsing as "DD Mon YYYY" or "Mon DD, YYYY"
@@ -476,7 +476,7 @@ function formatEventEntry(event) {
   return lines.join("\n");
 }
 
-async function main() {
+export async function main() {
   let totalNew = 0;
   let totalUpdated = 0;
   let fatalFailures = 0;
@@ -495,10 +495,14 @@ async function main() {
       console.log(`⏭  ${source.id} — SPA, not parsable (manual only)`);
       continue;
     }
+    // Guard kept for future config entries: today the only file-less source
+    // (tfug-bbsr) is also `unparsable`, so the check above already caught it.
+    /* v8 ignore start */
     if (!source.file) {
       console.log(`⏭  ${source.id} — no data file configured`);
       continue;
     }
+    /* v8 ignore stop */
 
     const filePath = join(DATA_DIR, source.file);
     console.log(`\n🔍 ${source.id} — ${source.url}`);

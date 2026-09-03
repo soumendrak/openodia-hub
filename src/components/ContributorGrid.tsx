@@ -34,10 +34,6 @@ type Resp = {
   totalContributors: number;
 };
 
-function isV2(c: Contrib): c is V2Contributor {
-  return c.repos.length > 0 && typeof c.repos[0] !== "string";
-}
-
 function RepoRow({ repo }: { repo: RepoDetail | string }) {
   if (typeof repo === "string") {
     return (

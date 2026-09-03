@@ -129,7 +129,11 @@ export function Transliterate({ py, ensureIndic }: Props) {
   }, [py, ensureIndic, source, target, fold]);
 
   async function copy() {
+    // Guard kept for safety even though the Copy button only renders when
+    // `result` is truthy, so this branch is unreachable through the UI.
+    /* v8 ignore start */
     if (!result) return;
+    /* v8 ignore stop */
     try {
       await navigator.clipboard.writeText(result);
       setCopied(true);

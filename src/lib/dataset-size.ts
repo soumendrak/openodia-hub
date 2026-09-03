@@ -18,7 +18,8 @@ export function prettySize(bucket: string): string {
  */
 export function sizeRank(bucket: string): number {
   if (!bucket.includes("<")) return Number.MAX_SAFE_INTEGER;
-  const upper = bucket.split("<").pop() ?? "";
+  // split() always yields at least one element, so pop() is never undefined.
+  const upper = bucket.split("<").pop()!;
   const m = /(\d+(?:\.\d+)?)\s*([KMBT]?)/i.exec(upper);
   if (!m) return Number.MAX_SAFE_INTEGER;
   return Number(m[1]) * (MULTIPLIER[m[2].toUpperCase()] ?? 1);

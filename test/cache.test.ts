@@ -76,6 +76,50 @@ describe("cachedJson", () => {
     expect(lastCacheLayer()).toBe("MISS");
   });
 
+  describe("execution context handoff", () => {
+    it("hands a background write off to waitUntil once a ctx is set", async () => {
+      const mod = await freshCache();
+      const waitUntil = vi.fn((p: Promise<unknown>) => p);
+      mod.setExecutionContext({ waitUntil });
+
+      const load = vi.fn(async () => "v1");
+      expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+
+      expect(waitUntil).toHaveBeenCalledTimes(1);
+    });
+
+    it("ignores a ctx without a waitUntil function", async () => {
+      const mod = await freshCache();
+      mod.setExecutionContext({ waitUntil: "not a function" });
+
+      const load = vi.fn(async () => "v1");
+      expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+    });
+
+    it("logs a warning when a stale-window background refresh fails", async () => {
+      const mod = await freshCache();
+      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      let calls = 0;
+      const load = vi.fn(async () => {
+        calls += 1;
+        if (calls === 1) return "v1";
+        throw new Error("refresh failed");
+      });
+
+      expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+      vi.advanceTimersByTime(TTL + 1);
+      expect(await mod.cachedJson("k", TTL, load)).toBe("v1"); // stale -> refresh behind
+      await vi.runAllTimersAsync();
+
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining("cache refresh k:"),
+        expect.any(Error),
+      );
+      warnSpy.mockRestore();
+    });
+  });
+
   /**
    * The layer that matters. `caches.default` was per-colo, so it never served a
    * cold isolate outside the one colo that wrote it — in production ~85% of
@@ -149,6 +193,19 @@ describe("cachedJson", () => {
         },
       });
       expect(await mod.cachedJson("k", TTL, async () => "v1")).toBe("v1");
+    });
+
+    it("ignores a stored entry that is missing a numeric `at` timestamp", async () => {
+      const kv = fakeKv();
+      kv.data.set("cache:v3:k", JSON.stringify({ value: "corrupt" })); // no `at`
+
+      const mod = await freshCache();
+      mod.setCacheStore(kv);
+
+      const load = vi.fn(async () => "v1");
+      expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(mod.lastCacheLayer()).toBe("MISS");
     });
   });
 });

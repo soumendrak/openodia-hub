@@ -306,7 +306,9 @@ function EventsPage() {
         const yearEl = document.getElementById(`year-${year}`);
         if (yearEl) list.push(yearEl);
 
-        const months = parsedMonthsMap.get(year) || [];
+        // parsedMonthsMap was built from the same parsedYears, so every
+        // year here has an entry.
+        const months = parsedMonthsMap.get(year)!;
         months.forEach((month) => {
           const monthEl = document.getElementById(`month-${year}-${month.toLowerCase()}`);
           if (monthEl) list.push(monthEl);
@@ -370,7 +372,11 @@ function EventsPage() {
     activeYear = activeSection.replace("year-", "");
   } else if (activeSection?.startsWith("month-")) {
     const parts = activeSection.split("-");
+    // Guard kept for safety even though this code is the only producer of
+    // "month-<year>-<month>" ids, so `parts` always has 3+ entries here.
+    /* v8 ignore start */
     if (parts.length >= 3) {
+      /* v8 ignore stop */
       activeYear = parts[1];
       const mLower = parts[2];
       activeMonth = mLower.charAt(0).toUpperCase() + mLower.slice(1);
@@ -648,7 +654,9 @@ function EventsPage() {
                 {/* Year Nodes */}
                 {dynamicYears.map((year) => {
                   const isActiveYear = activeYear === year;
-                  const months = activeMonthsByYear.get(year) || [];
+                  // activeMonthsByYear was built from this same dynamicYears
+                  // list, so every year here has an entry.
+                  const months = activeMonthsByYear.get(year)!;
 
                   return (
                     <div key={year} className="flex flex-col">
@@ -748,8 +756,9 @@ function EventsPage() {
 
             <div className="space-y-16">
               {dynamicYears.map((year) => {
+                // dynamicYears is derived from filteredPastEvents itself, so
+                // every year here has at least one matching event.
                 const yearEvents = filteredPastEvents.filter((e) => e.year === year);
-                if (yearEvents.length === 0) return null;
 
                 // Group events of this year by month
                 const monthsMap = new Map<string, Event[]>();

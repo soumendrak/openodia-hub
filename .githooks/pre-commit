@@ -1,0 +1,12 @@
+#!/bin/sh
+set -eu
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+echo "pre-commit: checking 100% coverage on changed executable lines"
+if command -v just >/dev/null 2>&1; then
+  exec just coverage-diff
+fi
+
+exec bun run test:coverage:diff -- --staged

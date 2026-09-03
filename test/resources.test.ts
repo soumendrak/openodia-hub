@@ -34,6 +34,19 @@ describe("refFromUrl", () => {
     expect(refFromUrl("not a url")).toBeNull();
   });
 
+  it("returns nothing for a known host with no path at all", () => {
+    expect(refFromUrl("https://github.com/")).toBeNull();
+  });
+
+  it("rejects a dataset URL with too few or too many segments", () => {
+    expect(refFromUrl("https://huggingface.co/datasets")).toBeNull();
+    expect(refFromUrl("https://huggingface.co/datasets/a/b/c")).toBeNull();
+  });
+
+  it("rejects a model URL with more than two path segments", () => {
+    expect(refFromUrl("https://huggingface.co/a/b/c")).toBeNull();
+  });
+
   it("round-trips through the permalink path", () => {
     for (const url of [
       "https://github.com/OdiaNLP/NMT",
