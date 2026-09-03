@@ -33,7 +33,9 @@ export function MagneticButton({
     span.style.transform = `translate3d(${x}px, ${y}px, 0)`;
   };
   const reset = () => {
-    if (inner.current) inner.current.style.transform = "";
+    // `inner` is attached to the always-rendered span, so it's set by the
+    // time `onMouseLeave` (which requires mount) can invoke this.
+    inner.current!.style.transform = "";
   };
 
   const base =

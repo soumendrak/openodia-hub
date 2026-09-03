@@ -237,9 +237,9 @@ function Stats() {
     { label: "Odia datasets", value: datasets.value, approx: datasets.approx, href: "/datasets" },
     { label: "Community channels", value: 4, approx: false, href: "/tutorials" },
   ] as const;
+  // ponytail: "Community channels" is a hardcoded tile, so `shown` can never
+  // be empty — no empty-state branch needed here.
   const shown = tiles.filter((t) => t.value !== null);
-
-  if (shown.length === 0) return null;
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-16">

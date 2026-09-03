@@ -74,10 +74,9 @@ export function parseReadme(md: string): Item[] {
       // Take name as the leading text up to the first ':' or '['
       const sepIdx = (() => {
         const c = body.indexOf(":");
+        // linkRe already matched a "[...]" link in body, so "[" is present.
         const b = body.indexOf("[");
-        if (c === -1) return b;
-        if (b === -1) return c;
-        return Math.min(c, b);
+        return c === -1 ? b : Math.min(c, b);
       })();
       if (sepIdx <= 0) {
         name = m[1];

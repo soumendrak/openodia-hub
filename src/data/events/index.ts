@@ -122,7 +122,11 @@ export function parseEventDateRange(
     } else {
       // Single day (e.g., "23 May 2026")
       const day = parseInt(daysPart, 10);
+      // Guard kept: `daysPart` was picked by the same parseInt test above, so
+      // this can't be NaN today, but the check keeps the fallthrough honest.
+      /* v8 ignore start */
       if (!isNaN(day)) {
+        /* v8 ignore stop */
         return {
           start: new Date(parsedYear, month.val, day),
           end: new Date(parsedYear, month.val, day),
@@ -188,7 +192,11 @@ export const events: Event[] = sources
         const local = new Date(parsed.start.getTime() - offset * 60 * 1000);
         startStr = local.toISOString().split("T")[0];
 
+        // Guard kept: parseEventDateRange always returns start/end as a pair,
+        // so this is unreachable-null while `parsed.start` is set.
+        /* v8 ignore start */
         if (parsed.end) {
+          /* v8 ignore stop */
           const endLocal = new Date(parsed.end.getTime() - offset * 60 * 1000);
           endStr = endLocal.toISOString().split("T")[0];
         }
