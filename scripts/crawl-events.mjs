@@ -16,7 +16,7 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
-import { eventUrlKey } from "../src/lib/event-url.ts";
+import { eventUrlKey, resolveEventDestinationUrl } from "../src/lib/event-url.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "src", "data", "events");
@@ -264,11 +264,9 @@ export function parseGDGEventCards(html) {
     }
     return {
       title: e.title.replace(/\s+/g, " ").trim(),
-      // Prefer the cohost URL for storage — that's what /api/events stores and
-      // what hand-written static entries use, so the Events page (dedups by
-      // exact URL when merging static + live) sees one card, not two. Keep the
-      // plain url to fetch the detail page (cohost URLs are registration links).
-      url: e.cohost_registration_url || e.url,
+      // Store Bevy's canonical event URL. Cohost registration URLs are aliases
+      // and must never become the identity of a separately rendered event.
+      url: e.url,
       detailUrl: e.url,
       dateRaw: e.start_date || null,
       ...(tzDate(e.start_date) || {}),
@@ -407,37 +405,9 @@ async function parseOdishaAIEvents() {
 // `.../hackforge-20/cohost-gdg-bhubaneswar`). Strip that and any trailing slash.
 export const normalizeUrl = eventUrlKey;
 
-function isGdgEventUrl(url) {
-  try {
-    const parsed = new URL(url);
-    return (
-      parsed.hostname.toLowerCase() === "gdg.community.dev" &&
-      parsed.pathname.startsWith("/events/details/")
-    );
-  } catch {
-    return false;
-  }
-}
-
 /** Follow a GDG event redirect to the destination address used for dedup. */
 export async function resolveDestinationUrl(url, fetcher = fetch) {
-  if (!isGdgEventUrl(url)) return url;
-
-  try {
-    const response = await fetcher(url, {
-      method: "HEAD",
-      redirect: "follow",
-      headers: { "User-Agent": "OpenOdiaBot/1.0 (+https://openodia.org)" },
-      signal: AbortSignal.timeout(15000),
-    });
-    // Never rewrite an event to a login page, chapter home, or another host.
-    if (!response.ok || !response.url || !isGdgEventUrl(response.url)) return url;
-    return response.url;
-  } catch {
-    // Redirect refresh is defensive. A transient failure must not erase or
-    // rewrite a known-good archived URL.
-    return url;
-  }
+  return resolveEventDestinationUrl(url, fetcher);
 }
 
 async function refreshExistingDestinations(filePath) {

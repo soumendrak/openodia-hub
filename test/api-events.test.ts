@@ -142,6 +142,7 @@ describe("fetchChapterEvents", () => {
     const events = await fetchChapterEvents("GDG Bhubaneswar", "gdg-bhubaneswar");
     expect(events).toHaveLength(1);
     expect(events[0]?.title).toBe("Shared event");
+    expect(events[0]?.url).toBe(base);
   });
 
   it("handles missing NEXT_DATA script gracefully", async () => {

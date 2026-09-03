@@ -219,6 +219,27 @@ describe("parseGDGEventCards", () => {
       ),
     ).toThrow(ParseError);
   });
+
+  it("stores the canonical event URL instead of its cohost registration alias", () => {
+    const canonical = "https://gdg.community.dev/events/details/canonical-event/";
+    const [event] = parseGDGEventCards(
+      gdgPage({
+        upcomingEvents: {
+          results: [
+            {
+              title: "Canonical event",
+              url: canonical,
+              cohost_registration_url: `${canonical}cohost-gdg-bhubaneswar`,
+            },
+          ],
+        },
+        pastEvents: { results: [] },
+      }),
+    );
+
+    expect(event.url).toBe(canonical);
+    expect(event.detailUrl).toBe(canonical);
+  });
 });
 
 describe("fetch failure classification", () => {

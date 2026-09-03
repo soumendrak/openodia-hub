@@ -120,7 +120,9 @@ export async function fetchChapterEvents(community: string, slug: string): Promi
           year,
           date,
           title: item.title,
-          url: item.cohost_registration_url || item.url,
+          // Bevy's canonical event URL is stable across chapter/cohost pages.
+          // A cohost registration URL is an alias, not the event identity.
+          url: item.url,
           type: mapEventType(item.event_type_title || "Talk"),
           community,
           startDate: startStr,

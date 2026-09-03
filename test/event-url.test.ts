@@ -1,5 +1,11 @@
-import { describe, expect, it } from "vitest";
-import { dedupeEventsByUrl, eventUrlKey, mergeEventCollectionsByUrl } from "../src/lib/event-url";
+import { describe, expect, it, vi } from "vitest";
+import {
+  dedupeEventsByResolvedUrl,
+  dedupeEventsByUrl,
+  eventUrlKey,
+  mergeEventCollectionsByUrl,
+  resolveEventDestinationUrl,
+} from "../src/lib/event-url";
 
 describe("eventUrlKey", () => {
   it("canonicalizes chapter-specific GDG cohost destinations", () => {
@@ -33,6 +39,68 @@ describe("dedupeEventsByUrl", () => {
     const duplicate = { title: "Shared event edited", url: `${base}/cohost-gdg-kiit` };
 
     expect(dedupeEventsByUrl([first, duplicate])).toEqual([first]);
+  });
+});
+
+describe("redirect-aware event deduplication", () => {
+  const current =
+    "https://gdg.community.dev/events/details/google-gdg-cloud-bhubaneswar-presents-code-for-communities-20/";
+  const legacy =
+    "https://gdg.community.dev/events/details/google-gdg-cloud-bhubaneswar-presents-learn-with-communities-bhubaneswar-2026/cohost-gdg-bhubaneswar";
+
+  it("collapses the exact September 13 stale D1 alias and keeps current metadata", async () => {
+    const resolve = async (url: string) => (url === legacy ? current : url);
+    const stale = {
+      title: "Learn with Communities Bhubaneswar 2026",
+      url: legacy,
+      startDate: "2026-09-13",
+    };
+    const latest = {
+      title: "Code for Communities 2.0",
+      url: current,
+      startDate: "2026-09-13",
+    };
+
+    await expect(dedupeEventsByResolvedUrl([stale, latest], resolve)).resolves.toEqual([latest]);
+  });
+
+  it("retains distinct same-date destinations and skips lookups for unique dates", async () => {
+    const resolve = vi.fn(async (url: string) => url);
+    const collision = [
+      { url: "https://example.com/one", startDate: "2026-05-28" },
+      { url: "https://example.com/two", startDate: "2026-05-28" },
+      { url: "https://example.com/unique", startDate: "2026-06-01" },
+    ];
+
+    await expect(dedupeEventsByResolvedUrl(collision, resolve)).resolves.toEqual(collision);
+    expect(resolve).toHaveBeenCalledTimes(2);
+  });
+
+  it("follows only successful redirects that remain GDG event-detail URLs", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, url: current });
+    await expect(resolveEventDestinationUrl(legacy, fetcher as typeof fetch)).resolves.toBe(
+      current,
+    );
+    expect(fetcher).toHaveBeenCalledWith(
+      legacy,
+      expect.objectContaining({ method: "HEAD", redirect: "follow" }),
+    );
+
+    await expect(
+      resolveEventDestinationUrl(
+        legacy,
+        vi.fn().mockResolvedValue({
+          ok: true,
+          url: "https://gdg.community.dev/gdg-bhubaneswar/",
+        }) as typeof fetch,
+      ),
+    ).resolves.toBe(legacy);
+    await expect(
+      resolveEventDestinationUrl(
+        legacy,
+        vi.fn().mockRejectedValue(new Error("offline")) as typeof fetch,
+      ),
+    ).resolves.toBe(legacy);
   });
 });
 

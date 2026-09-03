@@ -6,7 +6,7 @@ import { estimateTokens, htmlToMarkdown } from "./lib/html-to-markdown";
 import { readEventsFromD1, syncEventsToD1, type D1Like } from "./lib/events-store";
 import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
 import { settledValues } from "./lib/fetch-utils";
-import { dedupeEventsByUrl } from "./lib/event-url";
+import { dedupeEventsByResolvedUrl, dedupeEventsByUrl } from "./lib/event-url";
 import { loadAwesome } from "./lib/sources/awesome";
 import { loadRepos } from "./lib/sources/repos";
 import { setCacheStore, setExecutionContext } from "./lib/sources/cache";
@@ -207,7 +207,7 @@ async function handleEvents(env: Env | undefined, request: Request): Promise<Res
 
   // Also protects reads from databases populated before canonical URL IDs were
   // introduced; legacy duplicate rows disappear immediately at the API edge.
-  events = dedupeEventsByUrl(events);
+  events = await dedupeEventsByResolvedUrl(events);
 
   const url = new URL(request.url);
   const pageParam = url.searchParams.get("page");

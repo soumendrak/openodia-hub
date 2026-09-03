@@ -24,8 +24,8 @@ HTML cards. Each event has `title`, `url`, `cohost_registration_url`, `start_dat
 `description_short`. Detail pages expose authoritative `start_date`, `end_date`,
 `event_timezone`, `venue_name`, and the complete HTML `description`; sanitize the complete
 description into a complete-sentence summary when `description_short` ends in an ellipsis.
-Store the cohost URL when present — that's what `/api/events` uses, so the Events page dedups
-static + live to a single card. Only the initially-rendered events are included (no "Load more"
+Store the canonical `url`; `cohost_registration_url` is only a registration alias and must not be
+used as event identity. Only the initially-rendered events are included (no "Load more"
 data); note this in your report. Before deduplication, the crawler follows redirects for archived
 GDG detail URLs and replaces stale addresses with their final `/events/details/` destination. This
 handles title/slug edits without creating an old-URL/new-URL pair for one event.
