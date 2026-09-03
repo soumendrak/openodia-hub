@@ -26,7 +26,9 @@ HTML cards. Each event has `title`, `url`, `cohost_registration_url`, `start_dat
 description into a complete-sentence summary when `description_short` ends in an ellipsis.
 Store the cohost URL when present — that's what `/api/events` uses, so the Events page dedups
 static + live to a single card. Only the initially-rendered events are included (no "Load more"
-data); note this in your report.
+data); note this in your report. Before deduplication, the crawler follows redirects for archived
+GDG detail URLs and replaces stale addresses with their final `/events/details/` destination. This
+handles title/slug edits without creating an old-URL/new-URL pair for one event.
 
 **odishaai.org**: Client-rendered React SPA — the HTML shell is empty, so there are no year
 links to follow. Conference data is baked into the Vite JS bundle. Read the bundle URL from the

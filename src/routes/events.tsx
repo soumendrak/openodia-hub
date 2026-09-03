@@ -5,6 +5,7 @@ import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } 
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { mergeNonEmpty } from "../lib/utils";
+import { mergeEventCollectionsByUrl } from "../lib/event-url";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
 import { pageHead } from "../lib/seo";
@@ -216,23 +217,8 @@ function EventsPage() {
   const fetchedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
-  const allMergedEventsMap = new Map<string, Event>();
-
-  events.forEach((e) => {
-    allMergedEventsMap.set(e.url, e);
-  });
-
-  fetchedEvents.forEach((e) => {
-    const existing = allMergedEventsMap.get(e.url);
-    if (existing) {
-      allMergedEventsMap.set(e.url, mergeNonEmpty(existing, e));
-    } else {
-      allMergedEventsMap.set(e.url, e);
-    }
-  });
-
   const today = getISTDateString();
-  const mergedEventsList = Array.from(allMergedEventsMap.values())
+  const mergedEventsList = mergeEventCollectionsByUrl(events, fetchedEvents, mergeNonEmpty)
     .map((e) => {
       let status = e.status;
       if (e.startDate) {

@@ -20,15 +20,15 @@ jobs:
           status=$?
           echo "has_changes=$(grep -c 'NEW_EVENTS_FOUND' /tmp/crawl-output.txt || true)" >> $GITHUB_OUTPUT
           exit $status
-      - name: Create PR if new events found
+      - name: Create PR if event data changed
         if: steps.crawl.outputs.has_changes != '0'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.PAT }}
           commit-message: "auto: crawl new Odia AI events"
-          title: "New Odia AI events found — $(date +'%b %d')"
+          title: "Odia AI event data updated — $(date +'%b %d')"
           body: |
-            Automated crawl found new events from GDG community pages.
+            Automated crawl found new events or refreshed redirected event destinations.
 
             Review and merge if the events look correct.
             Source list: https://github.com/soumendrak/openodia-hub/blob/main/.agents/skills/crawl-events/references/sources.md

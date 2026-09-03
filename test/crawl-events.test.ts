@@ -10,8 +10,10 @@ import {
   isTransientFetchFailure,
   normalizeUrl,
   parseGDGEventCards,
+  resolveDestinationUrl,
   tzDate,
   formatDateRange,
+  filterNewEventsByUrl,
   shouldSkip,
 } from "../scripts/crawl-events.mjs";
 
@@ -59,6 +61,69 @@ describe("normalizeUrl", () => {
     const base = "https://gdg.community.dev/events/details/x-presents-hackforge-20";
     expect(normalizeUrl(`${base}/`)).toBe(base);
     expect(normalizeUrl(`${base}/cohost-gdg-bhubaneswar`)).toBe(base);
+  });
+});
+
+describe("filterNewEventsByUrl", () => {
+  it("keeps only one record when a GDG page repeats an event during an iteration", () => {
+    const base = "https://gdg.community.dev/events/details/repeated-event";
+    const events = [
+      { title: "First version", url: `${base}/cohost-gdg-bhubaneswar` },
+      { title: "Second version", url: `${base}/cohost-gdg-on-campus-kiit/` },
+      { title: "Third version", url: `${base}/` },
+    ];
+
+    expect(filterNewEventsByUrl(events, new Set())).toEqual([events[0]]);
+  });
+
+  it("checks URLs already found in another community source", () => {
+    const base = "https://gdg.community.dev/events/details/shared-event";
+    expect(
+      filterNewEventsByUrl(
+        [{ title: "Shared event", url: `${base}/cohost-gdg-kiit` }],
+        new Set([base]),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe("resolveDestinationUrl", () => {
+  const oldUrl =
+    "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-deploy-or-die/";
+  const finalUrl =
+    "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-deploy-or-redacted/";
+
+  it("uses the final GDG event URL after a title/slug redirect", async () => {
+    const fetcher = vi.fn().mockResolvedValue({ ok: true, url: finalUrl });
+    await expect(resolveDestinationUrl(oldUrl, fetcher)).resolves.toBe(finalUrl);
+    expect(fetcher).toHaveBeenCalledWith(
+      oldUrl,
+      expect.objectContaining({ method: "HEAD", redirect: "follow" }),
+    );
+  });
+
+  it("keeps the archived URL when resolution fails or leaves the event namespace", async () => {
+    await expect(
+      resolveDestinationUrl(oldUrl, vi.fn().mockRejectedValue(new Error("offline"))),
+    ).resolves.toBe(oldUrl);
+    await expect(
+      resolveDestinationUrl(
+        oldUrl,
+        vi.fn().mockResolvedValue({ ok: true, url: "https://gdg.community.dev/gdg-kiit/" }),
+      ),
+    ).resolves.toBe(oldUrl);
+    await expect(
+      resolveDestinationUrl(oldUrl, vi.fn().mockResolvedValue({ ok: false, url: finalUrl })),
+    ).resolves.toBe(oldUrl);
+  });
+
+  it("does not fetch non-GDG or malformed URLs", async () => {
+    const fetcher = vi.fn();
+    await expect(resolveDestinationUrl("https://example.com/event", fetcher)).resolves.toBe(
+      "https://example.com/event",
+    );
+    await expect(resolveDestinationUrl("not a URL", fetcher)).resolves.toBe("not a URL");
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });
 

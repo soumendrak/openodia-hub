@@ -16,6 +16,7 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { eventUrlKey } from "../src/lib/event-url.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "src", "data", "events");
@@ -401,19 +402,85 @@ async function parseOdishaAIEvents() {
   return events;
 }
 
-// Load existing event URLs from a .ts file
 // Normalize a GDG event URL for dedup: the same event appears with and without
 // a trailing `/cohost-…` segment (e.g. `.../hackforge-20/` vs
 // `.../hackforge-20/cohost-gdg-bhubaneswar`). Strip that and any trailing slash.
-export function normalizeUrl(url) {
-  return url.replace(/\/cohost-[^/]*\/?$/, "").replace(/\/+$/, "");
+export const normalizeUrl = eventUrlKey;
+
+function isGdgEventUrl(url) {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.hostname.toLowerCase() === "gdg.community.dev" &&
+      parsed.pathname.startsWith("/events/details/")
+    );
+  } catch {
+    return false;
+  }
 }
 
-function loadExistingUrls(filePath) {
-  if (!existsSync(filePath)) return new Set();
+/** Follow a GDG event redirect to the destination address used for dedup. */
+export async function resolveDestinationUrl(url, fetcher = fetch) {
+  if (!isGdgEventUrl(url)) return url;
+
+  try {
+    const response = await fetcher(url, {
+      method: "HEAD",
+      redirect: "follow",
+      headers: { "User-Agent": "OpenOdiaBot/1.0 (+https://openodia.org)" },
+      signal: AbortSignal.timeout(15000),
+    });
+    // Never rewrite an event to a login page, chapter home, or another host.
+    if (!response.ok || !response.url || !isGdgEventUrl(response.url)) return url;
+    return response.url;
+  } catch {
+    // Redirect refresh is defensive. A transient failure must not erase or
+    // rewrite a known-good archived URL.
+    return url;
+  }
+}
+
+async function refreshExistingDestinations(filePath) {
+  if (!existsSync(filePath)) return { urls: new Set(), updated: 0 };
+
   const content = readFileSync(filePath, "utf-8");
-  const urls = [...content.matchAll(/url:\s*["']([^"']+)["']/g)].map((m) => normalizeUrl(m[1]));
-  return new Set(urls);
+  const rawUrls = [...new Set([...content.matchAll(/url:\s*["']([^"']+)["']/g)].map((m) => m[1]))];
+  const resolved = new Map();
+  await Promise.all(
+    rawUrls.map(async (url) => resolved.set(url, await resolveDestinationUrl(url))),
+  );
+
+  let updated = 0;
+  const nextContent = content.replace(
+    /(url:\s*["'])([^"']+)(["'])/g,
+    (match, prefix, url, suffix) => {
+      const destination = resolved.get(url) || url;
+      if (normalizeUrl(destination) === normalizeUrl(url)) return match;
+      updated += 1;
+      console.log(`  🔁 destination updated: ${url} -> ${destination}`);
+      return `${prefix}${destination}${suffix}`;
+    },
+  );
+
+  if (updated > 0) writeFileSync(filePath, nextContent);
+  return {
+    urls: new Set([...resolved.values()].map(normalizeUrl)),
+    updated,
+  };
+}
+
+// Compare one crawl response against both the existing archive and itself.
+// Bevy can repeat an event while a page is being updated (for example in both
+// upcomingEvents and pastEvents), so filtering only against the file on disk is
+// not enough.
+export function filterNewEventsByUrl(events, existingUrls) {
+  const seen = new Set(existingUrls);
+  return events.filter((event) => {
+    const key = normalizeUrl(event.url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // Format a new event entry as TypeScript
@@ -441,7 +508,17 @@ function formatEventEntry(event) {
 
 async function main() {
   let totalNew = 0;
+  let totalUpdated = 0;
   let fatalFailures = 0;
+  // One destination URL is one event across every community, not merely within
+  // the community file currently being crawled.
+  const existingUrls = new Set();
+  for (const source of SOURCES) {
+    if (!source.file) continue;
+    const refreshed = await refreshExistingDestinations(join(DATA_DIR, source.file));
+    totalUpdated += refreshed.updated;
+    for (const url of refreshed.urls) existingUrls.add(url);
+  }
 
   for (const source of SOURCES) {
     if (source.unparsable) {
@@ -516,13 +593,11 @@ async function main() {
 
     console.log(`  - Found ${events.length} events on page`);
 
-    // Load existing events
-    const existingUrls = loadExistingUrls(filePath);
     const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
 
-    // Dedup strictly by normalized URL (handles the /cohost-… variant). Two
-    // distinct events can share a title+year, so URL is the only safe key.
-    const candidates = events.filter((e) => !existingUrls.has(normalizeUrl(e.url)));
+    // Dedup strictly by destination URL, including repeated records within this
+    // response and records already owned by a different community source.
+    const candidates = filterNewEventsByUrl(events, existingUrls);
 
     // Enrich each new GDG event before applying the content-aware admin filter
     // and formatting it (end date, timezone, full description, venue).
@@ -570,6 +645,7 @@ async function main() {
     }
 
     for (const evt of newEvents) {
+      existingUrls.add(normalizeUrl(evt.url));
       const d = evt.display || evt.dateRaw || "date unknown";
       console.log(`    → ${d}  ${evt.title}`);
     }
@@ -578,8 +654,10 @@ async function main() {
   }
 
   console.log(`\n${"=".repeat(40)}`);
-  if (totalNew > 0) {
-    console.log(`✅ ${totalNew} new event(s) added across all sources`);
+  if (totalNew > 0 || totalUpdated > 0) {
+    console.log(
+      `✅ ${totalNew} new event(s) added; ${totalUpdated} redirected destination(s) updated`,
+    );
     console.log("NEW_EVENTS_FOUND");
   } else {
     console.log("✓ No new events found anywhere");

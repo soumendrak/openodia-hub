@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
+import { dedupeEventsByUrl } from "../../lib/event-url";
 import type { Event, EventType } from "../../data/events/types";
 
 type BevyEvent = {
@@ -109,23 +110,25 @@ export async function fetchChapterEvents(community: string, slug: string): Promi
 
     const rawEvents = [...upcomingResults, ...pastResults];
 
-    return rawEvents.map((item) => {
-      const startStr = item.start_date ? item.start_date.split("T")[0] : "";
-      const year = startStr ? startStr.split("-")[0] : new Date().getFullYear().toString();
-      const date = item.start_date ? formatHumanDate(item.start_date) : "";
+    return dedupeEventsByUrl(
+      rawEvents.map((item) => {
+        const startStr = item.start_date ? item.start_date.split("T")[0] : "";
+        const year = startStr ? startStr.split("-")[0] : new Date().getFullYear().toString();
+        const date = item.start_date ? formatHumanDate(item.start_date) : "";
 
-      return {
-        year,
-        date,
-        title: item.title,
-        url: item.cohost_registration_url || item.url,
-        type: mapEventType(item.event_type_title || "Talk"),
-        community,
-        startDate: startStr,
-        endDate: startStr,
-        description: item.description_short || item.description || "",
-      };
-    });
+        return {
+          year,
+          date,
+          title: item.title,
+          url: item.cohost_registration_url || item.url,
+          type: mapEventType(item.event_type_title || "Talk"),
+          community,
+          startDate: startStr,
+          endDate: startStr,
+          description: item.description_short || item.description || "",
+        };
+      }),
+    );
   } catch (err) {
     console.error(`Error fetching Bevy events for chapter ${slug}:`, err);
     return [];
@@ -140,7 +143,7 @@ export const Route = createFileRoute("/api/events")({
           const results = await Promise.allSettled(
             CHAPTERS.map((ch) => fetchChapterEvents(ch.community, ch.slug)),
           );
-          const allEvents = settledValues(results).flat();
+          const allEvents = dedupeEventsByUrl(settledValues(results).flat());
 
           const url = new URL(request.url);
           const pageParam = url.searchParams.get("page");

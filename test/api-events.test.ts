@@ -97,6 +97,53 @@ describe("fetchChapterEvents", () => {
     expect(past?.description).toBe("An awesome talk about LLMs.");
   });
 
+  it("deduplicates repeated and cohosted versions by destination URL", async () => {
+    const base = "https://gdg.community.dev/events/details/shared-event";
+    const mockHtml = `
+      <script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            prerenderData: {
+              upcomingEvents: {
+                results: [
+                  {
+                    title: "Shared event",
+                    description: "First iteration",
+                    event_type_title: "Talk",
+                    start_date: "2026-07-15T18:00:00Z",
+                    url: base,
+                    cohost_registration_url: `${base}/cohost-gdg-bhubaneswar`,
+                  },
+                ],
+              },
+              pastEvents: {
+                results: [
+                  {
+                    title: "Shared event edited",
+                    description: "Second iteration",
+                    event_type_title: "Talk",
+                    start_date: "2026-07-15T18:00:00Z",
+                    url: base,
+                    cohost_registration_url: `${base}/cohost-gdg-kiit/`,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      })}</script>`;
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(mockHtml),
+    } as Response);
+
+    const events = await fetchChapterEvents("GDG Bhubaneswar", "gdg-bhubaneswar");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.title).toBe("Shared event");
+  });
+
   it("handles missing NEXT_DATA script gracefully", async () => {
     const mockHtmlWithoutScript = `
       <!DOCTYPE html>
