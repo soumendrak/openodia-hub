@@ -42,11 +42,8 @@ const SOURCES = [
     url: "https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/",
     file: "gdgoc-cvr.ts",
   },
-  {
-    id: "gdgoc-iiit-bbsr",
-    url: "https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/",
-    file: "gdgoc-iiit-bbsr.ts",
-  },
+  // GDGoC IIIT Bhubaneswar — chapter page removed from gdg.community.dev (HTTP 404 since 2026-08-13).
+  // Historical events stay in src/data/events/gdgoc-iiit-bbsr.ts via index.ts. Re-add if the chapter returns.
   {
     id: "gdgoc-iter-soa",
     url: "https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/",

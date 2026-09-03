@@ -12,7 +12,6 @@ Each row: community name | source URL | data file | parsability | notes
 | GDGoC NIST Berhampur   | https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/        | `src/data/events/gdgoc-nist-berhampur.ts` |
 | GDGoC KIIT             | https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/        | `src/data/events/gdgoc-kiit.ts`           |
 | GDGoC CVR University   | https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/                       | `src/data/events/gdgoc-cvr.ts`            |
-| GDGoC IIIT Bhubaneswar | https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/ | `src/data/events/gdgoc-iiit-bbsr.ts`      |
 | GDGoC ITER SOA         | https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/         | `src/data/events/gdgoc-iter-soa.ts`       |
 | GDGoC VSSUT Burla      | https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/              | `src/data/events/gdgoc-vssut-burla.ts`    |
 | GDGoC NIT Rourkela     | https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india                      | `src/data/events/gdgoc-nit-rourkela.ts`   |
@@ -29,6 +28,11 @@ used as event identity. Only the initially-rendered events are included (no "Loa
 data); note this in your report. Before deduplication, the crawler follows redirects for archived
 GDG detail URLs and replaces stale addresses with their final `/events/details/` destination. This
 handles title/slug edits without creating an old-URL/new-URL pair for one event.
+
+**Dropped source:** GDGoC IIIT Bhubaneswar — chapter page removed from gdg.community.dev
+(HTTP 404 since 2026-08-13; last crawled OK on 2026-08-12). Crawl source removed from
+`crawl-events.mjs`; historical events remain in `src/data/events/gdgoc-iiit-bbsr.ts` via
+`index.ts`. Re-add both if the chapter returns.
 
 **odishaai.org**: Client-rendered React SPA — the HTML shell is empty, so there are no year
 links to follow. Conference data is baked into the Vite JS bundle. Read the bundle URL from the
