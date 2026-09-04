@@ -134,6 +134,108 @@ describe("event crawler orchestration", () => {
     expect(error).toHaveBeenCalledWith(expect.stringContaining("transient"));
   });
 
+  it("uses archive-only files for deduplication without fetching their dead source", async () => {
+    const archivedUrl = "https://gdg.community.dev/events/details/iiit-archive-event/";
+    crawlHarness.existsSync.mockReturnValue(true);
+    crawlHarness.readFileSync.mockImplementation((path: string) =>
+      path.includes("gdgoc-iiit-bbsr.ts")
+        ? `export const events = [{ url: "${archivedUrl}" }];\n`
+        : "export const events = [\n];\n",
+    );
+    crawlHarness.resolveEventDestinationUrl.mockImplementation(async (url: string) => url);
+    const fetcher = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("gdg-bhubaneswar") && !url.includes("/events/details/")) {
+        return new Response(
+          nextData([gdgEvent("IIIT archive duplicate", `${archivedUrl}cohost-gdg-bhubaneswar`)]),
+        );
+      }
+      throw new Error("network unreachable");
+    });
+    vi.stubGlobal("fetch", fetcher);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { main } = await import("../scripts/crawl-events.mjs");
+    await expect(main()).resolves.toBe(0);
+
+    expect(crawlHarness.resolveEventDestinationUrl).toHaveBeenCalledWith(
+      archivedUrl,
+      expect.any(Function),
+    );
+    expect(
+      fetcher.mock.calls.some(([input]) => String(input).includes("international-institute")),
+    ).toBe(false);
+    expect(crawlHarness.writes).toEqual([]);
+  });
+
+  it("reports an active source whose event lists are empty", async () => {
+    crawlHarness.existsSync.mockReturnValue(true);
+    crawlHarness.readFileSync.mockReturnValue("export const events = [\n];\n");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("gdg-bhubaneswar")) return new Response(nextData([]));
+        throw new Error("network unreachable");
+      }),
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { main } = await import("../scripts/crawl-events.mjs");
+    await expect(main()).resolves.toBe(0);
+    expect(log).toHaveBeenCalledWith("  - No events found on page");
+  });
+
+  it("classifies new events from the full detail description", async () => {
+    crawlHarness.existsSync.mockReturnValue(true);
+    crawlHarness.readFileSync.mockReturnValue("export const events = [\n];\n");
+    const eventUrl = "https://gdg.community.dev/events/details/code-for-communities-20/";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("gdg-bhubaneswar") && !url.includes("/events/details/")) {
+          return new Response(
+            nextData([
+              {
+                ...gdgEvent("Code for Communities 2.0", eventUrl),
+                description_short: "A community initiative for builders.",
+              },
+            ]),
+          );
+        }
+        if (url === eventUrl) {
+          return new Response(
+            `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+              props: {
+                pageProps: {
+                  eventData: {
+                    start_date: "2026-09-13T04:30:00Z",
+                    description_short: "A community initiative for builders.",
+                    description: "<p>A next-generation hackathon for real-world challenges.</p>",
+                  },
+                },
+              },
+            })}</script>`,
+          );
+        }
+        throw new Error("network unreachable");
+      }),
+    );
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const { main } = await import("../scripts/crawl-events.mjs");
+    await expect(main()).resolves.toBe(0);
+
+    const written =
+      crawlHarness.writes.find(([path]) => path.includes("gdg-bhubaneswar.ts"))?.[1] ?? "";
+    expect(written).toContain('type: "Hackathon"');
+    expect(written).toContain('description: "A community initiative for builders."');
+  });
+
   const notFound = () => new Response("not found", { status: 404 });
   // A network-level failure (not an HTTP error response) is always transient,
   // so it never inflates `fatalFailures` — useful as a harmless catch-all for

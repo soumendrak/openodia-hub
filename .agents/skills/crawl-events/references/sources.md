@@ -29,10 +29,14 @@ data); note this in your report. Before deduplication, the crawler follows redir
 GDG detail URLs and replaces stale addresses with their final `/events/details/` destination. This
 handles title/slug edits without creating an old-URL/new-URL pair for one event.
 
-**Dropped source:** GDGoC IIIT Bhubaneswar — chapter page removed from gdg.community.dev
-(HTTP 404 since 2026-08-13; last crawled OK on 2026-08-12). Crawl source removed from
-`crawl-events.mjs`; historical events remain in `src/data/events/gdgoc-iiit-bbsr.ts` via
-`index.ts`. Re-add both if the chapter returns.
+## 📦 Archive only (included in deduplication, not fetched)
+
+| Community              | Source URL                                                                                                   | Data file                            | Reason                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| GDGoC IIIT Bhubaneswar | https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/ | `src/data/events/gdgoc-iiit-bbsr.ts` | Chapter page has returned HTTP 404 since 2026-08-13. Keep its historical URLs in the global scan. |
+
+The IIIT source uses `archiveOnly: true` in `crawl-events.mjs`. Remove that flag if the chapter
+returns; do not remove the entry, because every archive participates in destination deduplication.
 
 **odishaai.org**: Client-rendered React SPA — the HTML shell is empty, so there are no year
 links to follow. Conference data is baked into the Vite JS bundle. Read the bundle URL from the
