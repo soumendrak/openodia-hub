@@ -95,8 +95,8 @@ export function assessDiffCoverage(
         const current = coverageByLine.get(line);
         if (current === undefined || span < current.span) {
           coverageByLine.set(line, { span, covered });
-        } else if (span === current.span && covered) {
-          coverageByLine.set(line, { span, covered: true });
+        } else if (span === current.span) {
+          coverageByLine.set(line, { span, covered: current.covered && covered });
         }
       }
     }
