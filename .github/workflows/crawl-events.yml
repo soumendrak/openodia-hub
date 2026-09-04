@@ -16,8 +16,10 @@ jobs:
         id: crawl
         run: |
           set -o pipefail
+          set +e
           bun run scripts/crawl-events.mjs 2>&1 | tee /tmp/crawl-output.txt
-          status=$?
+          status=${PIPESTATUS[0]}
+          set -e
           echo "has_changes=$(grep -c 'NEW_EVENTS_FOUND' /tmp/crawl-output.txt || true)" >> $GITHUB_OUTPUT
           exit $status
       - name: Create PR if event data changed
