@@ -60,7 +60,10 @@ describe("diff coverage", () => {
         { file: "src/covered.ts", line: 2 },
         { file: "src/covered.ts", line: 4 },
       ],
-      uncovered: [{ file: "src/covered.ts", line: 4 }],
+      uncovered: [
+        { file: "src/covered.ts", line: 2 },
+        { file: "src/covered.ts", line: 4 },
+      ],
       missingFiles: ["src/missing.ts"],
     });
   });
@@ -126,10 +129,10 @@ describe("diff coverage", () => {
       nested: {
         path: "/repo/src/nested.ts",
         statementMap: {
-          "0": { start: { line: 1 }, end: { line: 3 } },
-          "1": { start: { line: 2 }, end: { line: 2 } },
+          "0": { start: { line: 2 }, end: { line: 2 } },
+          "1": { start: { line: 1 }, end: { line: 3 } },
         },
-        s: { "0": 1, "1": 0 },
+        s: { "0": 0, "1": 1 },
       },
     };
 
@@ -162,6 +165,46 @@ describe("diff coverage", () => {
       uncovered: [{ file: "src/siblings.ts", line: 1 }],
       missingFiles: [],
     });
+  });
+
+  it.each([
+    [1, 0],
+    [0, 1],
+  ])(
+    "keeps equal-span statements uncovered when either statement is uncovered (%i, %i)",
+    (firstHits, secondHits) => {
+      const changed = new Map([["src/siblings.ts", new Set([1])]]);
+      const coverage: IstanbulCoverage = {
+        siblings: {
+          path: "/repo/src/siblings.ts",
+          statementMap: {
+            "0": { start: { line: 1 }, end: { line: 1 } },
+            "1": { start: { line: 1 }, end: { line: 1 } },
+          },
+          s: { "0": firstHits, "1": secondHits },
+        },
+      };
+
+      expect(assessDiffCoverage(changed, coverage, "/repo").uncovered).toEqual([
+        { file: "src/siblings.ts", line: 1 },
+      ]);
+    },
+  );
+
+  it("reports equal-span statements covered when all of them are covered", () => {
+    const changed = new Map([["src/siblings.ts", new Set([1])]]);
+    const coverage: IstanbulCoverage = {
+      siblings: {
+        path: "/repo/src/siblings.ts",
+        statementMap: {
+          "0": { start: { line: 1 }, end: { line: 1 } },
+          "1": { start: { line: 1 }, end: { line: 1 } },
+        },
+        s: { "0": 1, "1": 1 },
+      },
+    };
+
+    expect(assessDiffCoverage(changed, coverage, "/repo").uncovered).toEqual([]);
   });
 
   it("classifies measured, generated, test, and configuration files", () => {
