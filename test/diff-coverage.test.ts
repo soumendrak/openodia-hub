@@ -45,10 +45,10 @@ describe("diff coverage", () => {
       "/repo/src/covered.ts": {
         path: "/repo/src/covered.ts",
         statementMap: {
-          "0": { start: { line: 1 } },
-          "1": { start: { line: 2 } },
-          "2": { start: { line: 2 } },
-          "3": { start: { line: 4 } },
+          "0": { start: { line: 1 }, end: { line: 1 } },
+          "1": { start: { line: 2 }, end: { line: 2 } },
+          "2": { start: { line: 2 }, end: { line: 2 } },
+          "3": { start: { line: 4 }, end: { line: 4 } },
         },
         s: { "0": 1, "1": 0, "2": 2 },
       },
@@ -73,12 +73,15 @@ describe("diff coverage", () => {
     const coverage: IstanbulCoverage = {
       z: {
         path: "./scripts/z.mjs",
-        statementMap: { "0": { start: { line: 3 } }, "1": { start: { line: 1 } } },
+        statementMap: {
+          "0": { start: { line: 3 }, end: { line: 3 } },
+          "1": { start: { line: 1 }, end: { line: 1 } },
+        },
         s: { "0": 1, "1": 1 },
       },
       a: {
         path: "src/a.ts",
-        statementMap: { "0": { start: { line: 2 } } },
+        statementMap: { "0": { start: { line: 2 }, end: { line: 2 } } },
         s: { "0": 1 },
       },
     };
@@ -90,9 +93,40 @@ describe("diff coverage", () => {
     ]);
   });
 
+  it("checks changed continuation lines against the full statement range", () => {
+    const changed = new Map([["src/multiline.ts", new Set([2, 3, 5])]]);
+    const coverage: IstanbulCoverage = {
+      multiline: {
+        path: "/repo/src/multiline.ts",
+        statementMap: {
+          "0": { start: { line: 1 }, end: { line: 3 } },
+          "1": { start: { line: 4 }, end: { line: 5 } },
+        },
+        s: { "0": 0, "1": 1 },
+      },
+    };
+
+    expect(assessDiffCoverage(changed, coverage, "/repo")).toEqual({
+      checked: [
+        { file: "src/multiline.ts", line: 2 },
+        { file: "src/multiline.ts", line: 3 },
+        { file: "src/multiline.ts", line: 5 },
+      ],
+      uncovered: [
+        { file: "src/multiline.ts", line: 2 },
+        { file: "src/multiline.ts", line: 3 },
+      ],
+      missingFiles: [],
+    });
+  });
+
   it("classifies measured, generated, test, and configuration files", () => {
-    expect(isMeasuredSource("./src/lib/value.ts")).toBe(true);
-    expect(isMeasuredSource("scripts/task.mjs")).toBe(true);
+    for (const extension of ["js", "cjs", "mjs", "jsx", "ts", "cts", "mts", "tsx"]) {
+      expect(isMeasuredSource(`./src/lib/value.${extension}`)).toBe(true);
+      expect(isMeasuredSource(`scripts/task.${extension}`)).toBe(true);
+    }
+    expect(isMeasuredSource("src/lib/value.cjsx")).toBe(false);
+    expect(isMeasuredSource("scripts/task.mtsx")).toBe(false);
     expect(isMeasuredSource("src/routeTree.gen.ts")).toBe(false);
     expect(isMeasuredSource("scripts/check-diff-coverage.mjs")).toBe(false);
     expect(isMeasuredSource("README.md")).toBe(false);
