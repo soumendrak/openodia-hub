@@ -109,7 +109,7 @@ describe("changed-line coverage CLI", () => {
     diffScriptHarness.report = {
       value: {
         path: "src/value.ts",
-        statementMap: { "0": { start: { line: 1 } } },
+        statementMap: { "0": { start: { line: 1 }, end: { line: 1 } } },
         s: { "0": 0 },
       },
     };
@@ -127,7 +127,7 @@ describe("changed-line coverage CLI", () => {
     diffScriptHarness.report = {
       value: {
         path: "src/value.ts",
-        statementMap: { "0": { start: { line: 1 } } },
+        statementMap: { "0": { start: { line: 1 }, end: { line: 1 } } },
         s: { "0": 1 },
       },
     };

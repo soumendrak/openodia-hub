@@ -1,5 +1,6 @@
 export interface IstanbulLocation {
   start: { line: number };
+  end: { line: number };
 }
 
 export interface IstanbulFileCoverage {
@@ -16,7 +17,7 @@ export interface DiffCoverageResult {
   missingFiles: string[];
 }
 
-const measuredSource = /^(?:src|scripts)\/.*\.(?:[cm]?[jt]sx?)$/;
+const measuredSource = /^(?:src|scripts)\/.*\.(?:[cm]?[jt]s|[jt]sx)$/;
 const generatedOrInfrastructure = new Set([
   "src/routeTree.gen.ts",
   "scripts/check-diff-coverage.mjs",
@@ -85,8 +86,11 @@ export function assessDiffCoverage(
 
     const hitsByLine = new Map<number, number>();
     for (const [statementId, location] of Object.entries(fileCoverage.statementMap)) {
-      const line = location.start.line;
-      hitsByLine.set(line, (hitsByLine.get(line) ?? 0) + (fileCoverage.s[statementId] ?? 0));
+      const hits = fileCoverage.s[statementId] ?? 0;
+      for (const line of lines) {
+        if (line < location.start.line || line > location.end.line) continue;
+        hitsByLine.set(line, (hitsByLine.get(line) ?? 0) + hits);
+      }
     }
 
     for (const line of [...lines].sort((left, right) => left - right)) {
