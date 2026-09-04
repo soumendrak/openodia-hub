@@ -42,8 +42,14 @@ const SOURCES = [
     url: "https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/",
     file: "gdgoc-cvr.ts",
   },
-  // GDGoC IIIT Bhubaneswar — chapter page removed from gdg.community.dev (HTTP 404 since 2026-08-13).
-  // Historical events stay in src/data/events/gdgoc-iiit-bbsr.ts via index.ts. Re-add if the chapter returns.
+  // Keep dead sources in the archive scan so their historical destinations
+  // still prevent cross-community duplicates, but do not fetch their pages.
+  {
+    id: "gdgoc-iiit-bbsr",
+    url: "https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/",
+    file: "gdgoc-iiit-bbsr.ts",
+    archiveOnly: true,
+  },
   {
     id: "gdgoc-iter-soa",
     url: "https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/",
@@ -334,6 +340,10 @@ async function enrichFromDetail(event) {
       event.endIso = end ? end.iso : start.iso;
       event.display = formatDateRange(start, end);
     }
+    // The concise GDG summary can omit the event format. Classify from the
+    // authoritative full detail description before shortening it for display.
+    const fullDescription = htmlToText(ed.description || "");
+    event.type = inferType(event.title, fullDescription || event.description || "");
     const desc = detailDescription(ed);
     if (desc) event.description = desc;
     if (ed.venue_name) event.location = ed.venue_name.replace(/\s+/g, " ").trim();
@@ -457,7 +467,7 @@ function formatEventEntry(event) {
   if (event.display) lines.push(`    date: "${event.display}",`);
   lines.push(`    title: "${event.title.replace(/"/g, '\\"')}",`);
   lines.push(`    url: "${event.url}",`);
-  const eventType = inferType(event.title, event.description || "");
+  const eventType = event.type || inferType(event.title, event.description || "");
   lines.push(`    type: "${eventType}",`);
   if (event.location) {
     lines.push(`    location: "${event.location.replace(/"/g, '\\"')}",`);
@@ -490,6 +500,10 @@ export async function main() {
   for (const source of SOURCES) {
     if (source.unparsable) {
       console.log(`⏭  ${source.id} — SPA, not parsable (manual only)`);
+      continue;
+    }
+    if (source.archiveOnly) {
+      console.log(`⏭  ${source.id} — archive only (source unavailable)`);
       continue;
     }
     // Guard kept for future config entries: today the only file-less source

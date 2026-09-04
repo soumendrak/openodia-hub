@@ -14,7 +14,7 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     date: "13 Sep 2026",
     title: "Code for Communities 2.0",
     url: "https://gdg.community.dev/events/details/google-gdg-cloud-bhubaneswar-presents-code-for-communities-20/",
-    type: "Workshop",
+    type: "Hackathon",
     location: "TBD",
     startDate: "2026-09-13",
     endDate: "2026-09-13",
@@ -33,19 +33,6 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     endDate: "2026-07-05",
     description:
       "Build with AI: Code for Communities is a nationwide AI hackathon designed to empower developers, students, designers, innovators, and technology enthusiasts to build impactful AI-powered solutions to real-world community challenges using Google Cloud and Google's latest AI technologies.",
-  },
-  {
-    year: "2026",
-    date: "28 Jun 2026",
-    title: "Build with AI Bhubaneswar 2026: Be Future Ready",
-    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-code-for-communities/",
-    type: "Workshop",
-    startDate: "2026-06-28",
-    endDate: "2026-06-28",
-    status: "upcoming",
-    location: "Pipul Padmaja Premium Hotel and Convention, Bhubaneswar",
-    description:
-      "A hands-on community-driven AI experience organized by GDG Bhubaneswar and GDG Cloud Bhubaneswar. Participants explore Gemini, Gemma, Vertex AI, and Agentic AI through technical sessions, live demonstrations, and networking with Google Developer Experts.",
   },
   {
     year: "2024",
