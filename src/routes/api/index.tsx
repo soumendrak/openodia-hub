@@ -24,7 +24,11 @@ function ApiDocsPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Guard kept for safety even though React commits refs before running
+    // effects, so this is unreachable-null on a ref attached in this render.
+    /* v8 ignore start */
     if (!containerRef.current) return;
+    /* v8 ignore stop */
 
     const configScript = document.createElement("script");
     configScript.id = SCALAR_CONFIG_ID;

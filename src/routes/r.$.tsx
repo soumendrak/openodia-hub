@@ -130,8 +130,7 @@ function backTo(kind: ResourceRef["kind"]) {
   return { to: "/tools" as const, label: "Tools" };
 }
 
-function formatDate(iso?: string): string {
-  if (!iso) return "";
+function formatDate(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? ""

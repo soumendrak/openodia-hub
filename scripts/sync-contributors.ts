@@ -182,7 +182,7 @@ type Payload = {
   fetchedAt: string;
 };
 
-function requireEnv(name: string): string {
+export function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) {
     throw new Error(`Missing required env var: ${name}`);
@@ -190,7 +190,7 @@ function requireEnv(name: string): string {
   return value;
 }
 
-function ghHeaders(token: string): HeadersInit {
+export function ghHeaders(token: string): HeadersInit {
   return {
     "User-Agent": "openodia-contributors-sync",
     Accept: "application/vnd.github+json",
@@ -198,7 +198,7 @@ function ghHeaders(token: string): HeadersInit {
   };
 }
 
-async function gh<T>(url: string, token: string): Promise<T | null> {
+export async function gh<T>(url: string, token: string): Promise<T | null> {
   const r = await fetch(url, { headers: ghHeaders(token) });
   if (!r.ok) {
     console.warn(`GitHub ${r.status} ${url}`);
@@ -208,7 +208,10 @@ async function gh<T>(url: string, token: string): Promise<T | null> {
   return text ? (JSON.parse(text) as T) : null;
 }
 
-async function fetchContributors(fullName: string, token: string): Promise<GitHubContributor[]> {
+export async function fetchContributors(
+  fullName: string,
+  token: string,
+): Promise<GitHubContributor[]> {
   const data = await gh<GitHubContributor[]>(
     `https://api.github.com/repos/${fullName}/contributors?per_page=30`,
     token,
@@ -216,7 +219,7 @@ async function fetchContributors(fullName: string, token: string): Promise<GitHu
   return data ?? [];
 }
 
-async function fetchRepoDetails(
+export async function fetchRepoDetails(
   fullName: string,
   token: string,
 ): Promise<{ stars: number; html_url: string } | null> {
@@ -227,7 +230,7 @@ async function fetchRepoDetails(
   return data ? { stars: data.stargazers_count, html_url: data.html_url } : null;
 }
 
-async function aggregate(token: string): Promise<Payload> {
+export async function aggregate(token: string): Promise<Payload> {
   const perRepo = await Promise.all(
     CURATED_REPOS.map(async (fullName) => {
       const parts = fullName.split("/");
@@ -288,7 +291,7 @@ async function aggregate(token: string): Promise<Payload> {
   };
 }
 
-async function writeToKv(payload: Payload): Promise<void> {
+export async function writeToKv(payload: Payload): Promise<void> {
   const accountId = requireEnv("CLOUDFLARE_ACCOUNT_ID");
   const apiToken = requireEnv("CLOUDFLARE_API_TOKEN");
   const namespaceId = requireEnv("CONTRIBUTORS_KV_NAMESPACE_ID");
@@ -309,7 +312,7 @@ async function writeToKv(payload: Payload): Promise<void> {
   }
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const token = requireEnv("GITHUB_TOKEN");
   const payload = await aggregate(token);
   console.log(
@@ -319,7 +322,9 @@ async function main(): Promise<void> {
   console.log(`Wrote KV key "${KV_KEY}".`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (process.argv[1]?.endsWith("sync-contributors.ts")) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

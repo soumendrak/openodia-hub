@@ -113,9 +113,8 @@ export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
   const destinations = await Promise.all(
     items.map((item) => {
       const date = item.startDate || item.date || "";
-      return (dateCounts.get(date) ?? 0) > 1
-        ? resolveDestination(item.url)
-        : Promise.resolve(item.url);
+      // Counted from this same `items` list above, so every date has an entry.
+      return dateCounts.get(date)! > 1 ? resolveDestination(item.url) : Promise.resolve(item.url);
     }),
   );
 

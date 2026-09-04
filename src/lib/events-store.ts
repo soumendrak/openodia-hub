@@ -107,7 +107,7 @@ export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
       title: r.title,
       community: r.community,
       type: r.type as Event["type"],
-      year: r.start_date.split("-")[0] ?? "",
+      year: r.start_date.split("-")[0],
       date: r.start_date,
       startDate: r.start_date,
       endDate: r.end_date ?? undefined,

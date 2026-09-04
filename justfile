@@ -41,6 +41,18 @@ format:
 test:
     bun run test
 
+# Run all tests and generate the full-repository coverage report
+coverage:
+    bun run test:coverage
+
+# Require 100% line coverage for staged production-code changes
+coverage-diff:
+    bun run test:coverage:diff -- --staged
+
+# Activate the version-controlled Git hooks in this clone
+hooks-install:
+    bun run hooks:install
+
 # Run tests in watch mode
 test-watch:
     bun run test:watch

@@ -127,4 +127,12 @@ describe("dataset size buckets", () => {
     expect(prettySize("10K<n<100K")).toBe("10K < n < 100K");
     expect(prettySize("n>1T")).toBe("n > 1T");
   });
+
+  it("treats an upper bound without a numeric magnitude as unranked", () => {
+    expect(sizeRank("n<unknown")).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it("defaults to a multiplier of one when the bucket has no unit suffix", () => {
+    expect(sizeRank("n<100")).toBe(100);
+  });
 });
