@@ -120,6 +120,50 @@ describe("diff coverage", () => {
     });
   });
 
+  it("does not let a covered enclosing statement mask an uncovered nested statement", () => {
+    const changed = new Map([["src/nested.ts", new Set([1, 2, 3])]]);
+    const coverage: IstanbulCoverage = {
+      nested: {
+        path: "/repo/src/nested.ts",
+        statementMap: {
+          "0": { start: { line: 1 }, end: { line: 3 } },
+          "1": { start: { line: 2 }, end: { line: 2 } },
+        },
+        s: { "0": 1, "1": 0 },
+      },
+    };
+
+    expect(assessDiffCoverage(changed, coverage, "/repo")).toEqual({
+      checked: [
+        { file: "src/nested.ts", line: 1 },
+        { file: "src/nested.ts", line: 2 },
+        { file: "src/nested.ts", line: 3 },
+      ],
+      uncovered: [{ file: "src/nested.ts", line: 2 }],
+      missingFiles: [],
+    });
+  });
+
+  it("flags a line uncovered when all of its most specific statements are uncovered", () => {
+    const changed = new Map([["src/siblings.ts", new Set([1])]]);
+    const coverage: IstanbulCoverage = {
+      siblings: {
+        path: "/repo/src/siblings.ts",
+        statementMap: {
+          "0": { start: { line: 1 }, end: { line: 1 } },
+          "1": { start: { line: 1 }, end: { line: 1 } },
+        },
+        s: { "0": 0, "1": 0 },
+      },
+    };
+
+    expect(assessDiffCoverage(changed, coverage, "/repo")).toEqual({
+      checked: [{ file: "src/siblings.ts", line: 1 }],
+      uncovered: [{ file: "src/siblings.ts", line: 1 }],
+      missingFiles: [],
+    });
+  });
+
   it("classifies measured, generated, test, and configuration files", () => {
     for (const extension of ["js", "cjs", "mjs", "jsx", "ts", "cts", "mts", "tsx"]) {
       expect(isMeasuredSource(`./src/lib/value.${extension}`)).toBe(true);

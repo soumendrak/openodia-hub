@@ -84,21 +84,29 @@ export function assessDiffCoverage(
       continue;
     }
 
-    const hitsByLine = new Map<number, number>();
+    const coverageByLine = new Map<number, { span: number; covered: boolean }>();
     for (const [statementId, location] of Object.entries(fileCoverage.statementMap)) {
-      const hits = fileCoverage.s[statementId] ?? 0;
+      const covered = (fileCoverage.s[statementId] ?? 0) > 0;
+      const startLine = location.start.line;
+      const endLine = location.end.line;
+      const span = endLine - startLine;
       for (const line of lines) {
-        if (line < location.start.line || line > location.end.line) continue;
-        hitsByLine.set(line, (hitsByLine.get(line) ?? 0) + hits);
+        if (line < startLine || line > endLine) continue;
+        const current = coverageByLine.get(line);
+        if (current === undefined || span < current.span) {
+          coverageByLine.set(line, { span, covered });
+        } else if (span === current.span && covered) {
+          coverageByLine.set(line, { span, covered: true });
+        }
       }
     }
 
     for (const line of [...lines].sort((left, right) => left - right)) {
-      const hits = hitsByLine.get(line);
-      if (hits === undefined) continue;
+      const current = coverageByLine.get(line);
+      if (current === undefined) continue;
       const item = { file, line };
       checked.push(item);
-      if (hits === 0) uncovered.push(item);
+      if (!current.covered) uncovered.push(item);
     }
   }
 
