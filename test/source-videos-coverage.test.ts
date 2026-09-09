@@ -129,7 +129,7 @@ describe("YouTube source adapter", () => {
     ]);
   });
 
-  it("degrades failed RSS, playlist, and statistics calls to empty data", async () => {
+  it("refuses to cache a run that failed everywhere", async () => {
     process.env.YOUTUBE_API_KEY = "key";
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     let rssCalls = 0;
@@ -143,9 +143,11 @@ describe("YouTube source adapter", () => {
       return Promise.reject(new Error("statistics offline"));
     });
     // Every channel failing means YouTube throttled the whole run, not that
-    // the community stopped posting. loadVideos throws rather than let an
-    // empty list be cached for an hour — the contract loadRepos uses.
-    await expect(loadVideos()).rejects.toThrow("youtube_unavailable");
+    // the community stopped posting. loadVideos throws rather than let that be
+    // cached for an hour — the contract loadRepos uses. The retry backoffs
+    // spend the fan-out budget along the way, so the tail goes unattempted and
+    // the run reports itself incomplete rather than merely empty.
+    await expect(loadVideos()).rejects.toThrow("youtube_incomplete");
     expect(warn).toHaveBeenCalled();
   });
 
@@ -180,11 +182,30 @@ describe("YouTube source adapter", () => {
         ),
     );
 
-    await expect(loadVideos()).rejects.toThrow("youtube_unavailable");
+    const started = Date.now();
+    await expect(loadVideos()).rejects.toThrow("youtube_incomplete");
+    const elapsed = Date.now() - started;
+
     expect(warn).toHaveBeenCalled();
     // Far fewer than channels x attempts, because the budget cut it short.
     expect(videoHarness.fetch.mock.calls.length).toBeLessThan(15);
+    // The whole fan-out stays inside the budget plus at most one in-flight
+    // request. Checking the deadline only *before* the backoff let a single
+    // channel run to ~11.4s under an 8s budget.
+    expect(elapsed).toBeLessThan(8000 + 3000 + 1500);
   }, 30_000);
+
+  it("refuses to cache a complete run in which every channel is empty", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    // Healthy but empty feeds: every channel is attempted, quickly, and none
+    // needs a retry — so the budget survives and this is a real, complete
+    // answer of "nothing", which is still not a fact worth caching for an hour.
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve(new Response("<feed />", { status: 200 })),
+    );
+
+    await expect(loadVideos()).rejects.toThrow("youtube_unavailable");
+  });
 
   it("degrades to an empty channel when reading the feed body throws", async () => {
     delete process.env.YOUTUBE_API_KEY;
@@ -286,6 +307,80 @@ describe("YouTube source adapter", () => {
     const channels = await loadVideos();
     expect(channels.every((c) => c.videos.length === 0 && c.playlists.length === 1)).toBe(true);
     expect(statsCalls).toBe(0);
+  });
+
+  it("makes no request at all once the deadline has already passed", async () => {
+    process.env.YOUTUBE_API_KEY = "key";
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve(new Response(rss, { status: 200 })),
+    );
+
+    // Both the feed and the optional playlist metadata are capped by what is
+    // left of the budget; with nothing left, neither is worth starting.
+    const channel = await fetchChannelVideos(
+      "h",
+      "N",
+      "https://example.com",
+      "UC0",
+      "key",
+      Date.now() - 1,
+    );
+    expect(channel.videos).toEqual([]);
+    expect(channel.playlists).toEqual([]);
+    expect(videoHarness.fetch).not.toHaveBeenCalled();
+  });
+
+  it("abandons the retry when the first attempt already used up the deadline", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // The request itself outlives the budget, so by the time the retry is
+    // considered there is nothing left — checked before the backoff, so the
+    // sleep is never even entered.
+    videoHarness.fetch.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve(new Response("no", { status: 500 })), 250),
+        ),
+    );
+
+    const channel = await fetchChannelVideos(
+      "h",
+      "N",
+      "https://example.com",
+      "UC0",
+      undefined,
+      Date.now() + 150,
+    );
+    expect(channel.videos).toEqual([]);
+    expect(videoHarness.fetch).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("abandons the retry when the backoff itself outlives the deadline", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve(new Response("no", { status: 500 })),
+    );
+
+    // Alive when the first attempt fails, expired by the time the backoff
+    // finishes — the recheck that stops a sleep from buying a full-length
+    // request it has no budget for. 600ms sits comfortably between an instant
+    // mocked failure and the 800ms backoff, so neither a slow CI box nor a
+    // fast one moves which branch this lands on.
+    const started = Date.now();
+    const channel = await fetchChannelVideos(
+      "h",
+      "N",
+      "https://example.com",
+      "UC0",
+      undefined,
+      Date.now() + 600,
+    );
+    expect(channel.videos).toEqual([]);
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(videoHarness.fetch.mock.calls.length).toBeLessThan(3);
+    expect(warn).toHaveBeenCalled();
   });
 
   it("names every configured channel in the shells", () => {

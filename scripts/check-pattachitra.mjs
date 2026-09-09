@@ -52,9 +52,18 @@ async function main() {
   for (const route of ROUTES) {
     for (const size of WIDTHS) {
       const page = await browser.newPage({ viewport: { width: size.width, height: size.height } });
-      const errors = [];
-      page.on("pageerror", (e) => errors.push(String(e)));
-      page.on("console", (m) => m.type() === "error" && errors.push(m.text()));
+      const raw = [];
+      // A 503 from /api/videos is the documented "YouTube is unavailable"
+      // answer, not a defect in the page — the rail falls back to its static
+      // list and every channel still renders. The console message for a failed
+      // request carries no URL, so it is correlated with the response instead,
+      // and only then discounted. Everything else still fails the check.
+      const upstream503 = [];
+      page.on("pageerror", (e) => raw.push(String(e)));
+      page.on("console", (m) => m.type() === "error" && raw.push(m.text()));
+      page.on("response", (r) => {
+        if (r.url().includes("/api/videos") && r.status() === 503) upstream503.push(r.url());
+      });
 
       await page.goto(BASE + route, { waitUntil: "networkidle" });
       const { scroll, inner } = await overflow(page);
@@ -63,7 +72,14 @@ async function main() {
         `${route} @ ${size.name}: no horizontal overflow`,
         `${scroll}/${inner}`,
       );
-      check(errors.length === 0, `${route} @ ${size.name}: no console errors`, errors[0] ?? "");
+      const errors = upstream503.length
+        ? raw.filter((t) => !/Failed to load resource.*\b503\b/.test(t))
+        : raw;
+      check(
+        errors.length === 0,
+        `${route} @ ${size.name}: no console errors`,
+        errors[0] ?? (upstream503.length ? `(${upstream503.length} upstream 503 discounted)` : ""),
+      );
 
       // The header is position:fixed, so it can push a control off-screen
       // without ever changing scrollWidth. Measure it directly.

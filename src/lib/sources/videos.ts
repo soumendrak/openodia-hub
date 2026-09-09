@@ -84,10 +84,19 @@ function usableThumbnail(t: {
   return url.includes("no_thumbnail") ? "" : url;
 }
 
-async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playlist[]> {
+async function fetchPlaylists(
+  channelId: string,
+  apiKey: string,
+  timeoutMs: number,
+): Promise<Playlist[]> {
   try {
+    if (timeoutMs <= 0) return [];
     const url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=12&key=${apiKey}`;
-    const res = await fetchWithTimeout(url, { headers: { "User-Agent": "openodia.com" } });
+    const res = await fetchWithTimeout(
+      url,
+      { headers: { "User-Agent": "openodia.com" } },
+      timeoutMs,
+    );
     if (!res.ok) return [];
     const data = (await res.json()) as {
       items?: {
@@ -142,13 +151,19 @@ async function fetchRss(channelId: string, deadline: number): Promise<Response |
   const outcomes: string[] = [];
 
   for (let attempt = 0; attempt < RSS_ATTEMPTS; attempt++) {
-    // Always take one shot; only the retries are rationed by the budget.
+    // Always take one shot; only the retries are rationed by the budget. The
+    // deadline is rechecked *after* the backoff too — sleeping past it and
+    // then starting a full-length request is how three stalled attempts added
+    // up to ~11.4s under an 8s budget.
     if (attempt > 0) {
       if (Date.now() >= deadline) break;
       await new Promise((r) => setTimeout(r, RSS_BACKOFF_MS * 2 ** attempt));
+      if (Date.now() >= deadline) break;
     }
+    const budget = Math.min(RSS_TIMEOUT_MS, deadline - Date.now());
+    if (budget <= 0) break;
     try {
-      const res = await fetchWithTimeout(url, init, RSS_TIMEOUT_MS);
+      const res = await fetchWithTimeout(url, init, budget);
       if (res.ok) return res;
       outcomes.push(String(res.status));
     } catch (err) {
@@ -185,7 +200,9 @@ export async function fetchChannelVideos(
   try {
     const [rssRes, playlists] = await Promise.all([
       fetchRss(channelId, deadline),
-      apiKey ? fetchPlaylists(channelId, apiKey) : Promise.resolve([]),
+      apiKey
+        ? fetchPlaylists(channelId, apiKey, Math.min(RSS_TIMEOUT_MS, deadline - Date.now()))
+        : Promise.resolve([]),
     ]);
 
     if (!rssRes) return { ...empty, playlists };
@@ -244,17 +261,32 @@ export async function loadVideos(): Promise<ChannelResult[]> {
     // another timeout each — the page still lists every channel and its link.
     const deadline = Date.now() + FANOUT_BUDGET_MS;
     const channels: ChannelResult[] = [];
+    let skipped = 0;
     for (const c of CHANNELS) {
+      if (Date.now() >= deadline) {
+        skipped++;
+        channels.push(emptyChannel(c.handle, c.name, c.url));
+        continue;
+      }
       channels.push(
-        Date.now() >= deadline
-          ? emptyChannel(c.handle, c.name, c.url)
-          : await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey, deadline),
+        await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey, deadline),
       );
     }
-    // Every channel empty means YouTube throttled the whole run, not that the
-    // community stopped posting. Throwing keeps that out of the hour-long
-    // cache — the same contract loadRepos uses — so the stale result stays up
-    // and the next reader retries instead of seeing an empty page.
+
+    // Two ways this run is not a fact about the ecosystem:
+    //
+    //   - every channel came back empty, which means YouTube throttled the
+    //     whole run rather than that the community stopped posting;
+    //   - the budget ran out before every channel was even attempted, so the
+    //     tail is missing for a reason that has nothing to do with the tail.
+    //
+    // Either way, throwing keeps it out of the hour-long cache — the contract
+    // loadRepos uses. Stale-while-revalidate then keeps serving the last
+    // complete result instead of overwriting it with a worse one.
+    if (skipped > 0) {
+      console.warn(`youtube fan-out: budget spent, ${skipped} channel(s) unattempted`);
+      throw new UpstreamUnavailableError("youtube_incomplete");
+    }
     if (channels.every((c) => c.videos.length === 0 && c.playlists.length === 0)) {
       throw new UpstreamUnavailableError("youtube_unavailable");
     }
