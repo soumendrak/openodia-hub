@@ -6,9 +6,9 @@
  * repos.ts and awesome.ts. Before this, /tutorials fetched on the client only,
  * so the page a crawler or an answer engine saw had no videos in it at all.
  */
-import { fetchWithTimeout, settledValues } from "../fetch-utils";
+import { fetchWithTimeout, mapWithConcurrency } from "../fetch-utils";
 import { CHANNELS } from "../../data/channels";
-import { cachedJson } from "./cache";
+import { cachedJson, UpstreamUnavailableError } from "./cache";
 
 export type Video = {
   id: string;
@@ -75,6 +75,15 @@ export function parseRss(
     .filter(Boolean) as Video[];
 }
 
+function usableThumbnail(t: {
+  high?: { url: string };
+  medium?: { url: string };
+  default?: { url: string };
+}): string {
+  const url = t.high?.url ?? t.medium?.url ?? t.default?.url ?? "";
+  return url.includes("no_thumbnail") ? "" : url;
+}
+
 async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playlist[]> {
   try {
     const url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=12&key=${apiKey}`;
@@ -99,11 +108,10 @@ async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playli
       id: item.id,
       title: item.snippet.title,
       description: item.snippet.description,
-      thumbnail:
-        item.snippet.thumbnails.high?.url ??
-        item.snippet.thumbnails.medium?.url ??
-        item.snippet.thumbnails.default?.url ??
-        "",
+      // YouTube hands back i.ytimg.com/img/no_thumbnail.jpg for a playlist with
+      // no artwork — and that URL itself 404s. Treat it as absent so the card's
+      // own placeholder renders instead of a broken image.
+      thumbnail: usableThumbnail(item.snippet.thumbnails),
       itemCount: item.contentDetails.itemCount,
     }));
   } catch {
@@ -111,7 +119,34 @@ async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playli
   }
 }
 
-async function fetchChannelVideos(
+/**
+ * YouTube's RSS endpoint answers a burst of requests from one IP with HTTP 500
+ * rather than 429 — measured here, five simultaneous feeds returned four 500s
+ * and the same five spaced a second apart returned five 200s. A failed feed is
+ * indistinguishable from an empty channel downstream, so the channel simply
+ * vanished from /tutorials for the hour the empty result stayed cached. One
+ * retry after a short pause is enough; the fan-out is also throttled below.
+ */
+const RSS_ATTEMPTS = 3;
+const RSS_BACKOFF_MS = 800;
+
+async function fetchRss(channelId: string): Promise<Response | null> {
+  const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
+  const init = { headers: { "User-Agent": "openodia.com" } };
+  const statuses: number[] = [];
+
+  for (let attempt = 0; attempt < RSS_ATTEMPTS; attempt++) {
+    if (attempt > 0) await new Promise((r) => setTimeout(r, RSS_BACKOFF_MS * 2 ** attempt));
+    const res = await fetchWithTimeout(url, init);
+    if (res.ok) return res;
+    statuses.push(res.status);
+  }
+
+  console.warn(`youtube rss ${channelId}: ${statuses.join(", ")}`);
+  return null;
+}
+
+export async function fetchChannelVideos(
   handle: string,
   name: string,
   url: string,
@@ -121,13 +156,11 @@ async function fetchChannelVideos(
   const empty: ChannelResult = { handle, name, url, videos: [], playlists: [] };
   try {
     const [rssRes, playlists] = await Promise.all([
-      fetchWithTimeout(`https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`, {
-        headers: { "User-Agent": "openodia.com" },
-      }),
+      fetchRss(channelId),
       apiKey ? fetchPlaylists(channelId, apiKey) : Promise.resolve([]),
     ]);
 
-    if (!rssRes.ok) return { ...empty, playlists };
+    if (!rssRes) return { ...empty, playlists };
 
     const xml = await rssRes.text();
     const videos = parseRss(xml, name, handle, url).slice(0, 15);
@@ -177,10 +210,19 @@ async function enrichWithViewCounts(
 export async function loadVideos(): Promise<ChannelResult[]> {
   return cachedJson("videos", TTL_MS, async () => {
     const apiKey = process.env.YOUTUBE_API_KEY;
-    const settled = await Promise.allSettled(
-      CHANNELS.map((c) => fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey)),
+    // One at a time, not all five: see the note on fetchRss. Cold cost is a
+    // couple of seconds for the whole set, paid once an hour behind
+    // stale-while-revalidate, and /tutorials renders a skeleton meanwhile.
+    const channels = await mapWithConcurrency(CHANNELS, 1, (c) =>
+      fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey),
     );
-    const channels = settledValues(settled);
+    // Every channel empty means YouTube throttled the whole run, not that the
+    // community stopped posting. Throwing keeps that out of the hour-long
+    // cache — the same contract loadRepos uses — so the stale result stays up
+    // and the next reader retries instead of seeing an empty page.
+    if (channels.every((c) => c.videos.length === 0 && c.playlists.length === 0)) {
+      throw new UpstreamUnavailableError("youtube_unavailable");
+    }
     return apiKey ? enrichWithViewCounts(channels, apiKey) : channels;
   });
 }
