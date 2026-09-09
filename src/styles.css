@@ -1,11 +1,12 @@
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
+@import "./styles/pattachitra.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Space Grotesk", system-ui, sans-serif;
+  --font-display: "Cormorant Garamond", Georgia, serif;
   --font-sans: "Inter", system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
@@ -42,149 +43,148 @@
   --color-surface-2: var(--surface-2);
 }
 
+/* ── Palette ─────────────────────────────────────────────────────────────
+   Pattachitra: palm-leaf ochre paper, ink text, vermilion, antique gold.
+   Kept as tokens rather than per-route styles so the twenty routes that
+   aren't part of this release inherit the palette without being rewritten —
+   they already read every colour through these names.
+
+   Dark is the same palette at night: ink ground, gold in place of the neon
+   cyan, terracotta in place of the magenta (vermilion is unreadable on a
+   dark ground, so the accent lightens rather than staying literal). */
 :root {
   --radius: 0.875rem;
 
-  /* Dark-first design */
-  --background: oklch(0.13 0.02 270);
-  --foreground: oklch(0.96 0.01 250);
+  /* Ink night */
+  --background: #241a11;
+  --foreground: #f5e7cb;
 
-  --surface: oklch(0.17 0.025 270);
-  --surface-2: oklch(0.22 0.03 270);
+  --surface: #2e2217;
+  --surface-2: #3a2c1d;
 
-  --card: oklch(0.17 0.025 270);
-  --card-foreground: oklch(0.96 0.01 250);
+  --card: #2e2217;
+  --card-foreground: #f5e7cb;
 
-  --popover: oklch(0.17 0.025 270);
-  --popover-foreground: oklch(0.96 0.01 250);
+  --popover: #2e2217;
+  --popover-foreground: #f5e7cb;
 
-  /* Neon cyan primary */
-  --primary: oklch(0.86 0.18 195);
-  --primary-foreground: oklch(0.13 0.02 270);
+  --primary: #d3ab66;
+  --primary-foreground: #241a11;
 
-  --secondary: oklch(0.25 0.04 280);
-  --secondary-foreground: oklch(0.96 0.01 250);
+  --secondary: #3a2c1d;
+  --secondary-foreground: #f5e7cb;
 
-  --muted: oklch(0.22 0.025 270);
-  --muted-foreground: oklch(0.7 0.03 260);
+  --muted: #33261a;
+  --muted-foreground: #bba383;
 
-  --accent: oklch(0.7 0.25 340);
-  --accent-foreground: oklch(0.13 0.02 270);
+  --accent: #d97a5e;
+  --accent-foreground: #241a11;
 
   --destructive: oklch(0.65 0.24 25);
   --destructive-foreground: oklch(0.98 0 0);
 
-  --border: oklch(1 0 0 / 8%);
-  --input: oklch(1 0 0 / 12%);
-  --ring: oklch(0.86 0.18 195);
+  --border: rgb(211 171 102 / 18%);
+  --input: rgb(211 171 102 / 24%);
+  --ring: #d3ab66;
 
-  --neon: oklch(0.86 0.18 195);
-  --magenta: oklch(0.7 0.27 335);
-  --saffron: oklch(0.78 0.17 60);
+  --neon: #d3ab66;
+  --magenta: #d97a5e;
+  --saffron: #e6c387;
 
   --gradient-hero:
     radial-gradient(
       ellipse 80% 60% at 50% 0%,
-      color-mix(in oklab, var(--neon) 20%, transparent),
+      color-mix(in oklab, var(--saffron) 14%, transparent),
       transparent 60%
     ),
     radial-gradient(
       ellipse 60% 50% at 80% 30%,
-      color-mix(in oklab, var(--magenta) 18%, transparent),
+      color-mix(in oklab, var(--magenta) 12%, transparent),
       transparent 60%
     ),
     radial-gradient(
       ellipse 50% 50% at 10% 70%,
-      color-mix(in oklab, var(--saffron) 12%, transparent),
+      color-mix(in oklab, var(--neon) 10%, transparent),
       transparent 60%
     );
 
-  --gradient-text: linear-gradient(
-    100deg,
-    var(--neon) 0%,
-    oklch(0.85 0.15 250) 40%,
-    var(--magenta) 90%
-  );
+  --gradient-text: linear-gradient(100deg, var(--saffron) 0%, #e9c98d 40%, var(--magenta) 90%);
 
-  --shadow-glow: 0 0 60px -10px color-mix(in oklab, var(--neon) 50%, transparent);
-  --shadow-glow-magenta: 0 0 80px -10px color-mix(in oklab, var(--magenta) 50%, transparent);
+  --shadow-glow: 0 0 60px -10px color-mix(in oklab, var(--neon) 45%, transparent);
+  --shadow-glow-magenta: 0 0 80px -10px color-mix(in oklab, var(--magenta) 45%, transparent);
 }
 
 .light {
-  --background: oklch(0.98 0.01 250);
-  --foreground: oklch(0.13 0.02 270);
+  /* Palm leaf */
+  --background: #f2e4c6;
+  --foreground: #332719;
 
-  --surface: oklch(0.94 0.02 250);
-  --surface-2: oklch(0.89 0.02 250);
+  --surface: #e9d6b0;
+  --surface-2: #dcc498;
 
-  --card: oklch(0.96 0.02 250);
-  --card-foreground: oklch(0.13 0.02 270);
+  --card: #eddcbb;
+  --card-foreground: #332719;
 
-  --popover: oklch(0.96 0.02 250);
-  --popover-foreground: oklch(0.13 0.02 270);
+  --popover: #eddcbb;
+  --popover-foreground: #332719;
 
-  --primary: oklch(0.6 0.18 200);
-  --primary-foreground: oklch(0.98 0.01 250);
+  --primary: #8a2b22;
+  --primary-foreground: #fff2d3;
 
-  --secondary: oklch(0.88 0.02 250);
-  --secondary-foreground: oklch(0.13 0.02 270);
+  --secondary: #dcc498;
+  --secondary-foreground: #332719;
 
-  --muted: oklch(0.9 0.015 250);
-  --muted-foreground: oklch(0.45 0.03 260);
+  --muted: #e2cda4;
+  --muted-foreground: #6a5335;
 
-  --accent: oklch(0.6 0.2 340);
-  --accent-foreground: oklch(0.98 0.01 250);
+  --accent: #721d20;
+  --accent-foreground: #fff2d3;
 
-  --destructive: oklch(0.6 0.22 25);
-  --destructive-foreground: oklch(0.98 0.01 250);
+  --destructive: oklch(0.5 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 90);
 
-  --border: oklch(0 0 0 / 8%);
-  --input: oklch(0 0 0 / 6%);
-  --ring: oklch(0.6 0.18 200);
+  --border: rgb(122 88 44 / 32%);
+  --input: rgb(122 88 44 / 22%);
+  --ring: #8a2b22;
 
-  --neon: oklch(0.55 0.18 200);
-  --magenta: oklch(0.55 0.22 335);
-  --saffron: oklch(0.62 0.17 60);
+  --neon: #8a2b22;
+  --magenta: #721d20;
+  --saffron: #8c6526;
 
   --gradient-hero:
     radial-gradient(
       ellipse 80% 60% at 50% 0%,
-      color-mix(in oklab, var(--neon) 16%, transparent),
+      color-mix(in oklab, var(--saffron) 16%, transparent),
       transparent 60%
     ),
     radial-gradient(
       ellipse 60% 50% at 80% 30%,
-      color-mix(in oklab, var(--magenta) 14%, transparent),
+      color-mix(in oklab, var(--magenta) 10%, transparent),
       transparent 60%
     ),
     radial-gradient(
       ellipse 50% 50% at 10% 70%,
-      color-mix(in oklab, var(--saffron) 10%, transparent),
+      color-mix(in oklab, var(--neon) 8%, transparent),
       transparent 60%
     );
 
-  --gradient-text: linear-gradient(
-    100deg,
-    var(--neon) 0%,
-    oklch(0.45 0.15 250) 40%,
-    var(--magenta) 90%
-  );
+  --gradient-text: linear-gradient(100deg, var(--neon) 0%, #8c3a22 40%, var(--saffron) 90%);
 
   --shadow-glow:
-    0 10px 30px -5px oklch(0.13 0.02 270 / 12%),
-    0 20px 50px -10px color-mix(in oklab, var(--neon) 30%, oklch(0.13 0.02 270 / 15%));
+    0 10px 30px -5px rgb(51 39 25 / 14%),
+    0 20px 50px -10px color-mix(in oklab, var(--neon) 22%, rgb(51 39 25 / 15%));
   --shadow-glow-magenta:
-    0 10px 30px -5px oklch(0.13 0.02 270 / 12%),
-    0 20px 50px -10px color-mix(in oklab, var(--magenta) 30%, oklch(0.13 0.02 270 / 15%));
+    0 10px 30px -5px rgb(51 39 25 / 14%),
+    0 20px 50px -10px color-mix(in oklab, var(--magenta) 22%, rgb(51 39 25 / 15%));
 }
 
 .light .bg-surface,
 .light .bg-card {
   box-shadow:
-    0 1px 2px 0 oklch(0.13 0.02 270 / 6%),
-    0 8px 24px -4px oklch(0.13 0.02 270 / 10%),
-    0 16px 40px -12px oklch(0.13 0.02 270 / 14%);
-  border-color: oklch(0.13 0.02 270 / 10%);
+    0 1px 2px 0 rgb(51 39 25 / 7%),
+    0 8px 24px -4px rgb(51 39 25 / 12%),
+    0 16px 40px -12px rgb(51 39 25 / 16%);
+  border-color: rgb(51 39 25 / 12%);
   transition:
     transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
@@ -194,18 +194,18 @@
 .light .bg-surface:hover,
 .light .bg-card:hover {
   transform: translateY(-4px);
-  border-color: color-mix(in oklab, var(--neon) 35%, oklch(0.13 0.02 270 / 15%));
+  border-color: color-mix(in oklab, var(--neon) 35%, rgb(51 39 25 / 17%));
   box-shadow:
-    0 2px 4px 0 oklch(0.13 0.02 270 / 8%),
-    0 20px 40px -10px color-mix(in oklab, var(--neon) 28%, oklch(0.13 0.02 270 / 15%)),
-    0 30px 60px -15px color-mix(in oklab, var(--magenta) 24%, oklch(0.13 0.02 270 / 10%));
+    0 2px 4px 0 rgb(51 39 25 / 9%),
+    0 20px 40px -10px color-mix(in oklab, var(--neon) 28%, rgb(51 39 25 / 17%)),
+    0 30px 60px -15px color-mix(in oklab, var(--magenta) 24%, rgb(51 39 25 / 12%));
 }
 
 .light header > div > div {
   box-shadow:
-    0 4px 20px -2px oklch(0.13 0.02 270 / 8%),
-    0 12px 40px -8px oklch(0.13 0.02 270 / 12%);
-  border-color: oklch(0.13 0.02 270 / 10%);
+    0 4px 20px -2px rgb(51 39 25 / 9%),
+    0 12px 40px -8px rgb(51 39 25 / 14%);
+  border-color: rgb(51 39 25 / 12%);
 }
 
 @layer base {
@@ -253,6 +253,18 @@
   ::selection {
     background: color-mix(in oklab, var(--neon) 40%, transparent);
     color: var(--foreground);
+  }
+
+  /* Odia typography (W3C ilreq): Noto Sans Oriya carries the script, and the
+     matras need more vertical clearance than Latin at the same size. Never
+     letter-spaced — that severs the joining strokes.
+
+     `html` and `body` are excluded because the locale toggle sets lang="or"
+     on the document element while most of the UI chrome is still English. */
+  [lang="or"]:not(html):not(body) {
+    font-family: "Noto Sans Oriya", var(--font-sans);
+    line-height: 1.8;
+    letter-spacing: normal;
   }
 
   h1,
@@ -390,8 +402,8 @@
 /* Scroll to top button custom shadows and glowing hover effects */
 .scroll-to-top-btn {
   box-shadow:
-    0 4px 12px -2px oklch(0.13 0.02 270 / 8%),
-    0 12px 30px -4px oklch(0.13 0.02 270 / 12%);
+    0 4px 12px -2px rgb(51 39 25 / 9%),
+    0 12px 30px -4px rgb(51 39 25 / 14%);
   transition:
     transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1),
@@ -400,10 +412,10 @@
 }
 
 .scroll-to-top-btn:hover {
-  border-color: color-mix(in oklab, var(--neon) 45%, oklch(0.13 0.02 270 / 20%));
+  border-color: color-mix(in oklab, var(--neon) 45%, rgb(51 39 25 / 22%));
   box-shadow:
     0 0 24px -4px color-mix(in oklab, var(--neon) 40%, transparent),
-    0 12px 36px -8px color-mix(in oklab, var(--neon) 25%, oklch(0.13 0.02 270 / 15%));
+    0 12px 36px -8px color-mix(in oklab, var(--neon) 25%, rgb(51 39 25 / 17%));
 }
 
 .dark .scroll-to-top-btn {

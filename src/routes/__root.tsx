@@ -93,19 +93,19 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@openodia" },
       { name: "twitter:image", content: "https://openodia.com/openodia-og.png" },
-      { name: "theme-color", content: "#0a0a14" },
+      { name: "theme-color", content: "#241a11" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      // Eight font files trimmed to four. Space Grotesk only ever sets
-      // headings (500/600/700 — never 400), and JetBrains Mono was a whole
-      // extra family for a handful of facet counts and the ⌘K hint, which
-      // the system mono stack renders just as well. See --font-mono.
+      // Cormorant Garamond replaces Space Grotesk as --font-display; Noto Sans
+      // Oriya carries the Odia script (never subset aggressively — Indic
+      // conjuncts break). Inter stays the body face. JetBrains Mono is still
+      // gone; the system mono stack renders the ⌘K hint just as well.
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Inter:wght@400;500;600&family=Noto+Sans+Oriya:wght@400;600&display=swap",
       },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
     ],

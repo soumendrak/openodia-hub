@@ -57,10 +57,18 @@ export function Nav() {
       <div className="mx-auto mt-4 max-w-6xl px-4">
         <div className="flex items-center justify-between rounded-2xl border border-border bg-background/60 px-4 py-3 backdrop-blur-xl">
           <Link to="/" className="group flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground font-display text-xl font-bold transition-transform group-hover:rotate-12">
+            <span
+              lang="or"
+              className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground text-xl font-semibold transition-transform group-hover:rotate-12"
+            >
               ଓ
             </span>
-            <span className="font-display text-lg font-semibold tracking-tight">OpenOdia</span>
+            {/* At 320px the wordmark plus four controls overflowed the pill and
+                pushed the menu button off-screen. The ଓ mark carries the brand
+                on its own; the name comes back as soon as there is room. */}
+            <span className="hidden font-display text-lg font-semibold tracking-tight min-[360px]:inline">
+              OpenOdia
+            </span>
           </Link>
 
           {/* Nine tabs need ~1056px against a 1118px inner width, so the row
@@ -127,6 +135,8 @@ export function Nav() {
               className="xl:hidden rounded-xl border border-border bg-surface/40 p-2 text-muted-foreground hover:text-foreground cursor-pointer"
               onClick={() => setOpen((v) => !v)}
               aria-label={t("nav.menu.aria")}
+              aria-expanded={open}
+              aria-controls="mobile-nav"
             >
               {open ? <X size={20} /> : <Menu size={20} />}
             </button>
@@ -134,7 +144,10 @@ export function Nav() {
         </div>
 
         {open && (
-          <div className="anim-in mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl xl:hidden">
+          <div
+            id="mobile-nav"
+            className="anim-in mt-2 flex flex-col gap-1 rounded-2xl border border-border bg-background/90 p-3 backdrop-blur-xl xl:hidden"
+          >
             {links.map((l) => (
               <Link
                 key={l.to}

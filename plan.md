@@ -1,3 +1,105 @@
+# OpenOdia Pattachitra production plan
+
+## Outcome
+
+Implement the approved Pattachitra design as the production OpenOdia homepage and Tutorials experience. It replaces the current neon-first visual presentation with a palm-leaf ochre ground, vermilion painted panels, antique gold detail, and a monumental exact Odia `ଓ`. The site remains an ecosystem guide: tools, models, datasets, tutorials, and independent communities remain the core destinations.
+
+The approved mockup and its provenance live in [`.lavish/homepage-revamp/pattachitra.html`](.lavish/homepage-revamp/pattachitra.html) and [`.lavish/homepage-revamp/pattachitra-sources.md`](.lavish/homepage-revamp/pattachitra-sources.md). They are reference material, not production code to copy wholesale.
+
+## Scope
+
+### In scope
+
+- Production homepage, navigation, footer, and Tutorials route.
+- Locally served Pattachitra-inspired frame asset and documented provenance.
+- Palm-leaf ochre background based on the supplied Cleveland Museum reference; ink, vermilion, antique gold, and ivory supporting palette.
+- Exact Noto Sans Oriya `ଓ` (U+0B13), not a generated substitute.
+- Gentle letter turn and independent light movement with pause, hidden-tab, and reduced-motion support.
+- GDG Cloud Bhubaneswar’s verified community and YouTube destinations.
+- Existing live data, structured data, search, routes, accessibility, and test coverage.
+
+### Out of scope
+
+- Rewriting catalog, model, dataset, event, playground, or research routes in this release.
+- Replacing the live data sources or changing channel-video ingestion.
+- Claiming affiliation with GDG Cloud Bhubaneswar or other independent communities.
+- Deploying the redesign.
+
+## User stories
+
+1. As a visitor, I recognise OpenOdia as an aesthetically refined, culturally rooted guide to an open Odia ecosystem.
+2. As a visitor, I can move from the homepage to tools, models, datasets, tutorials, events, and communities without losing access to existing features.
+3. As a learner, I can find tutorials from OdiaGenAI, Odias in ML, OpenOdia, TFUG Bhubaneswar, and GDG Cloud Bhubaneswar.
+4. As a mobile visitor, I can read, navigate, and search the redesigned pages at 320px and above.
+5. As a visitor with motion sensitivity, I can use the site with decorative animation paused or removed.
+
+## Delivery tasks
+
+| Order | Task | Type | Depends on | Demonstrable result |
+| --- | --- | --- | --- | --- |
+| 1 | [001 Design foundation](issues/001-pattachitra-design-foundation.md) | AFK | — | Tokens, assets, primitives, motion contract |
+| 2 | [002 Homepage](issues/002-pattachitra-homepage.md) | AFK | 001 | New Pattachitra homepage with live ecosystem data |
+| 3 | [003 Site chrome](issues/003-pattachitra-site-chrome.md) | AFK | 001 | Responsive themed nav and footer |
+| 4 | [004 Tutorials](issues/004-pattachitra-tutorials.md) | AFK | 001, coordinate with 003 | Themed learning route with live video feed |
+| 5 | [005 Quality gate](issues/005-pattachitra-quality-gate.md) | AFK | 002–004 | Automated responsive, motion, and regression checks |
+
+Tasks 2 and 3 can proceed in parallel once task 1 lands. Task 4 can build its route body in parallel but should merge after the shared chrome is settled. Task 5 is the release gate.
+
+## Non-negotiable visual contracts
+
+- Render the hero phrase exactly as `ଆମ ଭାଷା ଆମ ପରିଚୟ`, with no trailing bar or danda.
+- Keep both peacocks visibly clear of the hero glyph during the entire animation loop.
+- Use the palm-leaf ochre ground sampled from the supplied reference. The painted red panel remains the hero artwork, not the surrounding page background.
+- The hero glyph is large enough to dominate the painted panel, but its height is constrained to the reserved space above the lower ornament.
+- Keep animation slow and deliberate: the panel does not move; only the glyph turns subtly and separate light layers move. Reduced motion removes decorative movement.
+- Respect the distinction between a contemporary digital interpretation and traditional Pattachitra art. Attribute independent communities accurately.
+
+## Implementation approach
+
+1. Extract the mockup’s design decisions into shared production components and tokens instead of importing mockup HTML or global page styles.
+2. Add the frame and exact glyph as versioned, locally served assets with source notes.
+3. Compose the homepage from route-level sections that preserve its current server functions, statistics, JSON-LD, contributors, and video content.
+4. Theme the existing navigation/footer and Tutorials route while preserving their interactive and server-rendered behaviour.
+5. Add tests for deterministic cultural and accessibility contracts, then run the full quality gate.
+
+## Verification gates
+
+### Per task
+
+- Typecheck/lint the touched code.
+- Test changed route behaviour and keyboard interactions.
+- Inspect desktop, 390px, and 320px views for overflow, contrast, loaded assets, and readable type.
+- Test both normal and reduced-motion modes.
+
+### Before implementation is complete
+
+- `pnpm lint`
+- `pnpm test`
+- `pnpm build`
+- `just coverage`
+- Browser review of hero animation at its start, midpoint, and loop end.
+- Manual visual review of the production build before deployment approval.
+
+## Risks and decisions already resolved
+
+| Risk | Decision |
+| --- | --- |
+| Incorrect Odia glyph | Use the existing Noto Sans Oriya U+0B13 source and test its presence. |
+| Decorative motion causes discomfort or visual instability | Separate a slow transform-only letter turn from light opacity; pause on hidden tabs and remove under reduced motion. |
+| Hero letter covers lower artwork | Establish a reserved glyph box and browser-test clearance at multiple animation times. |
+| Theme work breaks data-rich pages | Limit initial route restyling to Home and Tutorials; preserve data loaders and structured data. |
+| Cultural overclaim | Describe the treatment as Pattachitra-inspired; link visitors to independent communities rather than presenting them as OpenOdia properties. |
+
+## Definition of done
+
+The production home and Tutorials routes visually match the approved direction while retaining their live content and routes. The exact Odia glyph, phrase, community attribution, responsive layout, hero clearance, and motion preferences are protected by checks. All repository quality gates pass. Deployment remains a separate approval step.
+
+---
+
+## Legacy improvement backlog
+
+The earlier general improvement plan follows for reference. It is not part of the Pattachitra implementation scope above.
+
 # OpenOdia Hub — Improvement Plan
 
 _Compiled 2026-08-28 from: a full Playwright walkthrough of the running site (desktop + mobile,

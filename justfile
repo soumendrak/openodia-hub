@@ -48,6 +48,10 @@ test-watch:
 # Run lint + tests (CI gate)
 check: lint test
 
+# Browser checks for the Pattachitra theme (needs a running server)
+check-pattachitra url="http://localhost:9090":
+    bun scripts/check-pattachitra.mjs {{url}}
+
 # Deploy to Cloudflare Workers (requires Cloudflare credentials)
 deploy:
     bun run build
