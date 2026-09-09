@@ -12,7 +12,7 @@ vi.mock("../src/lib/sources/cache", () => ({
   UpstreamUnavailableError: class UpstreamUnavailableError extends Error {},
 }));
 
-import { loadVideos, parseRss } from "../src/lib/sources/videos";
+import { channelShells, fetchChannelVideos, loadVideos, parseRss } from "../src/lib/sources/videos";
 
 const originalApiKey = process.env.YOUTUBE_API_KEY;
 
@@ -147,6 +147,152 @@ describe("YouTube source adapter", () => {
     // empty list be cached for an hour — the contract loadRepos uses.
     await expect(loadVideos()).rejects.toThrow("youtube_unavailable");
     expect(warn).toHaveBeenCalled();
+  });
+
+  it("retries a feed that rejects, not just one that returns an error status", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    const calls = new Map<string, number>();
+    videoHarness.fetch.mockImplementation((url: string) => {
+      const n = (calls.get(url) ?? 0) + 1;
+      calls.set(url, n);
+      // A timeout or a dropped connection rejects; it does not resolve with a
+      // status. Letting that escape the retry loop abandoned the channel on
+      // the first blip, which is how channels went missing from /tutorials.
+      if (n === 1) return Promise.reject(new Error("AbortError"));
+      return Promise.resolve(new Response(rss, { status: 200 }));
+    });
+
+    const channels = await loadVideos();
+    expect(channels.every((channel) => channel.videos[0]?.id === "v1")).toBe(true);
+    expect([...calls.values()].every((n) => n > 1)).toBe(true);
+  });
+
+  it("stops retrying once the fan-out budget is spent", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // Every call burns wall-clock and fails, so the budget runs out partway
+    // through and the remaining channels are left as shells rather than each
+    // adding another round of timeouts to an SSR request.
+    videoHarness.fetch.mockImplementation(
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve(new Response("no", { status: 500 })), 1200),
+        ),
+    );
+
+    await expect(loadVideos()).rejects.toThrow("youtube_unavailable");
+    expect(warn).toHaveBeenCalled();
+    // Far fewer than channels x attempts, because the budget cut it short.
+    expect(videoHarness.fetch.mock.calls.length).toBeLessThan(15);
+  }, 30_000);
+
+  it("degrades to an empty channel when reading the feed body throws", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    // fetchRss swallows its own failures, so the outer catch is reached only by
+    // something later — here, a body that cannot be read. It is the last guard
+    // that keeps one bad channel from taking down the whole fan-out.
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        text: () => Promise.reject(new Error("body stream failed")),
+      } as unknown as Response),
+    );
+
+    // Called without a deadline, exercising the default budget too.
+    const channel = await fetchChannelVideos("h", "N", "https://example.com", "UC0");
+    expect(channel).toEqual({
+      handle: "h",
+      name: "N",
+      url: "https://example.com",
+      videos: [],
+      playlists: [],
+    });
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("labels a non-Error rejection in the retry log", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    videoHarness.fetch.mockImplementation(() => Promise.reject("just a string"));
+
+    const channel = await fetchChannelVideos("h", "N", "https://example.com", "UC0");
+    expect(channel.videos).toEqual([]);
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("error"));
+  });
+
+  it("drops YouTube's no_thumbnail placeholder, which itself 404s", async () => {
+    process.env.YOUTUBE_API_KEY = "key";
+    videoHarness.fetch.mockImplementation((url: string) => {
+      if (url.includes("feeds/videos")) return Promise.resolve(new Response(rss, { status: 200 }));
+      if (url.includes("/playlists")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                {
+                  id: "p1",
+                  snippet: {
+                    title: "No art",
+                    description: "d",
+                    thumbnails: { high: { url: "https://i.ytimg.com/img/no_thumbnail.jpg" } },
+                  },
+                  contentDetails: { itemCount: 1 },
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      return Promise.resolve(new Response("no", { status: 500 }));
+    });
+
+    const channels = await loadVideos();
+    // Treated as absent so the card renders its own placeholder rather than a
+    // broken image — the URL YouTube hands back for an artless playlist 404s.
+    expect(channels[0].playlists[0].thumbnail).toBe("");
+  });
+
+  it("skips the statistics call when no channel returned a video", async () => {
+    process.env.YOUTUBE_API_KEY = "key";
+    let statsCalls = 0;
+    videoHarness.fetch.mockImplementation((url: string) => {
+      // Feeds are healthy but empty; playlists are not, so the run is a real
+      // result rather than the throttled-everything case.
+      if (url.includes("feeds/videos"))
+        return Promise.resolve(new Response("<feed />", { status: 200 }));
+      if (url.includes("/playlists")) {
+        return Promise.resolve(
+          new Response(
+            JSON.stringify({
+              items: [
+                {
+                  id: "p1",
+                  snippet: { title: "Lessons", description: "d", thumbnails: {} },
+                  contentDetails: { itemCount: 4 },
+                },
+              ],
+            }),
+            { status: 200 },
+          ),
+        );
+      }
+      statsCalls += 1;
+      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
+    });
+
+    const channels = await loadVideos();
+    expect(channels.every((c) => c.videos.length === 0 && c.playlists.length === 1)).toBe(true);
+    expect(statsCalls).toBe(0);
+  });
+
+  it("names every configured channel in the shells", () => {
+    const shells = channelShells();
+    expect(shells.length).toBeGreaterThan(0);
+    expect(shells.every((c) => c.url.startsWith("https://") && c.videos.length === 0)).toBe(true);
+    expect(shells.map((c) => c.name)).toContain("GDG Cloud Bhubaneswar");
   });
 
   it("recovers from a rejected playlists call and a rejected statistics batch while sorting multiple videos", async () => {

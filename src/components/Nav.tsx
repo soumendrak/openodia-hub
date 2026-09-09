@@ -63,10 +63,12 @@ export function Nav() {
             >
               ଓ
             </span>
-            {/* At 320px the wordmark plus four controls overflowed the pill and
-                pushed the menu button off-screen. The ଓ mark carries the brand
-                on its own; the name comes back as soon as there is room. */}
-            <span className="hidden font-display text-lg font-semibold tracking-tight min-[360px]:inline">
+            {/* The wordmark plus four controls need 301px; the pill's inner
+                width is 294px at 360 and 309 at 375 — measured, both locales.
+                390 is the first width with real headroom (23px), so the ଓ mark
+                carries the brand below it rather than pushing the menu button
+                off-screen the way it did before this. */}
+            <span className="hidden font-display text-lg font-semibold tracking-tight min-[390px]:inline">
               OpenOdia
             </span>
           </Link>

@@ -265,8 +265,10 @@ function Communities() {
               {c.name[0]}
               {c.name[1] ? (
                 <>
-                  <br />
-                  {c.name[1]}
+                  {/* The space is deliberate and separate from the break: the
+                      break is hidden below 760px, and without this the two
+                      halves collide into "GDG CloudBhubaneswar". */}
+                  <br /> {c.name[1]}
                 </>
               ) : null}
             </h3>

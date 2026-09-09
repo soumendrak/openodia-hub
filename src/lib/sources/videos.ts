@@ -124,26 +124,53 @@ async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playli
  * rather than 429 — measured here, five simultaneous feeds returned four 500s
  * and the same five spaced a second apart returned five 200s. A failed feed is
  * indistinguishable from an empty channel downstream, so the channel simply
- * vanished from /tutorials for the hour the empty result stayed cached. One
- * retry after a short pause is enough; the fan-out is also throttled below.
+ * vanished from /tutorials for the hour the empty result stayed cached.
+ *
+ * Hence: one channel at a time, and a couple of retries each. Both cost
+ * wall-clock on a cold cache, so the whole fan-out runs against a budget —
+ * a stalled upstream must not hold an SSR request open for the sum of five
+ * timeouts. The RSS timeout is well under the 8s default for the same reason.
  */
 const RSS_ATTEMPTS = 3;
 const RSS_BACKOFF_MS = 400;
+const RSS_TIMEOUT_MS = 3000;
+const FANOUT_BUDGET_MS = 8000;
 
-async function fetchRss(channelId: string): Promise<Response | null> {
+async function fetchRss(channelId: string, deadline: number): Promise<Response | null> {
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
   const init = { headers: { "User-Agent": "openodia.com" } };
-  const statuses: number[] = [];
+  const outcomes: string[] = [];
 
   for (let attempt = 0; attempt < RSS_ATTEMPTS; attempt++) {
-    if (attempt > 0) await new Promise((r) => setTimeout(r, RSS_BACKOFF_MS * 2 ** attempt));
-    const res = await fetchWithTimeout(url, init);
-    if (res.ok) return res;
-    statuses.push(res.status);
+    // Always take one shot; only the retries are rationed by the budget.
+    if (attempt > 0) {
+      if (Date.now() >= deadline) break;
+      await new Promise((r) => setTimeout(r, RSS_BACKOFF_MS * 2 ** attempt));
+    }
+    try {
+      const res = await fetchWithTimeout(url, init, RSS_TIMEOUT_MS);
+      if (res.ok) return res;
+      outcomes.push(String(res.status));
+    } catch (err) {
+      // A network error or an aborted timeout rejects rather than returning a
+      // response. Swallowing it here is what makes the retry a retry — letting
+      // it escape would abandon the remaining attempts on the first blip.
+      outcomes.push(err instanceof Error ? err.name : "error");
+    }
   }
 
-  console.warn(`youtube rss ${channelId}: ${statuses.join(", ")}`);
+  console.warn(`youtube rss ${channelId}: ${outcomes.join(", ")}`);
   return null;
+}
+
+/** A channel with nothing loaded — still a real destination, with a real link. */
+function emptyChannel(handle: string, name: string, url: string): ChannelResult {
+  return { handle, name, url, videos: [], playlists: [] };
+}
+
+/** Every configured channel as an empty shell, for when the fetch is hopeless. */
+export function channelShells(): ChannelResult[] {
+  return CHANNELS.map((c) => emptyChannel(c.handle, c.name, c.url));
 }
 
 export async function fetchChannelVideos(
@@ -152,11 +179,12 @@ export async function fetchChannelVideos(
   url: string,
   channelId: string,
   apiKey?: string,
+  deadline: number = Date.now() + FANOUT_BUDGET_MS,
 ): Promise<ChannelResult> {
-  const empty: ChannelResult = { handle, name, url, videos: [], playlists: [] };
+  const empty = emptyChannel(handle, name, url);
   try {
     const [rssRes, playlists] = await Promise.all([
-      fetchRss(channelId),
+      fetchRss(channelId, deadline),
       apiKey ? fetchPlaylists(channelId, apiKey) : Promise.resolve([]),
     ]);
 
@@ -210,12 +238,18 @@ async function enrichWithViewCounts(
 export async function loadVideos(): Promise<ChannelResult[]> {
   return cachedJson("videos", TTL_MS, async () => {
     const apiKey = process.env.YOUTUBE_API_KEY;
-    // One at a time, not all five: see the note on fetchRss. Cold cost is a
-    // couple of seconds for the whole set, paid once an hour behind
-    // stale-while-revalidate, and /tutorials renders a skeleton meanwhile.
+    // One at a time, not all five: see the note on fetchRss. Healthy, that is
+    // ~2s for the whole set, paid once an hour behind stale-while-revalidate.
+    // Once the budget is spent the rest are left as shells rather than adding
+    // another timeout each — the page still lists every channel and its link.
+    const deadline = Date.now() + FANOUT_BUDGET_MS;
     const channels: ChannelResult[] = [];
     for (const c of CHANNELS) {
-      channels.push(await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey));
+      channels.push(
+        Date.now() >= deadline
+          ? emptyChannel(c.handle, c.name, c.url)
+          : await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey, deadline),
+      );
     }
     // Every channel empty means YouTube throttled the whole run, not that the
     // community stopped posting. Throwing keeps that out of the hour-long

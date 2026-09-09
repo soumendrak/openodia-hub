@@ -73,8 +73,14 @@ vi.mock("../src/lib/sources/treebank", async () => {
   return { ...actual, loadTreebank: treebankMocks.loadTreebank };
 });
 
-const videosMocks = vi.hoisted(() => ({ loadVideos: vi.fn() }));
-vi.mock("../src/lib/sources/videos", () => ({ loadVideos: videosMocks.loadVideos }));
+const videosMocks = vi.hoisted(() => ({
+  loadVideos: vi.fn(),
+  channelShells: vi.fn(() => []),
+}));
+vi.mock("../src/lib/sources/videos", () => ({
+  loadVideos: videosMocks.loadVideos,
+  channelShells: videosMocks.channelShells,
+}));
 
 const resourceMocks = vi.hoisted(() => ({ loadResource: vi.fn() }));
 vi.mock("../src/lib/sources/resource", () => ({ loadResource: resourceMocks.loadResource }));
@@ -372,8 +378,14 @@ describe("tutorials route", () => {
 
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     videosMocks.loadVideos.mockRejectedValueOnce(new Error("down"));
-    const failed = (await loader(undefined)) as { channels: unknown[] };
-    expect(failed.channels).toEqual([]);
+    // Shells, not an empty list: an empty list renders the loading skeleton
+    // forever, and the visitor loses every channel link during an outage.
+    videosMocks.channelShells.mockReturnValueOnce([
+      { handle: "a", name: "Channel A", url: "https://youtube.com/@a", videos: [], playlists: [] },
+    ]);
+    const failed = (await loader(undefined)) as { channels: { handle: string }[] };
+    expect(videosMocks.channelShells).toHaveBeenCalled();
+    expect(failed.channels.map((c) => c.handle)).toEqual(["a"]);
   });
 
   it("builds page head metadata", async () => {

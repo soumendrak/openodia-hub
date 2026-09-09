@@ -163,6 +163,58 @@ async function main() {
     await page.close();
   }
 
+  // ── Focus ring, and the mobile community names ───────────────────────────
+  {
+    const page = await browser.newPage({ viewport: { width: 390, height: 900 } });
+    await page.goto(BASE + "/", { waitUntil: "networkidle" });
+
+    // A focus ring the same lightness as the ground is not a focus ring. The
+    // original gold measured 1.01:1 against the palm-leaf paper.
+    const ring = await page.evaluate(() => {
+      const parse = (c) => (c.match(/[\d.]+/g) ?? []).map(Number).slice(0, 3);
+      const lum = ([r, g, b]) => {
+        const f = (v) => {
+          const s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const el = document.querySelector(".patta a, .patta button");
+      el.focus();
+      const cs = getComputedStyle(el);
+      let ground = [255, 255, 255];
+      for (let n = el; n; n = n.parentElement) {
+        const c = (getComputedStyle(n).backgroundColor.match(/[\d.]+/g) ?? []).map(Number);
+        if (c.length >= 3 && (c[3] === undefined || c[3] > 0.5)) {
+          ground = c.slice(0, 3);
+          break;
+        }
+      }
+      const [x, y] = [lum(parse(cs.outlineColor)), lum(ground)].sort((a, b) => b - a);
+      return { ratio: (x + 0.05) / (y + 0.05), width: parseFloat(cs.outlineWidth) };
+    });
+    check(
+      ring.ratio >= 3 && ring.width >= 2,
+      "focus ring is visible on the painted ground",
+      `${ring.ratio.toFixed(2)}:1 at ${ring.width}px`,
+    );
+
+    // The <br> in a two-part name is hidden here, so the space has to be its
+    // own text node or the halves collide: "GDG CloudBhubaneswar". Asserted
+    // against the exact names — a camelCase heuristic would flag "OdiaGenAI".
+    const names = await page.$$eval(".community-card h3", (hs) =>
+      hs.map((h) => h.textContent.trim().replace(/\s+/g, " ")),
+    );
+    for (const expected of ["GDG Cloud Bhubaneswar", "TFUG Bhubaneswar"]) {
+      check(
+        names.includes(expected),
+        `community name reads "${expected}" at 390px`,
+        names.join(" | "),
+      );
+    }
+    await page.close();
+  }
+
   // ── Every community channel reaches the page ──────────────────────────────
   {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });

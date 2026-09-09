@@ -75,11 +75,18 @@
   summary {
     -webkit-tap-highlight-color: transparent;
   }
+  /* Two-tone, because one tone cannot clear both grounds: the old gold ring
+     measured 1.01:1 against the palm-leaf paper and 1.13:1 against the banner,
+     which is no focus indicator at all. The ink outline is 6.7:1 / 5.8:1 on
+     those, and the light box-shadow fills the offset so the ring stays visible
+     if it ever lands on a dark surface. */
   a:focus-visible,
   button:focus-visible,
   summary:focus-visible {
-    outline: 3px solid #d8a650;
-    outline-offset: 5px;
+    outline: 3px solid #2b1a0b;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 2px #ffeec2;
+    border-radius: 1px;
   }
   h1,
   h2,
@@ -877,11 +884,11 @@
       margin-top: 17px;
       font-size: 32px;
     }
+    /* The name flows as one wrapping line here. The separating space is a real
+       text node in the JSX, not this break — a hidden <br> separates nothing,
+       which is how "GDG CloudBhubaneswar" happened. */
     .community-card h3 br {
       display: none;
-    }
-    .community-card h3 br:after {
-      content: " ";
     }
     .community-card p {
       font-size: 12px;
@@ -1037,6 +1044,16 @@
   .tutorial-hero p:not(.eyebrow),
   .tutorial-hero a {
     color: #483522;
+  }
+  /* .patta strips underlines, and the rule above paints these the same colour
+     as the sentence around them — so the channel names read as prose. Colour
+     alone would not be enough anyway (WCAG 1.4.1); the underline is what marks
+     them as links. */
+  .tutorial-hero p a {
+    color: #5e1f15;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-underline-offset: 3px;
   }
   .learning-ornament {
     color: #593b1e;
