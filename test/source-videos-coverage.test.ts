@@ -9,6 +9,7 @@ vi.mock("../src/lib/fetch-utils", () => ({
 }));
 vi.mock("../src/lib/sources/cache", () => ({
   cachedJson: (_key: string, _ttl: number, loader: () => unknown) => loader(),
+  UpstreamUnavailableError: class UpstreamUnavailableError extends Error {},
 }));
 
 import { loadVideos, parseRss } from "../src/lib/sources/videos";
@@ -141,8 +142,10 @@ describe("YouTube source adapter", () => {
       if (url.includes("/playlists")) return Promise.resolve(new Response("no", { status: 500 }));
       return Promise.reject(new Error("statistics offline"));
     });
-    const channels = await loadVideos();
-    expect(channels.every((channel) => channel.videos.length === 0)).toBe(true);
+    // Every channel failing means YouTube throttled the whole run, not that
+    // the community stopped posting. loadVideos throws rather than let an
+    // empty list be cached for an hour — the contract loadRepos uses.
+    await expect(loadVideos()).rejects.toThrow("youtube_unavailable");
     expect(warn).toHaveBeenCalled();
   });
 
