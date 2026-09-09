@@ -178,4 +178,65 @@ describe("paper deduplication", () => {
     expect(new Set(out.map((p) => p.id)).size).toBe(out.length);
     expect(out).toHaveLength(2);
   });
+
+  it("keys a record on its title when it has neither an id nor a url to read a DOI from", async () => {
+    const { dedupeForTest } = await import("../src/lib/sources/papers");
+    const out = dedupeForTest([
+      {
+        id: "",
+        title: "No DOI Paper",
+        authors: [],
+        year: null,
+        venue: "",
+        url: "",
+        abstract: "",
+        openAccess: false,
+        tasks: [],
+        sources: [],
+      },
+    ]);
+    expect(out).toHaveLength(1);
+    expect(out[0].id).toBe("title:no doi paper");
+  });
+
+  it("does not let an empty title key a DOI-less record onto an unrelated DOI'd record", async () => {
+    const { dedupeForTest } = await import("../src/lib/sources/papers");
+    const base = {
+      authors: [],
+      year: 2022,
+      abstract: "",
+      openAccess: false,
+      tasks: [],
+      sources: [],
+    };
+    const out = dedupeForTest([
+      // Title normalises to "" but a valid DOI keys this record — the empty
+      // title must not be indexed under it.
+      { ...base, id: "https://doi.org/10.1234/with-doi", title: "###", url: "u1", venue: "ACL" },
+      // Also has an empty-normalising title, but no DOI at all. If the empty
+      // title above had been indexed, this would wrongly merge onto it.
+      { ...base, id: "no-doi-id", title: "***", url: "u2", venue: "LREC" },
+    ]);
+    expect(out).toHaveLength(2);
+    expect(out.map((p) => p.venue).sort()).toEqual(["ACL", "LREC"]);
+  });
+
+  it("sorts surviving records newest first, treating a missing year as oldest", async () => {
+    const { dedupeForTest } = await import("../src/lib/sources/papers");
+    const base = {
+      authors: [],
+      venue: "",
+      abstract: "",
+      openAccess: false,
+      tasks: [],
+      sources: [],
+    };
+    const out = dedupeForTest([
+      { ...base, id: "a", title: "A", url: "ua", year: 2010 },
+      { ...base, id: "b", title: "B", url: "ub", year: null },
+      { ...base, id: "c", title: "C", url: "uc", year: 2020 },
+      { ...base, id: "d", title: "D", url: "ud", year: null },
+    ]);
+    expect(out.map((p) => p.title)).toEqual(["C", "A", "B", "D"]);
+  });
 });

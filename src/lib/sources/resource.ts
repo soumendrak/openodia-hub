@@ -10,7 +10,7 @@ import { normalizeSpdx } from "../license";
 import { upstreamUrl, type ResourceRef } from "../resource-id";
 import { cachedJson } from "./cache";
 import { loadDatasets, loadModels, summarize } from "./huggingface";
-import { loadRepos } from "./repos";
+import { licenseFromRepoFile, loadRepos } from "./repos";
 
 export type Resource = {
   kind: ResourceRef["kind"];
@@ -70,6 +70,11 @@ async function fetchOneRepo(id: string): Promise<Resource | null> {
   });
   if (!r.ok) return null;
   const d = (await r.json()) as GHDetail;
+  // Same NOASSERTION rescue as the pinned list — see licenseFromRepoFile.
+  const license =
+    d.license?.spdx_id === "NOASSERTION"
+      ? await licenseFromRepoFile(d.full_name)
+      : normalizeSpdx(d.license?.spdx_id);
   return {
     kind: "gh",
     id: d.full_name,
@@ -77,7 +82,7 @@ async function fetchOneRepo(id: string): Promise<Resource | null> {
     author: d.full_name.split("/")[0],
     url: `https://github.com/${d.full_name}`,
     description: d.description ?? "",
-    license: normalizeSpdx(d.license?.spdx_id),
+    license,
     topic: d.language ?? "",
     stars: d.stargazers_count,
     tags: d.topics ?? [],

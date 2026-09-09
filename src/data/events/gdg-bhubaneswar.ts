@@ -11,6 +11,19 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
   // auto-crawled
   {
     year: "2026",
+    date: "13 Sep 2026",
+    title: "Code for Communities 2.0",
+    url: "https://gdg.community.dev/events/details/google-gdg-cloud-bhubaneswar-presents-code-for-communities-20/",
+    type: "Hackathon",
+    location: "TBD",
+    startDate: "2026-09-13",
+    endDate: "2026-09-13",
+    description:
+      "Code for Communities 2.O is a high-impact, community-driven initiative empowering developers, students, and tech enthusiasts to build real-world AI solutions using Google Cloud and modern developer tools. Experience expert technical sessions on enterprise AI agents, hands-on building, and networking over lunch connecting you directly with peers and mentors to elevate your developer journey.",
+  },
+  // auto-crawled
+  {
+    year: "2026",
     date: "5 Jul 2026",
     title: "Build with AI: Code for Communities",
     url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-code-for-communities/cohost-gdg-bhubaneswar",
@@ -20,19 +33,6 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     endDate: "2026-07-05",
     description:
       "Build with AI: Code for Communities is a nationwide AI hackathon designed to empower developers, students, designers, innovators, and technology enthusiasts to build impactful AI-powered solutions to real-world community challenges using Google Cloud and Google's latest AI technologies.",
-  },
-  {
-    year: "2026",
-    date: "28 Jun 2026",
-    title: "Build with AI Bhubaneswar 2026: Be Future Ready",
-    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-build-with-ai-bhubaneswar-2026-be-future-ready/",
-    type: "Workshop",
-    startDate: "2026-06-28",
-    endDate: "2026-06-28",
-    status: "upcoming",
-    location: "Pipul Padmaja Premium Hotel and Convention, Bhubaneswar",
-    description:
-      "A hands-on community-driven AI experience organized by GDG Bhubaneswar and GDG Cloud Bhubaneswar. Participants explore Gemini, Gemma, Vertex AI, and Agentic AI through technical sessions, live demonstrations, and networking with Google Developer Experts.",
   },
   {
     year: "2024",

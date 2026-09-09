@@ -12,7 +12,6 @@ Each row: community name | source URL | data file | parsability | notes
 | GDGoC NIST Berhampur   | https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/        | `src/data/events/gdgoc-nist-berhampur.ts` |
 | GDGoC KIIT             | https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/        | `src/data/events/gdgoc-kiit.ts`           |
 | GDGoC CVR University   | https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/                       | `src/data/events/gdgoc-cvr.ts`            |
-| GDGoC IIIT Bhubaneswar | https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/ | `src/data/events/gdgoc-iiit-bbsr.ts`      |
 | GDGoC ITER SOA         | https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/         | `src/data/events/gdgoc-iter-soa.ts`       |
 | GDGoC VSSUT Burla      | https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/              | `src/data/events/gdgoc-vssut-burla.ts`    |
 | GDGoC NIT Rourkela     | https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india                      | `src/data/events/gdgoc-nit-rourkela.ts`   |
@@ -24,9 +23,20 @@ HTML cards. Each event has `title`, `url`, `cohost_registration_url`, `start_dat
 `description_short`. Detail pages expose authoritative `start_date`, `end_date`,
 `event_timezone`, `venue_name`, and the complete HTML `description`; sanitize the complete
 description into a complete-sentence summary when `description_short` ends in an ellipsis.
-Store the cohost URL when present — that's what `/api/events` uses, so the Events page dedups
-static + live to a single card. Only the initially-rendered events are included (no "Load more"
-data); note this in your report.
+Store the canonical `url`; `cohost_registration_url` is only a registration alias and must not be
+used as event identity. Only the initially-rendered events are included (no "Load more"
+data); note this in your report. Before deduplication, the crawler follows redirects for archived
+GDG detail URLs and replaces stale addresses with their final `/events/details/` destination. This
+handles title/slug edits without creating an old-URL/new-URL pair for one event.
+
+## 📦 Archive only (included in deduplication, not fetched)
+
+| Community              | Source URL                                                                                                   | Data file                            | Reason                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| GDGoC IIIT Bhubaneswar | https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/ | `src/data/events/gdgoc-iiit-bbsr.ts` | Chapter page has returned HTTP 404 since 2026-08-13. Keep its historical URLs in the global scan. |
+
+The IIIT source uses `archiveOnly: true` in `crawl-events.mjs`. Remove that flag if the chapter
+returns; do not remove the entry, because every archive participates in destination deduplication.
 
 **odishaai.org**: Client-rendered React SPA — the HTML shell is empty, so there are no year
 links to follow. Conference data is baked into the Vite JS bundle. Read the bundle URL from the

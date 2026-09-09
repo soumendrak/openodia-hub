@@ -63,6 +63,19 @@ describe("CommandPalette", () => {
     expect(await screen.findByTestId("palette")).toBeInTheDocument();
   });
 
+  it("loads and opens the dialog on Ctrl+K", async () => {
+    render(<CommandPalette />);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true }));
+    expect(await screen.findByTestId("palette")).toBeInTheDocument();
+  });
+
+  it("ignores a keydown that is neither ⌘K nor Ctrl+K", async () => {
+    render(<CommandPalette />);
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "k" }));
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.queryByTestId("palette-root")).not.toBeInTheDocument();
+  });
+
   it("keeps the dialog mounted once closed, so reopening does not refetch", async () => {
     render(<CommandPalette />);
     openWithShortcut();

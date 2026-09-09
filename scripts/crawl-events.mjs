@@ -16,6 +16,7 @@
 import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
+import { eventUrlKey, resolveEventDestinationUrl } from "../src/lib/event-url.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "src", "data", "events");
@@ -41,10 +42,13 @@ const SOURCES = [
     url: "https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/",
     file: "gdgoc-cvr.ts",
   },
+  // Keep dead sources in the archive scan so their historical destinations
+  // still prevent cross-community duplicates, but do not fetch their pages.
   {
     id: "gdgoc-iiit-bbsr",
     url: "https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/",
     file: "gdgoc-iiit-bbsr.ts",
+    archiveOnly: true,
   },
   {
     id: "gdgoc-iter-soa",
@@ -149,7 +153,7 @@ export function shouldSkip(title = "", description = "") {
   return !TECHNICAL_CONTENT_PATTERN.test(description);
 }
 
-function parseDate(dateStr) {
+export function parseDate(dateStr) {
   if (!dateStr) return null;
   const cleaned = dateStr.trim().replace(/\s+/g, " ");
   // Try parsing as "DD Mon YYYY" or "Mon DD, YYYY"
@@ -263,11 +267,9 @@ export function parseGDGEventCards(html) {
     }
     return {
       title: e.title.replace(/\s+/g, " ").trim(),
-      // Prefer the cohost URL for storage — that's what /api/events stores and
-      // what hand-written static entries use, so the Events page (dedups by
-      // exact URL when merging static + live) sees one card, not two. Keep the
-      // plain url to fetch the detail page (cohost URLs are registration links).
-      url: e.cohost_registration_url || e.url,
+      // Store Bevy's canonical event URL. Cohost registration URLs are aliases
+      // and must never become the identity of a separately rendered event.
+      url: e.url,
       detailUrl: e.url,
       dateRaw: e.start_date || null,
       ...(tzDate(e.start_date) || {}),
@@ -338,6 +340,10 @@ async function enrichFromDetail(event) {
       event.endIso = end ? end.iso : start.iso;
       event.display = formatDateRange(start, end);
     }
+    // The concise GDG summary can omit the event format. Classify from the
+    // authoritative full detail description before shortening it for display.
+    const fullDescription = htmlToText(ed.description || "");
+    event.type = inferType(event.title, fullDescription || event.description || "");
     const desc = detailDescription(ed);
     if (desc) event.description = desc;
     if (ed.venue_name) event.location = ed.venue_name.replace(/\s+/g, " ").trim();
@@ -401,19 +407,57 @@ async function parseOdishaAIEvents() {
   return events;
 }
 
-// Load existing event URLs from a .ts file
 // Normalize a GDG event URL for dedup: the same event appears with and without
 // a trailing `/cohost-…` segment (e.g. `.../hackforge-20/` vs
 // `.../hackforge-20/cohost-gdg-bhubaneswar`). Strip that and any trailing slash.
-export function normalizeUrl(url) {
-  return url.replace(/\/cohost-[^/]*\/?$/, "").replace(/\/+$/, "");
+export const normalizeUrl = eventUrlKey;
+
+/** Follow a GDG event redirect to the destination address used for dedup. */
+export async function resolveDestinationUrl(url, fetcher = fetch) {
+  return resolveEventDestinationUrl(url, fetcher);
 }
 
-function loadExistingUrls(filePath) {
-  if (!existsSync(filePath)) return new Set();
+async function refreshExistingDestinations(filePath) {
+  if (!existsSync(filePath)) return { urls: new Set(), updated: 0 };
+
   const content = readFileSync(filePath, "utf-8");
-  const urls = [...content.matchAll(/url:\s*["']([^"']+)["']/g)].map((m) => normalizeUrl(m[1]));
-  return new Set(urls);
+  const rawUrls = [...new Set([...content.matchAll(/url:\s*["']([^"']+)["']/g)].map((m) => m[1]))];
+  const resolved = new Map();
+  await Promise.all(
+    rawUrls.map(async (url) => resolved.set(url, await resolveDestinationUrl(url))),
+  );
+
+  let updated = 0;
+  const nextContent = content.replace(
+    /(url:\s*["'])([^"']+)(["'])/g,
+    (match, prefix, url, suffix) => {
+      const destination = resolved.get(url) || url;
+      if (normalizeUrl(destination) === normalizeUrl(url)) return match;
+      updated += 1;
+      console.log(`  🔁 destination updated: ${url} -> ${destination}`);
+      return `${prefix}${destination}${suffix}`;
+    },
+  );
+
+  if (updated > 0) writeFileSync(filePath, nextContent);
+  return {
+    urls: new Set([...resolved.values()].map(normalizeUrl)),
+    updated,
+  };
+}
+
+// Compare one crawl response against both the existing archive and itself.
+// Bevy can repeat an event while a page is being updated (for example in both
+// upcomingEvents and pastEvents), so filtering only against the file on disk is
+// not enough.
+export function filterNewEventsByUrl(events, existingUrls) {
+  const seen = new Set(existingUrls);
+  return events.filter((event) => {
+    const key = normalizeUrl(event.url);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 // Format a new event entry as TypeScript
@@ -423,7 +467,7 @@ function formatEventEntry(event) {
   if (event.display) lines.push(`    date: "${event.display}",`);
   lines.push(`    title: "${event.title.replace(/"/g, '\\"')}",`);
   lines.push(`    url: "${event.url}",`);
-  const eventType = inferType(event.title, event.description || "");
+  const eventType = event.type || inferType(event.title, event.description || "");
   lines.push(`    type: "${eventType}",`);
   if (event.location) {
     lines.push(`    location: "${event.location.replace(/"/g, '\\"')}",`);
@@ -439,19 +483,37 @@ function formatEventEntry(event) {
   return lines.join("\n");
 }
 
-async function main() {
+export async function main() {
   let totalNew = 0;
+  let totalUpdated = 0;
   let fatalFailures = 0;
+  // One destination URL is one event across every community, not merely within
+  // the community file currently being crawled.
+  const existingUrls = new Set();
+  for (const source of SOURCES) {
+    if (!source.file) continue;
+    const refreshed = await refreshExistingDestinations(join(DATA_DIR, source.file));
+    totalUpdated += refreshed.updated;
+    for (const url of refreshed.urls) existingUrls.add(url);
+  }
 
   for (const source of SOURCES) {
     if (source.unparsable) {
       console.log(`⏭  ${source.id} — SPA, not parsable (manual only)`);
       continue;
     }
+    if (source.archiveOnly) {
+      console.log(`⏭  ${source.id} — archive only (source unavailable)`);
+      continue;
+    }
+    // Guard kept for future config entries: today the only file-less source
+    // (tfug-bbsr) is also `unparsable`, so the check above already caught it.
+    /* v8 ignore start */
     if (!source.file) {
       console.log(`⏭  ${source.id} — no data file configured`);
       continue;
     }
+    /* v8 ignore stop */
 
     const filePath = join(DATA_DIR, source.file);
     console.log(`\n🔍 ${source.id} — ${source.url}`);
@@ -516,13 +578,11 @@ async function main() {
 
     console.log(`  - Found ${events.length} events on page`);
 
-    // Load existing events
-    const existingUrls = loadExistingUrls(filePath);
     const existingContent = existsSync(filePath) ? readFileSync(filePath, "utf-8") : "";
 
-    // Dedup strictly by normalized URL (handles the /cohost-… variant). Two
-    // distinct events can share a title+year, so URL is the only safe key.
-    const candidates = events.filter((e) => !existingUrls.has(normalizeUrl(e.url)));
+    // Dedup strictly by destination URL, including repeated records within this
+    // response and records already owned by a different community source.
+    const candidates = filterNewEventsByUrl(events, existingUrls);
 
     // Enrich each new GDG event before applying the content-aware admin filter
     // and formatting it (end date, timezone, full description, venue).
@@ -570,6 +630,7 @@ async function main() {
     }
 
     for (const evt of newEvents) {
+      existingUrls.add(normalizeUrl(evt.url));
       const d = evt.display || evt.dateRaw || "date unknown";
       console.log(`    → ${d}  ${evt.title}`);
     }
@@ -578,8 +639,10 @@ async function main() {
   }
 
   console.log(`\n${"=".repeat(40)}`);
-  if (totalNew > 0) {
-    console.log(`✅ ${totalNew} new event(s) added across all sources`);
+  if (totalNew > 0 || totalUpdated > 0) {
+    console.log(
+      `✅ ${totalNew} new event(s) added; ${totalUpdated} redirected destination(s) updated`,
+    );
     console.log("NEW_EVENTS_FOUND");
   } else {
     console.log("✓ No new events found anywhere");

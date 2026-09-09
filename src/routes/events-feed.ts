@@ -3,25 +3,19 @@ import { events as staticEvents } from "../data/events";
 import { fetchChapterEvents, CHAPTERS } from "./api/events";
 import { settledValues } from "../lib/fetch-utils";
 import { mergeNonEmpty } from "../lib/utils";
+import { mergeEventCollectionsByUrl } from "../lib/event-url";
 import type { Event } from "../data/events/types";
 
+const XML_ESCAPES: Record<string, string> = {
+  "<": "&lt;",
+  ">": "&gt;",
+  "&": "&amp;",
+  "'": "&apos;",
+  '"': "&quot;",
+};
+
 function escapeXml(unsafe: string): string {
-  return unsafe.replace(/[<>&'"]/g, (c) => {
-    switch (c) {
-      case "<":
-        return "&lt;";
-      case ">":
-        return "&gt;";
-      case "&":
-        return "&amp;";
-      case "'":
-        return "&apos;";
-      case '"':
-        return "&quot;";
-      default:
-        return c;
-    }
-  });
+  return unsafe.replace(/[<>&'"]/g, (c) => XML_ESCAPES[c]);
 }
 
 function safeCdata(content: string): string {
@@ -125,23 +119,12 @@ export const Route = createFileRoute("/events-feed")({
           const fetchedEvents = settledValues(results).flat();
 
           // Merge static and dynamic events
-          const allMergedEventsMap = new Map<string, Event>();
-
-          staticEvents.forEach((e) => {
-            allMergedEventsMap.set(e.url, e);
-          });
-
-          fetchedEvents.forEach((e) => {
-            const existing = allMergedEventsMap.get(e.url);
-            if (existing) {
-              allMergedEventsMap.set(e.url, mergeNonEmpty(existing, e));
-            } else {
-              allMergedEventsMap.set(e.url, e);
-            }
-          });
-
           const today = getISTDateString();
-          const mergedEventsList = Array.from(allMergedEventsMap.values())
+          const mergedEventsList = mergeEventCollectionsByUrl(
+            staticEvents,
+            fetchedEvents,
+            mergeNonEmpty,
+          )
             .map((e) => {
               let status = e.status;
               if (e.startDate) {

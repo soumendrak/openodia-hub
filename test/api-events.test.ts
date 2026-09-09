@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchChapterEvents } from "../src/routes/api/events";
+import { fetchChapterEvents, Route } from "../src/routes/api/events";
 
 describe("fetchChapterEvents", () => {
   const originalFetch = globalThis.fetch;
@@ -97,6 +97,54 @@ describe("fetchChapterEvents", () => {
     expect(past?.description).toBe("An awesome talk about LLMs.");
   });
 
+  it("deduplicates repeated and cohosted versions by destination URL", async () => {
+    const base = "https://gdg.community.dev/events/details/shared-event";
+    const mockHtml = `
+      <script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            prerenderData: {
+              upcomingEvents: {
+                results: [
+                  {
+                    title: "Shared event",
+                    description: "First iteration",
+                    event_type_title: "Talk",
+                    start_date: "2026-07-15T18:00:00Z",
+                    url: base,
+                    cohost_registration_url: `${base}/cohost-gdg-bhubaneswar`,
+                  },
+                ],
+              },
+              pastEvents: {
+                results: [
+                  {
+                    title: "Shared event edited",
+                    description: "Second iteration",
+                    event_type_title: "Talk",
+                    start_date: "2026-07-15T18:00:00Z",
+                    url: base,
+                    cohost_registration_url: `${base}/cohost-gdg-kiit/`,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      })}</script>`;
+
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(mockHtml),
+    } as Response);
+
+    const events = await fetchChapterEvents("GDG Bhubaneswar", "gdg-bhubaneswar");
+    expect(events).toHaveLength(1);
+    expect(events[0]?.title).toBe("Shared event");
+    expect(events[0]?.url).toBe(base);
+  });
+
   it("handles missing NEXT_DATA script gracefully", async () => {
     const mockHtmlWithoutScript = `
       <!DOCTYPE html>
@@ -151,5 +199,87 @@ describe("fetchChapterEvents", () => {
 
     const events = await fetchChapterEvents("GDG Bhubaneswar", "gdg-bhubaneswar");
     expect(events).toEqual([]);
+  });
+
+  it("maps all Bevy type labels and missing dates", async () => {
+    const labels = ["Conference", "AI Summit", "Study Jam", "Speaker session", "Research", "Other"];
+    const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: {
+              results: labels.map((event_type_title, index) => ({
+                title: `Event ${index}`,
+                description: "",
+                event_type_title,
+                start_date: index === 5 ? "" : "2026-01-02T00:00:00Z",
+                url: `https://gdg.community.dev/events/details/event-${index}`,
+              })),
+            },
+            pastEvents: {},
+          },
+        },
+      },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => mockHtml,
+    } as Response);
+    const events = await fetchChapterEvents("Community", "chapter");
+    expect(events.map((event) => event.type)).toEqual([
+      "Conference",
+      "Conference",
+      "Workshop",
+      "Talk",
+      "Research",
+      "Talk",
+    ]);
+    expect(events[5]?.date).toBe("");
+  });
+
+  it("serves complete and paginated live event payloads", async () => {
+    const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: {
+              results: Array.from({ length: 3 }, (_, index) => ({
+                title: `Event ${index}`,
+                description: "Description",
+                event_type_title: "Talk",
+                start_date: "2026-01-02T00:00:00Z",
+                url: `https://gdg.community.dev/events/details/event-${index}`,
+              })),
+            },
+            pastEvents: { results: [] },
+          },
+        },
+      },
+    })}</script>`;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({ ok: true, status: 200, text: async () => mockHtml } as Response);
+    const get = (
+      Route.options as unknown as {
+        server: { handlers: { GET: (input: { request: Request }) => Promise<Response> } };
+      }
+    ).server.handlers.GET;
+    const complete = await get({ request: new Request("https://openodia.com/api/events") });
+    expect(await complete.json()).toMatchObject({ events: expect.any(Array) });
+    expect(complete.headers.get("access-control-allow-origin")).toBe("*");
+
+    const paged = await get({
+      request: new Request("https://openodia.com/api/events?page=1&limit=2"),
+    });
+    expect(await paged.json()).toMatchObject({
+      events: expect.any(Array),
+      nextCursor: "2",
+      total: 3,
+    });
+    const defaulted = await get({
+      request: new Request("https://openodia.com/api/events?page=nope&limit=500"),
+    });
+    expect((await defaulted.json()).nextCursor).toBeUndefined();
   });
 });
