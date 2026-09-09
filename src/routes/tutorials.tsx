@@ -60,99 +60,125 @@ function TutorialsPage() {
   const allVideos = channels.flatMap((c) => c.videos);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24">
-      <JsonLd
-        data={breadcrumbSchema([
-          { name: "OpenOdia", url: "https://openodia.com" },
-          { name: "Tutorials", url: "https://openodia.com/tutorials" },
-        ])}
-      />
-      {allVideos.length > 0 && <JsonLd data={videoListSchema(allVideos)} />}
-      <Reveal>
-        <p className="text-sm uppercase tracking-widest text-neon">Learn</p>
-        <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">Tutorials</h1>
-        <p className="mt-4 max-w-2xl text-muted-foreground">
-          Videos from the Odia AI community — covering NLP, language models, and Odia language
-          technology. Sourced from{" "}
-          <a
-            href="https://www.youtube.com/@OdiaGenAI"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
+    <>
+      {/* Full-bleed painted composition; the live video feed below keeps its
+          own token-styled layout, now repainted by the same palette. */}
+      <div className="patta">
+        <TutorialHero />
+        <div className="painted-divider" aria-hidden="true" />
+      </div>
+
+      <div className="mx-auto max-w-6xl px-4 pb-24" id="channels">
+        <JsonLd
+          data={breadcrumbSchema([
+            { name: "OpenOdia", url: "https://openodia.com" },
+            { name: "Tutorials", url: "https://openodia.com/tutorials" },
+          ])}
+        />
+        {allVideos.length > 0 && <JsonLd data={videoListSchema(allVideos)} />}
+
+        <div className="mt-10">
+          <Reveal>
+            <div className="relative max-w-xl">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
+              />
+              <input
+                ref={searchInputRef}
+                type="search"
+                placeholder="Search videos, channels… [/]"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
+              />
+              {query && (
+                <button
+                  onClick={() => setQuery("")}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </Reveal>
+        </div>
+
+        {needle ? (
+          <section className="mt-10">
+            <Reveal>
+              <p className="text-sm text-muted-foreground">
+                {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""} for &ldquo;
+                {needle}&rdquo;
+              </p>
+            </Reveal>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {filteredVideos.length === 0 ? (
+                <p className="col-span-full text-muted-foreground">No videos matched.</p>
+              ) : (
+                filteredVideos.map((v, i) => <VideoCard key={v.id} video={v} index={i} />)
+              )}
+            </div>
+          </section>
+        ) : channels.length === 0 ? (
+          <ChannelSkeleton />
+        ) : (
+          channels.map((channel) => <ChannelSection key={channel.handle} channel={channel} />)
+        )}
+      </div>
+    </>
+  );
+}
+
+/**
+ * The painted top section. Attribution names every channel the tutorials page
+ * aggregates — GDG Cloud Bhubaneswar included, since its chapter is an
+ * independent community, not an OpenOdia project, and is called out as such.
+ */
+function TutorialHero() {
+  return (
+    <section className="tutorial-hero section-wrap">
+      <div>
+        <p className="eyebrow">Tutorials · The knowledge we share</p>
+        <h1>
+          One shared idea.
+          <br />
+          <em>Countless beginnings.</em>
+        </h1>
+        <p>
+          Videos from the Odia AI community — covering NLP, language models, cloud, and Odia
+          language technology. Sourced from{" "}
+          <a href="https://www.youtube.com/@OdiaGenAI" target="_blank" rel="noreferrer">
             OdiaGenAI
           </a>
           ,{" "}
-          <a
-            href="https://www.youtube.com/@OdiasInML"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
+          <a href="https://www.youtube.com/@OdiasInML" target="_blank" rel="noreferrer">
             Odias in ML
           </a>
-          , and{" "}
-          <a
-            href="https://www.youtube.com/@openodia"
-            target="_blank"
-            rel="noreferrer"
-            className="text-neon hover:underline"
-          >
+          ,{" "}
+          <a href="https://www.youtube.com/@openodia" target="_blank" rel="noreferrer">
             OpenOdia
+          </a>
+          ,{" "}
+          <a href="https://www.youtube.com/@tfugbbsr" target="_blank" rel="noreferrer">
+            TFUG Bhubaneswar
+          </a>
+          , and{" "}
+          <a href="https://www.youtube.com/@gdgcloudbbsr" target="_blank" rel="noreferrer">
+            GDG Cloud Bhubaneswar
           </a>
           .
         </p>
-      </Reveal>
-
-      <div className="mt-10">
-        <Reveal>
-          <div className="relative max-w-xl">
-            <Search
-              size={16}
-              className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
-            />
-            <input
-              ref={searchInputRef}
-              type="search"
-              placeholder="Search videos, channels… [/]"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-              >
-                <X size={14} />
-              </button>
-            )}
-          </div>
-        </Reveal>
+        <a href="#channels" className="quiet-link">
+          Find your next lesson <span aria-hidden="true">↓</span>
+        </a>
       </div>
 
-      {needle ? (
-        <section className="mt-10">
-          <Reveal>
-            <p className="text-sm text-muted-foreground">
-              {filteredVideos.length} video{filteredVideos.length !== 1 ? "s" : ""} for &ldquo;
-              {needle}&rdquo;
-            </p>
-          </Reveal>
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {filteredVideos.length === 0 ? (
-              <p className="col-span-full text-muted-foreground">No videos matched.</p>
-            ) : (
-              filteredVideos.map((v, i) => <VideoCard key={v.id} video={v} index={i} />)
-            )}
-          </div>
-        </section>
-      ) : channels.length === 0 ? (
-        <ChannelSkeleton />
-      ) : (
-        channels.map((channel) => <ChannelSection key={channel.handle} channel={channel} />)
-      )}
-    </div>
+      <div className="tutorial-art" aria-hidden="true">
+        <img src="/pattachitra/ceremonial-frame.webp" alt="" />
+        <span lang="or">ଓ</span>
+      </div>
+    </section>
   );
 }
 
@@ -251,9 +277,15 @@ function PlaylistCard({ playlist, index }: { playlist: Playlist; index: number }
   );
 }
 
+/**
+ * Always rendered, even with nothing to list.
+ *
+ * This used to return null whenever the video list was empty, so a channel
+ * whose RSS feed had hiccupped vanished from the page entirely — taking its
+ * playlists with it. A channel is part of the ecosystem whether or not YouTube
+ * answered this hour, and the link to it always works.
+ */
 function ChannelSection({ channel }: { channel: ChannelResult }) {
-  if (channel.videos.length === 0) return null;
-
   return (
     <section className="mt-20">
       <Reveal>
@@ -284,11 +316,18 @@ function ChannelSection({ channel }: { channel: ChannelResult }) {
         </p>
       </Reveal>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {channel.videos.map((v, i) => (
-          <VideoCard key={v.id} video={v} index={i} />
-        ))}
-      </div>
+      {channel.videos.length > 0 ? (
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {channel.videos.map((v, i) => (
+            <VideoCard key={v.id} video={v} index={i} />
+          ))}
+        </div>
+      ) : (
+        <p className="mt-6 text-sm text-muted-foreground">
+          Recent uploads aren&rsquo;t loading right now. The channel itself is still there — open it
+          on YouTube above.
+        </p>
+      )}
 
       {channel.playlists.length > 0 && (
         <div className="mt-6">

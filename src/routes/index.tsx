@@ -1,16 +1,17 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowRight, Sparkles, Boxes, Database, Users } from "lucide-react";
-import { MagneticButton } from "../components/MagneticButton";
 import { Reveal } from "../components/Reveal";
 import { Marquee } from "../components/Marquee";
+import { OdiaGlyph } from "../components/OdiaGlyph";
 import { FEATURED_VIDEOS } from "../data/videos";
 import { YoutubeIcon } from "../components/icons";
 import { FaqSection, FAQS } from "../components/FaqSection";
 import { ContributorGrid } from "../components/ContributorGrid";
 import { ContributorLeaderboard } from "../components/ContributorLeaderboard";
 import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
+import { usePattachitraMotion } from "../hooks/usePattachitraMotion";
+import { COLLECTION, COMMUNITIES, ODIA_PHRASE } from "../lib/pattachitra";
 import { withDeadline } from "../lib/fetch-utils";
 import { pageHead } from "../lib/seo";
 import { loadAwesome } from "../lib/sources/awesome";
@@ -71,13 +72,24 @@ export const Route = createFileRoute("/")({
   component: Home,
 });
 
-const HEADLINE = "Open source for ଓଡ଼ିଆ.";
-
 function Home() {
+  const pattaClass = usePattachitraMotion();
+
   return (
     <>
-      <Hero />
-      <Pillars />
+      {/* The painted composition. Everything inside .patta is laid out by
+          src/styles/pattachitra.css; the live data sections below it follow
+          the site's ordinary token styling, which is now the same palette. */}
+      <div className={pattaClass}>
+        <Hero />
+        <div className="painted-divider" aria-hidden="true" />
+        <Opening />
+        <Collection />
+        <Communities />
+        <LearningBanner />
+        <div className="painted-divider" aria-hidden="true" />
+      </div>
+
       <Stats />
       <CommunityVideos />
       <ContributorGrid />
@@ -102,126 +114,197 @@ function Home() {
 }
 
 function Hero() {
-  const words = HEADLINE.split(" ");
   return (
-    <section className="relative mx-auto max-w-6xl px-4 pb-24 pt-12 md:pt-20">
-      <span className="anim-in inline-flex items-center gap-2 rounded-full border border-border bg-surface/60 px-4 py-1.5 text-xs text-muted-foreground backdrop-blur-md">
-        <Sparkles size={14} className="text-neon" />
-        Open source community for the Odia language
-      </span>
-
-      <h1 className="mt-6 font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl lg:text-8xl">
-        {words.map((w, i) => (
-          <span key={i} className="anim-in mr-3 inline-block">
-            {w === "ଓଡ଼ିଆ." ? <span className="text-gradient">{w}</span> : w}
-          </span>
-        ))}
-      </h1>
-
-      <p className="anim-in mt-6 max-w-2xl text-lg text-muted-foreground">
-        A growing constellation of tools, libraries, models, and datasets — built by the Odia
-        community to make ଓଡ଼ିଆ a first-class citizen in modern AI and software.
-      </p>
-
-      <div className="anim-in mt-8 flex flex-wrap items-center gap-3">
-        {/* Both CTAs point into the ecosystem — the hub is the directory, not
-            any one project inside it. */}
-        <Link to="/tools">
-          <MagneticButton>
-            Explore the directory <ArrowRight size={16} />
-          </MagneticButton>
-        </Link>
-        <Link to="/models">
-          <MagneticButton variant="ghost">
-            <Boxes size={16} /> Browse models & datasets
-          </MagneticButton>
-        </Link>
-      </div>
-
-      <div
-        aria-hidden
-        className="anim-fade pointer-events-none absolute right-4 top-12 hidden text-[18rem] font-display font-bold leading-none text-neon/10 md:block animate-float"
-      >
-        ଓ
-      </div>
-    </section>
-  );
-}
-
-/**
- * Ecosystem pillars, not project properties: every individual project — the
- * openodia PyPI package and the @openodia channel included — is an entry
- * inside one of these, not a pillar of its own.
- */
-const pillars = [
-  {
-    icon: <Boxes size={22} />,
-    title: "Tools & libraries",
-    desc: "Fonts, keyboards, transliterators, spell checkers, OCR, NLP toolkits and apps — curated from Awesome-Odia-AI and the Odia GitHub organisations.",
-    href: "/tools",
-    color: "from-saffron to-neon",
-    cta: "Browse the directory",
-  },
-  {
-    icon: <Database size={22} />,
-    title: "Models & datasets",
-    desc: "A live registry of every Odia-tagged model and dataset on Hugging Face, with licenses, sizes, and ready-to-paste citations.",
-    href: "/models",
-    color: "from-neon to-magenta",
-    cta: "Open the registry",
-  },
-  {
-    icon: <Users size={22} />,
-    title: "Community & learning",
-    desc: "Tutorials and talks from OdiaGenAI, OpenOdia, Odias in ML and TFUG Bhubaneswar, plus the community's meetups and conferences.",
-    href: "/tutorials",
-    color: "from-magenta to-saffron",
-    cta: "Start learning",
-  },
-] as const;
-
-function Pillars() {
-  return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
-      <Reveal>
-        <h2 className="font-display text-3xl font-semibold md:text-5xl">One ecosystem.</h2>
-        <p className="mt-2 max-w-xl text-muted-foreground">
-          Many maintainers, many organisations — gathered into three places to look.
+    <section className="hero">
+      <div className="hero-copy">
+        <p className="eyebrow">
+          <span className="rosette" aria-hidden="true">
+            ✳
+          </span>{" "}
+          From Odisha. For every possibility.
         </p>
-      </Reveal>
+        <p className="odia-intro" lang="or">
+          {ODIA_PHRASE}
+        </p>
+        <h1>
+          Our language.
+          <br />
+          Our inheritance.
+          <br />
+          <em>Our next chapter.</em>
+        </h1>
+        <div className="tiny-rule" aria-hidden="true">
+          <span />✦<span />
+        </div>
+        <p className="hero-description">
+          A language carries a world within it. Discover the people, open tools, and ideas helping
+          Odia flourish in the digital age.
+        </p>
+        <div className="hero-actions">
+          <Link to="/tools" className="button gold-button">
+            Explore the collection <span aria-hidden="true">↗</span>
+          </Link>
+          <Link to="/tutorials" className="quiet-link">
+            Begin learning <span aria-hidden="true">→</span>
+          </Link>
+        </div>
+        <p className="hero-note">Our roots run deep. Our possibilities stay open.</p>
+      </div>
 
-      <div className="mt-10 grid gap-5 md:grid-cols-3">
-        {pillars.map((p, i) => (
-          <Reveal key={p.title} delay={i * 0.08}>
-            <PillarCard {...p} />
-          </Reveal>
-        ))}
+      <div className="hero-art">
+        <div className="painted-panel">
+          <img
+            className="pattachitra-frame"
+            src="/pattachitra/ceremonial-frame.webp"
+            alt="Pattachitra-inspired painted frame with floral borders, peacocks, and a Jagannath-inspired medallion"
+            width={1122}
+            height={1402}
+            fetchPriority="high"
+          />
+          <div className="ambient-light" aria-hidden="true" />
+          {/* The panel never moves. Only the letter turns, inside a stage that
+              reserves clear space above the peacocks and lower ornament. */}
+          <div className="letter-stage">
+            <div id="letter-mount">
+              <OdiaGlyph />
+            </div>
+          </div>
+        </div>
+        <span className="art-index">The living letter / ଓ</span>
       </div>
     </section>
   );
 }
 
-function PillarCard(p: (typeof pillars)[number]) {
+function Opening() {
   return (
-    <Link to={p.href} className="block h-full">
-      <div className="hover-lift group relative flex h-full flex-col overflow-hidden rounded-2xl border border-border bg-surface p-6">
-        <div
-          className={`mb-5 grid h-11 w-11 place-items-center rounded-xl bg-gradient-to-br ${p.color} text-primary-foreground`}
-        >
-          {p.icon}
+    <section className="opening">
+      <p className="eyebrow">A shared language. A shared responsibility.</p>
+      <h2>
+        What we inherit,
+        <br />
+        <em>we carry forward.</em>
+      </h2>
+      <p>
+        From the words we grew up with to the things we have yet to build. OpenOdia is a guide to
+        the resources and communities making new possibilities in our language.
+      </p>
+    </section>
+  );
+}
+
+function Collection() {
+  return (
+    <section className="collection section-wrap" id="collection">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">01 / The open collection</p>
+          <h2>
+            Old roots.
+            <br />
+            <em>New possibilities.</em>
+          </h2>
         </div>
-        <h3 className="font-display text-xl font-semibold">{p.title}</h3>
-        <p className="mt-2 flex-1 text-sm text-muted-foreground">{p.desc}</p>
-        <span className="mt-6 inline-flex items-center gap-1 text-sm font-medium text-neon">
-          {p.cta}{" "}
-          <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-        </span>
-        <div
-          aria-hidden
-          className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-gradient-to-br from-neon/20 to-magenta/20 blur-3xl"
-        />
+        <p>Find a starting point. Make it your own.</p>
       </div>
-    </Link>
+
+      <div className="collection-grid">
+        {COLLECTION.map((c) => (
+          <Link key={c.to} to={c.to} className="collection-item">
+            <div
+              className="collection-emblem"
+              lang={c.emblemLang}
+              aria-hidden={c.emblemLang ? undefined : "true"}
+            >
+              {c.emblem}
+            </div>
+            <span className="eyebrow">{c.eyebrow}</span>
+            <h3>
+              {c.title[0]}
+              <br />
+              {c.title[1]}
+            </h3>
+            <p>{c.body}</p>
+            <span className="item-link">
+              {c.cta} <b aria-hidden="true">↗</b>
+            </span>
+          </Link>
+        ))}
+      </div>
+
+      <div className="playground-link">
+        <span>Curiosity is a good place to begin.</span>
+        <Link to="/playground">
+          Try the playground <span aria-hidden="true">↗</span>
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function Communities() {
+  return (
+    <section className="community-section section-wrap" id="communities">
+      <div className="section-heading">
+        <div>
+          <p className="eyebrow">02 / The people who carry it forward</p>
+          <h2>
+            A language lives
+            <br />
+            <em>through its people.</em>
+          </h2>
+        </div>
+        <p>Meet the communities already learning, researching, and building together.</p>
+      </div>
+
+      <div className="community-grid">
+        {COMMUNITIES.map((c, i) => (
+          <article key={c.href} className="community-card">
+            <span className="card-no">{String(i + 1).padStart(2, "0")} / Community</span>
+            <h3>
+              {c.name[0]}
+              {c.name[1] ? (
+                <>
+                  <br />
+                  {c.name[1]}
+                </>
+              ) : null}
+            </h3>
+            <p>{c.body}</p>
+            <a href={c.href} target="_blank" rel="noreferrer">
+              {c.cta} <span aria-hidden="true">↗</span>
+            </a>
+          </article>
+        ))}
+      </div>
+
+      <p className="community-note">
+        Discover independent communities through OpenOdia. Each is run by its own organisers — visit
+        their channels to join in.
+      </p>
+    </section>
+  );
+}
+
+function LearningBanner() {
+  return (
+    <section className="learning-banner">
+      <div className="learning-ornament" aria-hidden="true">
+        ✺
+      </div>
+      <div>
+        <p className="eyebrow">03 / Pass the knowledge on</p>
+        <h2>
+          Every shared idea
+          <br />
+          <em>becomes a new beginning.</em>
+        </h2>
+        <p>Talks, tutorials, and conversations from the people building around us.</p>
+      </div>
+      <Link to="/tutorials" className="button gold-button">
+        Learn with the community <span aria-hidden="true">↗</span>
+      </Link>
+    </section>
   );
 }
 
@@ -235,7 +318,7 @@ function Stats() {
     { label: "Projects listed", value: projects, approx: false, href: "/tools" },
     { label: "Odia models", value: models.value, approx: models.approx, href: "/models" },
     { label: "Odia datasets", value: datasets.value, approx: datasets.approx, href: "/datasets" },
-    { label: "Community channels", value: 4, approx: false, href: "/tutorials" },
+    { label: "Community channels", value: 5, approx: false, href: "/tutorials" },
   ] as const;
   // ponytail: "Community channels" is a hardcoded tile, so `shown` can never
   // be empty — no empty-state branch needed here.
@@ -296,7 +379,8 @@ function CommunityVideos() {
         <div>
           <h2 className="font-display text-3xl font-semibold md:text-5xl">From the community</h2>
           <p className="mt-2 text-muted-foreground">
-            Latest from the Odia AI channels — OdiaGenAI, OpenOdia, Odias in ML, TFUG Bhubaneswar.
+            Latest from the Odia AI channels — OdiaGenAI, OpenOdia, Odias in ML, TFUG Bhubaneswar,
+            GDG Cloud Bhubaneswar.
           </p>
         </div>
         <Link to="/tutorials" className="hidden text-sm text-neon hover:underline md:inline">

@@ -1,0 +1,16 @@
+{
+  "character": "ଓ",
+  "unicode": "U+0B13",
+  "font": "Noto Sans Oriya",
+  "font_source": "https://github.com/google/fonts/tree/main/ofl/notosansoriya",
+  "weight": 600,
+  "width": 100,
+  "glyph_name": "uni0B13",
+  "bounds": [
+    27.5072021484375,
+    -8,
+    710.1743774414062,
+    751.0291137695312
+  ],
+  "method": "fontTools SVGPathPen; uniform scale and Y-axis coordinate conversion; no contour edits"
+}

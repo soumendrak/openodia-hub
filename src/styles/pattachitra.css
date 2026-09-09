@@ -1,0 +1,1057 @@
+/* Pattachitra composition — scoped to .patta.
+   Extracted from the approved mockup at
+   .lavish/homepage-revamp/pattachitra.css. Everything lives under .patta so
+   the untouched routes keep their own layout; the palette itself is global
+   and lives in styles.css. Provenance: public/pattachitra/PROVENANCE.md. */
+
+@keyframes letter-turn {
+  0%,
+  100% {
+    transform: rotateY(-5deg) rotateZ(-0.5deg);
+  }
+  50% {
+    transform: rotateY(5deg) rotateZ(0.5deg);
+  }
+}
+@keyframes gold-light {
+  0%,
+  100% {
+    transform: translateX(200px) skewX(-16deg);
+    opacity: 0.08;
+  }
+  50% {
+    transform: translateX(820px) skewX(-16deg);
+    opacity: 0.6;
+  }
+}
+@keyframes lamplight {
+  0%,
+  100% {
+    transform: translate3d(-4%, 0, 0);
+    opacity: 0.45;
+  }
+  50% {
+    transform: translate3d(5%, 3%, 0);
+    opacity: 0.85;
+  }
+}
+
+.patta {
+  --paper: #cfaa6e;
+  --ink: #332719;
+  --red: #721d20;
+  --deep: #360f16;
+  --gold: #d3ab66;
+  --cream: #fff2d3;
+  --muted: #533e2a;
+  --line: #a7814b;
+  --display: "Cormorant Garamond", Georgia, serif;
+  --body: "Inter", "Noto Sans Oriya", sans-serif;
+
+  font-family: var(--body);
+  color: var(--ink);
+  font-synthesis: none;
+
+  /* The painted composition carries its own palm-leaf ground in BOTH themes.
+     Sections like .opening and .section-wrap set no background of their own,
+     so without this they show through to the page — which is ink brown in
+     dark mode, leaving dark-ink headings on a dark-ink ground. The panel is
+     an artwork on paper; the paper is part of it, not part of the page. */
+  background: var(--paper);
+
+  * {
+    box-sizing: border-box;
+  }
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+  button {
+    font: inherit;
+    cursor: pointer;
+  }
+  button,
+  a,
+  summary {
+    -webkit-tap-highlight-color: transparent;
+  }
+  a:focus-visible,
+  button:focus-visible,
+  summary:focus-visible {
+    outline: 3px solid #d8a650;
+    outline-offset: 5px;
+  }
+  h1,
+  h2,
+  h3,
+  p {
+    margin: 0;
+  }
+  img {
+    display: block;
+    max-width: 100%;
+  }
+  ::selection {
+    background: #d3ab66;
+    color: #360f16;
+  }
+  .hero {
+    position: relative;
+    isolation: isolate;
+    display: grid;
+    grid-template-columns: minmax(0, 0.87fr) minmax(0, 1.13fr);
+    align-items: center;
+    gap: 40px;
+    padding: 54px max(40px, calc((100vw - 1392px) / 2)) 62px;
+    background: radial-gradient(ellipse at 20% 20%, #7a2925 0, transparent 65%), #3b1118;
+    color: var(--cream);
+    border-top: 1px solid #947044;
+    overflow: hidden;
+  }
+  .hero:before {
+    content: "";
+    position: absolute;
+    inset: 13px;
+    border: 1px solid #b58b4938;
+    pointer-events: none;
+    z-index: -1;
+  }
+  .hero-copy {
+    padding-left: 24px;
+    min-width: 0;
+  }
+  .eyebrow {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.6;
+    letter-spacing: 2.1px;
+    text-transform: uppercase;
+    display: block;
+  }
+  .hero .eyebrow {
+    color: #e0c18a;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 10px;
+  }
+  .rosette {
+    font-size: 22px;
+  }
+  .odia-intro {
+    font:
+      15px/1.8 "Noto Sans Oriya",
+      sans-serif;
+    color: #e1bd7d;
+    margin-top: 38px;
+  }
+  h1 {
+    font: 500 clamp(58px, 5.5vw, 85px)/0.98 var(--display);
+    letter-spacing: -2px;
+  }
+  h1 em,
+  h2 em {
+    font-weight: 400;
+  }
+  h1 em {
+    color: #e1b875;
+  }
+  .hero h1 {
+    margin: 21px 0 28px;
+  }
+  .tiny-rule {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #d3ab66;
+    font-size: 13px;
+    width: 122px;
+  }
+  .tiny-rule span {
+    height: 1px;
+    background: #ac8347;
+    flex: 1;
+  }
+  .hero-description {
+    font-size: 13px;
+    line-height: 1.95;
+    color: #d9c4b0;
+    max-width: 375px;
+    margin-top: 24px;
+  }
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 27px;
+    flex-wrap: wrap;
+    margin-top: 31px;
+  }
+  .button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+    padding: 17px 21px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid #e7c98e;
+    transition:
+      background 180ms ease-out,
+      transform 180ms ease-out;
+  }
+  .gold-button {
+    background: #e6c387;
+    color: #411c16;
+    box-shadow:
+      inset 0 0 0 3px #d1a866,
+      inset 0 0 0 4px #eddaa9;
+  }
+  .quiet-link {
+    font-size: 11px;
+    display: inline-flex;
+    gap: 22px;
+    align-items: center;
+    border-bottom: 1px solid #ad855366;
+    padding-bottom: 7px;
+  }
+  .hero-note {
+    font-size: 10px;
+    line-height: 1.8;
+    letter-spacing: 1.6px;
+    color: #bc9776;
+    margin-top: 40px;
+  }
+  .hero-art {
+    min-width: 0;
+    width: 100%;
+    max-width: 650px;
+    justify-self: center;
+    padding: 0 10px;
+  }
+  .painted-panel {
+    position: relative;
+    isolation: isolate;
+    aspect-ratio: 1122/1402;
+    background: #760d0d;
+    box-shadow:
+      0 22px 60px #14040777,
+      0 0 0 1px #a17b39;
+    overflow: hidden;
+  }
+  .pattachitra-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+  .letter-stage {
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    top: 20%;
+    bottom: 27%;
+    perspective: 1100px;
+    display: grid;
+    place-items: center;
+  }
+  .hero-letter {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+    filter: drop-shadow(9px 16px 7px #1e05094d);
+  }
+  #letter-mount {
+    position: absolute;
+    inset: 0;
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    transform-origin: 50% 55%;
+    animation: letter-turn 22s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    will-change: transform;
+  }
+  .gold-glint {
+    animation: gold-light 18s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    will-change: transform;
+    opacity: 0.6;
+  }
+  .ambient-light {
+    position: absolute;
+    inset: -15%;
+    background: radial-gradient(ellipse at 28% 25%, #ffd68133, transparent 55%);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    animation: lamplight 26s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+    will-change: transform, opacity;
+  }
+  .art-caption {
+    position: absolute;
+    left: 28%;
+    right: 28%;
+    bottom: 15%;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    align-items: center;
+    color: #e5bd7e;
+  }
+  .art-caption > span {
+    font: 24px "Noto Sans Oriya";
+  }
+  .art-caption p {
+    font: 10px/1.8 var(--body);
+    letter-spacing: 2px;
+  }
+  .art-index {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 2.5px;
+    text-align: center;
+    color: #bd9469;
+    margin-top: 17px;
+  }
+  .painted-divider {
+    height: 22px;
+    background-color: #55171a;
+    background-image: url("/pattachitra/border.svg");
+    background-size: 84px 22px;
+    border-block: 2px solid #9d783e;
+  }
+  .opening {
+    padding: 76px 24px 70px;
+    text-align: center;
+    max-width: 660px;
+    margin: auto;
+  }
+  .opening .eyebrow {
+    color: #8b5736;
+    font-size: 10px;
+  }
+  h2 {
+    font: 500 56px/1.04 var(--display);
+    letter-spacing: -1px;
+  }
+  h2 em {
+    color: var(--red);
+  }
+  .opening h2 {
+    margin: 21px 0;
+  }
+  .opening > p:last-child {
+    max-width: 470px;
+    margin: auto;
+    font-size: 13px;
+    line-height: 1.9;
+    color: var(--muted);
+  }
+  .section-wrap {
+    max-width: 1392px;
+    padding: 45px 48px 75px;
+    margin: auto;
+  }
+  .section-heading {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 25px;
+    margin-bottom: 35px;
+  }
+  .section-heading .eyebrow {
+    color: #90613e;
+    margin-bottom: 17px;
+    font-size: 10px;
+  }
+  .section-heading > p {
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--muted);
+  }
+  .collection {
+    padding-top: 0;
+  }
+  .collection-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    border: 1px solid var(--line);
+    background: #efe5ce;
+  }
+  .collection-item {
+    min-width: 0;
+    padding: 36px 29px;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: linear-gradient(145deg, #fff8e440, transparent);
+  }
+  .collection-item:last-child {
+    border-right: 0;
+  }
+  .collection-emblem {
+    width: 70px;
+    height: 70px;
+    display: grid;
+    place-items: center;
+    font: 34px "Noto Sans Oriya";
+    color: #842c25;
+    border: 1px solid #b99056;
+    border-radius: 50%;
+    outline: 1px solid #c9ab79;
+    outline-offset: 4px;
+    margin: 6px 0 33px;
+    background: radial-gradient(circle, #f8efd9 56%, #c4a570 58%, #f0e2c1 60%);
+  }
+  .collection-item .eyebrow {
+    font-size: 10px;
+    color: #886b4d;
+    letter-spacing: 1.6px;
+  }
+  .collection-item h3 {
+    font: 500 35px/1.06 var(--display);
+    margin: 16px 0;
+  }
+  .collection-item p {
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--muted);
+    max-width: 270px;
+    margin-bottom: 31px;
+  }
+  .item-link {
+    border-top: 1px solid #cdbda1;
+    padding-top: 18px;
+    margin-top: auto;
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-weight: 600;
+  }
+  .item-link b {
+    font-size: 17px;
+    font-weight: 400;
+  }
+  .playground-link {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    padding: 24px 0;
+    font: italic 23px var(--display);
+    border-bottom: 1px solid var(--line);
+  }
+  .playground-link a {
+    font: 600 10px var(--body);
+    display: flex;
+    gap: 22px;
+  }
+  .community-section {
+    padding-top: 24px;
+  }
+  .community-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-top: 1px solid #bfa783;
+    border-bottom: 1px solid #bfa783;
+  }
+  .community-card {
+    padding: 29px 24px 28px 0;
+    margin-right: 24px;
+    border-right: 1px solid #d4c3a5;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .community-card:last-child {
+    border-right: 0;
+    margin-right: 0;
+    padding-right: 0;
+  }
+  .card-no {
+    font-size: 10px;
+    letter-spacing: 1.7px;
+    color: #956a44;
+  }
+  .community-card h3 {
+    font: 500 30px/1.05 var(--display);
+    margin: 27px 0 17px;
+    min-height: 63px;
+  }
+  .community-card p {
+    font-size: 11px;
+    line-height: 1.9;
+    color: var(--muted);
+    margin-bottom: 25px;
+  }
+  .community-card a {
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 1.7;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+  }
+  .community-note {
+    font-size: 10px;
+    color: #8b7460;
+    margin-top: 17px;
+    line-height: 1.8;
+  }
+  .learning-banner {
+    position: relative;
+    isolation: isolate;
+    background: #4c171c;
+    color: #f1dfbf;
+    padding: 62px max(48px, calc((100vw - 1296px) / 2));
+    display: flex;
+    gap: 45px;
+    align-items: center;
+    overflow: hidden;
+  }
+  .learning-banner .eyebrow {
+    color: #c7a371;
+    font-size: 10px;
+  }
+  .learning-banner h2 {
+    font-size: 43px;
+    margin: 16px 0;
+  }
+  .learning-banner h2 em {
+    color: #e1b875;
+  }
+  .learning-banner p:not(.eyebrow) {
+    font-size: 12px;
+    line-height: 1.8;
+    color: #ccb498;
+  }
+  .learning-banner .button {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .learning-ornament {
+    position: absolute;
+    left: -50px;
+    top: -80px;
+    font: 420px var(--display);
+    opacity: 0.035;
+    z-index: -1;
+    color: #eccd8f;
+  }
+  .site-footer {
+    padding: 48px max(48px, calc((100vw - 1296px) / 2)) 27px;
+  }
+  .footer-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 30px;
+    padding-bottom: 33px;
+    border-bottom: 1px solid var(--line);
+  }
+  .footer-top > p {
+    font: 16px "Noto Sans Oriya";
+    color: #87583a;
+  }
+  .footer-top > a:last-child {
+    font-size: 10px;
+  }
+  .footer-bottom {
+    display: flex;
+    gap: 22px;
+    justify-content: space-between;
+    font-size: 10px;
+    line-height: 1.8;
+    color: #8a7460;
+    padding-top: 19px;
+  }
+  .tutorial-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 290px;
+    align-items: center;
+    gap: 50px;
+    background: #4c171c;
+    color: var(--cream);
+    max-width: none;
+    padding: 50px max(48px, calc((100vw - 1296px) / 2));
+  }
+  .tutorial-hero h1 {
+    font-size: 73px;
+    margin: 22px 0;
+  }
+  .tutorial-hero p:not(.eyebrow) {
+    font-size: 13px;
+    line-height: 1.9;
+    color: #d8c3a8;
+    max-width: 440px;
+  }
+  .tutorial-hero .quiet-link {
+    margin-top: 29px;
+  }
+  .tutorial-art {
+    position: relative;
+    max-width: 290px;
+  }
+  .tutorial-art > span {
+    position: absolute;
+    inset: 28% 10% 20%;
+    display: grid;
+    place-items: center;
+    font: 150px "Noto Sans Oriya";
+    color: #ebc980;
+    text-shadow: 3px 4px #66371a;
+  }
+  .tutorial-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    border-top: 1px solid var(--line);
+    border-left: 1px solid var(--line);
+  }
+  .tutorial-card {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 35px;
+    border-right: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+  }
+  .tutorial-card:first-child {
+    background: #e8d9b9;
+  }
+  .tutorial-card h2 {
+    font-size: 38px;
+    margin: 23px 0 14px;
+  }
+  .tutorial-card p {
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--muted);
+    margin-bottom: 27px;
+    max-width: 390px;
+  }
+  .tutorial-card a {
+    font-size: 11px;
+    display: flex;
+    justify-content: space-between;
+    margin-top: auto;
+  }
+  &.page-hidden * {
+    animation-play-state: paused !important;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .button:hover {
+      background: #f0d49e;
+      transform: translateY(-2px);
+    }
+    .collection-item:hover {
+      background: #f6eacd;
+    }
+    .community-card a:hover,
+    .quiet-link:hover,
+    .tutorial-card a:hover {
+      text-decoration: underline;
+      text-underline-offset: 5px;
+    }
+  }
+  .button:active {
+    transform: translateY(0);
+  }
+  @media (min-width: 1600px) {
+    .hero {
+      gap: 64px;
+    }
+    .hero-copy {
+      padding-left: 0;
+    }
+    .hero-art {
+      max-width: 670px;
+    }
+  }
+  @media (max-width: 1100px) {
+    .hero {
+      padding: 40px 32px 48px;
+      gap: 22px;
+    }
+    .hero-copy {
+      padding-left: 0;
+    }
+    h1 {
+      font-size: 61px;
+    }
+    .hero .eyebrow {
+      font-size: 10px;
+      letter-spacing: 1.1px;
+    }
+    .odia-intro {
+      margin-top: 25px;
+    }
+    .hero-description {
+      font-size: 12px;
+    }
+    .hero-actions {
+      gap: 18px;
+    }
+    .hero-note {
+      font-size: 10px;
+      letter-spacing: 1px;
+    }
+    .section-wrap {
+      padding-inline: 35px;
+    }
+    .community-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      row-gap: 22px;
+    }
+    .community-card:nth-child(2) {
+      border: 0;
+      margin: 0;
+    }
+    .community-card h3 {
+      min-height: 0;
+    }
+    .learning-banner {
+      padding-inline: 35px;
+      gap: 25px;
+    }
+    .learning-banner h2 {
+      font-size: 37px;
+    }
+    .learning-banner .button {
+      font-size: 10px;
+      gap: 14px;
+      padding-inline: 16px;
+    }
+    .site-footer {
+      padding-inline: 35px;
+    }
+    .tutorial-hero {
+      padding-inline: 35px;
+      grid-template-columns: minmax(0, 1fr) 240px;
+    }
+    .tutorial-hero h1 {
+      font-size: 61px;
+    }
+    .tutorial-art > span {
+      font-size: 130px;
+    }
+  }
+  @media (max-width: 760px) {
+    .hero {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 37px 22px 32px;
+      gap: 32px;
+    }
+    .hero:before {
+      inset: 8px;
+    }
+    .hero-copy {
+      padding: 0 5px;
+    }
+    .hero .eyebrow {
+      font-size: 10px;
+      letter-spacing: 1.1px;
+    }
+    .odia-intro {
+      font-size: 13px;
+      margin-top: 26px;
+    }
+    .hero h1 {
+      font-size: clamp(46px, 9.8vw, 73px);
+      letter-spacing: -1.2px;
+      line-height: 1.02;
+      margin: 18px 0 23px;
+    }
+    .hero-description {
+      font-size: 12px;
+      line-height: 1.85;
+      max-width: 430px;
+      margin-top: 20px;
+    }
+    .hero-actions {
+      gap: 23px;
+      margin-top: 25px;
+    }
+    .button {
+      font-size: 10px;
+      padding: 15px 18px;
+      gap: 21px;
+    }
+    .hero-note {
+      font-size: 10px;
+      margin-top: 26px;
+    }
+    .hero-art {
+      width: 100%;
+      max-width: 520px;
+      padding: 0 3px;
+    }
+    .art-caption p {
+      font-size: 10px;
+      letter-spacing: 1.3px;
+    }
+    .art-caption > span {
+      font-size: 18px;
+    }
+    .art-index {
+      font-size: 10px;
+    }
+    .opening {
+      padding: 50px 24px 43px;
+    }
+    .opening .eyebrow {
+      font-size: 10px;
+      letter-spacing: 1.4px;
+    }
+    h2 {
+      font-size: 43px;
+    }
+    .opening > p:last-child {
+      font-size: 12px;
+    }
+    .section-wrap {
+      padding: 25px 23px 43px;
+    }
+    .section-heading {
+      align-items: start;
+      flex-direction: column;
+      gap: 18px;
+      margin-bottom: 25px;
+    }
+    .section-heading .eyebrow {
+      font-size: 10px;
+      letter-spacing: 1.5px;
+    }
+    .section-heading > p {
+      font-size: 11px;
+    }
+    .section-heading > p br {
+      display: none;
+    }
+    .collection-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .collection-item {
+      padding: 29px;
+      border-right: 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .collection-item:last-child {
+      border-bottom: 0;
+    }
+    .collection-emblem {
+      width: 59px;
+      height: 59px;
+      font-size: 29px;
+      margin-bottom: 26px;
+    }
+    .collection-item h3 {
+      font-size: 34px;
+    }
+    .collection-item p {
+      max-width: none;
+    }
+    .playground-link {
+      align-items: start;
+      flex-direction: column;
+      font-size: 22px;
+      gap: 16px;
+    }
+    .community-grid {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0;
+    }
+    .community-card,
+    .community-card:nth-child(2) {
+      border-right: 0;
+      margin: 0;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--line);
+    }
+    .community-card:last-child {
+      border: 0;
+    }
+    .community-card h3 {
+      margin-top: 17px;
+      font-size: 32px;
+    }
+    .community-card h3 br {
+      display: none;
+    }
+    .community-card h3 br:after {
+      content: " ";
+    }
+    .community-card p {
+      font-size: 12px;
+      max-width: 360px;
+      margin-bottom: 22px;
+    }
+    .community-card a {
+      font-size: 10px;
+    }
+    .learning-banner {
+      padding: 41px 24px;
+      flex-direction: column;
+      align-items: start;
+      gap: 27px;
+    }
+    .learning-banner h2 {
+      font-size: 37px;
+    }
+    .learning-banner .button {
+      margin-left: 0;
+    }
+    .footer-top {
+      align-items: start;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .site-footer {
+      padding: 34px 24px 22px;
+    }
+    .footer-top > p {
+      font-size: 15px;
+    }
+    .footer-bottom {
+      flex-direction: column;
+      gap: 10px;
+    }
+    .tutorial-hero {
+      grid-template-columns: minmax(0, 1fr);
+      padding: 37px 25px;
+    }
+    .tutorial-hero h1 {
+      font-size: 52px;
+    }
+    .tutorial-art {
+      display: none;
+    }
+    .tutorial-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .tutorial-card {
+      padding: 29px 24px;
+    }
+    .tutorial-card h2 {
+      font-size: 35px;
+    }
+    .tutorial-card .card-no {
+      font-size: 10px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *:before,
+    *:after {
+      animation: none !important;
+      transition: none !important;
+    }
+    #letter-mount {
+      transform: none;
+    }
+    .gold-glint {
+      opacity: 0;
+    }
+    .ambient-light {
+      opacity: 0.5;
+    }
+  }
+
+  /* Palm-leaf ground sampled from the user's Cleveland Museum reference. */
+  .hero {
+    background: radial-gradient(ellipse at 20% 20%, #e0c38b88, transparent 68%), var(--paper);
+    color: var(--ink);
+    border-top-color: #a27c47;
+  }
+  .hero:before {
+    border-color: #8d643940;
+  }
+  .hero .eyebrow,
+  .hero .odia-intro {
+    color: #4e3219;
+  }
+  .hero h1 em {
+    color: #772c21;
+  }
+  .hero-description {
+    color: #503b26;
+  }
+  .hero-note {
+    color: #563d25;
+  }
+  .tiny-rule {
+    color: #815827;
+  }
+  .tiny-rule span {
+    background: #8e6838;
+  }
+  .art-index {
+    color: #593b20;
+  }
+  .collection-grid {
+    background: #dabc84;
+  }
+  .collection-item {
+    background: linear-gradient(145deg, #f0dbaa44, transparent);
+  }
+  .collection-item .eyebrow,
+  .section-heading .eyebrow,
+  .opening .eyebrow,
+  .card-no {
+    color: #5b3a1d;
+  }
+  .collection-item {
+    border-color: var(--line);
+  }
+  .collection-emblem {
+    background: radial-gradient(circle, #e6c995 56%, #997039 58%, #d5b376 60%);
+    outline-color: #9f7843;
+  }
+  .item-link {
+    border-color: #b18b55;
+  }
+  .community-grid {
+    border-color: #a17a45;
+  }
+  .community-card {
+    border-color: #b58e55;
+  }
+  .community-note {
+    color: #533d27;
+  }
+  .learning-banner,
+  .tutorial-hero {
+    background: #c29e63;
+    color: var(--ink);
+  }
+  .learning-banner .eyebrow {
+    color: #4e3219;
+  }
+  .learning-banner h2 em,
+  .tutorial-hero h1 em {
+    color: #772c21;
+  }
+  .learning-banner p:not(.eyebrow),
+  .tutorial-hero p:not(.eyebrow),
+  .tutorial-hero a {
+    color: #483522;
+  }
+  .learning-ornament {
+    color: #593b1e;
+    opacity: 0.045;
+  }
+  .tutorial-card:first-child {
+    background: #dcbd84;
+  }
+  .footer-top > p,
+  .footer-bottom {
+    color: #533d27;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .collection-item:hover {
+      background: #e4c993;
+    }
+  }
+}

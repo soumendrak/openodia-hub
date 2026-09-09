@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Rss } from "lucide-react";
 import { GithubIcon, YoutubeIcon } from "./icons";
+import { ODIA_PHRASE } from "../lib/pattachitra";
 
 export function Footer() {
   return (
@@ -9,7 +10,10 @@ export function Footer() {
         <div className="grid gap-8 md:grid-cols-4">
           <div>
             <Link to="/" className="flex items-center gap-2">
-              <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground font-display text-xl font-bold">
+              <span
+                lang="or"
+                className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon to-magenta text-primary-foreground text-xl font-semibold"
+              >
                 ଓ
               </span>
               <span className="font-display text-lg font-semibold">OpenOdia</span>
@@ -141,7 +145,10 @@ export function Footer() {
             <Heart size={12} className="inline text-magenta" aria-hidden="true" />
             <span className="sr-only">love</span> in Odisha
           </p>
-          <p>ଓଡ଼ିଆ ଭାଷା ପାଇଁ ଓପନ୍ ସୋର୍ସ</p>
+          <p lang="or">{ODIA_PHRASE}</p>
+          <a href="/pattachitra/PROVENANCE.md" className="hover:text-foreground">
+            Art &amp; inspiration
+          </a>
         </div>
       </div>
     </footer>

@@ -39,4 +39,10 @@ export const CHANNELS: Channel[] = [
     url: "https://www.youtube.com/@tfugbbsr",
     channelId: "UCKANPIRK8mbEvxDisa8x-wQ",
   },
+  {
+    handle: "gdgcloudbbsr",
+    name: "GDG Cloud Bhubaneswar",
+    url: "https://www.youtube.com/@gdgcloudbbsr",
+    channelId: "UC9xed7VnseanYSek7sF0Ksw",
+  },
 ];

@@ -204,9 +204,36 @@ flowchart TD
 | **GitHub REST API** | Repos from 5 Odia orgs | 30 min |
 | **GitHub Raw** | Awesome-Odia-AI README | 1 hour |
 | **PyPI JSON API** | openodia package info | 1 hour |
-| **YouTube RSS** | Video feeds from 4 channels | 1 hour |
+| **YouTube RSS** | Video feeds from 5 channels | 1 hour |
 | **GDG Bevy (SSR scrape)** | Community events | D1-backed, daily sync |
 | **Cloudflare KV** | Contributor data | Synced daily via GitHub Action |
+
+---
+
+## Design — Pattachitra
+
+The home page and Tutorials route are a contemporary digital interpretation inspired by
+Odisha's **Pattachitra** painting tradition: a palm-leaf ochre ground, a vermilion painted
+panel, antique gold detail, and the exact Noto Sans Oriya `ଓ` (U+0B13) at monumental scale.
+It is not an artwork made by a traditional Pattachitra artist, and the independent
+communities the site links to are run by their own organisers, not by OpenOdia.
+
+| Where | What |
+|---|---|
+| `public/pattachitra/PROVENANCE.md` | Asset origins, references, licences, motion contract |
+| `public/pattachitra/` | Frame, divider, exact glyph contour, OFL licence |
+| `src/styles/pattachitra.css` | The composition — every rule scoped to `.patta` |
+| `src/styles.css` | The palette, as tokens the whole site reads |
+| `src/components/OdiaGlyph.tsx` | The exact contour, plus its gold treatment |
+| `.lavish/homepage-revamp/` | The approved mockup and its review history (local only — `.lavish/` is gitignored) |
+
+Decorative motion is transform/opacity only, pauses on a hidden tab, and is removed
+entirely under `prefers-reduced-motion`. Verify in a browser with:
+
+```bash
+bun run dev &
+just check-pattachitra          # widths, loaded art, peacock clearance, reduced motion
+```
 
 ---
 
