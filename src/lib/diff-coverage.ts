@@ -21,6 +21,11 @@ const measuredSource = /^(?:src|scripts)\/.*\.(?:[cm]?[jt]s|[jt]sx)$/;
 const generatedOrInfrastructure = new Set([
   "src/routeTree.gen.ts",
   "scripts/check-diff-coverage.mjs",
+  // A Playwright harness: it launches Chromium against a running dev server
+  // and asserts on layout, loaded art, contrast and animation timing. Vitest
+  // cannot run it, and a mocked-browser unit test would assert nothing real.
+  // Run it with `just check-pattachitra`.
+  "scripts/check-pattachitra.mjs",
 ]);
 
 function normalizePath(file: string): string {

@@ -389,12 +389,16 @@ describe("tutorials route", () => {
     expect(document.querySelectorAll(".animate-pulse").length).toBeGreaterThan(0);
   });
 
-  it("hides an empty channel and formats view counts by magnitude", async () => {
+  it("still lists a channel with no videos, and formats view counts by magnitude", async () => {
     const { component: Tutorials } = await loadRoute(() => import("../src/routes/tutorials"));
     routeHarness.loaderData["/tutorials"] = { channels: oneChannel };
     renderComponent(Tutorials);
     expect(screen.getByText("Channel A")).toBeInTheDocument();
-    expect(screen.queryByText("Empty Channel")).not.toBeInTheDocument();
+    // An empty video list used to hide the whole section, so a channel whose
+    // RSS feed had hiccupped vanished from the page along with its playlists.
+    // The channel is part of the ecosystem either way, and its link works.
+    expect(screen.getByText("Empty Channel")).toBeInTheDocument();
+    expect(screen.getByText(/Recent uploads aren.t loading right now/)).toBeInTheDocument();
     expect(screen.getByText("2.5M views")).toBeInTheDocument();
     expect(screen.getByText("5K views")).toBeInTheDocument();
     expect(screen.getByText("50 views")).toBeInTheDocument();

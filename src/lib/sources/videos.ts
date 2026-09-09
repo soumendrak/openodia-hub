@@ -6,7 +6,7 @@
  * repos.ts and awesome.ts. Before this, /tutorials fetched on the client only,
  * so the page a crawler or an answer engine saw had no videos in it at all.
  */
-import { fetchWithTimeout, mapWithConcurrency } from "../fetch-utils";
+import { fetchWithTimeout } from "../fetch-utils";
 import { CHANNELS } from "../../data/channels";
 import { cachedJson, UpstreamUnavailableError } from "./cache";
 
@@ -128,7 +128,7 @@ async function fetchPlaylists(channelId: string, apiKey: string): Promise<Playli
  * retry after a short pause is enough; the fan-out is also throttled below.
  */
 const RSS_ATTEMPTS = 3;
-const RSS_BACKOFF_MS = 800;
+const RSS_BACKOFF_MS = 400;
 
 async function fetchRss(channelId: string): Promise<Response | null> {
   const url = `https://www.youtube.com/feeds/videos.xml?channel_id=${channelId}`;
@@ -213,9 +213,10 @@ export async function loadVideos(): Promise<ChannelResult[]> {
     // One at a time, not all five: see the note on fetchRss. Cold cost is a
     // couple of seconds for the whole set, paid once an hour behind
     // stale-while-revalidate, and /tutorials renders a skeleton meanwhile.
-    const channels = await mapWithConcurrency(CHANNELS, 1, (c) =>
-      fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey),
-    );
+    const channels: ChannelResult[] = [];
+    for (const c of CHANNELS) {
+      channels.push(await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey));
+    }
     // Every channel empty means YouTube throttled the whole run, not that the
     // community stopped posting. Throwing keeps that out of the hour-long
     // cache — the same contract loadRepos uses — so the stale result stays up
