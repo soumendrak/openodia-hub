@@ -80,6 +80,7 @@ const SECTIONS: { heading: string; body: string }[] = [
       "- @OdiaGenAI (https://www.youtube.com/@OdiaGenAI) — Odia GenAI content",
       "- @OdiasInML (https://www.youtube.com/@OdiasInML) — Odias in Machine Learning",
       "- @tfugbbsr (https://www.youtube.com/@tfugbbsr) — TFUG Bhubaneswar",
+      "- @gdgcloudbbsr (https://www.youtube.com/@gdgcloudbbsr) — GDG Cloud Bhubaneswar",
       "",
       "Featured videos from @openodia:",
       "- Introduction to AI and NLP in Odia (Part-1): https://www.youtube.com/watch?v=0ZZhvnGCiBo",

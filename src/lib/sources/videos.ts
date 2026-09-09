@@ -216,9 +216,17 @@ export async function fetchChannelVideos(
   }
 }
 
-async function enrichWithViewCounts(
+/**
+ * View counts are ordering metadata, nothing more: without them the videos
+ * still render, just in feed order. So this runs on whatever is left of the
+ * fan-out budget and stops when that is gone — five channels of 15 videos is
+ * two sequential batches, which on the default timeout could add ~16s to a
+ * request that was already capped at 8s.
+ */
+export async function enrichWithViewCounts(
   channels: ChannelResult[],
   apiKey: string,
+  deadline: number,
 ): Promise<ChannelResult[]> {
   const allIds = channels.flatMap((c) => c.videos.map((v) => v.id));
   if (allIds.length === 0) return channels;
@@ -226,10 +234,16 @@ async function enrichWithViewCounts(
   const viewCounts = new Map<string, number>();
 
   for (let i = 0; i < allIds.length; i += 50) {
+    const budget = Math.min(RSS_TIMEOUT_MS, deadline - Date.now());
+    if (budget <= 0) break;
     const batch = allIds.slice(i, i + 50);
     const url = `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${batch.join(",")}&key=${apiKey}`;
     try {
-      const res = await fetchWithTimeout(url, { headers: { "User-Agent": "openodia.com" } });
+      const res = await fetchWithTimeout(
+        url,
+        { headers: { "User-Agent": "openodia.com" } },
+        budget,
+      );
       if (!res.ok) continue;
       const data = (await res.json()) as {
         items?: { id: string; statistics: { viewCount?: string } }[];
@@ -290,6 +304,6 @@ export async function loadVideos(): Promise<ChannelResult[]> {
     if (channels.every((c) => c.videos.length === 0 && c.playlists.length === 0)) {
       throw new UpstreamUnavailableError("youtube_unavailable");
     }
-    return apiKey ? enrichWithViewCounts(channels, apiKey) : channels;
+    return apiKey ? enrichWithViewCounts(channels, apiKey, deadline) : channels;
   });
 }
