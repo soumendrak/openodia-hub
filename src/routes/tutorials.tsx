@@ -7,7 +7,13 @@ import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { YoutubeIcon } from "../components/icons";
 import { JsonLd, breadcrumbSchema, videoListSchema } from "../lib/jsonld";
 import { pageHead } from "../lib/seo";
-import { loadVideos, type ChannelResult, type Playlist, type Video } from "../lib/sources/videos";
+import {
+  channelShells,
+  loadVideos,
+  type ChannelResult,
+  type Playlist,
+  type Video,
+} from "../lib/sources/videos";
 
 /**
  * Runs on the server during SSR, so the videos are in the HTML. Fetching them
@@ -18,8 +24,12 @@ const getVideos = createServerFn({ method: "GET" }).handler(async () => {
   try {
     return { channels: await loadVideos() };
   } catch (e) {
+    // Fall back to empty shells, not an empty list. An empty list renders the
+    // loading skeleton, and nothing will ever arrive to replace it — during a
+    // YouTube outage visitors would sit under permanent placeholders and lose
+    // every channel link. The shells still name each channel and link to it.
     console.error("videos loader:", e);
-    return { channels: [] as ChannelResult[] };
+    return { channels: channelShells() };
   }
 });
 
@@ -68,7 +78,9 @@ function TutorialsPage() {
         <div className="painted-divider" aria-hidden="true" />
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 pb-24" id="channels">
+      {/* scroll-mt clears the fixed header, which otherwise covers the top
+          ~80px of whatever an in-page anchor scrolls to. */}
+      <div className="mx-auto max-w-6xl px-4 pb-24 scroll-mt-28" id="channels">
         <JsonLd
           data={breadcrumbSchema([
             { name: "OpenOdia", url: "https://openodia.com" },
