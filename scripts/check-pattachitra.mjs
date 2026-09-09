@@ -99,6 +99,16 @@ async function main() {
         chrome.join(", "),
       );
 
+      // Below 390px the wordmark is only visually hidden. `display: none`
+      // would drop it from the accessibility tree too, leaving the home link
+      // announced as just "ଓ". getByRole matches on the computed name, so a
+      // hit here is proof the name survived.
+      const named = await page
+        .locator("header")
+        .getByRole("link", { name: /OpenOdia/ })
+        .count();
+      check(named > 0, `${route} @ ${size.name}: the home link is still named OpenOdia`);
+
       // The painted frame is the artwork; a broken src leaves an empty red box.
       const frames = await page.$$eval("img[src*='ceremonial-frame']", (imgs) =>
         imgs.map((i) => ({ complete: i.complete, w: i.naturalWidth })),

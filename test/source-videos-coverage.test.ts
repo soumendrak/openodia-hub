@@ -12,7 +12,13 @@ vi.mock("../src/lib/sources/cache", () => ({
   UpstreamUnavailableError: class UpstreamUnavailableError extends Error {},
 }));
 
-import { channelShells, fetchChannelVideos, loadVideos, parseRss } from "../src/lib/sources/videos";
+import {
+  channelShells,
+  enrichWithViewCounts,
+  fetchChannelVideos,
+  loadVideos,
+  parseRss,
+} from "../src/lib/sources/videos";
 
 const originalApiKey = process.env.YOUTUBE_API_KEY;
 
@@ -381,6 +387,44 @@ describe("YouTube source adapter", () => {
     expect(Date.now() - started).toBeLessThan(2000);
     expect(videoHarness.fetch.mock.calls.length).toBeLessThan(3);
     expect(warn).toHaveBeenCalled();
+  });
+
+  it("skips view-count enrichment once the budget is gone", async () => {
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ items: [] }), { status: 200 })),
+    );
+
+    // View counts only decide the ordering, so they are the first thing to
+    // drop. Two sequential batches on the default timeout could otherwise add
+    // ~16s to a request already capped at 8s.
+    const enriched = await enrichWithViewCounts(
+      [
+        {
+          handle: "h",
+          name: "N",
+          url: "https://example.com",
+          videos: [
+            {
+              id: "v1",
+              title: "t",
+              published: "2026-01-01",
+              thumbnail: "x",
+              channelName: "N",
+              channelHandle: "h",
+              channelUrl: "https://example.com",
+            },
+          ],
+          playlists: [],
+        },
+      ],
+      "key",
+      Date.now() - 1,
+    );
+
+    expect(videoHarness.fetch).not.toHaveBeenCalled();
+    // The videos survive; only their ordering metadata is missing.
+    expect(enriched[0].videos.map((v) => v.id)).toEqual(["v1"]);
+    expect(enriched[0].videos[0].viewCount).toBe(0);
   });
 
   it("names every configured channel in the shells", () => {

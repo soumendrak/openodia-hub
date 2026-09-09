@@ -27,7 +27,7 @@ export const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Where can I learn Odia NLP?",
-    a: "The tutorials page aggregates videos and playlists from the community's channels — OdiaGenAI, OpenOdia, Odias in ML, and TFUG Bhubaneswar — in both Odia and English. See openodia.com/tutorials.",
+    a: "The tutorials page aggregates videos and playlists from the community's channels — OdiaGenAI, OpenOdia, Odias in ML, TFUG Bhubaneswar, and GDG Cloud Bhubaneswar — in both Odia and English. See openodia.com/tutorials.",
   },
   {
     q: "Is OpenOdia open source?",

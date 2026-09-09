@@ -434,8 +434,14 @@ export default {
               get: {
                 summary: "YouTube videos",
                 description:
-                  "Latest videos and playlists from the OpenOdia and partner channels. Enriched with view counts when YOUTUBE_API_KEY is set.",
-                responses: { "200": { description: "Videos and playlists" } },
+                  "Latest videos and playlists from the five community channels. Enriched with view counts when YOUTUBE_API_KEY is set. A channel whose feed is unavailable is still listed, with an empty video list.",
+                responses: {
+                  "200": { description: "Videos and playlists" },
+                  "503": {
+                    description:
+                      "YouTube unreachable, or the fan-out budget expired before every channel was attempted. Body carries `channels: []` and an `error` of `youtube_unavailable` or `youtube_incomplete`; retry rather than treating it as a fault in this service.",
+                  },
+                },
               },
             },
             "/events-feed": {

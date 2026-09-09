@@ -67,8 +67,13 @@ export function Nav() {
                 width is 294px at 360 and 309 at 375 — measured, both locales.
                 390 is the first width with real headroom (23px), so the ଓ mark
                 carries the brand below it rather than pushing the menu button
-                off-screen the way it did before this. */}
-            <span className="hidden font-display text-lg font-semibold tracking-tight min-[390px]:inline">
+                off-screen the way it did before this.
+
+                sr-only rather than hidden: `display: none` would drop the name
+                from the accessibility tree too, leaving the home link called
+                only "ଓ". Below 390 it is hidden from sight, not from a screen
+                reader. */}
+            <span className="sr-only font-display text-lg font-semibold tracking-tight min-[390px]:not-sr-only min-[390px]:inline">
               OpenOdia
             </span>
           </Link>
