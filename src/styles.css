@@ -149,7 +149,12 @@
 
   --neon: #8a2b22;
   --magenta: #721d20;
-  --saffron: #8c6526;
+  /* Dark enough to carry small text, because it does: `text-saffron` sets the
+     rate-limit and empty-state notices on /tools, /models, /datasets, /papers
+     and /treebank, plus metadata badges. At #8c6526 that was 4.17:1 on the
+     page and 3.67:1 on --surface; this clears 4.5:1 on every light surface
+     (6.24 page / 5.50 surface / 4.63 surface-2 / 5.82 card). */
+  --saffron: #6b4c1b;
 
   --gradient-hero:
     radial-gradient(
