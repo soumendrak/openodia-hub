@@ -107,6 +107,11 @@ export default function CommandPaletteDialog({
     },
     enabled: open,
     staleTime: 30 * 60 * 1000,
+    // As on the home rail: a 503 from /api/videos means the adapter has
+    // already exhausted its own retry policy, so React Query's default three
+    // would turn one palette opening into four 8s fan-outs. The palette simply
+    // lists no videos instead.
+    retry: false,
   });
 
   const { data: eventsData } = useQuery({
