@@ -298,28 +298,38 @@ export async function loadVideos(): Promise<ChannelResult[]> {
     // Pass 1 — the feeds, which are the page. Nothing optional runs until
     // every one of these has had its turn.
     const channels: ChannelResult[] = [];
-    let skipped = 0;
+    let starved = 0;
     for (const c of CHANNELS) {
-      if (Date.now() >= deadline) {
-        skipped++;
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) {
+        starved++;
         channels.push(emptyChannel(c.handle, c.name, c.url));
         continue;
       }
-      channels.push(await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, deadline));
+
+      const channel = await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, deadline);
+      channels.push(channel);
+
+      // A feed that came back empty on a clock shorter than its own timeout
+      // never got a fair attempt — it lost to the budget, not to YouTube. Left
+      // uncounted, a run where an early channel happened to succeed would look
+      // complete and be cached for an hour with that channel missing.
+      if (channel.videos.length === 0 && remaining < RSS_TIMEOUT_MS) starved++;
     }
 
     // Two ways this run is not a fact about the ecosystem:
     //
     //   - every channel came back empty, which means YouTube throttled the
     //     whole run rather than that the community stopped posting;
-    //   - the budget ran out before every channel was even attempted, so the
-    //     tail is missing for a reason that has nothing to do with the tail.
+    //   - a channel was never attempted, or was attempted on a clock too short
+    //     to succeed on, so the gap says something about our budget rather
+    //     than about that channel.
     //
     // Either way, throwing keeps it out of the hour-long cache — the contract
     // loadRepos uses. Stale-while-revalidate then keeps serving the last
     // complete result instead of overwriting it with a worse one.
-    if (skipped > 0) {
-      console.warn(`youtube fan-out: budget spent, ${skipped} channel(s) unattempted`);
+    if (starved > 0) {
+      console.warn(`youtube fan-out: budget spent, ${starved} channel(s) starved`);
       throw new UpstreamUnavailableError("youtube_incomplete");
     }
     if (channels.every((c) => c.videos.length === 0)) {

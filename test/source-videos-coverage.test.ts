@@ -434,6 +434,31 @@ describe("YouTube source adapter", () => {
     expect(stranger[0].playlists).toEqual([]);
   });
 
+  it("refuses to cache a run where a later feed lost to the budget", async () => {
+    delete process.env.YOUTUBE_API_KEY;
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let call = 0;
+    videoHarness.fetch.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          call++;
+          // The first channel succeeds but eats most of the budget. The rest
+          // then answer instantly with an empty feed — a 200, so no retry and
+          // no backoff to push past the deadline. They were attempted on a
+          // clock shorter than their own timeout and lost to it.
+          //
+          // Uncounted, this run looks complete: one channel with videos and
+          // four silently empty, cached for an hour.
+          if (call === 1)
+            return setTimeout(() => resolve(new Response(rss, { status: 200 })), 5500);
+          return setTimeout(() => resolve(new Response("<feed />", { status: 200 })), 10);
+        }),
+    );
+
+    await expect(loadVideos()).rejects.toThrow("youtube_incomplete");
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("starved"));
+  }, 30_000);
+
   it("names every configured channel in the shells", () => {
     const shells = channelShells();
     expect(shells.length).toBeGreaterThan(0);
