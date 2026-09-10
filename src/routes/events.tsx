@@ -40,6 +40,14 @@ const TYPE_COLORS: Record<Event["type"], string> = {
   Talk: "border-sky-500/40 text-sky-400",
 };
 
+const ATTENDANCE_LABELS: Record<NonNullable<Event["attendance"]>["policy"], string> = {
+  public: "Open to all",
+  eligibility: "Eligibility criteria",
+  approval: "Approval required",
+  restricted: "Restricted",
+  unknown: "Attendance unknown",
+};
+
 function EventCard({ event }: { event: Event }) {
   const isUpcoming = event.status === "upcoming";
   const isLive = event.status === "live";
@@ -79,6 +87,14 @@ function EventCard({ event }: { event: Event }) {
           >
             {event.type}
           </span>
+          {event.attendance && (
+            <span
+              title={event.attendance.note}
+              className="rounded-full border border-border px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground"
+            >
+              {ATTENDANCE_LABELS[event.attendance.policy]}
+            </span>
+          )}
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar size={11} />
             {event.date}

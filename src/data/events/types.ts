@@ -15,4 +15,16 @@ export type Event = {
   location?: string;
   theme?: string;
   description: string;
+  /**
+   * Who may attend, from organizer evidence. Omit only for legacy community
+   * events. Never implies registration is currently open.
+   * public: explicit open invitation · eligibility: fee/ID/cap/audience rules ·
+   * approval: request-to-attend/selection · restricted: staff/officials/campus
+   * only · unknown: no explicit evidence.
+   */
+  attendance?: {
+    policy: "public" | "eligibility" | "approval" | "restricted" | "unknown";
+    /** One sentence of evidence, e.g. "ID proof, fee and 60-seat cap." */
+    note: string;
+  };
 };

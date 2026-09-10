@@ -6,16 +6,19 @@ Each row: community name | source URL | data file | parsability | notes
 
 ## ✅ Fully parsable (structured data embedded in the page)
 
-| Community              | Source URL                                                                                                   | Data file                                 |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------- |
-| GDG Bhubaneswar        | https://gdg.community.dev/gdg-bhubaneswar/                                                                   | `src/data/events/gdg-bhubaneswar.ts`      |
-| GDGoC NIST Berhampur   | https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/        | `src/data/events/gdgoc-nist-berhampur.ts` |
-| GDGoC KIIT             | https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/        | `src/data/events/gdgoc-kiit.ts`           |
-| GDGoC CVR University   | https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/                       | `src/data/events/gdgoc-cvr.ts`            |
-| GDGoC ITER SOA         | https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/         | `src/data/events/gdgoc-iter-soa.ts`       |
-| GDGoC VSSUT Burla      | https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/              | `src/data/events/gdgoc-vssut-burla.ts`    |
-| GDGoC NIT Rourkela     | https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india                      | `src/data/events/gdgoc-nit-rourkela.ts`   |
-| Odisha AI              | https://www.odishaai.org/conferences/                                                                        | `src/data/events/odishaai.ts`             |
+| Community                     | Source URL                                                                                            | Data file                                  |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------ |
+| GDG Bhubaneswar               | https://gdg.community.dev/gdg-bhubaneswar/                                                            | `src/data/events/gdg-bhubaneswar.ts`       |
+| GDGoC NIST Berhampur          | https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/ | `src/data/events/gdgoc-nist-berhampur.ts`  |
+| GDGoC KIIT                    | https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/ | `src/data/events/gdgoc-kiit.ts`            |
+| GDGoC CVR University          | https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/                | `src/data/events/gdgoc-cvr.ts`             |
+| GDGoC ITER SOA                | https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/  | `src/data/events/gdgoc-iter-soa.ts`        |
+| GDGoC VSSUT Burla             | https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/       | `src/data/events/gdgoc-vssut-burla.ts`     |
+| GDGoC NIT Rourkela            | https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india               | `src/data/events/gdgoc-nit-rourkela.ts`    |
+| GDGoC GIET Gunupur            | https://gdg.community.dev/gdg-on-campus-giet-university-gunupur-india/                                | `src/data/events/gdgoc-giet-gunupur.ts`    |
+| GDGoC Birla Global University | https://gdg.community.dev/gdg-on-campus-birla-global-university-bhubaneswar-india/                    | `src/data/events/gdgoc-birla-global.ts`    |
+| GDG Cloud Bhubaneswar         | https://gdg.community.dev/gdg-cloud-bhubaneswar/                                                      | `src/data/events/gdg-cloud-bhubaneswar.ts` |
+| Odisha AI                     | https://www.odishaai.org/conferences/                                                                 | `src/data/events/odishaai.ts`              |
 
 **gdg.community.dev**: Next.js site. Event data lives in the `__NEXT_DATA__` JSON blob
 (`props.pageProps.prerenderData.upcomingEvents.results` + `.pastEvents.results`), not scrapable
@@ -62,8 +65,67 @@ as `/conferences/<slug>/`.
 
 ---
 
+## 🔎 Agent-checked sources (no crawler adapter)
+
+Institutional and government pages with bespoke HTML, PDFs, or publication-date tables. An
+agent reviews them on the stated cadence and adds verified events by hand, following the
+"Agent-checked sources" rules in `SKILL.md`. Evidence for each row is in
+`research/odisha-event-radar/research.md`.
+
+| Community                           | Listing URL(s)                                                                                                                                                    | Data file                                   | Cadence | Watch out for                                                                                                             |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------- |
+| IIT Bhubaneswar                     | https://www.iitbbs.ac.in/index.php/home/events-archives/                                                                                                          | `src/data/events/iit-bhubaneswar.ts`        | Weekly  | Archive is paginated; read dates from detail pages, not publication dates.                                                |
+| IIIT Bhubaneswar workshops          | https://www.iiit-bh.ac.in/category/workshops/                                                                                                                     | `src/data/events/iiit-bhubaneswar.ts`       | Weekly  | Workshop sites (e.g. DLAI) carry fee, ID, seat-cap rules → `eligibility`.                                                 |
+| NIT Rourkela departments            | https://www.nitrkl.ac.in/CS/ClosedWorkshops/ · https://www.nitrkl.ac.in/ME/ClosedWorkshops/ (follow each page's Upcoming Workshops link; check other departments) | `src/data/events/nit-rourkela.ts`           | Weekly  | Brochures state online/free/eligibility; departmental seminars may be internal.                                           |
+| Fakir Mohan University              | https://fmuniversity.nic.in/dept_notice?dept_id=12                                                                                                                | `src/data/events/fakir-mohan-university.ts` | Weekly  | Table dates are publication/expiry dates, **not** event dates — open the PDF.                                             |
+| Ravenshaw University                | https://ravenshawuniversity.ac.in/eventreportdisp.php                                                                                                             | `src/data/events/ravenshaw-university.ts`   | Weekly  | One table, no per-event URLs: only one event can use the listing URL — find a report/notice URL for others.               |
+| Odisha State Open University        | https://osou.ac.in/training-programmes-fdp-workshop.html                                                                                                          | `src/data/events/osou.ts`                   | Weekly  | One table, no per-event URLs (same one-URL limit). Many programmes are online → `Online`. TLS cert errors: use `curl -k`. |
+| Parala Maharaja Engineering College | https://pmec.ac.in/event/aimlcps-2-26/                                                                                                                            | `src/data/events/pmec-berhampur.ts`         | Weekly  | Conference registration may be author-only; check attendee terms.                                                         |
+| SOA / OAIC                          | https://www.oaic.in/                                                                                                                                              | `src/data/events/soa-oaic.ts`               | Weekly  | Call for papers ≠ attendee registration. Distinct from the Odisha AI community conference.                                |
+| Startup Odisha / O-Hub              | https://startupodisha.gov.in/events/ (detail pages under `/latest_events/`) · https://startups.aws.com/events/cloud-innovate-odisha-startup-acceleration-day      | `src/data/events/startup-odisha.ts`         | Daily   | Audience-targeted (startups) → `eligibility`; "Request to attend" → `approval`. TLS cert errors: use `curl -k`.           |
+| Odisha E&IT / OCAC                  | https://ocac.in/ · https://aimission.odisha.gov.in/                                                                                                               | `src/data/events/odisha-eit.ts`             | Daily   | Reject AI tenders, pre-bid meetings, and working-group stakeholder meetings.                                              |
+
+Second-batch / watchlist (discover weekly; create a data file only when the first event is
+verified): Bhubaneswar Data + AI (https://www.meetup.com/bhubaneswar-data-ai-meetup-group/),
+IEEE Bhubaneswar Computer Society (https://r10.ieee.org/bhubaneswar-computer/ — homepage returns
+403 to scripts), Silicon University (https://silicon.ac.in/bbsr-home/events/), IIM Sambalpur /
+AI4Odisha (https://iimsambalpur.ac.in/), Berhampur University AIU-AADC
+(https://buodisha.edu.in/aiu-aadc-centre/), Central University of Odisha (https://cuo.ac.in/),
+MSCBD University (https://nou.nic.in/).
+
+## 📣 Announcement channels (discovery only — never a data file)
+
+These announce events hosted elsewhere. Follow each post to the organizer's detail or
+registration page and add the event to that organizer's file. Keep the post URL as evidence.
+
+| Channel          | URLs                                                                                                   | Cadence | Notes                                                              |
+| ---------------- | ------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------ |
+| Startup Odisha   | https://www.linkedin.com/company/startupodisha/ · https://x.com/startup_odisha                         | Daily   | Advance registration invitations for startup workshops.            |
+| OdiaGenAI        | https://www.linkedin.com/company/odia-generative-ai/                                                   | Daily   | Workshop and speaker posts precede website updates.                |
+| Odisha AI        | https://www.linkedin.com/company/odisha-ai/                                                            | Daily   | Resolve short links (bit.ly) to the edition's registration page.   |
+| NIT Rourkela     | https://www.linkedin.com/school/national-institute-of-technology-rourkela/                             | Daily   | Workshop registration links; pair with departmental listings.      |
+| E&IT Odisha      | https://x.com/EIT_Odisha (embedded on https://ocac.in/)                                                | Daily   | Government conference announcements.                               |
+| PIB              | https://www.pib.gov.in/ — search "Bhubaneswar" / "Odisha" + AI                                         | Daily   | Publication time ≠ event time; curtain raisers give ~1 day notice. |
+| STPI Bhubaneswar | https://bhubaneswar.stpi.in/ · https://www.linkedin.com/company/stpiofficial · https://x.com/stpiindia | Weekly  | National accounts: only ingest events held in Odisha.              |
+| OKCL             | https://www.linkedin.com/company/official-okcl/                                                        | Weekly  | Many sessions are for government officials → `restricted`, skip.   |
+
+X timelines returned HTTP 403 to scripts; LinkedIn needs a signed-in browser. If a channel is
+unreachable, report it as **blocked** — never as "no events".
+
+## Weekly statewide discovery
+
+Search the web for AI workshops/conferences/hackathons in the last and next 60 days with each
+city alias: Bhubaneswar/Bhubaneshwar, Cuttack, Rourkela, Berhampur/Brahmapur, Balasore/Baleswar,
+Burla/Sambalpur, Gunupur, Koraput/Sunabeda, Baripada. Monthly, look for new organizers and
+propose them in the PR description before adding them here.
+
+---
+
 ## Adding a new community
 
 1. Create `src/data/events/<slug>.ts` using any existing file as a template.
 2. Add an import and entry to `src/data/events/index.ts` `sources` array.
-3. Add a row to this file under the appropriate parsability section.
+3. Add a row to this file under the appropriate section, including the data-file path.
+4. For a gdg.community.dev chapter, also add it to `SOURCES` in `scripts/crawl-events.mjs`.
+
+`test/event-source-registry.test.ts` fails if any of steps 2–4 is missed.

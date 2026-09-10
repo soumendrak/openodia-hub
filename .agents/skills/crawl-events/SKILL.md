@@ -93,9 +93,46 @@ A page is **unparsable** if:
 
 ---
 
+## Cadence
+
+| When            | Who                                 | What                                                                           |
+| --------------- | ----------------------------------- | ------------------------------------------------------------------------------ |
+| Daily 11:30 IST | GitHub Actions (`crawl-events.yml`) | Crawler fetches every `SOURCES` entry and opens a PR with new events.          |
+| Daily           | Agent                               | Sources and channels marked **Daily** in `references/sources.md`.              |
+| Weekly          | Agent                               | Sources marked **Weekly**, plus the statewide city-alias search.               |
+| Monthly         | Agent                               | Look for new organizers/districts; propose them in the PR, don't add silently. |
+
+Put each run's result in **one** PR: added events, rejected candidates (with reason), date
+conflicts, possible duplicates, and blocked sources.
+
+## Agent-checked sources
+
+For sources without a crawler adapter (see `references/sources.md`):
+
+- **AI evidence required**: GenAI, ML, NLP, LLMs, computer vision, deep learning, RAG, agents, or
+  a named AI application in the title or agenda. Generic cloud, coding, robotics, or hackathon
+  labels alone don't qualify.
+- **Odisha relevance**: held in Odisha, or online and organized by an Odisha institution
+  (`location: "Online"`). An organizer's address is not the venue.
+- **Dates**: only add an event with an exact start date from a primary source (organizer page,
+  brochure, organizer post, or PIB). Publication, expiry, and paper-submission dates are not event
+  dates. Unknown or conflicting dates go in the PR report instead.
+- **One URL per event**: use its detail page, brochure, or conference site. Two events must not
+  share a URL — dedup treats them as one.
+- **Always set `attendance`** (see `types.ts`), from evidence only:
+  - `public` — explicit open invitation or public registration
+  - `eligibility` — registration with criteria: fee, ID, seat cap, target roles, prerequisites
+  - `approval` — "Request to attend", application, or selection
+  - `restricted` — staff/officials/campus/invite only → **don't add**; list it in the report
+  - `unknown` — no explicit evidence (the default; never guess `public`)
+- **`attendance.note`** is one sentence of evidence. A past public invitation says nothing about
+  the next edition, and no policy value means registration is open now.
+- **Exclude**: tenders, pre-bid meetings, evergreen self-paced courses, national events that
+  merely have an Odisha office.
+
 ## Rules
 
-- Never edit `src/data/events/index.ts` — it is auto-generated from community files.
+- Never edit `src/data/events/index.ts` data — only add the import/`sources` entry for a new community file.
 - Never edit `src/data/events/types.ts` unless adding a new EventType.
 - Dedup strictly by `url`. If a detail URL redirects or changes, treat it as new and note it.
 - If a page has a "Load more" button, note that only the initially visible events were captured.
