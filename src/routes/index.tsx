@@ -363,6 +363,11 @@ function CommunityVideos() {
       };
     },
     staleTime: 60 * 60 * 1000,
+    // The adapter behind /api/videos already retries each feed and runs the
+    // whole fan-out under a budget, so a 503 means it has exhausted its own
+    // policy. React Query's default three retries would turn one outage into
+    // four expensive upstream runs; the static rail below is the fallback.
+    retry: false,
   });
 
   const live: CommunityVideo[] = (data?.channels ?? [])

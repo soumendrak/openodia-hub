@@ -598,9 +598,18 @@
   .tutorial-hero .quiet-link {
     margin-top: 29px;
   }
+  /* The frame is a CSS background, not an <img>, because this element is
+     display:none below 760px and a browser downloads a hidden <img> anyway —
+     377 KB of artwork mobile visitors never see. A background-image inside a
+     display:none subtree is never fetched. */
   .tutorial-art {
     position: relative;
     max-width: 290px;
+    aspect-ratio: 1122 / 1402;
+    background-image: url("/pattachitra/ceremonial-frame.webp");
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
   }
   .tutorial-art > span {
     position: absolute;

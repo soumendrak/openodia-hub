@@ -186,8 +186,10 @@ function TutorialHero() {
         </a>
       </div>
 
+      {/* The frame is painted by CSS (see .tutorial-art) rather than an <img>:
+          this whole element is display:none below 760px, and a hidden <img> is
+          still downloaded. */}
       <div className="tutorial-art" aria-hidden="true">
-        <img src="/pattachitra/ceremonial-frame.webp" alt="" />
         <span lang="or">ଓ</span>
       </div>
     </section>
