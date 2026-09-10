@@ -90,7 +90,8 @@ async function fetchPlaylists(
   timeoutMs: number,
 ): Promise<Playlist[]> {
   try {
-    if (timeoutMs <= 0) return [];
+    // No budget guard here: addPlaylists is the only caller and it already
+    // breaks before spending one it hasn't got.
     const url = `https://www.googleapis.com/youtube/v3/playlists?part=snippet,contentDetails&channelId=${channelId}&maxResults=12&key=${apiKey}`;
     const res = await fetchWithTimeout(
       url,
@@ -188,31 +189,50 @@ export function channelShells(): ChannelResult[] {
   return CHANNELS.map((c) => emptyChannel(c.handle, c.name, c.url));
 }
 
+/**
+ * One channel's feed. Videos only — playlists are fetched in a later pass, on
+ * whatever budget the feeds leave behind. Running them together meant a slow
+ * playlist call spent the time the *next* channel's feed needed, so five
+ * healthy feeds could still end as a 503 because the optional metadata beside
+ * them was slow.
+ */
 export async function fetchChannelVideos(
   handle: string,
   name: string,
   url: string,
   channelId: string,
-  apiKey?: string,
   deadline: number = Date.now() + FANOUT_BUDGET_MS,
 ): Promise<ChannelResult> {
   const empty = emptyChannel(handle, name, url);
   try {
-    const [rssRes, playlists] = await Promise.all([
-      fetchRss(channelId, deadline),
-      apiKey
-        ? fetchPlaylists(channelId, apiKey, Math.min(RSS_TIMEOUT_MS, deadline - Date.now()))
-        : Promise.resolve([]),
-    ]);
-
-    if (!rssRes) return { ...empty, playlists };
+    const rssRes = await fetchRss(channelId, deadline);
+    if (!rssRes) return empty;
 
     const xml = await rssRes.text();
     const videos = parseRss(xml, name, handle, url).slice(0, 15);
-    return { handle, name, url, videos, playlists };
+    return { handle, name, url, videos, playlists: [] };
   } catch (err) {
     console.warn(`fetchChannelVideos ${handle}:`, err);
     return empty;
+  }
+}
+
+/**
+ * Playlists for every channel, in place, on the budget the feeds left over.
+ * Optional metadata: a channel with none still renders, so this stops the
+ * moment there is no time rather than borrowing from anything essential.
+ */
+export async function addPlaylists(
+  channels: ChannelResult[],
+  apiKey: string,
+  deadline: number,
+): Promise<void> {
+  for (let i = 0; i < channels.length; i++) {
+    const budget = Math.min(RSS_TIMEOUT_MS, deadline - Date.now());
+    if (budget <= 0) break;
+    const channelId = CHANNELS.find((c) => c.handle === channels[i].handle)?.channelId;
+    if (!channelId) continue;
+    channels[i].playlists = await fetchPlaylists(channelId, apiKey, budget);
   }
 }
 
@@ -274,6 +294,9 @@ export async function loadVideos(): Promise<ChannelResult[]> {
     // Once the budget is spent the rest are left as shells rather than adding
     // another timeout each — the page still lists every channel and its link.
     const deadline = Date.now() + FANOUT_BUDGET_MS;
+
+    // Pass 1 — the feeds, which are the page. Nothing optional runs until
+    // every one of these has had its turn.
     const channels: ChannelResult[] = [];
     let skipped = 0;
     for (const c of CHANNELS) {
@@ -282,9 +305,7 @@ export async function loadVideos(): Promise<ChannelResult[]> {
         channels.push(emptyChannel(c.handle, c.name, c.url));
         continue;
       }
-      channels.push(
-        await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, apiKey, deadline),
-      );
+      channels.push(await fetchChannelVideos(c.handle, c.name, c.url, c.channelId, deadline));
     }
 
     // Two ways this run is not a fact about the ecosystem:
@@ -301,9 +322,15 @@ export async function loadVideos(): Promise<ChannelResult[]> {
       console.warn(`youtube fan-out: budget spent, ${skipped} channel(s) unattempted`);
       throw new UpstreamUnavailableError("youtube_incomplete");
     }
-    if (channels.every((c) => c.videos.length === 0 && c.playlists.length === 0)) {
+    if (channels.every((c) => c.videos.length === 0)) {
       throw new UpstreamUnavailableError("youtube_unavailable");
     }
-    return apiKey ? enrichWithViewCounts(channels, apiKey, deadline) : channels;
+
+    // Passes 2 and 3 — playlists, then view counts. Both are enrichment, both
+    // run only on what the feeds left, and the result is complete without
+    // either of them.
+    if (!apiKey) return channels;
+    await addPlaylists(channels, apiKey, deadline);
+    return enrichWithViewCounts(channels, apiKey, deadline);
   });
 }

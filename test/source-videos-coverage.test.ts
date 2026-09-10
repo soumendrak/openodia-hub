@@ -13,6 +13,7 @@ vi.mock("../src/lib/sources/cache", () => ({
 }));
 
 import {
+  addPlaylists,
   channelShells,
   enrichWithViewCounts,
   fetchChannelVideos,
@@ -282,37 +283,19 @@ describe("YouTube source adapter", () => {
     expect(channels[0].playlists[0].thumbnail).toBe("");
   });
 
-  it("skips the statistics call when no channel returned a video", async () => {
-    process.env.YOUTUBE_API_KEY = "key";
-    let statsCalls = 0;
-    videoHarness.fetch.mockImplementation((url: string) => {
-      // Feeds are healthy but empty; playlists are not, so the run is a real
-      // result rather than the throttled-everything case.
-      if (url.includes("feeds/videos"))
-        return Promise.resolve(new Response("<feed />", { status: 200 }));
-      if (url.includes("/playlists")) {
-        return Promise.resolve(
-          new Response(
-            JSON.stringify({
-              items: [
-                {
-                  id: "p1",
-                  snippet: { title: "Lessons", description: "d", thumbnails: {} },
-                  contentDetails: { itemCount: 4 },
-                },
-              ],
-            }),
-            { status: 200 },
-          ),
-        );
-      }
-      statsCalls += 1;
-      return Promise.resolve(new Response(JSON.stringify({}), { status: 200 }));
-    });
+  it("skips the statistics call when no channel has a video", async () => {
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({}), { status: 200 })),
+    );
 
-    const channels = await loadVideos();
-    expect(channels.every((c) => c.videos.length === 0 && c.playlists.length === 1)).toBe(true);
-    expect(statsCalls).toBe(0);
+    // Nothing to look up, so nothing is asked for.
+    const enriched = await enrichWithViewCounts(
+      [{ handle: "h", name: "N", url: "https://example.com", videos: [], playlists: [] }],
+      "key",
+      Date.now() + 10_000,
+    );
+    expect(videoHarness.fetch).not.toHaveBeenCalled();
+    expect(enriched[0].videos).toEqual([]);
   });
 
   it("makes no request at all once the deadline has already passed", async () => {
@@ -328,7 +311,6 @@ describe("YouTube source adapter", () => {
       "N",
       "https://example.com",
       "UC0",
-      "key",
       Date.now() - 1,
     );
     expect(channel.videos).toEqual([]);
@@ -354,7 +336,6 @@ describe("YouTube source adapter", () => {
       "N",
       "https://example.com",
       "UC0",
-      undefined,
       Date.now() + 150,
     );
     expect(channel.videos).toEqual([]);
@@ -380,7 +361,6 @@ describe("YouTube source adapter", () => {
       "N",
       "https://example.com",
       "UC0",
-      undefined,
       Date.now() + 600,
     );
     expect(channel.videos).toEqual([]);
@@ -425,6 +405,33 @@ describe("YouTube source adapter", () => {
     // The videos survive; only their ordering metadata is missing.
     expect(enriched[0].videos.map((v) => v.id)).toEqual(["v1"]);
     expect(enriched[0].videos[0].viewCount).toBe(0);
+  });
+
+  it("stops fetching playlists when the feeds left no budget", async () => {
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ items: [] }), { status: 200 })),
+    );
+    const channels = channelShells();
+
+    // Playlists are enrichment: five healthy feeds must not become a 503
+    // because the optional metadata beside them was slow, so this pass only
+    // ever spends what the feeds left behind.
+    await addPlaylists(channels, "key", Date.now() - 1);
+    expect(videoHarness.fetch).not.toHaveBeenCalled();
+    expect(channels.every((c) => c.playlists.length === 0)).toBe(true);
+  });
+
+  it("ignores a channel that is not in the registry", async () => {
+    videoHarness.fetch.mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify({ items: [] }), { status: 200 })),
+    );
+    const stranger = [
+      { handle: "nobody", name: "Nobody", url: "https://example.com", videos: [], playlists: [] },
+    ];
+
+    await addPlaylists(stranger, "key", Date.now() + 10_000);
+    expect(videoHarness.fetch).not.toHaveBeenCalled();
+    expect(stranger[0].playlists).toEqual([]);
   });
 
   it("names every configured channel in the shells", () => {

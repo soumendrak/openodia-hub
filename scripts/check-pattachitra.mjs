@@ -61,8 +61,10 @@ async function main() {
       const upstream503 = [];
       page.on("pageerror", (e) => raw.push(String(e)));
       page.on("console", (m) => m.type() === "error" && raw.push(m.text()));
+      const frameRequests = [];
       page.on("response", (r) => {
         if (r.url().includes("/api/videos") && r.status() === 503) upstream503.push(r.url());
+        if (r.url().includes("ceremonial-frame")) frameRequests.push(r.url());
       });
 
       await page.goto(BASE + route, { waitUntil: "networkidle" });
@@ -80,6 +82,17 @@ async function main() {
         `${route} @ ${size.name}: no console errors`,
         errors[0] ?? (upstream503.length ? `(${upstream503.length} upstream 503 discounted)` : ""),
       );
+
+      // /tutorials hides its 377 KB frame below 760px. A hidden <img> is still
+      // downloaded, so it is painted with CSS — and this is what proves it: at
+      // mobile widths the file must never be requested at all.
+      if (route === "/tutorials" && size.width < 760) {
+        check(
+          frameRequests.length === 0,
+          `${route} @ ${size.name}: the hidden frame is never downloaded`,
+          frameRequests.join(", "),
+        );
+      }
 
       // The header is position:fixed, so it can push a control off-screen
       // without ever changing scrollWidth. Measure it directly.
@@ -110,12 +123,37 @@ async function main() {
       check(named > 0, `${route} @ ${size.name}: the home link is still named OpenOdia`);
 
       // The painted frame is the artwork; a broken src leaves an empty red box.
-      const frames = await page.$$eval("img[src*='ceremonial-frame']", (imgs) =>
-        imgs.map((i) => ({ complete: i.complete, w: i.naturalWidth })),
-      );
+      // The home hero paints it as an <img>; the tutorials panel paints it as a
+      // CSS background so a display:none element does not download 377 KB on
+      // mobile. Both are checked, and at least one has to be there.
+      const frames = await page.evaluate(async () => {
+        const found = [...document.querySelectorAll("img[src*='ceremonial-frame']")].map((i) => ({
+          how: "img",
+          ok: i.complete && i.naturalWidth > 0,
+        }));
+        for (const el of document.querySelectorAll(".tutorial-art")) {
+          const url = getComputedStyle(el).backgroundImage.match(/url\("?([^")]+)"?\)/)?.[1];
+          if (!url) continue;
+          // Don't probe a hidden panel — fetching it here is the exact cost
+          // the CSS background exists to avoid. The network assertion below
+          // covers that case instead.
+          if (getComputedStyle(el).display === "none") {
+            found.push({ how: "css", ok: true, hidden: true });
+            continue;
+          }
+          const ok = await new Promise((res) => {
+            const probe = new Image();
+            probe.onload = () => res(probe.naturalWidth > 0);
+            probe.onerror = () => res(false);
+            probe.src = url;
+          });
+          found.push({ how: "css", ok, hidden: false });
+        }
+        return found;
+      });
       check(frames.length > 0, `${route} @ ${size.name}: painted frame present`);
       check(
-        frames.every((f) => f.complete && f.w > 0),
+        frames.every((f) => f.ok),
         `${route} @ ${size.name}: painted frame loaded`,
         JSON.stringify(frames),
       );
