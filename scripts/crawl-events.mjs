@@ -20,7 +20,9 @@ import { eventUrlKey, resolveEventDestinationUrl } from "../src/lib/event-url.ts
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "src", "data", "events");
-const SOURCES = [
+// Every entry must also be listed in .agents/skills/crawl-events/references/sources.md
+// (test/event-source-registry.test.ts enforces this).
+export const SOURCES = [
   // gdg.community.dev chapters — all expose events via the same __NEXT_DATA__ JSON
   {
     id: "gdg-bhubaneswar",
@@ -64,6 +66,22 @@ const SOURCES = [
     id: "gdgoc-nit-rourkela",
     url: "https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india",
     file: "gdgoc-nit-rourkela.ts",
+  },
+  {
+    id: "gdgoc-giet-gunupur",
+    url: "https://gdg.community.dev/gdg-on-campus-giet-university-gunupur-india/",
+    file: "gdgoc-giet-gunupur.ts",
+  },
+  {
+    id: "gdgoc-birla-global",
+    url: "https://gdg.community.dev/gdg-on-campus-birla-global-university-bhubaneswar-india/",
+    file: "gdgoc-birla-global.ts",
+  },
+  // Overlaps GDG Bhubaneswar; listed after it so shared events stay with the parent chapter.
+  {
+    id: "gdg-cloud-bhubaneswar",
+    url: "https://gdg.community.dev/gdg-cloud-bhubaneswar/",
+    file: "gdg-cloud-bhubaneswar.ts",
   },
   // Other sources
   { id: "odishaai", url: "https://www.odishaai.org/conferences/", file: "odishaai.ts" },

@@ -26,6 +26,19 @@ import { gdgocIiitBbsrEvents } from "./gdgoc-iiit-bbsr";
 import { gdgocIterSoaEvents } from "./gdgoc-iter-soa";
 import { gdgocVssutBurlaEvents } from "./gdgoc-vssut-burla";
 import { gdgocNitRourkelaEvents } from "./gdgoc-nit-rourkela";
+import { gdgocGietGunupurEvents } from "./gdgoc-giet-gunupur";
+import { gdgocBirlaGlobalEvents } from "./gdgoc-birla-global";
+import { gdgCloudBhubaneswarEvents } from "./gdg-cloud-bhubaneswar";
+import { iitBhubaneswarEvents } from "./iit-bhubaneswar";
+import { iiitBhubaneswarEvents } from "./iiit-bhubaneswar";
+import { nitRourkelaEvents } from "./nit-rourkela";
+import { fakirMohanUniversityEvents } from "./fakir-mohan-university";
+import { ravenshawUniversityEvents } from "./ravenshaw-university";
+import { osouEvents } from "./osou";
+import { pmecBerhampurEvents } from "./pmec-berhampur";
+import { soaOaicEvents } from "./soa-oaic";
+import { startupOdishaEvents } from "./startup-odisha";
+import { odishaEitEvents } from "./odisha-eit";
 
 type RawEvent = Omit<Event, "community">;
 
@@ -43,6 +56,20 @@ const sources: { community: string; events: RawEvent[] }[] = [
   { community: "GDGoC ITER SOA", events: gdgocIterSoaEvents },
   { community: "GDGoC VSSUT Burla", events: gdgocVssutBurlaEvents },
   { community: "GDGoC NIT Rourkela", events: gdgocNitRourkelaEvents },
+  { community: "GDGoC GIET Gunupur", events: gdgocGietGunupurEvents },
+  { community: "GDGoC Birla Global University", events: gdgocBirlaGlobalEvents },
+  { community: "GDG Cloud Bhubaneswar", events: gdgCloudBhubaneswarEvents },
+  // Agent-checked institutional and government sources (no crawler adapter).
+  { community: "IIT Bhubaneswar", events: iitBhubaneswarEvents },
+  { community: "IIIT Bhubaneswar", events: iiitBhubaneswarEvents },
+  { community: "NIT Rourkela", events: nitRourkelaEvents },
+  { community: "Fakir Mohan University", events: fakirMohanUniversityEvents },
+  { community: "Ravenshaw University", events: ravenshawUniversityEvents },
+  { community: "Odisha State Open University", events: osouEvents },
+  { community: "PMEC Berhampur", events: pmecBerhampurEvents },
+  { community: "SOA (OAIC)", events: soaOaicEvents },
+  { community: "Startup Odisha", events: startupOdishaEvents },
+  { community: "Odisha E&IT / OCAC", events: odishaEitEvents },
 ];
 
 const MONTH_MAP: Record<string, number> = {
