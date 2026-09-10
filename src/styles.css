@@ -135,7 +135,12 @@
   --secondary-foreground: #332719;
 
   --muted: #e2cda4;
-  --muted-foreground: #6a5335;
+  /* Dark enough for --surface-2, not just the page. At #6a5335 this was
+     4.27:1 against #dcc498 — the ground under the 10px task and category
+     badges on /tools, /models and /datasets, and the 12px event badge. This
+     clears 4.5:1 on every light surface (6.33 page / 5.58 surface / 4.70
+     surface-2 / 5.90 card / 5.12 muted). */
+  --muted-foreground: #634d31;
 
   --accent: #721d20;
   --accent-foreground: #fff2d3;

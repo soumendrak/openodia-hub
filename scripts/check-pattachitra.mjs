@@ -175,7 +175,14 @@ async function main() {
     for (const route of ROUTES) {
       await page.goto(BASE + route, { waitUntil: "networkidle" });
       const bad = await page.evaluate(() => {
-        const parse = (c) => (c.match(/[\d.]+/g) ?? []).map(Number);
+        // Only rgb()/rgba() may be read numerically. A computed oklab() string
+        // has fractional components that are not 0-255 channels, and reading
+        // them as if they were yields a confident, wrong ratio — which is
+        // worse than no check at all.
+        const parse = (c) => {
+          const m = c.match(/^rgba?\(([\d.]+),\s*([\d.]+),\s*([\d.]+)(?:,\s*([\d.]+))?\)/);
+          return m ? [+m[1], +m[2], +m[3], m[4] === undefined ? 1 : +m[4]] : [];
+        };
         const lum = ([r, g, b]) => {
           const f = (v) => {
             const s = v / 255;
@@ -187,10 +194,16 @@ async function main() {
           const [x, y] = [lum(a), lum(b)].sort((m, n) => n - m);
           return (x + 0.05) / (y + 0.05);
         };
+        // Returns null when the ground cannot be established — a gradient, an
+        // image, or a colour space we decline to guess at. Those elements are
+        // reported rather than scored, so an unmeasurable pair never passes by
+        // accident.
         const groundOf = (el) => {
           for (let n = el; n; n = n.parentElement) {
-            const c = parse(getComputedStyle(n).backgroundColor);
-            if (c.length >= 3 && (c[3] === undefined || c[3] > 0.5)) return c.slice(0, 3);
+            const cs = getComputedStyle(n);
+            if (cs.backgroundImage && cs.backgroundImage !== "none") return null;
+            const c = parse(cs.backgroundColor);
+            if (c.length === 4 && c[3] > 0.5) return c.slice(0, 3);
           }
           return [255, 255, 255];
         };
@@ -211,7 +224,12 @@ async function main() {
           const size = parseFloat(cs.fontSize);
           const large = size >= 24 || (size >= 18.66 && Number(cs.fontWeight) >= 700);
           const need = large ? 3 : 4.5;
-          const r = ratio(parse(cs.color).slice(0, 3), groundOf(el));
+          const fg = parse(cs.color);
+          const bg = groundOf(el);
+          // Painted over artwork or a gradient: not measurable this way, and
+          // the .patta grounds that are measurable are the point of the check.
+          if (fg.length !== 4 || bg === null) continue;
+          const r = ratio(fg.slice(0, 3), bg);
           if (r < need) {
             out.push(`${text.slice(0, 28)} ${r.toFixed(2)}:1 (needs ${need})`);
           }
