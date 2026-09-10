@@ -27,7 +27,7 @@ const CURATED_REPOS: string[] = [
   "Deeptiman/Alphabet-Learning-Android-Application",
   "Deeptiman/php-dom-parser-translation-tool",
   "nsoum/odia-tex",
-  "SantoshNayak/Odia-Calendar",
+  "SantoshNayak/Odia_Calendar",
   "SantoshNayak/Odia-Month",
   "gyan111/gyan111.github.io",
   "gyan111/twinkle-orwiki",
@@ -42,12 +42,15 @@ const CURATED_REPOS: string[] = [
   "Sameetpatro/odlang",
   "OmmDevgoswami/SikshaSathi---Odia-Gen-AI-Hackathon",
   "biranchi2018/odia",
+  "abhayvikramnayak98/sri_jagannath_radio",
+  "saktiswarupmishra/Odia-Song",
   // ── OCR, datasets & speech ──
   "Udayps2303/Line-Level-OCR-using-CNN-BiLSTM-CTC-loss",
   "sushantamishra79/Odia-TTS-Dataset1",
   "sushantamishra79/odia-audio-processor",
   "sushantamishra79/LLM-ODIA",
   "biranchikulesika/lipy",
+  "shrivastava95/odia-dictionary",
   // ── imsbg — Odia educational apps ──
   "imsbg/odiabhasa",
   "imsbg/odia-bhasa",
@@ -56,6 +59,7 @@ const CURATED_REPOS: string[] = [
   "imsbg/odialipi",
   "imsbg/Ganita-Bingya-App",
   "imsbg/Atomic-Guru",
+  "imsbg/number-increment",
   // ── Odia time & educational tools ──
   "imsbg/oled-time",
   "imsbg/Ama-Ganita",
