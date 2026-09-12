@@ -42,6 +42,7 @@ const CURATED_REPOS: string[] = [
   "Sameetpatro/odlang",
   "OmmDevgoswami/SikshaSathi---Odia-Gen-AI-Hackathon",
   "biranchi2018/odia",
+  "abhayvikramnayak98/sri_jagannath_radio",
   // ── OCR, datasets & speech ──
   "Udayps2303/Line-Level-OCR-using-CNN-BiLSTM-CTC-loss",
   "sushantamishra79/Odia-TTS-Dataset1",
@@ -59,6 +60,7 @@ const CURATED_REPOS: string[] = [
   // ── Odia time & educational tools ──
   "imsbg/oled-time",
   "imsbg/Ama-Ganita",
+  "imsbg/age-calculator",
   // ── coldbreeze16 — fonts, IME, converter ──
   "coldbreeze16/Lekhani",
   "coldbreeze16/Kunji-Binyasa",
@@ -136,6 +138,7 @@ const CURATED_REPOS: string[] = [
   "OdiaLanguage/Learn-Odia-Language",
   "ramoh/oriya-vocab-builder",
   "sanchaya/odia",
+  "pralav-25/EduGram",
   // ── Fonts & OS-level Odia support ──
   "notofonts/noto-sans-oriya",
   "notofonts/oriya",
