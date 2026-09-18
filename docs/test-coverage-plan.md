@@ -2,7 +2,7 @@
 
 Baseline on 2026-09-03: 26.67% lines (1,013/3,798) with 237 passing tests.
 
-Current verified result: 78.34% lines (2,977/3,800) with 318 passing tests. The suite added in
+Historical result from that coverage pass (not a current measurement): 78.34% lines (2,977/3,800) with 318 passing tests. The suite added in
 this pass covers route rendering, root and server entry points, public API routes, source adapters,
 maintenance scripts, the command palette, keyboard shortcuts, forms, charts, carousels, sidebars,
 menus, overlays, calendars, and other shared UI primitives.
