@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Play, ExternalLink, ListVideo, Search, X } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { YoutubeIcon } from "../components/icons";
 import { JsonLd, breadcrumbSchema, videoListSchema } from "../lib/jsonld";
 import { pageHead } from "../lib/seo";
+import { normalizeSearch } from "../lib/search";
 import {
   channelShells,
   loadVideos,
@@ -34,6 +35,8 @@ const getVideos = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/tutorials")({
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
   head: () =>
     pageHead({
       path: "tutorials",
@@ -49,20 +52,29 @@ export const Route = createFileRoute("/tutorials")({
 });
 
 function TutorialsPage() {
-  const [query, setQuery] = useState("");
+  const routeSearch = Route.useSearch();
+  const [draftQuery, setDraftQuery] = useState(routeSearch.q ?? "");
+  useEffect(() => setDraftQuery(routeSearch.q ?? ""), [routeSearch.q]);
+  const query = draftQuery;
+  const navigate = Route.useNavigate();
+  const setQuery = (next: string) => {
+    const bounded = next.slice(0, 80);
+    setDraftQuery(bounded);
+    void navigate({ search: bounded ? { q: bounded } : {}, replace: true });
+  };
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
   const { channels } = Route.useLoaderData();
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeSearch(query);
 
   const filteredVideos = needle
     ? channels.flatMap((c) =>
         c.videos.filter(
           (v) =>
-            v.title.toLowerCase().includes(needle) ||
-            v.channelName.toLowerCase().includes(needle) ||
-            v.channelHandle.toLowerCase().includes(needle),
+            normalizeSearch(v.title).includes(needle) ||
+            normalizeSearch(v.channelName).includes(needle) ||
+            normalizeSearch(v.channelHandle).includes(needle),
         ),
       )
     : [];

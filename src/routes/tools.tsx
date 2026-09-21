@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useDeferredValue, useMemo, useState, useRef } from "react";
+import { useDeferredValue, useEffect, useMemo, useState, useRef } from "react";
 import { Search, ExternalLink, RefreshCw, Star, ChevronDown } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon } from "../components/icons";
@@ -22,6 +22,7 @@ import { pickWeeklyFeatured } from "../lib/weekly-picks";
 import { loadAwesome, type Item as AwesomeItem } from "../lib/sources/awesome";
 import { loadAwesomeLicenses, type LicenseMap } from "../lib/sources/awesome-licenses";
 import { loadRepos, type Repo } from "../lib/sources/repos";
+import { normalizeSearch } from "../lib/search";
 
 /**
  * Runs on the server during SSR and over RPC on client navigation, so the
@@ -50,6 +51,8 @@ const getDirectory = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/tools")({
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
   head: () =>
     pageHead({
       path: "tools",
@@ -91,12 +94,21 @@ const TYPE_LABEL: Record<string, string> = { repo: "Repos", tool: "Curated" };
 function ToolsPage() {
   const { awesome, repos, licenses, awesomeFailed, reposFailed } = Route.useLoaderData();
   const router = useRouter();
+  const routeSearch = Route.useSearch();
+  const navigate = Route.useNavigate();
 
   // Load More — show items 0..shownCount, button bumps by PAGE_SIZE. Filters
   // reset back to the initial window so a fresh narrow doesn't open with
   // hundreds of cards already visible.
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
-  const [q, setQ] = useState("");
+  const [draftQ, setDraftQ] = useState(routeSearch.q ?? "");
+  useEffect(() => setDraftQ(routeSearch.q ?? ""), [routeSearch.q]);
+  const q = draftQ;
+  const setQ = (next: string) => {
+    const bounded = next.slice(0, 80);
+    setDraftQ(bounded);
+    void navigate({ search: bounded ? { q: bounded } : {}, replace: true });
+  };
   const [selected, setSelected] = useState<Selection>({});
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
@@ -212,14 +224,14 @@ function ToolsPage() {
     options,
     active: activeFilters,
   } = useMemo(() => {
-    const lq = deferredQ.trim().toLowerCase();
+    const lq = normalizeSearch(deferredQ);
     const search = (i: DirectoryItem) =>
       !lq ||
-      i.name.toLowerCase().includes(lq) ||
-      i.description.toLowerCase().includes(lq) ||
-      i.category.toLowerCase().includes(lq) ||
-      (i.subcategory ?? "").toLowerCase().includes(lq) ||
-      (i.language ?? "").toLowerCase().includes(lq);
+      normalizeSearch(i.name).includes(lq) ||
+      normalizeSearch(i.description).includes(lq) ||
+      normalizeSearch(i.category).includes(lq) ||
+      normalizeSearch(i.subcategory ?? "").includes(lq) ||
+      normalizeSearch(i.language ?? "").includes(lq);
     return computeFacets(items, facets, selected, search);
   }, [items, deferredQ, selected, facets]);
 

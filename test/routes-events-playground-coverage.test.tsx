@@ -24,14 +24,34 @@ const infiniteHarness = vi.hoisted(() => ({
   lastOptions: undefined as InfiniteQueryOptions | undefined,
 }));
 
+const routeHarness = vi.hoisted(() => ({
+  search: {} as { q?: string },
+  navigate: vi.fn(),
+}));
+
+const queryHarness = vi.hoisted(() => ({
+  data: undefined as { events: Event[] } | undefined,
+  lastOptions: undefined as
+    | { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }
+    | undefined,
+}));
+
 vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: (_path: string) => (options: Record<string, unknown>) => ({ options }),
+  createFileRoute: (_path: string) => (options: Record<string, unknown>) => ({
+    options,
+    useSearch: () => routeHarness.search,
+    useNavigate: () => routeHarness.navigate,
+  }),
 }));
 
 vi.mock("@tanstack/react-query", () => ({
   useInfiniteQuery: (options: InfiniteQueryOptions) => {
     infiniteHarness.lastOptions = options;
     return infiniteHarness;
+  },
+  useQuery: (options: { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }) => {
+    queryHarness.lastOptions = options;
+    return { data: queryHarness.data };
   },
 }));
 
@@ -153,6 +173,10 @@ beforeEach(() => {
   infiniteHarness.isFetchingNextPage = false;
   infiniteHarness.lastOptions = undefined;
   infiniteHarness.fetchNextPage.mockClear();
+  routeHarness.search = {};
+  routeHarness.navigate.mockClear();
+  queryHarness.data = undefined;
+  queryHarness.lastOptions = undefined;
 });
 
 afterEach(() => {
@@ -171,6 +195,55 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("events.tsx", () => {
+  it("restores a linkable query and searches the complete event corpus", async () => {
+    const hiddenEvent: Event = {
+      year: "2026",
+      date: "21 Sep 2026",
+      title: "Hidden Odia Search Meetup",
+      url: "https://example.com/hidden-search-meetup",
+      type: "Talk",
+      community: "OpenOdia",
+      description: "Not present in the loaded timeline pages.",
+      startDate: "2026-09-21",
+      endDate: "2026-09-21",
+    };
+    expect(EventsRouteAny.options.validateSearch({ q: hiddenEvent.title })).toEqual({
+      q: hiddenEvent.title,
+    });
+    expect(EventsRouteAny.options.validateSearch({ q: "x".repeat(81) })).toEqual({});
+    routeHarness.search = { q: hiddenEvent.title };
+    queryHarness.data = { events: [hiddenEvent] };
+    infiniteHarness.data = { pages: [{ events: [], total: 0 }] };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+
+    expect(screen.getByPlaceholderText("Search events… [/]")).toHaveValue(hiddenEvent.title);
+    expect(screen.getByText(hiddenEvent.title)).toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(true);
+    fireEvent.change(screen.getByPlaceholderText("Search events… [/]"), {
+      target: { value: "next event" },
+    });
+    expect(screen.getByPlaceholderText("Search events… [/]")).toHaveValue("next event");
+    expect(routeHarness.navigate).toHaveBeenCalledWith({
+      search: { q: "next event" },
+      replace: true,
+    });
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ events: [hiddenEvent] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await expect(queryHarness.lastOptions?.queryFn()).resolves.toEqual({ events: [hiddenEvent] });
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/events");
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(queryHarness.lastOptions?.queryFn()).rejects.toThrow(
+      "Failed to fetch complete event search corpus",
+    );
+  });
+
   it("computes page head metadata with an RSS alternate link", () => {
     const head = EventsRouteAny.options.head();
     expect(

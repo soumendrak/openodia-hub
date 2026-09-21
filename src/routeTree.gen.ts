@@ -27,6 +27,7 @@ import { Route as RSplatRouteImport } from './routes/r.$'
 import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
+import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiResourcesRouteImport } from './routes/api/resources'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
 import { Route as ApiPypiRouteImport } from './routes/api/pypi'
@@ -125,6 +126,11 @@ const ApiVideosRoute = ApiVideosRouteImport.update({
   path: '/api/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSearchRoute = ApiSearchRouteImport.update({
+  id: '/api/search',
+  path: '/api/search',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiResourcesRoute = ApiResourcesRouteImport.update({
   id: '/api/resources',
   path: '/api/resources',
@@ -181,6 +187,7 @@ export interface FileRoutesByFullPath {
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/resources': typeof ApiResourcesRoute
+  '/api/search': typeof ApiSearchRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -208,6 +215,7 @@ export interface FileRoutesByTo {
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/resources': typeof ApiResourcesRoute
+  '/api/search': typeof ApiSearchRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -236,6 +244,7 @@ export interface FileRoutesById {
   '/api/pypi': typeof ApiPypiRoute
   '/api/repos': typeof ApiReposRoute
   '/api/resources': typeof ApiResourcesRoute
+  '/api/search': typeof ApiSearchRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -265,6 +274,7 @@ export interface FileRouteTypes {
     | '/api/pypi'
     | '/api/repos'
     | '/api/resources'
+    | '/api/search'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -292,6 +302,7 @@ export interface FileRouteTypes {
     | '/api/pypi'
     | '/api/repos'
     | '/api/resources'
+    | '/api/search'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/api/pypi'
     | '/api/repos'
     | '/api/resources'
+    | '/api/search'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -347,6 +359,7 @@ export interface RootRouteChildren {
   ApiPypiRoute: typeof ApiPypiRoute
   ApiReposRoute: typeof ApiReposRoute
   ApiResourcesRoute: typeof ApiResourcesRoute
+  ApiSearchRoute: typeof ApiSearchRoute
   ApiVideosRoute: typeof ApiVideosRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
@@ -483,6 +496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/search': {
+      id: '/api/search'
+      path: '/api/search'
+      fullPath: '/api/search'
+      preLoaderRoute: typeof ApiSearchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/resources': {
       id: '/api/resources'
       path: '/api/resources'
@@ -555,6 +575,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPypiRoute: ApiPypiRoute,
   ApiReposRoute: ApiReposRoute,
   ApiResourcesRoute: ApiResourcesRoute,
+  ApiSearchRoute: ApiSearchRoute,
   ApiVideosRoute: ApiVideosRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,
