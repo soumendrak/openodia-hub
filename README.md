@@ -68,6 +68,12 @@ and contribution links are also in the footer. The language toggle translates th
 navigation; page bodies and upstream content are not fully translated. Light/dark
 mode and language preferences are saved locally.
 
+## All Features Walkthrough
+
+[![OpenOdia.com Features Walkthrough (in Odia)](https://i.ytimg.com/vi/i1GBstSHzoI/hqdefault.jpg)](https://www.youtube.com/watch?v=i1GBstSHzoI)
+
+[OpenOdia.com Features Walkthrough (in Odia)](https://www.youtube.com/watch?v=i1GBstSHzoI)
+
 Resource cards offer license information and generated APA/BibTeX citations.
 Supported GitHub and Hugging Face resources have shareable `/r/<kind>/<owner>/<name>`
 detail pages. Check the original resource's license and preferred citation before reuse;
