@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ExternalLink, FileText, Search } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { ActiveFilterBar, EmptyResults, FacetGroup, ResultCount } from "../components/Facets";
@@ -15,6 +15,7 @@ import {
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 import { loadPapers, type Paper } from "../lib/sources/papers";
 import { pageHead } from "../lib/seo";
+import { normalizeSearch } from "../lib/search";
 
 const getPapers = createServerFn({ method: "GET" }).handler(async () => {
   try {
@@ -26,6 +27,8 @@ const getPapers = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/papers")({
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
   head: () =>
     pageHead({
       path: "papers",
@@ -66,7 +69,16 @@ const FACETS: FacetDef<Paper>[] = [
 
 function PapersPage() {
   const { papers, failed } = Route.useLoaderData();
-  const [q, setQ] = useState("");
+  const routeSearch = Route.useSearch();
+  const [draftQ, setDraftQ] = useState(routeSearch.q ?? "");
+  useEffect(() => setDraftQ(routeSearch.q ?? ""), [routeSearch.q]);
+  const q = draftQ;
+  const navigate = Route.useNavigate();
+  const setQ = (next: string) => {
+    const bounded = next.slice(0, 80);
+    setDraftQ(bounded);
+    void navigate({ search: bounded ? { q: bounded } : {}, replace: true });
+  };
   const [selected, setSelected] = useState<Selection>({});
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -92,13 +104,13 @@ function PapersPage() {
     options,
     active: activeFilters,
   } = useMemo(() => {
-    const lq = q.trim().toLowerCase();
+    const lq = normalizeSearch(q);
     const search = (p: Paper) =>
       !lq ||
-      p.title.toLowerCase().includes(lq) ||
-      p.abstract.toLowerCase().includes(lq) ||
-      p.venue.toLowerCase().includes(lq) ||
-      p.authors.some((a) => a.toLowerCase().includes(lq));
+      normalizeSearch(p.title).includes(lq) ||
+      normalizeSearch(p.abstract).includes(lq) ||
+      normalizeSearch(p.venue).includes(lq) ||
+      p.authors.some((a) => normalizeSearch(a).includes(lq));
     return computeFacets(papers, FACETS, selected, search);
   }, [papers, q, selected]);
 

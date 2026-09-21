@@ -1,51 +1,23 @@
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import { Calendar, Database, FileText, GraduationCap, Play, Wrench } from "lucide-react";
 import {
   CommandDialog,
-  CommandEmpty,
   CommandGroup,
   CommandInput,
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Calendar, FileText, Play, Wrench } from "lucide-react";
+import {
+  normalizeSearch,
+  type SearchKind,
+  type SearchResponse,
+  type SearchResult,
+} from "../lib/search";
 import { GithubIcon } from "./icons";
 
-type Repo = {
-  full_name: string;
-  name: string;
-  html_url: string;
-  description: string | null;
-  language: string | null;
-  topics?: string[];
-};
-
-type Tool = {
-  name: string;
-  url: string;
-  description: string;
-  category: string;
-};
-
-type ChannelVideo = {
-  id: string;
-  title: string;
-  channelName: string;
-};
-
-type Channel = {
-  name: string;
-  videos: ChannelVideo[];
-};
-
-type EventItem = {
-  title: string;
-  url: string;
-  description: string;
-  community: string;
-};
-
-const PAGES: { label: string; path: string }[] = [
+const PAGES = [
   { label: "Home", path: "/" },
   { label: "Tools", path: "/tools" },
   { label: "Models", path: "/models" },
@@ -60,13 +32,29 @@ const PAGES: { label: string; path: string }[] = [
   { label: "About", path: "/about" },
 ];
 
-const MAX_PER_GROUP = 30;
+const MIN_REMOTE_QUERY_LENGTH = 2;
+const REMOTE_SEARCH_DEBOUNCE_MS = 350;
 
-/**
- * The palette's actual UI. Split out from the launcher so `cmdk`, the Radix
- * dialog, and the four fetchers stay out of the entry bundle until someone
- * presses ⌘K — see CommandPalette.tsx.
- */
+const GROUPS: ReadonlyArray<{ kind: SearchKind; label: string }> = [
+  { kind: "repository", label: "Repositories" },
+  { kind: "tool", label: "Tools" },
+  { kind: "model", label: "Models" },
+  { kind: "dataset", label: "Datasets" },
+  { kind: "paper", label: "Papers" },
+  { kind: "tutorial", label: "Tutorials" },
+  { kind: "event", label: "Events" },
+];
+
+function ResultIcon({ kind }: { kind: SearchKind }) {
+  if (kind === "repository") return <GithubIcon />;
+  if (kind === "model" || kind === "dataset") return <Database />;
+  if (kind === "paper") return <GraduationCap />;
+  if (kind === "tutorial") return <Play />;
+  if (kind === "event") return <Calendar />;
+  return <Wrench />;
+}
+
+/** The service ranks complete results; cmdk only manages dialog focus and keys. */
 export default function CommandPaletteDialog({
   open,
   onOpenChange,
@@ -75,162 +63,162 @@ export default function CommandPaletteDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const navigate = useNavigate();
-
-  const { data: reposData } = useQuery({
-    queryKey: ["palette", "repos"],
-    queryFn: async () => {
-      const r = await fetch("/api/repos");
-      if (!r.ok) throw new Error("repos");
-      return (await r.json()) as { repos: Repo[] };
+  const [query, setQuery] = useState("");
+  const [deferredQuery, setDeferredQuery] = useState("");
+  const needle = query.trim();
+  const normalizedNeedle = normalizeSearch(needle);
+  useEffect(() => {
+    const timeout = window.setTimeout(() => setDeferredQuery(needle), REMOTE_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(timeout);
+  }, [needle]);
+  const normalizedDeferredQuery = normalizeSearch(deferredQuery);
+  const { data, isLoading, isFetching, isError, refetch } = useQuery({
+    queryKey: ["palette", "search", normalizedDeferredQuery],
+    queryFn: async ({ signal }: { signal?: AbortSignal } = {}) => {
+      const response = await fetch(`/api/search?q=${encodeURIComponent(deferredQuery)}&limit=50`, {
+        signal,
+      });
+      if (!response.ok) throw new Error("search");
+      return (await response.json()) as SearchResponse;
     },
-    enabled: open,
-    staleTime: 30 * 60 * 1000,
+    enabled:
+      open &&
+      normalizedNeedle.length >= MIN_REMOTE_QUERY_LENGTH &&
+      normalizedDeferredQuery.length >= MIN_REMOTE_QUERY_LENGTH,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
-  const { data: toolsData } = useQuery({
-    queryKey: ["palette", "tools"],
-    queryFn: async () => {
-      const r = await fetch("/api/awesome");
-      if (!r.ok) throw new Error("tools");
-      return (await r.json()) as { items: Tool[] };
-    },
-    enabled: open,
-    staleTime: 30 * 60 * 1000,
-  });
-
-  const { data: videosData } = useQuery({
-    queryKey: ["palette", "videos"],
-    queryFn: async () => {
-      const r = await fetch("/api/videos");
-      if (!r.ok) throw new Error("videos");
-      return (await r.json()) as { channels: Channel[] };
-    },
-    enabled: open,
-    staleTime: 30 * 60 * 1000,
-    // As on the home rail: a 503 from /api/videos means the adapter has
-    // already exhausted its own retry policy, so React Query's default three
-    // would turn one palette opening into four 8s fan-outs. The palette simply
-    // lists no videos instead.
-    retry: false,
-  });
-
-  const { data: eventsData } = useQuery({
-    queryKey: ["palette", "events"],
-    queryFn: async () => {
-      const r = await fetch("/api/events");
-      if (!r.ok) throw new Error("events");
-      return (await r.json()) as { events: EventItem[] };
-    },
-    enabled: open,
-    staleTime: 30 * 60 * 1000,
-  });
-
-  const repos = (reposData?.repos ?? []).slice(0, MAX_PER_GROUP);
-  const tools = (toolsData?.items ?? []).slice(0, MAX_PER_GROUP);
-  const videos = (videosData?.channels ?? [])
-    .flatMap((c) => c.videos.map((v) => ({ ...v, channelName: v.channelName ?? c.name })))
-    .slice(0, MAX_PER_GROUP);
-  const events = (eventsData?.events ?? []).slice(0, MAX_PER_GROUP);
-
+  const pages = useMemo(
+    () =>
+      PAGES.filter(
+        (page) => !normalizedNeedle || normalizeSearch(page.label).includes(normalizedNeedle),
+      ),
+    [normalizedNeedle],
+  );
+  const results = useMemo(() => data?.results ?? [], [data]);
+  const resultPages = results
+    .filter((result) => result.kind === "page" && result.href)
+    .map((result) => ({ label: result.title, path: result.href! }));
+  const visiblePages = normalizedNeedle && resultPages.length > 0 ? resultPages : pages;
+  // Preserve the service's relevance order even though the visual treatment
+  // groups kinds. A fixed group order would put a low-score repository above
+  // an exact paper title simply because "Repositories" came first.
+  const orderedGroups = useMemo(
+    () =>
+      results.reduce<Array<{ kind: SearchKind; label: string; results: SearchResult[] }>>(
+        (groups, result) => {
+          const existing = groups.find((group) => group.kind === result.kind);
+          if (existing) existing.results.push(result);
+          else {
+            const definition = GROUPS.find((group) => group.kind === result.kind);
+            if (definition) groups.push({ ...definition, results: [result] });
+          }
+          return groups;
+        },
+        [],
+      ),
+    [results],
+  );
+  const unavailable = data?.sources?.filter((source) => source.status === "unavailable") ?? [];
   const close = () => onOpenChange(false);
-  const goInternal = (path: string) => {
+  const go = (result: SearchResult) => {
     close();
-    navigate({ to: path });
-  };
-  const goExternal = (url: string) => {
-    close();
-    if (typeof window !== "undefined") window.open(url, "_blank", "noreferrer");
+    if (result.href) navigate({ to: result.href });
+    else if (result.externalHref && typeof window !== "undefined") {
+      window.open(result.externalHref, "_blank", "noreferrer");
+    }
   };
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange}>
-      <CommandInput placeholder="Search repos, tools, tutorials, events…" />
+      <CommandInput
+        value={query}
+        onValueChange={setQuery}
+        placeholder="Search all OpenOdia resources…"
+      />
       <CommandList>
-        <CommandEmpty>No results.</CommandEmpty>
-
         <CommandGroup heading="Pages">
-          {PAGES.map((p) => (
-            <CommandItem key={p.path} value={`page ${p.label}`} onSelect={() => goInternal(p.path)}>
+          {visiblePages.map((page) => (
+            <CommandItem
+              key={page.path}
+              value={page.label}
+              onSelect={() => {
+                close();
+                navigate({ to: page.path });
+              }}
+            >
               <FileText />
-              <span>{p.label}</span>
+              <span>{page.label}</span>
             </CommandItem>
           ))}
         </CommandGroup>
 
-        {repos.length > 0 && (
-          <CommandGroup heading="Repositories">
-            {repos.map((r) => (
-              <CommandItem
-                key={r.full_name}
-                value={`repo ${r.full_name} ${r.description ?? ""} ${r.language ?? ""} ${(r.topics ?? []).join(" ")}`}
-                onSelect={() => goExternal(r.html_url)}
-              >
-                <GithubIcon />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{r.full_name}</span>
-                  {r.description && (
-                    <span className="truncate text-xs text-muted-foreground">{r.description}</span>
-                  )}
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+        {normalizedNeedle.length >= MIN_REMOTE_QUERY_LENGTH && (isLoading || isFetching) && (
+          <p className="px-3 py-3 text-sm text-muted-foreground" role="status">
+            Searching OpenOdia…
+          </p>
+        )}
+        {normalizedNeedle.length >= MIN_REMOTE_QUERY_LENGTH && isError && (
+          <div className="px-3 py-3 text-sm text-muted-foreground" role="alert">
+            <p>Search is temporarily unavailable.</p>
+            <button
+              className="mt-2 text-neon underline"
+              type="button"
+              onClick={() => void refetch()}
+            >
+              Try again
+            </button>
+          </div>
+        )}
+        {data?.partial && (
+          <p className="px-3 py-2 text-xs text-muted-foreground" role="status">
+            Partial results: {unavailable.map((source) => source.source).join(", ")} unavailable.
+          </p>
         )}
 
-        {tools.length > 0 && (
-          <CommandGroup heading="Tools & datasets">
-            {/* The Awesome list reuses the same paper URL across entries, so the
-                index is part of the key — same reasoning as tools.tsx. */}
-            {tools.map((t, idx) => (
-              <CommandItem
-                key={`${idx}:${t.url}`}
-                value={`tool ${t.name} ${t.description} ${t.category}`}
-                onSelect={() => goExternal(t.url)}
-              >
-                <Wrench />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{t.name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{t.category}</span>
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
-        )}
+        {orderedGroups.map((group) => {
+          return (
+            <CommandGroup key={group.kind} heading={group.label}>
+              {group.results.map((result) => (
+                <CommandItem
+                  key={result.id}
+                  value={result.id}
+                  onSelect={() => go(result)}
+                  className="group"
+                >
+                  <ResultIcon kind={result.kind} />
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate">{result.title}</span>
+                    <span className="truncate text-xs text-muted-foreground group-data-[selected=true]:text-accent-foreground">
+                      {result.summary || result.source}
+                    </span>
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          );
+        })}
 
-        {videos.length > 0 && (
-          <CommandGroup heading="Tutorials">
-            {videos.map((v) => (
-              <CommandItem
-                key={v.id}
-                value={`video ${v.title} ${v.channelName}`}
-                onSelect={() => goExternal(`https://www.youtube.com/watch?v=${v.id}`)}
-              >
-                <Play />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{v.title}</span>
-                  <span className="truncate text-xs text-muted-foreground">{v.channelName}</span>
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+        {normalizedNeedle.length >= MIN_REMOTE_QUERY_LENGTH &&
+          !isLoading &&
+          !isFetching &&
+          !isError &&
+          results.length === 0 &&
+          visiblePages.length === 0 && (
+            <p className="px-3 py-6 text-center text-sm text-muted-foreground" role="status">
+              No matches. Try a title, creator, task, or category.
+            </p>
+          )}
+        {normalizedNeedle.length === 1 && (
+          <p className="px-3 py-3 text-sm text-muted-foreground" role="status">
+            Type at least 2 characters to search all resources.
+          </p>
         )}
-
-        {events.length > 0 && (
-          <CommandGroup heading="Events">
-            {events.map((e) => (
-              <CommandItem
-                key={e.url}
-                value={`event ${e.title} ${e.description} ${e.community}`}
-                onSelect={() => goExternal(e.url)}
-              >
-                <Calendar />
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate">{e.title}</span>
-                  <span className="truncate text-xs text-muted-foreground">{e.community}</span>
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+        {!normalizedNeedle && (
+          <p className="px-3 py-3 text-sm text-muted-foreground">
+            Search pages, projects, models, datasets, papers, tutorials, and events.
+          </p>
         )}
       </CommandList>
     </CommandDialog>

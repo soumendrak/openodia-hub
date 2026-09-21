@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createFileRoute } from "@tanstack/react-router";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
@@ -10,8 +10,11 @@ import { events } from "../data/events";
 import type { Event } from "../data/events";
 import { pageHead } from "../lib/seo";
 import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
+import { normalizeSearch } from "../lib/search";
 
 export const Route = createFileRoute("/events")({
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
   head: () =>
     pageHead({
       path: "events",
@@ -184,7 +187,16 @@ const getEventMonthName = (e: Event): string => {
 };
 
 function EventsPage() {
-  const [query, setQuery] = useState("");
+  const routeSearch = Route.useSearch();
+  const [draftQuery, setDraftQuery] = useState(routeSearch.q ?? "");
+  useEffect(() => setDraftQuery(routeSearch.q ?? ""), [routeSearch.q]);
+  const query = draftQuery;
+  const navigate = Route.useNavigate();
+  const setQuery = (next: string) => {
+    const bounded = next.slice(0, 80);
+    setDraftQuery(bounded);
+    void navigate({ search: bounded ? { q: bounded } : {}, replace: true });
+  };
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
   const [activeType, setActiveType] = useState<Event["type"] | null>(null);
@@ -230,7 +242,22 @@ function EventsPage() {
     refetchOnWindowFocus: false,
   });
 
-  const fetchedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  // Pagination keeps the idle timeline light, but a search must not silently
+  // exclude a live event merely because its page has not been visited yet.
+  const { data: completeSearchEvents } = useQuery({
+    queryKey: ["allLiveEventsForSearch", query],
+    queryFn: async () => {
+      const response = await fetch("/api/events");
+      if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
+      return response.json() as Promise<{ events: Event[] }>;
+    },
+    enabled: Boolean(query.trim()),
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+  });
+
+  const fetchedEvents =
+    completeSearchEvents?.events ?? liveData?.pages.flatMap((p) => p.events) ?? [];
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const today = getISTDateString();
@@ -260,7 +287,7 @@ function EventsPage() {
       return 0;
     });
 
-  const needle = query.trim().toLowerCase();
+  const needle = normalizeSearch(query);
 
   const upcomingEvents = mergedEventsList.filter(
     (e) => e.status === "upcoming" || e.status === "live",
@@ -272,9 +299,9 @@ function EventsPage() {
       const matchesType = activeType ? e.type === activeType : true;
       const matchesCommunity = activeCommunity ? e.community === activeCommunity : true;
       const matchesQuery = needle
-        ? e.title.toLowerCase().includes(needle) ||
-          e.description.toLowerCase().includes(needle) ||
-          (e.location ?? "").toLowerCase().includes(needle)
+        ? normalizeSearch(e.title).includes(needle) ||
+          normalizeSearch(e.description).includes(needle) ||
+          normalizeSearch(e.location ?? "").includes(needle)
         : true;
       return matchesType && matchesCommunity && matchesQuery;
     });

@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
-import { useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Search, ExternalLink, Heart, Download, ChevronDown, Database } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { FeaturedGallery, formatCount } from "../components/FeaturedGallery";
@@ -21,6 +21,7 @@ import { refToPath } from "../lib/resource-id";
 import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
 import { pageHead } from "../lib/seo";
 import { loadDatasets, type Dataset } from "../lib/sources/huggingface";
+import { normalizeSearch } from "../lib/search";
 
 /**
  * Runs on the server during SSR and over RPC on client navigation, so the
@@ -37,6 +38,8 @@ const getDatasets = createServerFn({ method: "GET" }).handler(async () => {
 });
 
 export const Route = createFileRoute("/datasets")({
+  validateSearch: (search: Record<string, unknown>): { q?: string } =>
+    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
   head: () =>
     pageHead({
       path: "datasets",
@@ -71,7 +74,16 @@ const FACETS: FacetDef<Dataset>[] = [
 
 function DatasetsPage() {
   const { datasets, truncated, failed } = Route.useLoaderData();
-  const [q, setQ] = useState("");
+  const routeSearch = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const [draftQ, setDraftQ] = useState(routeSearch.q ?? "");
+  useEffect(() => setDraftQ(routeSearch.q ?? ""), [routeSearch.q]);
+  const q = draftQ;
+  const setQ = (next: string) => {
+    const bounded = next.slice(0, 80);
+    setDraftQ(bounded);
+    void navigate({ search: bounded ? { q: bounded } : {}, replace: true });
+  };
   const [selected, setSelected] = useState<Selection>({});
   const [shownCount, setShownCount] = useState(PAGE_SIZE);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -108,14 +120,14 @@ function DatasetsPage() {
     options,
     active: activeFilters,
   } = useMemo(() => {
-    const lq = q.trim().toLowerCase();
+    const lq = normalizeSearch(q);
     const search = (d: Dataset) =>
       !lq ||
-      d.id.toLowerCase().includes(lq) ||
-      d.author.toLowerCase().includes(lq) ||
-      d.task.toLowerCase().includes(lq) ||
-      d.description.toLowerCase().includes(lq) ||
-      d.tags.some((t) => t.toLowerCase().includes(lq));
+      normalizeSearch(d.id).includes(lq) ||
+      normalizeSearch(d.author).includes(lq) ||
+      normalizeSearch(d.task).includes(lq) ||
+      normalizeSearch(d.description).includes(lq) ||
+      d.tags.some((t) => normalizeSearch(t).includes(lq));
     return computeFacets(datasets, FACETS, selected, search);
   }, [datasets, q, selected]);
 
