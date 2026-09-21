@@ -187,7 +187,10 @@ describe("real command palette primitives", () => {
   });
 
   it("shows the retry state when the search endpoint rejects the request", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 503 })));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 503 })),
+    );
     render(<CommandPaletteDialog open onOpenChange={() => undefined} />, { wrapper });
     fireEvent.change(screen.getByPlaceholderText("Search all OpenOdia resources…"), {
       target: { value: "offline" },
