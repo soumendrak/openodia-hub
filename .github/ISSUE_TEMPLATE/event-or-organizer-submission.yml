@@ -1,5 +1,5 @@
-name: Submit an event or organizer
-description: Propose an event or organizer record for maintainer review without editing code.
+name: Submit an event
+description: Propose an event record for maintainer review without editing code.
 title: "[Event submission]: "
 labels:
   - enhancement
@@ -10,19 +10,10 @@ body:
         Thanks for helping keep the Odia AI event directory accurate. Publication requires maintainer review. A listing is not a promise that registration is open.
 
         Use the correction form when an existing listing needs to change. Keep the event's canonical/detail page separate from any registration page. Write `Unknown / not stated` when the source does not say.
-  - type: dropdown
-    id: submission_kind
-    attributes:
-      label: What are you submitting?
-      options:
-        - Event
-        - Organizer/community
-    validations:
-      required: true
   - type: input
     id: name
     attributes:
-      label: Event or organizer name
+      label: Event name
       placeholder: "Example: Odia AI Developers Meetup"
     validations:
       required: true
@@ -30,7 +21,7 @@ body:
     id: canonical_url
     attributes:
       label: Canonical event/detail URL
-      description: The official page that identifies this event. For an organizer-only submission, write `Not applicable`.
+      description: The official page that identifies this event.
       placeholder: "https://example.org/events/odia-ai-meetup"
     validations:
       required: true
@@ -100,8 +91,8 @@ body:
   - type: textarea
     id: description
     attributes:
-      label: Concise description
-      description: Say what the event or organizer is, in one or two factual sentences.
+      label: Concise event description
+      description: Say what this event is, in one or two factual sentences.
     validations:
       required: true
   - type: dropdown

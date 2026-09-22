@@ -14,6 +14,8 @@ import { normalizeSearch } from "../lib/search";
 
 const EVENT_SUBMISSION =
   "https://github.com/soumendrak/openodia-hub/issues/new?template=event-or-organizer-submission.yml";
+const ORGANIZER_SUBMISSION =
+  "https://github.com/soumendrak/openodia-hub/issues/new?template=organizer-submission.yml";
 const EVENT_CORRECTION =
   "https://github.com/soumendrak/openodia-hub/issues/new?template=event-correction.yml";
 
@@ -578,7 +580,15 @@ function EventsPage() {
               rel="noreferrer"
               className="rounded-xl border border-neon/40 bg-neon/5 px-4 py-2 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/10"
             >
-              Submit event or organizer
+              Submit an event
+            </a>
+            <a
+              href={ORGANIZER_SUBMISSION}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-neon/40 bg-neon/5 px-4 py-2 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/10"
+            >
+              Submit organizer
             </a>
             <a
               href={EVENT_CORRECTION}

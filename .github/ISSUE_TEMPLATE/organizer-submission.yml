@@ -1,0 +1,84 @@
+name: Submit an organizer or community
+description: Propose an organizer or community record for maintainer review without editing code.
+title: "[Organizer submission]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping document the Odia AI community. Publication requires maintainer review. Provide only evidence-backed identity details; do not infer attendance or registration policies from a historical event.
+  - type: input
+    id: organizer_name
+    attributes:
+      label: Organizer or community name
+      placeholder: "Example: Odisha AI"
+    validations:
+      required: true
+  - type: input
+    id: organizer_id
+    attributes:
+      label: Existing OpenOdia organizer ID, if known
+      description: Optional. Leave blank when you do not know it; do not invent an ID.
+      placeholder: odisha-ai
+    validations:
+      required: false
+  - type: textarea
+    id: aliases
+    attributes:
+      label: Known aliases
+      description: Include only aliases supported by the evidence, one per line. Write `Unknown / not stated` when none are known.
+      placeholder: "Unknown / not stated"
+    validations:
+      required: true
+  - type: input
+    id: official_url
+    attributes:
+      label: Official website or community URL
+      description: Use the official destination, not a search-result page.
+      placeholder: "https://example.org/"
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: Region or online scope
+      placeholder: "Bhubaneswar, Odisha / Online / Unknown / not stated"
+    validations:
+      required: true
+  - type: dropdown
+    id: organizer_kind
+    attributes:
+      label: Organizer kind
+      options:
+        - Community group
+        - University or college
+        - Government organization
+        - Nonprofit
+        - Company
+        - Research group
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Concise description
+      description: Describe the organizer in one or two factual sentences.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and date checked
+      description: Link the official page or other evidence and state when you checked it.
+      placeholder: "Evidence: https://example.org/\nChecked: 2026-09-22"
+    validations:
+      required: true
+  - type: checkboxes
+    id: review_acknowledgement
+    attributes:
+      label: Review acknowledgement
+      options:
+        - label: I understand that a maintainer verifies this submission before publication and that this form does not establish an organizer-wide attendance policy.
+          required: true

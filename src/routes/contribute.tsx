@@ -10,6 +10,8 @@ const AWESOME_REPO = "https://github.com/odisha-ml/Awesome-Odia-AI";
 const HUB_ISSUES = "https://github.com/soumendrak/openodia-hub/issues/new";
 const EVENT_SUBMISSION =
   "https://github.com/soumendrak/openodia-hub/issues/new?template=event-or-organizer-submission.yml";
+const ORGANIZER_SUBMISSION =
+  "https://github.com/soumendrak/openodia-hub/issues/new?template=organizer-submission.yml";
 const EVENT_CORRECTION =
   "https://github.com/soumendrak/openodia-hub/issues/new?template=event-correction.yml";
 
@@ -111,7 +113,7 @@ function ContributePage() {
 
       <Reveal delay={0.05} className="mt-12">
         <h2 className="font-display text-3xl font-semibold">Two routes</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
           <a
             href={AWESOME_REPO}
             target="_blank"
@@ -185,12 +187,27 @@ function ContributePage() {
             className="group rounded-2xl border border-border bg-surface p-6 transition hover:border-neon/40"
           >
             <h3 className="font-display text-lg font-semibold">
-              Submit an event or organizer{" "}
+              Submit an event{" "}
               <ExternalLink size={14} className="inline transition group-hover:text-neon" />
             </h3>
             <p className="mt-2 text-sm text-muted-foreground">
               Include the official source, date precision, attendance evidence, and any stated
               registration details. Unknown is a useful answer.
+            </p>
+          </a>
+          <a
+            href={ORGANIZER_SUBMISSION}
+            target="_blank"
+            rel="noreferrer"
+            className="group rounded-2xl border border-border bg-surface p-6 transition hover:border-neon/40"
+          >
+            <h3 className="font-display text-lg font-semibold">
+              Submit an organizer{" "}
+              <ExternalLink size={14} className="inline transition group-hover:text-neon" />
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Provide an evidence-backed official identity, aliases, region, and a concise
+              description without guessing organizer-wide attendance rules.
             </p>
           </a>
           <a

@@ -16,16 +16,20 @@ body:
       label: Existing listing URL or identifying details
       description: Prefer the canonical event/detail URL. If it is unavailable, give the event name, organizer, and date.
       placeholder: "https://example.org/events/odia-ai-meetup"
-  - type: checkboxes
+    validations:
+      required: true
+  - type: dropdown
     id: correction_kind
     attributes:
       label: What needs to change?
+      description: Select every applicable category.
+      multiple: true
       options:
-        - label: Event details or organizer identity
-        - label: Date, postponement, or cancellation
-        - label: Canonical or registration URL
-        - label: Attendance, fee, deadline, capacity, or eligibility evidence
-        - label: Other factual correction
+        - Event details or organizer identity
+        - Date, postponement, or cancellation
+        - Canonical or registration URL
+        - Attendance, fee, deadline, capacity, or eligibility evidence
+        - Other factual correction
     validations:
       required: true
   - type: textarea

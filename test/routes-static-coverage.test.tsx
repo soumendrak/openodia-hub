@@ -253,9 +253,13 @@ describe("contribute route: copy-to-clipboard success and failure", () => {
     });
 
     render(<Component />);
-    expect(screen.getByRole("link", { name: /Submit an event or organizer/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /Submit an event/i })).toHaveAttribute(
       "href",
       expect.stringContaining("event-or-organizer-submission.yml"),
+    );
+    expect(screen.getByRole("link", { name: /Submit an organizer/i })).toHaveAttribute(
+      "href",
+      expect.stringContaining("organizer-submission.yml"),
     );
     expect(screen.getByRole("link", { name: /Correct an event listing/i })).toHaveAttribute(
       "href",
