@@ -1,0 +1,81 @@
+name: Correct an event or organizer listing
+description: Report a correction, postponement, cancellation, or missing evidence for an existing listing.
+title: "[Event correction]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the directory accurate. Publication changes require maintainer review. Please provide the listing's canonical URL or enough identifying detail to find it.
+
+        Do not infer that registration is open, free, or open to all. Write `Unknown / not stated` where the official source is silent.
+  - type: input
+    id: listing
+    attributes:
+      label: Existing listing URL or identifying details
+      description: Prefer the canonical event/detail URL. If it is unavailable, give the event name, organizer, and date.
+      placeholder: "https://example.org/events/odia-ai-meetup"
+    validations:
+      required: true
+  - type: dropdown
+    id: correction_kind
+    attributes:
+      label: What needs to change?
+      description: Select every applicable category.
+      multiple: true
+      options:
+        - Event details or organizer identity
+        - Date, postponement, or cancellation
+        - Canonical or registration URL
+        - Attendance, fee, deadline, capacity, or eligibility evidence
+        - Other factual correction
+    validations:
+      required: true
+  - type: textarea
+    id: current_and_corrected
+    attributes:
+      label: Current listing and proposed correction
+      description: Quote or link the current value, then provide the replacement. For a cancellation or postponement, state that directly.
+      placeholder: "Current: 23 May 2026\nCorrected: Postponed; replacement date unknown / not stated"
+    validations:
+      required: true
+  - type: input
+    id: canonical_url
+    attributes:
+      label: Canonical event/detail URL after the correction
+      description: This is not the registration URL. Write `Unchanged`, `Unknown / not stated`, or `Not applicable` when appropriate.
+      placeholder: "https://example.org/events/odia-ai-meetup"
+    validations:
+      required: true
+  - type: input
+    id: registration_url
+    attributes:
+      label: Registration URL after the correction
+      description: Keep it separate from the canonical event page. Write `Unchanged`, `Unknown / not stated`, `Not open`, or `Not applicable` when appropriate.
+      placeholder: "https://example.org/register"
+    validations:
+      required: true
+  - type: textarea
+    id: attendance_and_registration
+    attributes:
+      label: Attendance and registration evidence
+      description: State policy, registration status, fee, deadline, capacity, and eligibility only when sourced. Use `Unknown / not stated` for every unknown value.
+      placeholder: "Attendance: Unknown / not stated\nRegistration: Unknown / not stated\nFee: Unknown / not stated\nDeadline / capacity / eligibility: Unknown / not stated"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and date checked
+      description: Link the official page or other evidence and state when you checked it.
+      placeholder: "Evidence: https://example.org/events/odia-ai-meetup\nChecked: 2026-09-22"
+    validations:
+      required: true
+  - type: checkboxes
+    id: review_acknowledgement
+    attributes:
+      label: Review acknowledgement
+      options:
+        - label: I understand that a maintainer verifies this correction before publication, and that a listing does not imply open registration.
+          required: true

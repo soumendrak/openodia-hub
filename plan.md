@@ -825,3 +825,23 @@ original optimism.
 | UX 4 Odia typography, 9 PWA/offline, 10 contrast audit, 11 ⌘K hint, 14 leaderboard opt-out | Untouched.                                                                                                                                                                      |
 | Odia UI coverage                                                                           | Still nav-chrome only (13 keys). `lang="or"` remains over-declared for page bodies.                                                                                             |
 | 9 dead links in Awesome-Odia-AI                                                            | Found by the new checker; fixing them is a PR to that repo.                                                                                                                     |
+
+---
+
+## Event and organizer submission/correction workflow (Issue #108)
+
+### Outcome
+
+Let organizers and attendees submit an event, submit organizer evidence, or correct an existing
+listing without editing code, while preserving the reviewer gate and the existing PR/crawler
+paths. This work does not automatically publish issues, create crawler adapters, or infer
+unknown registration facts.
+
+### Tasks and acceptance gates
+
+| Order | Task                                                                                    | Acceptance gate                                                                                                                                                                                                                    |
+| ----- | --------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1     | Add structured GitHub forms for event submission, organizer submission, and correction. | Each form sets an explicit title prefix and existing suitable label; canonical and registration URLs are separate; no organizer flow requires event-only facts; required fields accept an explicit unknown where facts are absent. |
+| 2     | Add visible entry points to `/contribute` and `/events`.                                | Both actions are semantic keyboard-focusable links, use the two distinct forms, and explain review plus the no-open-registration implication.                                                                                      |
+| 3     | Document review-to-record handoff and the existing engineering routes.                  | Documentation explains the typed event fields, optional known organizer ID, aliases, evidence/date checked, issue-form limitation, PR route, and crawler-adapter boundary.                                                         |
+| 4     | Verify implementation and form structure.                                               | YAML parses; affected route tests, lint, full tests, typecheck, and build pass. GitHub's rendered issue chooser remains a final manual check before release.                                                                       |
