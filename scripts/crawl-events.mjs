@@ -17,78 +17,45 @@ import { readFileSync, writeFileSync, existsSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 import { eventUrlKey, resolveEventDestinationUrl } from "../src/lib/event-url.ts";
+import { getOrganizerById } from "../src/data/organizers.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "src", "data", "events");
+export function organizerSource(id, file, options = {}) {
+  const { linkLabel, ...settings } = options;
+  const organizer = getOrganizerById(id);
+  const link = linkLabel
+    ? organizer.officialLinks.find((candidate) => candidate.label === linkLabel)
+    : organizer.officialLinks[0];
+  if (!link) throw new Error(`Organizer ${id} has no ${linkLabel ?? "official"} link`);
+  return { id, url: link.url, file, ...settings };
+}
+
 // Every entry must also be listed in .agents/skills/crawl-events/references/sources.md
-// (test/event-source-registry.test.ts enforces this).
+// (test/event-source-registry.test.ts enforces this). Identity and official
+// destinations come from the organizer registry; this list only owns adapters.
 export const SOURCES = [
   // gdg.community.dev chapters — all expose events via the same __NEXT_DATA__ JSON
-  {
-    id: "gdg-bhubaneswar",
-    url: "https://gdg.community.dev/gdg-bhubaneswar/",
-    file: "gdg-bhubaneswar.ts",
-  },
-  {
-    id: "gdgoc-nist-berhampur",
-    url: "https://gdg.community.dev/gdg-on-campus-national-institute-of-science-and-technology-berhampur-india/",
-    file: "gdgoc-nist-berhampur.ts",
-  },
-  {
-    id: "gdgoc-kiit",
-    url: "https://gdg.community.dev/gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india/",
-    file: "gdgoc-kiit.ts",
-  },
-  {
-    id: "gdgoc-cvr",
-    url: "https://gdg.community.dev/gdg-on-campus-c-v-raman-global-university-bhubaneswar-india/",
-    file: "gdgoc-cvr.ts",
-  },
+  organizerSource("gdg-bhubaneswar", "gdg-bhubaneswar.ts"),
+  organizerSource("gdgoc-nist-berhampur", "gdgoc-nist-berhampur.ts"),
+  organizerSource("gdgoc-kiit", "gdgoc-kiit.ts"),
+  organizerSource("gdgoc-cvr", "gdgoc-cvr.ts"),
   // Keep dead sources in the archive scan so their historical destinations
   // still prevent cross-community duplicates, but do not fetch their pages.
-  {
-    id: "gdgoc-iiit-bbsr",
-    url: "https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/",
-    file: "gdgoc-iiit-bbsr.ts",
-    archiveOnly: true,
-  },
-  {
-    id: "gdgoc-iter-soa",
-    url: "https://gdg.community.dev/gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india/",
-    file: "gdgoc-iter-soa.ts",
-  },
-  {
-    id: "gdgoc-vssut-burla",
-    url: "https://gdg.community.dev/gdg-on-campus-veer-surendra-sai-university-of-technology-burla-india/",
-    file: "gdgoc-vssut-burla.ts",
-  },
-  {
-    id: "gdgoc-nit-rourkela",
-    url: "https://gdg.community.dev/gdg-on-campus-national-institute-of-technology-rourkela-india",
-    file: "gdgoc-nit-rourkela.ts",
-  },
-  {
-    id: "gdgoc-giet-gunupur",
-    url: "https://gdg.community.dev/gdg-on-campus-giet-university-gunupur-india/",
-    file: "gdgoc-giet-gunupur.ts",
-  },
-  {
-    id: "gdgoc-birla-global",
-    url: "https://gdg.community.dev/gdg-on-campus-birla-global-university-bhubaneswar-india/",
-    file: "gdgoc-birla-global.ts",
-  },
+  organizerSource("gdgoc-iiit-bbsr", "gdgoc-iiit-bbsr.ts", { archiveOnly: true }),
+  organizerSource("gdgoc-iter-soa", "gdgoc-iter-soa.ts"),
+  organizerSource("gdgoc-vssut-burla", "gdgoc-vssut-burla.ts"),
+  organizerSource("gdgoc-nit-rourkela", "gdgoc-nit-rourkela.ts"),
+  organizerSource("gdgoc-giet-gunupur", "gdgoc-giet-gunupur.ts"),
+  organizerSource("gdgoc-birla-global", "gdgoc-birla-global.ts"),
   // Overlaps GDG Bhubaneswar; listed after it so shared events stay with the parent chapter.
-  {
-    id: "gdg-cloud-bhubaneswar",
-    url: "https://gdg.community.dev/gdg-cloud-bhubaneswar/",
-    file: "gdg-cloud-bhubaneswar.ts",
-  },
+  organizerSource("gdg-cloud-bhubaneswar", "gdg-cloud-bhubaneswar.ts"),
   // Other sources
-  { id: "odishaai", url: "https://www.odishaai.org/conferences/", file: "odishaai.ts" },
+  organizerSource("odishaai", "odishaai.ts", { linkLabel: "Conference archive" }),
   // OdiaGenAI — Wix-based, JS-rendered (partially parsable, try known workshop URLs)
-  { id: "odiagenai", url: "https://www.odiagenai.org/", file: "odiagenai.ts", partial: true },
+  organizerSource("odiagenai", "odiagenai.ts", { partial: true }),
   // TFUG BBSR — SPA, not parsable
-  { id: "tfug-bbsr", url: "https://www.tfugbbsr.in/event", file: null, unparsable: true },
+  organizerSource("tfug-bbsr", null, { unparsable: true }),
 ];
 
 const KNOWN_WORKSHOP_URLS = [

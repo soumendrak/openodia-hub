@@ -2,9 +2,11 @@
  * Aggregates all community event sources into a single sorted array.
  *
  * ─── HOW TO ADD A NEW COMMUNITY ───────────────────────────────────────────
- * 1. Create `src/data/events/<community-slug>.ts` following any existing file
+ * 1. Complete the identity/evidence review in `docs/organizers.md` and add the
+ *    organizer to `src/data/organizers.ts`.
+ * 2. Create `src/data/events/<community-slug>.ts` following any existing file
  *    as a template (copy the header comment, import Event, export an array).
- * 2. Import your array below and add it to the `sources` list.
+ * 3. Import your array below and add its organizer ID to the `sources` list.
  * That's it — the event will appear automatically on the Events page.
  *
  * ─── HOW TO ADD AN EVENT TO AN EXISTING COMMUNITY ─────────────────────────
@@ -14,6 +16,7 @@
 
 import type { Event } from "./types";
 export type { Event, EventType } from "./types";
+import { getOrganizerById, type OrganizerId } from "../organizers";
 
 import { odishaaiEvents } from "./odishaai";
 import { odiagenaiEvents } from "./odiagenai";
@@ -42,34 +45,33 @@ import { odishaEitEvents } from "./odisha-eit";
 
 type RawEvent = Omit<Event, "community">;
 
-/** Each entry pairs a display name with its raw event array.
- *  The `community` field is injected automatically — data files never set it. */
-const sources: { community: string; events: RawEvent[] }[] = [
-  { community: "Odisha AI", events: odishaaiEvents },
-  { community: "OdiaGenAI", events: odiagenaiEvents },
-  { community: "TFUG Bhubaneswar", events: tfugBbsrEvents },
-  { community: "GDG Bhubaneswar", events: gdgBhubaneswarEvents },
-  { community: "GDGoC NIST Berhampur", events: gdgocNistBerhampurEvents },
-  { community: "GDGoC KIIT", events: gdgocKiitEvents },
-  { community: "GDGoC CVR University", events: gdgocCvrEvents },
-  { community: "GDGoC IIIT Bhubaneswar", events: gdgocIiitBbsrEvents },
-  { community: "GDGoC ITER SOA", events: gdgocIterSoaEvents },
-  { community: "GDGoC VSSUT Burla", events: gdgocVssutBurlaEvents },
-  { community: "GDGoC NIT Rourkela", events: gdgocNitRourkelaEvents },
-  { community: "GDGoC GIET Gunupur", events: gdgocGietGunupurEvents },
-  { community: "GDGoC Birla Global University", events: gdgocBirlaGlobalEvents },
-  { community: "GDG Cloud Bhubaneswar", events: gdgCloudBhubaneswarEvents },
+/** Each entry uses a reviewed organizer ID. Display names come from the registry. */
+const sources: { organizerId: OrganizerId; events: RawEvent[] }[] = [
+  { organizerId: "odishaai", events: odishaaiEvents },
+  { organizerId: "odiagenai", events: odiagenaiEvents },
+  { organizerId: "tfug-bbsr", events: tfugBbsrEvents },
+  { organizerId: "gdg-bhubaneswar", events: gdgBhubaneswarEvents },
+  { organizerId: "gdgoc-nist-berhampur", events: gdgocNistBerhampurEvents },
+  { organizerId: "gdgoc-kiit", events: gdgocKiitEvents },
+  { organizerId: "gdgoc-cvr", events: gdgocCvrEvents },
+  { organizerId: "gdgoc-iiit-bbsr", events: gdgocIiitBbsrEvents },
+  { organizerId: "gdgoc-iter-soa", events: gdgocIterSoaEvents },
+  { organizerId: "gdgoc-vssut-burla", events: gdgocVssutBurlaEvents },
+  { organizerId: "gdgoc-nit-rourkela", events: gdgocNitRourkelaEvents },
+  { organizerId: "gdgoc-giet-gunupur", events: gdgocGietGunupurEvents },
+  { organizerId: "gdgoc-birla-global", events: gdgocBirlaGlobalEvents },
+  { organizerId: "gdg-cloud-bhubaneswar", events: gdgCloudBhubaneswarEvents },
   // Agent-checked institutional and government sources (no crawler adapter).
-  { community: "IIT Bhubaneswar", events: iitBhubaneswarEvents },
-  { community: "IIIT Bhubaneswar", events: iiitBhubaneswarEvents },
-  { community: "NIT Rourkela", events: nitRourkelaEvents },
-  { community: "Fakir Mohan University", events: fakirMohanUniversityEvents },
-  { community: "Ravenshaw University", events: ravenshawUniversityEvents },
-  { community: "Odisha State Open University", events: osouEvents },
-  { community: "PMEC Berhampur", events: pmecBerhampurEvents },
-  { community: "SOA (OAIC)", events: soaOaicEvents },
-  { community: "Startup Odisha", events: startupOdishaEvents },
-  { community: "Odisha E&IT / OCAC", events: odishaEitEvents },
+  { organizerId: "iit-bhubaneswar", events: iitBhubaneswarEvents },
+  { organizerId: "iiit-bhubaneswar", events: iiitBhubaneswarEvents },
+  { organizerId: "nit-rourkela", events: nitRourkelaEvents },
+  { organizerId: "fakir-mohan-university", events: fakirMohanUniversityEvents },
+  { organizerId: "ravenshaw-university", events: ravenshawUniversityEvents },
+  { organizerId: "osou", events: osouEvents },
+  { organizerId: "pmec-berhampur", events: pmecBerhampurEvents },
+  { organizerId: "soa-oaic", events: soaOaicEvents },
+  { organizerId: "startup-odisha", events: startupOdishaEvents },
+  { organizerId: "odisha-eit", events: odishaEitEvents },
 ];
 
 const MONTH_MAP: Record<string, number> = {
@@ -205,7 +207,10 @@ function getISTDateString(): string {
 
 /** All events merged, community-tagged, and dynamically evaluated for status & sorted newest-year-first. */
 export const events: Event[] = sources
-  .flatMap(({ community, events }) => events.map((e) => ({ ...e, community })))
+  .flatMap(({ organizerId, events }) => {
+    const community = getOrganizerById(organizerId).canonicalName;
+    return events.map((event) => ({ ...event, community, organizerId }));
+  })
   .map((event) => {
     // 1. Resolve explicit startDate/endDate if present, else parse the date string
     let startStr = event.startDate;
@@ -268,4 +273,4 @@ export const events: Event[] = sources
 export const YEARS = [...new Set(events.map((e) => e.year))].sort((a, b) => Number(b) - Number(a));
 
 /** Unique community names, sorted alphabetically. */
-export const COMMUNITIES = [...new Set(sources.map((s) => s.community))].sort();
+export const COMMUNITIES = [...new Set(events.map((event) => event.community))].sort();

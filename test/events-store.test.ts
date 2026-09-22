@@ -88,6 +88,38 @@ describe("event persistence URL deduplication", () => {
     const events = await readEventsFromD1(db);
     expect(events).toHaveLength(1);
     expect(events[0]?.url).toBe(`${base}/cohost-gdg-bhubaneswar`);
+    expect(events[0]?.community).toBe("GDG bhubaneswar");
+    expect(events[0]?.organizerId).toBe("gdg-bhubaneswar");
+  });
+
+  it("preserves an unresolved legacy community without inventing an organizer ID", async () => {
+    const rows = [
+      {
+        url: "https://example.com/legacy-event",
+        title: "Legacy event",
+        community: "Unreviewed legacy group",
+        type: "Talk",
+        start_date: "2026-07-15",
+        end_date: null,
+        description: null,
+        location: null,
+      },
+    ];
+    const db: D1Like = {
+      prepare() {
+        return {
+          bind() {
+            return this;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({ results: rows as T[] }),
+        };
+      },
+    };
+
+    const [event] = await readEventsFromD1(db);
+    expect(event?.community).toBe("Unreviewed legacy group");
+    expect(event?.organizerId).toBeUndefined();
   });
 
   it("skips upserting events that are missing a url or a start date", async () => {

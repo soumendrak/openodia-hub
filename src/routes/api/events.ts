@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
 import { dedupeEventsByUrl } from "../../lib/event-url";
 import type { Event, EventType } from "../../data/events/types";
+import { getOrganizerById, resolveOrganizer, type OrganizerId } from "../../data/organizers";
 
 type BevyEvent = {
   cohost_registration_url?: string;
@@ -15,32 +16,40 @@ type BevyEvent = {
   url: string;
 };
 
-export const CHAPTERS = [
+export type EventChapter = {
+  organizerId?: OrganizerId;
+  /** Kept for existing injected adapters; canonical values are registry-derived. */
+  community: string;
+  slug: string;
+};
+
+const chapterDefinitions: readonly { organizerId: OrganizerId; slug: string }[] = [
   {
-    community: "GDG Bhubaneswar",
+    organizerId: "gdg-bhubaneswar",
     slug: "gdg-bhubaneswar",
   },
   {
-    community: "GDGoC NIST Berhampur",
+    organizerId: "gdgoc-nist-berhampur",
     slug: "gdg-on-campus-national-institute-of-science-and-technology-berhampur-india",
   },
   {
-    community: "GDGoC KIIT",
+    organizerId: "gdgoc-kiit",
     slug: "gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india",
   },
   {
-    community: "GDGoC CVR University",
+    organizerId: "gdgoc-cvr",
     slug: "gdg-on-campus-c-v-raman-global-university-bhubaneswar-india",
   },
   {
-    community: "GDGoC IIIT Bhubaneswar",
-    slug: "gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india",
-  },
-  {
-    community: "GDGoC ITER SOA",
+    organizerId: "gdgoc-iter-soa",
     slug: "gdg-on-campus-institute-of-technical-education-research-bhubaneswar-india",
   },
 ];
+
+export const CHAPTERS: readonly EventChapter[] = chapterDefinitions.map((chapter) => ({
+  ...chapter,
+  community: getOrganizerById(chapter.organizerId).canonicalName,
+}));
 
 function mapEventType(title: string): EventType {
   const t = title.toLowerCase();
@@ -79,8 +88,13 @@ function formatHumanDate(isoStr: string): string {
   }
 }
 
-export async function fetchChapterEvents(community: string, slug: string): Promise<Event[]> {
+export async function fetchChapterEvents(
+  organizerIdentity: string,
+  slug: string,
+): Promise<Event[]> {
   try {
+    const organizer = resolveOrganizer(organizerIdentity);
+    const community = organizer?.canonicalName ?? organizerIdentity;
     const response = await fetchWithTimeout(`https://gdg.community.dev/${slug}/`, {
       headers: {
         "User-Agent":
@@ -125,6 +139,7 @@ export async function fetchChapterEvents(community: string, slug: string): Promi
           url: item.url,
           type: mapEventType(item.event_type_title || "Talk"),
           community,
+          ...(organizer ? { organizerId: organizer.id } : {}),
           startDate: startStr,
           endDate: startStr,
           description: item.description_short || item.description || "",
@@ -143,7 +158,7 @@ export const Route = createFileRoute("/api/events")({
       GET: async ({ request }: { request: Request }) => {
         try {
           const results = await Promise.allSettled(
-            CHAPTERS.map((ch) => fetchChapterEvents(ch.community, ch.slug)),
+            CHAPTERS.map((ch) => fetchChapterEvents(ch.organizerId ?? ch.community, ch.slug)),
           );
           const allEvents = dedupeEventsByUrl(settledValues(results).flat());
 

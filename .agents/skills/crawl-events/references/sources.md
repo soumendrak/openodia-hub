@@ -123,9 +123,13 @@ propose them in the PR description before adding them here.
 
 ## Adding a new community
 
-1. Create `src/data/events/<slug>.ts` using any existing file as a template.
-2. Add an import and entry to `src/data/events/index.ts` `sources` array.
-3. Add a row to this file under the appropriate section, including the data-file path.
-4. For a gdg.community.dev chapter, also add it to `SOURCES` in `scripts/crawl-events.mjs`.
+1. Follow `docs/organizers.md`: a maintainer must confirm the identity and official destination,
+   then add it to `src/data/organizers.ts`. A research candidate is not automatically publishable.
+2. Create `src/data/events/<slug>.ts` using any existing file as a template.
+3. Add an import and organizer-ID entry to `src/data/events/index.ts` `sources` array.
+4. Add a row to this file under the appropriate section, including the data-file path.
+5. For a gdg.community.dev chapter, add only its adapter details to `SOURCES` in
+   `scripts/crawl-events.mjs`; identity and official URLs come from the organizer registry.
 
-`test/event-source-registry.test.ts` fails if any of steps 2–4 is missed.
+`test/event-source-registry.test.ts` fails if the registry, data-file, documentation, or adapter
+wiring is missed.

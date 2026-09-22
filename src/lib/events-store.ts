@@ -11,6 +11,7 @@ import { CHAPTERS, fetchChapterEvents } from "../routes/api/events";
 import { settledValues } from "./fetch-utils";
 import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
+import { resolveOrganizerId } from "../data/organizers";
 
 type D1PreparedStatement = {
   bind: (...values: unknown[]) => D1PreparedStatement;
@@ -59,7 +60,7 @@ ORDER BY start_date DESC
 
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
   const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEvents(c.community, c.slug)),
+    CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
   );
   const events = dedupeEventsByUrl(settledValues(settled).flat());
 
@@ -102,17 +103,21 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
 export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
   const result = await db.prepare(SELECT_ACTIVE_SQL).all<Row>();
   return dedupeEventsByUrl(
-    result.results.map((r) => ({
-      url: r.url,
-      title: r.title,
-      community: r.community,
-      type: r.type as Event["type"],
-      year: r.start_date.split("-")[0],
-      date: r.start_date,
-      startDate: r.start_date,
-      endDate: r.end_date ?? undefined,
-      description: r.description ?? "",
-      location: r.location ?? undefined,
-    })),
+    result.results.map((r) => {
+      const organizerId = resolveOrganizerId(r.community);
+      return {
+        url: r.url,
+        title: r.title,
+        community: r.community,
+        ...(organizerId ? { organizerId } : {}),
+        type: r.type as Event["type"],
+        year: r.start_date.split("-")[0],
+        date: r.start_date,
+        startDate: r.start_date,
+        endDate: r.end_date ?? undefined,
+        description: r.description ?? "",
+        location: r.location ?? undefined,
+      };
+    }),
   );
 }
