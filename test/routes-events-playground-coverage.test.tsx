@@ -25,7 +25,7 @@ const infiniteHarness = vi.hoisted(() => ({
 }));
 
 const routeHarness = vi.hoisted(() => ({
-  search: {} as { q?: string },
+  search: {} as { q?: string; community?: string; type?: Event["type"] },
   navigate: vi.fn(),
 }));
 
@@ -42,6 +42,7 @@ vi.mock("@tanstack/react-router", () => ({
     useSearch: () => routeHarness.search,
     useNavigate: () => routeHarness.navigate,
   }),
+  Link: ({ children, ...props }: { children?: ReactNode }) => <a {...props}>{children}</a>,
 }));
 
 vi.mock("@tanstack/react-query", () => ({
@@ -120,7 +121,8 @@ const PAST_2020: Event[] = [
     title: "Alpha Talk",
     url: "https://example.com/e1",
     type: "Talk",
-    community: "Comm A",
+    community: "GDG Bhubaneswar",
+    organizerId: "gdg-bhubaneswar",
     description: "Alpha description",
   },
   {
@@ -129,7 +131,8 @@ const PAST_2020: Event[] = [
     title: "Beta Workshop",
     url: "https://example.com/e2",
     type: "Workshop",
-    community: "Comm B",
+    community: "OdiaGenAI",
+    organizerId: "odiagenai",
     description: "Beta description",
   },
   {
@@ -138,7 +141,8 @@ const PAST_2020: Event[] = [
     title: "Gamma Conference",
     url: "https://example.com/e3",
     type: "Conference",
-    community: "Comm A",
+    community: "GDG Bhubaneswar",
+    organizerId: "gdg-bhubaneswar",
     description: "Gamma description",
     startDate: "2020-03-05",
     endDate: "2020-03-05",
@@ -149,7 +153,8 @@ const PAST_2020: Event[] = [
     title: "Delta Hackathon",
     url: "https://example.com/e4",
     type: "Hackathon",
-    community: "Comm C",
+    community: "Startup Odisha",
+    organizerId: "startup-odisha",
     description: "Delta description",
   },
 ];
@@ -211,6 +216,9 @@ describe("events.tsx", () => {
       q: hiddenEvent.title,
     });
     expect(EventsRouteAny.options.validateSearch({ q: "x".repeat(81) })).toEqual({});
+    expect(EventsRouteAny.options.validateSearch({ community: "not-an-organizer" })).toEqual({
+      community: "not-an-organizer",
+    });
     routeHarness.search = { q: hiddenEvent.title };
     queryHarness.data = { events: [hiddenEvent] };
     infiniteHarness.data = { pages: [{ events: [], total: 0 }] };
@@ -423,7 +431,7 @@ describe("events.tsx", () => {
   it("filters by search text, type, and community, and clears active filters", () => {
     dataFixture.events = PAST_2020;
     const Component = EventsRouteAny.options.component;
-    render(<Component />);
+    const rendered = render(<Component />);
 
     const searchInput = screen.getByPlaceholderText(/Search events/i);
     fireEvent.change(searchInput, { target: { value: "Alpha" } });
@@ -435,26 +443,42 @@ describe("events.tsx", () => {
     fireEvent.click(clearQueryButton);
     expect(searchInput).toHaveValue("");
 
-    const [communitySelect, typeSelect] = screen.getAllByRole("combobox");
+    const [communitySelect] = screen.getAllByRole("combobox");
 
-    fireEvent.change(communitySelect, { target: { value: "Comm A" } });
+    fireEvent.change(communitySelect, { target: { value: "gdg-bhubaneswar" } });
+    expect(routeHarness.navigate).toHaveBeenCalledWith({
+      search: { community: "gdg-bhubaneswar" },
+      replace: true,
+    });
+    routeHarness.search = { community: "gdg-bhubaneswar" };
+    rendered.rerender(<Component />);
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
     expect(screen.queryByText("Delta Hackathon")).not.toBeInTheDocument();
 
-    fireEvent.change(communitySelect, { target: { value: "" } });
-    fireEvent.change(typeSelect, { target: { value: "Conference" } });
+    routeHarness.search = {};
+    rendered.rerender(<Component />);
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "" } });
+    fireEvent.change(screen.getAllByRole("combobox")[1], { target: { value: "Conference" } });
+    routeHarness.search = { type: "Conference" };
+    rendered.rerender(<Component />);
     expect(screen.getByText("Gamma Conference")).toBeInTheDocument();
     expect(screen.queryByText("Alpha Talk")).not.toBeInTheDocument();
 
-    fireEvent.change(typeSelect, { target: { value: "" } });
+    routeHarness.search = {};
+    rendered.rerender(<Component />);
+    fireEvent.change(screen.getAllByRole("combobox")[1], { target: { value: "" } });
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
 
-    fireEvent.change(communitySelect, { target: { value: "Comm C" } });
+    fireEvent.change(screen.getAllByRole("combobox")[0], { target: { value: "startup-odisha" } });
+    routeHarness.search = { community: "startup-odisha" };
+    rendered.rerender(<Component />);
     expect(screen.getByText("Delta Hackathon")).toBeInTheDocument();
     expect(screen.queryByText("Alpha Talk")).not.toBeInTheDocument();
 
     const clearFiltersButton = screen.getByRole("button", { name: /Clear Filters/i });
     fireEvent.click(clearFiltersButton);
+    routeHarness.search = {};
+    rendered.rerender(<Component />);
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
     expect(screen.getByText("Delta Hackathon")).toBeInTheDocument();
 

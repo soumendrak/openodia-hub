@@ -13,6 +13,7 @@
  */
 
 import type { Event } from "./types";
+import { resolveOrganizerId } from "../organizers";
 export type { Event, EventType } from "./types";
 
 import { odishaaiEvents } from "./odishaai";
@@ -205,7 +206,9 @@ function getISTDateString(): string {
 
 /** All events merged, community-tagged, and dynamically evaluated for status & sorted newest-year-first. */
 export const events: Event[] = sources
-  .flatMap(({ community, events }) => events.map((e) => ({ ...e, community })))
+  .flatMap(({ community, events }) =>
+    events.map((e) => ({ ...e, community, organizerId: resolveOrganizerId(community) })),
+  )
   .map((event) => {
     // 1. Resolve explicit startDate/endDate if present, else parse the date string
     let startStr = event.startDate;

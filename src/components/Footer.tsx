@@ -74,6 +74,11 @@ export function Footer() {
                   <Rss size={13} />
                 </a>
               </li>
+              <li>
+                <Link to="/communities" className="hover:text-foreground">
+                  Communities & organizers
+                </Link>
+              </li>
             </ul>
           </div>
 

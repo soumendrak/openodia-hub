@@ -144,6 +144,9 @@ function Hero() {
           <Link to="/tools" className="button gold-button">
             Explore the collection <span aria-hidden="true">↗</span>
           </Link>
+          <Link to="/communities" className="quiet-link">
+            Meet the community <span aria-hidden="true">→</span>
+          </Link>
           <Link to="/tutorials" className="quiet-link">
             Begin learning <span aria-hidden="true">→</span>
           </Link>

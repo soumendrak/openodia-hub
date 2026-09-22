@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
 import { dedupeEventsByUrl } from "../../lib/event-url";
 import type { Event, EventType } from "../../data/events/types";
+import { resolveOrganizerId } from "../../data/organizers";
 
 type BevyEvent = {
   cohost_registration_url?: string;
@@ -125,6 +126,7 @@ export async function fetchChapterEvents(community: string, slug: string): Promi
           url: item.url,
           type: mapEventType(item.event_type_title || "Talk"),
           community,
+          organizerId: resolveOrganizerId(community),
           startDate: startStr,
           endDate: startStr,
           description: item.description_short || item.description || "",

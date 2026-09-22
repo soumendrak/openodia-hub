@@ -14,6 +14,7 @@ const LINES = [
   "- https://openodia.com/datasets — Live browser of Odia datasets on Hugging Face (parallel corpora, speech, instruction tuning)",
   "- https://openodia.com/tutorials — YouTube tutorials from @openodia and related Odia AI channels",
   "- https://openodia.com/events — Community events: conferences, workshops, hackathons; with RSS feed at /events-feed",
+  "- https://openodia.com/communities — Official destinations for communities and organizers in the curated event collection",
   "- https://openodia.com/papers — Research index for Odia NLP, from OpenAlex and arXiv, tagged by task",
   "- https://openodia.com/treebank — Concordance search over the UD_Odia-ODTB Universal Dependencies treebank",
   "- https://openodia.com/playground — Odia NLP playground: run openodia in the browser via Pyodide",
