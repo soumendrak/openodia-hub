@@ -182,7 +182,7 @@ const EVENTS_CORS = {
 
 async function liveScrapeEvents(): Promise<Event[]> {
   const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEvents(c.community, c.slug)),
+    CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
   );
   return dedupeEventsByUrl(settledValues(settled).flat());
 }

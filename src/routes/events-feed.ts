@@ -114,7 +114,7 @@ export const Route = createFileRoute("/events-feed")({
         try {
           // Fetch dynamic events
           const results = await Promise.allSettled(
-            CHAPTERS.map((ch) => fetchChapterEvents(ch.community, ch.slug)),
+            CHAPTERS.map((ch) => fetchChapterEvents(ch.organizerId ?? ch.community, ch.slug)),
           );
           const fetchedEvents = settledValues(results).flat();
 

@@ -8,6 +8,8 @@ export type Event = {
   type: EventType;
   /** Populated automatically by index.ts — do not set in community data files. */
   community: string;
+  /** Stable organizer identity. Additive: `community` remains the public display field. */
+  organizerId?: import("../organizers").OrganizerId;
   /** Omit for past events; set to "upcoming" or "live" for active events. Will be automatically resolved from dates if not specified. */
   status?: "upcoming" | "live";
   startDate?: string; // Optional precise override YYYY-MM-DD

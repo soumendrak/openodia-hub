@@ -80,6 +80,7 @@ describe("fetchChapterEvents", () => {
     expect(upcoming?.year).toBe("2026");
     expect(upcoming?.type).toBe("Hackathon");
     expect(upcoming?.community).toBe("GDG Bhubaneswar");
+    expect(upcoming?.organizerId).toBe("gdg-bhubaneswar");
     expect(upcoming?.url).toBe("https://gdg.community.dev/events/details/hackathon-2026");
     expect(upcoming?.startDate).toBe("2026-06-25");
     expect(upcoming?.description).toBe("The ultimate GenAI hackathon.");
@@ -91,6 +92,7 @@ describe("fetchChapterEvents", () => {
     // Workshop in Bevy event_type_title matches "Workshop" EventType in our map
     expect(past?.type).toBe("Workshop");
     expect(past?.community).toBe("GDG Bhubaneswar");
+    expect(past?.organizerId).toBe("gdg-bhubaneswar");
     expect(past?.url).toBe("https://gdg.community.dev/events/details/intro-llm-talk");
     expect(past?.startDate).toBe("2026-04-10");
     // description_short is preferred

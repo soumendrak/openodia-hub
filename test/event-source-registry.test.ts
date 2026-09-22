@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { SOURCES } from "../scripts/crawl-events.mjs";
 import { events } from "../src/data/events";
 import { eventUrlKey } from "../src/lib/event-url";
+import { getOrganizerById } from "../src/data/organizers";
 
 // Guards the three places an agent must touch when adding a source, so a
 // half-wired source fails CI instead of silently never rendering or crawling.
@@ -39,6 +40,11 @@ describe("event source registry", () => {
     (_, source) => {
       expect(registry).toContain(source.url);
       if (source.file) expect(existsSync(join(dataDir, source.file))).toBe(true);
+      const organizer = getOrganizerById(source.id);
+      expect(organizer).toBeDefined();
+      expect(organizer?.officialLinks.map((link) => link.url)).toContain(source.url);
+      expect("archiveOnly" in source).toBe(organizer?.collectionMode === "archive-only");
+      expect("partial" in source).toBe(organizer?.collectionMode === "partial");
     },
   );
 });

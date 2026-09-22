@@ -70,7 +70,7 @@ export async function loadLiveSearchEvents(
   chapters: typeof CHAPTERS = CHAPTERS,
 ): Promise<Event[]> {
   const settled = await Promise.allSettled(
-    chapters.map((chapter) => fetcher(chapter.community, chapter.slug)),
+    chapters.map((chapter) => fetcher(chapter.organizerId ?? chapter.community, chapter.slug)),
   );
   return settled.flatMap((outcome) => (outcome.status === "fulfilled" ? outcome.value : []));
 }
