@@ -1,0 +1,141 @@
+name: Submit an event or organizer
+description: Propose an event or organizer record for maintainer review without editing code.
+title: "[Event submission]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping keep the Odia AI event directory accurate. Publication requires maintainer review. A listing is not a promise that registration is open.
+
+        Use the correction form when an existing listing needs to change. Keep the event's canonical/detail page separate from any registration page. Write `Unknown / not stated` when the source does not say.
+  - type: dropdown
+    id: submission_kind
+    attributes:
+      label: What are you submitting?
+      options:
+        - Event
+        - Organizer/community
+    validations:
+      required: true
+  - type: input
+    id: name
+    attributes:
+      label: Event or organizer name
+      placeholder: "Example: Odia AI Developers Meetup"
+    validations:
+      required: true
+  - type: input
+    id: canonical_url
+    attributes:
+      label: Canonical event/detail URL
+      description: The official page that identifies this event. For an organizer-only submission, write `Not applicable`.
+      placeholder: "https://example.org/events/odia-ai-meetup"
+    validations:
+      required: true
+  - type: input
+    id: registration_url
+    attributes:
+      label: Registration URL
+      description: Keep this separate from the canonical event page. Write `Unknown / not stated`, `Not open`, or `Not applicable` when appropriate.
+      placeholder: "https://example.org/register"
+    validations:
+      required: true
+  - type: input
+    id: organizer_name
+    attributes:
+      label: Organizer name
+      placeholder: "Example: Odisha AI"
+    validations:
+      required: true
+  - type: input
+    id: organizer_id
+    attributes:
+      label: Existing OpenOdia organizer ID, if known
+      description: Optional. Leave blank when you do not know it; do not invent an ID.
+      placeholder: odisha-ai
+    validations:
+      required: false
+  - type: textarea
+    id: dates
+    attributes:
+      label: Start and end date
+      description: Give the exact ISO dates when stated, or state the source's precision.
+      placeholder: "Start: 2026-05-23\nEnd: Unknown / not stated"
+    validations:
+      required: true
+  - type: dropdown
+    id: date_precision
+    attributes:
+      label: Date precision stated by the source
+      options:
+        - Exact date
+        - Month only
+        - Year only
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Location or online mode
+      placeholder: Bhubaneswar, Odisha / Online / Unknown / not stated
+    validations:
+      required: true
+  - type: dropdown
+    id: event_type
+    attributes:
+      label: Event type
+      options:
+        - Conference
+        - Summit
+        - Workshop
+        - Hackathon
+        - Talk
+        - Research
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Concise description
+      description: Say what the event or organizer is, in one or two factual sentences.
+    validations:
+      required: true
+  - type: dropdown
+    id: attendance
+    attributes:
+      label: Attendance policy stated by the source
+      options:
+        - Public / open to all
+        - Eligibility criteria apply
+        - Approval or selection required
+        - Restricted audience
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: textarea
+    id: registration_evidence
+    attributes:
+      label: Registration evidence
+      description: State the registration status, fee, deadline, capacity, and eligibility only when the source states each one. Use `Unknown / not stated` for every unknown value.
+      placeholder: "Status: Unknown / not stated\nFee: Unknown / not stated\nDeadline: Unknown / not stated\nCapacity / eligibility: Unknown / not stated"
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and date checked
+      description: Link the official page or other evidence and state when you checked it.
+      placeholder: "Evidence: https://example.org/events/odia-ai-meetup\nChecked: 2026-09-22"
+    validations:
+      required: true
+  - type: checkboxes
+    id: review_acknowledgement
+    attributes:
+      label: Review acknowledgement
+      options:
+        - label: I understand that a maintainer verifies this submission before publication, and that a listing does not imply open registration.
+          required: true

@@ -40,7 +40,7 @@ The broader coverage backlog is in [docs/test-coverage-plan.md](docs/test-covera
 - **Project submissions:** send a PR to [Awesome-Odia-AI](https://github.com/odisha-ml/Awesome-Odia-AI) or open a hub issue using the template on `/contribute`.
 - **Playground:** improve reproducible Python examples, Odialang examples, and transliteration explanations.
 - **Research:** improve paper discovery and treebank search.
-- **Events and tutorials:** correct source links, community history, and channel metadata in `src/data/`.
+- **Events and tutorials:** correct source links, community history, and channel metadata in `src/data/`. Non-code contributors can use the [event or organizer submission form](https://github.com/soumendrak/openodia-hub/issues/new?template=event-or-organizer-submission.yml) or the [event correction form](https://github.com/soumendrak/openodia-hub/issues/new?template=event-correction.yml).
 - **UI and accessibility:** keyboard navigation, responsive layouts, Odia translations, and readable typography.
 
 ## Adding Events or Communities
@@ -55,6 +55,31 @@ The daily GitHub workflow proposes changes for review; the Worker sync runs ever
 Check the organiser's page before adding a record. Keep date, location, and registration
 claims grounded in that source; an event being listed does not imply registration is open.
 Avoid duplicate URLs, including tracking-parameter variants.
+
+### Submitting without code or correcting a listing
+
+Use the structured GitHub forms when you are an organizer or attendee and do not want to edit
+TypeScript:
+
+- [Submit an event or organizer](https://github.com/soumendrak/openodia-hub/issues/new?template=event-or-organizer-submission.yml) collects a canonical event/detail URL separately from any registration URL, organizer name (and its existing ID only when known), date precision, location, type, attendance evidence, and the source checked date.
+- [Correct an event or organizer listing](https://github.com/soumendrak/openodia-hub/issues/new?template=event-correction.yml) is for changed dates, postponements, cancellations, organizer identity, URLs, or attendance and registration evidence.
+
+Use `Unknown / not stated` whenever an official source does not provide a value. In particular,
+do not infer that a fee is free or that a listing means registration is open. Maintainers review
+evidence before publication; issue-form input is not a publishing mechanism or the sole
+validation gate.
+
+For a complete event submission, include its official canonical/detail page, registration page
+if one is stated, organizer name, start/end dates and their precision, location or online mode,
+event type, concise description, attendance policy evidence, and the date you checked the source.
+For a new organizer, include its official page and aliases only when sourced. Do not invent an
+organizer ID: the stable registry is maintained separately, and an existing ID is optional until
+it is known.
+
+The code route remains the right choice for checked-in history, a substantial data correction,
+or a source-adapter change. Crawler-created pull requests remain the automated review route for
+supported sources. A new crawler adapter is engineering work: it needs source-specific parsing,
+validation, tests, and maintainer review; an issue submission does not create one automatically.
 
 ### 1. How to add an Event to an existing Community
 

@@ -217,6 +217,14 @@ describe("events.tsx", () => {
     const Component = EventsRouteAny.options.component;
     render(<Component />);
 
+    expect(screen.getByRole("link", { name: "Submit event or organizer" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("event-or-organizer-submission.yml"),
+    );
+    expect(screen.getByRole("link", { name: "Correct a listing" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("event-correction.yml"),
+    );
     expect(screen.getByPlaceholderText("Search events… [/]")).toHaveValue(hiddenEvent.title);
     expect(screen.getByText(hiddenEvent.title)).toBeInTheDocument();
     expect(queryHarness.lastOptions?.enabled).toBe(true);

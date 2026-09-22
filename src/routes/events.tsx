@@ -12,6 +12,11 @@ import { pageHead } from "../lib/seo";
 import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 import { normalizeSearch } from "../lib/search";
 
+const EVENT_SUBMISSION =
+  "https://github.com/soumendrak/openodia-hub/issues/new?template=event-or-organizer-submission.yml";
+const EVENT_CORRECTION =
+  "https://github.com/soumendrak/openodia-hub/issues/new?template=event-correction.yml";
+
 export const Route = createFileRoute("/events")({
   validateSearch: (search: Record<string, unknown>): { q?: string } =>
     typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
@@ -552,6 +557,39 @@ function EventsPage() {
           </a>
           .
         </p>
+      </Reveal>
+
+      <Reveal delay={0.03}>
+        <aside
+          aria-label="Event listing contributions"
+          className="mt-8 flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0">
+            <h2 className="font-display text-lg font-semibold">Know an event or a correction?</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Submit source-backed details for review. A listing does not imply registration is
+              open.
+            </p>
+          </div>
+          <div className="flex shrink-0 flex-wrap gap-3">
+            <a
+              href={EVENT_SUBMISSION}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-neon/40 bg-neon/5 px-4 py-2 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/10"
+            >
+              Submit event or organizer
+            </a>
+            <a
+              href={EVENT_CORRECTION}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition hover:border-neon/40"
+            >
+              Correct a listing
+            </a>
+          </div>
+        </aside>
       </Reveal>
 
       <div className="mt-10">
