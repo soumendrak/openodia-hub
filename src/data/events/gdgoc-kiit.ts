@@ -11,6 +11,18 @@ export const gdgocKiitEvents: Omit<Event, "community">[] = [
   // auto-crawled
   {
     year: "2026",
+    date: "10 Oct 2026",
+    title: "Darted Pixels",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-darted-pixels/",
+    type: "Workshop",
+    location: "KIIT School of Computer Science and Engineering (New Block) Campus -25",
+    startDate: "2026-10-10",
+    endDate: "2026-10-10",
+    description: "Darted Pixels invites you to explore Dart and Flutter in a hands-on workshop. Discover cross-platform app development as you modify the classic Flappy Bird game, gaining practical skills in game logic, collision detection, scoring, and UI customization. Perfect for budding developers eager to build versatile applications.",
+  },
+  // auto-crawled
+  {
+    year: "2026",
     date: "8–9 Aug 2026",
     title: "Deploy or [REDACTED]",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-deploy-or-redacted/",

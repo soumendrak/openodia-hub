@@ -8,6 +8,17 @@
 import type { Event } from "./types";
 
 export const gdgocCvrEvents: Omit<Event, "community">[] = [
+  // auto-crawled
+  {
+    year: "2026",
+    date: "1–31 Oct 2026",
+    title: "☁️ Google Cloud Study Jams is here!",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-c-v-raman-global-university-bhubaneswar-india-presents-google-cloud-study-jams-is-here/",
+    type: "Workshop",
+    startDate: "2026-10-01",
+    endDate: "2026-10-31",
+    description: "Join Google Cloud Study Jams to build cloud skills, earn Google Cloud skill badges, and unlock exclusive swag. Limited seats!",
+  },
   {
     year: "2026",
     date: "11 Jun – 1 Jul 2026",
