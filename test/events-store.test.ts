@@ -234,7 +234,7 @@ describe("event persistence URL deduplication", () => {
 type StoredRow = { id: string; community: string; source: string; is_active: number };
 
 // Applies the upsert and retirement statements to in-memory rows. Retirement
-// binds two JSON arrays: the communities in scope, then the seen IDs.
+// binds two JSON arrays: the communities to leave alone, then the seen IDs.
 function inMemoryD1(rows: StoredRow[]): D1Like {
   return {
     prepare(sql) {
@@ -251,10 +251,10 @@ function inMemoryD1(rows: StoredRow[]): D1Like {
             if (row) Object.assign(row, { community, is_active: 1 });
             else rows.push({ id, community, source: "bevy", is_active: 1 });
           } else if (sql.includes("UPDATE events SET is_active = 0")) {
-            const [communities, seenIds] = values.map((v) => JSON.parse(v as string) as string[]);
+            const [kept, seenIds] = values.map((v) => JSON.parse(v as string) as string[]);
             for (const r of rows) {
               if (r.source !== "bevy" || seenIds.includes(r.id)) continue;
-              if (communities.includes(r.community)) r.is_active = 0;
+              if (!kept.includes(r.community)) r.is_active = 0;
             }
           } else {
             throw new Error(`unexpected SQL: ${sql}`);
@@ -309,6 +309,8 @@ describe("event persistence with mixed source outcomes", () => {
       row("https://gdg.community.dev/events/details/kiit-2", "GDGoC KIIT"),
       row("https://gdg.community.dev/events/details/cvr-1", "GDGoC CVR University"),
       row("https://example.com/static-event", "GDGoC KIIT", "static"),
+      // A chapter that is no longer in CHAPTERS (removed in 7524ff0).
+      row("https://gdg.community.dev/events/details/iiit-old", "GDGoC IIIT Bhubaneswar"),
     ];
 
     await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
@@ -323,6 +325,8 @@ describe("event persistence with mixed source outcomes", () => {
       [eventUrlKey("https://gdg.community.dev/events/details/kiit-2")]: 1,
       [eventUrlKey("https://gdg.community.dev/events/details/cvr-1")]: 1,
       [eventUrlKey("https://example.com/static-event")]: 1,
+      // A removed chapter's rows still retire, as before this change.
+      [eventUrlKey("https://gdg.community.dev/events/details/iiit-old")]: 0,
     });
   });
 
