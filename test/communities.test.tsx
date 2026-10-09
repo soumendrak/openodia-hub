@@ -42,13 +42,17 @@ function kindChip(name: string): HTMLElement {
 }
 
 describe("organizer directory search", () => {
-  it("keeps valid URL params and drops blank, oversized, and unknown ones", () => {
+  it("keeps valid URL params, trims then caps q, and drops unsearchable or unknown ones", () => {
     expect(validateDirectorySearch({ q: "gdg", kind: "institution" })).toEqual({
       q: "gdg",
       kind: "institution",
     });
     expect(validateDirectorySearch({ q: "   ", kind: "not-a-kind" })).toEqual({});
-    expect(validateDirectorySearch({ q: "x".repeat(81), kind: 3 })).toEqual({});
+    expect(validateDirectorySearch({ q: "!!!" })).toEqual({});
+    expect(validateDirectorySearch({ q: " kiit " })).toEqual({ q: "kiit" });
+    expect(validateDirectorySearch({ q: "x".repeat(120), kind: 3 })).toEqual({ q: "x".repeat(80) });
+    expect(validateDirectorySearch({ q: `  ${"x".repeat(79)}` })).toEqual({ q: "x".repeat(79) });
+    expect(validateDirectorySearch({ q: 2024 })).toEqual({ q: "2024" });
   });
 
   it("matches canonical names, aliases, regions, descriptions, and kind labels", () => {
@@ -154,29 +158,46 @@ describe("/communities route", () => {
     expect(screen.getByRole("searchbox")).toHaveValue("");
   });
 
-  it("bounds the query and clears it from the URL", async () => {
+  it("bounds the query, clears it from the URL, and refocuses the input", async () => {
     const router = await renderAt("/communities?q=gdg");
     await act(async () => {
       fireEvent.change(screen.getByRole("searchbox"), { target: { value: "g".repeat(120) } });
     });
     expect(router.state.location.search).toEqual({ q: "g".repeat(80) });
+    expect(screen.getByRole("searchbox")).toHaveValue("g".repeat(80));
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
     });
     expect(router.state.location.search).toEqual({});
+    expect(screen.getByRole("searchbox")).toHaveFocus();
   });
 
-  it("treats a whitespace-only query as no filter in both the input and the URL", async () => {
-    const router = await renderAt("/communities");
-    await act(async () => {
-      fireEvent.change(screen.getByRole("searchbox"), { target: { value: "   " } });
-    });
-    expect(router.state.location.search).toEqual({});
-    expect(screen.getByRole("searchbox")).toHaveValue("");
-    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
-    expect(screen.getByText(`${ORGANIZERS.length} organizers listed`)).toBeInTheDocument();
+  it.each([
+    ["punctuation-only ?q=!!!", "?q=!!!", "", ORGANIZERS.length],
+    ["padded ?q=+kiit+", "?q=+kiit+", "kiit", 1],
+    ["numeric ?q=2024", "?q=2024", "2024", 0],
+    ["a 120-character ?q", `?q=${"g".repeat(120)}`, "g".repeat(80), 0],
+  ])("normalises a %s from the URL like the filter does", async (_, query, value, cards) => {
+    await renderAt(`/communities${query}`);
+    expect(screen.getByRole("searchbox")).toHaveValue(value);
+    expect(cardNames()).toHaveLength(cards);
+    expect(screen.queryByRole("button", { name: "Clear search" }) !== null).toBe(value !== "");
   });
+
+  it.each(["   ", "---"])(
+    "treats a typed %j as no filter in the input and the URL",
+    async (typed) => {
+      const router = await renderAt("/communities");
+      await act(async () => {
+        fireEvent.change(screen.getByRole("searchbox"), { target: { value: typed } });
+      });
+      expect(router.state.location.search).toEqual({});
+      expect(screen.getByRole("searchbox")).toHaveValue("");
+      expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+      expect(screen.getByText(`${ORGANIZERS.length} organizers listed`)).toBeInTheDocument();
+    },
+  );
 
   it("shows an empty state whose reset clears every filter", async () => {
     const router = await renderAt("/communities?q=kiit&kind=government");

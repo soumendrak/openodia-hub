@@ -5,6 +5,7 @@ import { Chip } from "../components/Facets";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 import { pageHead } from "../lib/seo";
+import { normalizeSearch } from "../lib/search";
 import { ORGANIZER_KINDS, type PublishedOrganizer } from "../data/organizers";
 import {
   COLLECTION_LABELS,
@@ -39,9 +40,9 @@ function CommunitiesPage() {
   const update = (patch: DirectorySearch) =>
     navigate({ search: (prev) => validateDirectorySearch({ ...prev, ...patch }), replace: true });
   const setQuery = (next: string) => {
-    const bounded = next.slice(0, MAX_DIRECTORY_QUERY);
-    // The URL drops a blank query, so keep the input in step with it.
-    const draft = bounded.trim() ? bounded : "";
+    // Same bound as the URL validator; trailing spaces stay so words can be typed.
+    const bounded = next.trimStart().slice(0, MAX_DIRECTORY_QUERY);
+    const draft = normalizeSearch(bounded) !== "" ? bounded : "";
     setDraftQuery(draft);
     void update({ q: draft });
   };
@@ -51,7 +52,8 @@ function CommunitiesPage() {
   };
 
   const organizers = filterOrganizers({ q: draftQuery, kind: search.kind });
-  const filtered = Boolean(draftQuery || search.kind);
+  const hasQuery = normalizeSearch(draftQuery) !== "";
+  const filtered = hasQuery || Boolean(search.kind);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -85,16 +87,18 @@ function CommunitiesPage() {
             type="search"
             aria-label="Search communities and organizers"
             placeholder="Search names, regions, kinds… [/]"
-            maxLength={MAX_DIRECTORY_QUERY}
             value={draftQuery}
             onChange={(e) => setQuery(e.target.value)}
             className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
           />
-          {draftQuery && (
+          {hasQuery && (
             <button
               type="button"
               aria-label="Clear search"
-              onClick={() => setQuery("")}
+              onClick={() => {
+                setQuery("");
+                searchInputRef.current?.focus();
+              }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
               <X size={14} />

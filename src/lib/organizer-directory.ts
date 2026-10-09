@@ -33,16 +33,24 @@ function isKind(value: unknown): value is OrganizerKind {
 }
 
 /**
- * Drops empty, oversized, and unknown values so a bad link falls back to the
- * full directory. Keys stay present as `undefined` so the router does not fall
- * back to the raw, unvalidated value.
+ * Trims, then caps at MAX_DIRECTORY_QUERY. A query with nothing searchable
+ * (blank, or only punctuation such as "!!!") is dropped, using the same
+ * normalisation the filter matches with. The router parses `?q=2024` as a
+ * number, so numbers are read as text.
+ */
+export function boundDirectoryQuery(value: unknown): string | undefined {
+  if (typeof value !== "string" && typeof value !== "number") return undefined;
+  const q = String(value).trim().slice(0, MAX_DIRECTORY_QUERY);
+  return normalizeSearch(q) !== "" ? q : undefined;
+}
+
+/**
+ * Drops unknown values so a bad link falls back to the full directory. Keys
+ * stay present as `undefined` so the router does not fall back to the raw,
+ * unvalidated value.
  */
 export function validateDirectorySearch(search: Record<string, unknown>): DirectorySearch {
-  const q =
-    typeof search.q === "string" && search.q.trim() && search.q.length <= MAX_DIRECTORY_QUERY
-      ? search.q
-      : undefined;
-  return { q, kind: isKind(search.kind) ? search.kind : undefined };
+  return { q: boundDirectoryQuery(search.q), kind: isKind(search.kind) ? search.kind : undefined };
 }
 
 export function filterOrganizers(
