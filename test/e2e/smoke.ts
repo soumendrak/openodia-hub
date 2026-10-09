@@ -11,6 +11,9 @@ export function smokeRoute(path: string, heading: string | RegExp, status = 200)
     expect(response?.status()).toBe(status);
     await expect(page.locator("h1")).toHaveText(heading);
     await expect(page).toHaveTitle(/\S/);
+    // The <h1> is already in the SSR HTML; let hydration and its client requests settle
+    // so errors thrown after they resolve are caught too.
+    await page.waitForLoadState("networkidle");
     expect(errors).toEqual([]);
   });
 }
