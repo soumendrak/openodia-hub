@@ -33,7 +33,7 @@ type Row = {
   location: string | null;
 };
 
-const UPSERT_SQL = `
+export const UPSERT_SQL = `
 INSERT INTO events (id, url, title, community, type, start_date, end_date, description, location, source)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'bevy')
 ON CONFLICT(id) DO UPDATE SET
@@ -48,7 +48,7 @@ ON CONFLICT(id) DO UPDATE SET
   is_active = 1
 `;
 
-const RETIRE_SQL = `
+export const RETIRE_SQL = `
 UPDATE events SET is_active = 0
 WHERE source = 'bevy'
   AND community NOT IN (SELECT value FROM json_each(?))
