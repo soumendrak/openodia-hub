@@ -7,8 +7,7 @@
  * back to a live Bevy scrape so the page never goes blank.
  */
 
-import { CHAPTERS, fetchChapterEventsOrThrow } from "../routes/api/events";
-import { settledValues } from "./fetch-utils";
+import { CHAPTERS, fetchChapterSnapshot } from "../routes/api/events";
 import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
 import { resolveOrganizerId } from "../data/organizers";
@@ -48,10 +47,13 @@ ON CONFLICT(id) DO UPDATE SET
   is_active = 1
 `;
 
+// Binds: communities to leave alone, communities whose past list was
+// truncated (only their upcoming rows may retire), then the seen IDs.
 export const RETIRE_SQL = `
 UPDATE events SET is_active = 0
 WHERE source = 'bevy'
   AND community NOT IN (SELECT value FROM json_each(?))
+  AND (community NOT IN (SELECT value FROM json_each(?)) OR start_date >= date('now'))
   AND id NOT IN (SELECT value FROM json_each(?))
 `;
 
@@ -67,18 +69,31 @@ ORDER BY start_date DESC
 
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
   const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEventsOrThrow(c.organizerId ?? c.community, c.slug)),
+    CHAPTERS.map((c) => fetchChapterSnapshot(c.organizerId ?? c.community, c.slug)),
   );
-  // A chapter that failed, or returned entries sync cannot store (no URL or
-  // start date, e.g. a renamed field), is not an authoritative snapshot.
-  const keptCommunities = CHAPTERS.filter((_, i) => {
+  // A chapter that failed, returned entries sync cannot store (no URL or start
+  // date, e.g. a renamed field), or has a truncated upcoming list is not an
+  // authoritative snapshot. A chapter whose past list is truncated (Bevy shows
+  // 4 of N) may only retire upcoming rows.
+  const keptCommunities: string[] = [];
+  const upcomingOnlyCommunities: string[] = [];
+  const events: Event[] = [];
+  CHAPTERS.forEach((chapter, i) => {
     const result = settled[i];
-    return result.status === "rejected" || result.value.some((e) => !e.url || !e.startDate);
-  }).map((c) => c.community);
-  const events = dedupeEventsByUrl(settledValues(settled).flat());
+    if (result.status === "fulfilled") events.push(...result.value.events);
+    if (
+      result.status === "rejected" ||
+      !result.value.upcomingComplete ||
+      result.value.events.some((e) => !e.url || !e.startDate)
+    ) {
+      keptCommunities.push(chapter.community);
+    } else if (!result.value.pastComplete) {
+      upcomingOnlyCommunities.push(chapter.community);
+    }
+  });
 
   const seenIds: string[] = [];
-  for (const e of events) {
+  for (const e of dedupeEventsByUrl(events)) {
     if (!e.url || !e.startDate) continue;
     const id = eventUrlKey(e.url);
     seenIds.push(id);
@@ -108,7 +123,11 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   if (seenIds.length > 0) {
     await db
       .prepare(RETIRE_SQL)
-      .bind(JSON.stringify(keptCommunities), JSON.stringify(seenIds))
+      .bind(
+        JSON.stringify(keptCommunities),
+        JSON.stringify(upcomingOnlyCommunities),
+        JSON.stringify(seenIds),
+      )
       .run();
   }
 

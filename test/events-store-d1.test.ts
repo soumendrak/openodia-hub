@@ -134,6 +134,50 @@ describe("syncEventsToD1 against a real D1", () => {
     expect(await activeBySlug()).toMatchObject({ "kiit-1": 1, "bbsr-gone": 0 });
   });
 
+  it.each([
+    ["count exceeds the results", { count: 87 }],
+    ["a next page is linked", { next: "http://testserver/api/event_slim/?page=2" }],
+  ])("retires only upcoming rows when the past list is truncated (%s)", async (_, extra) => {
+    serve({
+      [BBSR]: lists(list([ev("bbsr-next", "2099-01-01")]), list([ev("bbsr-recent")], extra)),
+    });
+    await seed([
+      ["bbsr-next", "GDG Bhubaneswar", "2099-01-01"],
+      ["bbsr-recent", "GDG Bhubaneswar"],
+      ["bbsr-older-past", "GDG Bhubaneswar", "2024-03-01"],
+      ["bbsr-cancelled", "GDG Bhubaneswar", "2099-02-01"],
+    ]);
+
+    await syncEventsToD1(db);
+    expect(await activeBySlug()).toEqual({
+      "bbsr-next": 1,
+      "bbsr-recent": 1,
+      "bbsr-older-past": 1,
+      "bbsr-cancelled": 0,
+    });
+  });
+
+  it.each([
+    ["both lists count 0 (a real zero)", lists(), { past: 0, upcoming: 0 }],
+    [
+      "the upcoming list has no count",
+      lists(list([], { count: undefined })),
+      { past: 1, upcoming: 1 },
+    ],
+    ["the upcoming list counts 3", lists(list([], { count: 3 })), { past: 1, upcoming: 1 }],
+    ["the past list counts 5", lists(list(), list([], { count: 5 })), { past: 1, upcoming: 0 }],
+  ])("an empty KIIT page where %s", async (_, kiitPage, expected) => {
+    serve({ [BBSR]: lists(list([ev("bbsr-listed")])), [KIIT]: kiitPage });
+    await seed([
+      ["kiit-past", "GDGoC KIIT"],
+      ["kiit-upcoming", "GDGoC KIIT", "2099-01-01"],
+    ]);
+
+    await syncEventsToD1(db);
+    const active = await activeBySlug();
+    expect({ past: active["kiit-past"], upcoming: active["kiit-upcoming"] }).toEqual(expected);
+  });
+
   it("retires correctly when more than 100 event IDs were seen", async () => {
     const many = Array.from({ length: 150 }, (_, i) => ev(`bulk-${i}`));
     serve({ [BBSR]: lists(list(), list(many)) });
