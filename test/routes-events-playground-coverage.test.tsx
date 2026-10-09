@@ -831,11 +831,12 @@ describe("api/events.ts", () => {
     expect(consoleErrorSpy).toHaveBeenCalledWith("Live events ingestion error:", expect.any(Error));
   });
 
-  it("falls back to empty upcoming results and a default event type when Bevy data omits them", async () => {
+  it("falls back to a default event type when Bevy data omits it", async () => {
     const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
         pageProps: {
           prerenderData: {
+            upcomingEvents: { results: [] },
             pastEvents: {
               results: [
                 {

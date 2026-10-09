@@ -118,10 +118,18 @@ export async function fetchChapterEventsOrThrow(
       throw new Error(`No prerender data found for slug: ${slug}`);
     }
 
-    const upcomingResults: BevyEvent[] = pageProps.prerenderData.upcomingEvents?.results || [];
-    const pastResults: BevyEvent[] = pageProps.prerenderData.pastEvents?.results || [];
+    // Both collections must be present: a renamed or missing list is a page-shape
+    // change, not a chapter with no events, so it must not count as success.
+    const collections: BevyEvent[][] = [];
+    for (const key of ["upcomingEvents", "pastEvents"] as const) {
+      const results = pageProps.prerenderData[key]?.results;
+      if (!Array.isArray(results)) {
+        throw new Error(`prerenderData.${key}.results missing for slug: ${slug}`);
+      }
+      collections.push(results);
+    }
 
-    const rawEvents = [...upcomingResults, ...pastResults];
+    const rawEvents = collections.flat();
 
     return dedupeEventsByUrl(
       rawEvents.map((item) => {
