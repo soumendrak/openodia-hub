@@ -282,7 +282,11 @@ describe("event persistence with mixed source outcomes", () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     const listed = "https://gdg.community.dev/events/details/bbsr-listed";
     const emptyPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
-      props: { pageProps: { prerenderData: { upcomingEvents: { results: [] } } } },
+      props: {
+        pageProps: {
+          prerenderData: { upcomingEvents: { results: [] }, pastEvents: { results: [] } },
+        },
+      },
     })}</script>`;
     globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
@@ -322,5 +326,27 @@ describe("event persistence with mixed source outcomes", () => {
       [eventUrlKey("https://gdg.community.dev/events/details/cvr-1")]: 1,
       [eventUrlKey("https://example.com/static-event")]: 1,
     });
+  });
+
+  it("does not treat a page without its event lists as a successful empty chapter", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const listed = "https://gdg.community.dev/events/details/bbsr-listed";
+    // prerenderData is present but both result lists were renamed upstream.
+    const reshapedPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { prerenderData: { upcoming: [], past: [] } } },
+    })}</script>`;
+    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
+      const html = String(input).endsWith("/gdg-bhubaneswar/") ? eventPage(listed) : reshapedPage;
+      return { ok: true, status: 200, text: async () => html } as Response;
+    }) as typeof fetch;
+
+    const kiit = "https://gdg.community.dev/events/details/kiit-1";
+    const rows: StoredRow[] = [
+      { id: eventUrlKey(listed), community: "GDG Bhubaneswar", source: "bevy", is_active: 1 },
+      { id: eventUrlKey(kiit), community: "GDGoC KIIT", source: "bevy", is_active: 1 },
+    ];
+
+    await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
+    expect(rows.map((r) => r.is_active)).toEqual([1, 1]);
   });
 });
