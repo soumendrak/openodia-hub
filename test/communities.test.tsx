@@ -53,6 +53,8 @@ describe("organizer directory search", () => {
     expect(validateDirectorySearch({ q: "x".repeat(120), kind: 3 })).toEqual({ q: "x".repeat(80) });
     expect(validateDirectorySearch({ q: `  ${"x".repeat(79)}` })).toEqual({ q: "x".repeat(79) });
     expect(validateDirectorySearch({ q: 2024 })).toEqual({ q: "2024" });
+    expect(validateDirectorySearch({ q: false })).toEqual({ q: "false" });
+    expect(validateDirectorySearch({ q: ["kiit"] })).toEqual({});
   });
 
   it("matches canonical names, aliases, regions, descriptions, and kind labels", () => {
@@ -177,6 +179,7 @@ describe("/communities route", () => {
     ["punctuation-only ?q=!!!", "?q=!!!", "", ORGANIZERS.length],
     ["padded ?q=+kiit+", "?q=+kiit+", "kiit", 1],
     ["numeric ?q=2024", "?q=2024", "2024", 0],
+    ["boolean-looking ?q=true", "?q=true", "true", 0],
     ["a 120-character ?q", `?q=${"g".repeat(120)}`, "g".repeat(80), 0],
   ])("normalises a %s from the URL like the filter does", async (_, query, value, cards) => {
     await renderAt(`/communities${query}`);
