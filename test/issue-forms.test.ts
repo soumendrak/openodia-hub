@@ -8,7 +8,12 @@ import { ISSUE_FORMS, issueFormUrl } from "../src/lib/issue-forms";
 type Element = {
   type: string;
   id?: string;
-  attributes: { label?: string; value?: string; options?: (string | { label: string })[] };
+  attributes: {
+    label?: string;
+    value?: string;
+    default?: number;
+    options?: (string | { label: string })[];
+  };
   validations?: { required?: boolean };
 };
 type Form = { name: string; description: string; title: string; labels: string[]; body: Element[] };
@@ -67,16 +72,18 @@ describe("event submission issue form", () => {
   });
 
   it("collects every Event field, with the event and registration URLs kept separate", () => {
-    for (const id of ["organizer_name", "end_date", "location", "attendance_evidence"]) {
-      expect(field(id)).toBeDefined();
-    }
+    for (const id of ["end_date", "location"]) expect(field(id)).toBeDefined();
     for (const id of [
       "title",
       "event_url",
       "organizer",
+      // Required so a "Not listed yet" organizer is still named.
+      "organizer_name",
       "event_type",
       "start_date",
       "description",
+      // Event.attendance.note is required alongside the policy.
+      "attendance_evidence",
     ]) {
       expect(required(id)).toBe(true);
     }
@@ -89,7 +96,10 @@ describe("event submission issue form", () => {
   });
 
   it("defaults registration and fee to unknown and accepts unknown precision and format", () => {
-    for (const id of ["registration", "fee"]) expect(options(id)[0]).toBe(UNKNOWN);
+    for (const id of ["registration", "fee"]) {
+      // A dropdown preselects nothing unless `default` names an option index.
+      expect(options(id)[field(id).attributes.default!]).toBe(UNKNOWN);
+    }
     for (const id of ["date_precision", "mode"]) expect(options(id)).toContain(UNKNOWN);
   });
 

@@ -67,8 +67,10 @@ body:
   - type: input
     id: organizer_name
     attributes:
-      label: Organizer name, if not listed
-      description: The organizer's own name for itself.
+      label: Organizer name
+      description: The organizer's own name for itself. Required even if you picked it above, so an unlisted organizer is never left unnamed.
+    validations:
+      required: true
   - type: dropdown
     id: event_type
     attributes:
@@ -149,11 +151,14 @@ body:
     id: attendance_evidence
     attributes:
       label: Attendance evidence
-      description: One sentence from the source, e.g. "Open to all students with college ID; 60 seats."
+      description: One sentence from the source, e.g. "Open to all students with college ID; 60 seats." For unknown, write "The source does not say who may attend."
+    validations:
+      required: true
   - type: dropdown
     id: registration
     attributes:
       label: Registration status stated by the source
+      default: 0
       options:
         - Unknown / not stated
         - Open
@@ -167,6 +172,7 @@ body:
     attributes:
       label: Fee stated by the source
       description: Choose Free only if the source says it is free.
+      default: 0
       options:
         - Unknown / not stated
         - Free
