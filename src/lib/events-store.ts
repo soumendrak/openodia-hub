@@ -48,6 +48,13 @@ ON CONFLICT(id) DO UPDATE SET
   is_active = 1
 `;
 
+const RETIRE_SQL = `
+UPDATE events SET is_active = 0
+WHERE source = 'bevy'
+  AND community IN (SELECT value FROM json_each(?))
+  AND id NOT IN (SELECT value FROM json_each(?))
+`;
+
 // Active events + recently-deactivated ones (30-day grace period) so events
 // briefly missing from a single Bevy fetch don't disappear from the site.
 const SELECT_ACTIVE_SQL = `
@@ -91,15 +98,13 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   // Deactivate Bevy events no longer present upstream. Static events are not
   // tracked here, so the WHERE clause scopes to source='bevy'. Only chapters
   // that fetched successfully may retire their rows: a failed fetch is not
-  // evidence that its events are gone.
+  // evidence that its events are gone. Both lists are bound as JSON arrays so
+  // the query stays within D1's 100-bound-parameter limit however many events
+  // were seen.
   if (seenIds.length > 0) {
-    const communities = succeededCommunities.map(() => "?").join(",");
-    const placeholders = seenIds.map(() => "?").join(",");
     await db
-      .prepare(
-        `UPDATE events SET is_active = 0 WHERE source = 'bevy' AND community IN (${communities}) AND id NOT IN (${placeholders})`,
-      )
-      .bind(...succeededCommunities, ...seenIds)
+      .prepare(RETIRE_SQL)
+      .bind(JSON.stringify(succeededCommunities), JSON.stringify(seenIds))
       .run();
   }
 

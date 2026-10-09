@@ -233,8 +233,8 @@ describe("event persistence URL deduplication", () => {
 
 type StoredRow = { id: string; community: string; source: string; is_active: number };
 
-// Applies the upsert and retirement statements to in-memory rows, honouring
-// an optional `community IN (...)` scope ahead of the `id NOT IN (...)` list.
+// Applies the upsert and retirement statements to in-memory rows. Retirement
+// binds two JSON arrays: the communities in scope, then the seen IDs.
 function inMemoryD1(rows: StoredRow[]): D1Like {
   return {
     prepare(sql) {
@@ -250,13 +250,11 @@ function inMemoryD1(rows: StoredRow[]): D1Like {
             const row = rows.find((r) => r.id === id);
             if (row) Object.assign(row, { community, is_active: 1 });
             else rows.push({ id, community, source: "bevy", is_active: 1 });
-          } else if (sql.startsWith("UPDATE events SET is_active = 0")) {
-            const scope = sql.match(/community IN \(([^)]*)\)/)?.[1].match(/\?/g)?.length ?? 0;
-            const communities = values.slice(0, scope);
-            const seenIds = values.slice(scope);
+          } else if (sql.includes("UPDATE events SET is_active = 0")) {
+            const [communities, seenIds] = values.map((v) => JSON.parse(v as string) as string[]);
             for (const r of rows) {
               if (r.source !== "bevy" || seenIds.includes(r.id)) continue;
-              if (scope === 0 || communities.includes(r.community)) r.is_active = 0;
+              if (communities.includes(r.community)) r.is_active = 0;
             }
           } else {
             throw new Error(`unexpected SQL: ${sql}`);
@@ -348,5 +346,48 @@ describe("event persistence with mixed source outcomes", () => {
 
     await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
     expect(rows.map((r) => r.is_active)).toEqual([1, 1]);
+  });
+
+  it("keeps the retirement query within D1's bound-parameter limit for large syncs", async () => {
+    const urls = Array.from(
+      { length: 150 },
+      (_, i) => `https://gdg.community.dev/events/details/bulk-${i}`,
+    );
+    const page = (results: unknown[]) =>
+      `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            prerenderData: { upcomingEvents: { results }, pastEvents: { results: [] } },
+          },
+        },
+      })}</script>`;
+    const bulk = page(urls.map((url) => ({ title: url, start_date: "2026-07-15T18:00:00Z", url })));
+    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
+      const html = String(input).endsWith("/gdg-bhubaneswar/") ? bulk : page([]);
+      return { ok: true, status: 200, text: async () => html } as Response;
+    }) as typeof fetch;
+
+    const gone = "https://gdg.community.dev/events/details/bbsr-gone";
+    const rows: StoredRow[] = [
+      { id: eventUrlKey(gone), community: "GDG Bhubaneswar", source: "bevy", is_active: 1 },
+    ];
+    const db = inMemoryD1(rows);
+    const bindCounts: number[] = [];
+    const counted: D1Like = {
+      prepare(sql) {
+        const statement = db.prepare(sql);
+        const bind = statement.bind.bind(statement);
+        statement.bind = (...values: unknown[]) => {
+          bindCounts.push(values.length);
+          return bind(...values);
+        };
+        return statement;
+      },
+    };
+
+    await expect(syncEventsToD1(counted)).resolves.toEqual({ upserted: 150 });
+    expect(Math.max(...bindCounts)).toBeLessThanOrEqual(100);
+    expect(rows.find((r) => r.id === eventUrlKey(gone))?.is_active).toBe(0);
+    expect(rows.filter((r) => r.is_active === 1)).toHaveLength(150);
   });
 });
