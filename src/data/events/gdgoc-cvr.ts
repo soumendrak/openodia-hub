@@ -17,7 +17,8 @@ export const gdgocCvrEvents: Omit<Event, "community">[] = [
     type: "Workshop",
     startDate: "2026-10-01",
     endDate: "2026-10-31",
-    description: "Join Google Cloud Study Jams to build cloud skills, earn Google Cloud skill badges, and unlock exclusive swag. Limited seats!",
+    description:
+      "Join Google Cloud Study Jams to build cloud skills, earn Google Cloud skill badges, and unlock exclusive swag. Limited seats!",
   },
   {
     year: "2026",

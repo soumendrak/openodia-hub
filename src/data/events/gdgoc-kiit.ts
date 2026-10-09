@@ -18,7 +18,8 @@ export const gdgocKiitEvents: Omit<Event, "community">[] = [
     location: "KIIT School of Computer Science and Engineering (New Block) Campus -25",
     startDate: "2026-10-10",
     endDate: "2026-10-10",
-    description: "Darted Pixels invites you to explore Dart and Flutter in a hands-on workshop. Discover cross-platform app development as you modify the classic Flappy Bird game, gaining practical skills in game logic, collision detection, scoring, and UI customization. Perfect for budding developers eager to build versatile applications.",
+    description:
+      "Darted Pixels invites you to explore Dart and Flutter in a hands-on workshop. Discover cross-platform app development as you modify the classic Flappy Bird game, gaining practical skills in game logic, collision detection, scoring, and UI customization. Perfect for budding developers eager to build versatile applications.",
   },
   // auto-crawled
   {
