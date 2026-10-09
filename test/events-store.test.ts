@@ -352,6 +352,50 @@ describe("event persistence with mixed source outcomes", () => {
     expect(rows.map((r) => r.is_active)).toEqual([1, 1]);
   });
 
+  it("keeps a chapter's rows when its entries lack the fields sync needs", async () => {
+    const listed = "https://gdg.community.dev/events/details/bbsr-listed";
+    // KIIT's entries lost start_date (e.g. a renamed field upstream).
+    const undatedPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: {
+              results: [
+                { title: "Undated", url: "https://gdg.community.dev/events/details/kiit-new" },
+              ],
+            },
+            pastEvents: { results: [] },
+          },
+        },
+      },
+    })}</script>`;
+    const emptyPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: { upcomingEvents: { results: [] }, pastEvents: { results: [] } },
+        },
+      },
+    })}</script>`;
+    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      let html = emptyPage;
+      if (url.endsWith("/gdg-bhubaneswar/")) html = eventPage(listed);
+      if (url.includes("kalinga-institute")) html = undatedPage;
+      return { ok: true, status: 200, text: async () => html } as Response;
+    }) as typeof fetch;
+
+    const kiit = "https://gdg.community.dev/events/details/kiit-1";
+    const gone = "https://gdg.community.dev/events/details/bbsr-gone";
+    const rows: StoredRow[] = [
+      { id: eventUrlKey(kiit), community: "GDGoC KIIT", source: "bevy", is_active: 1 },
+      { id: eventUrlKey(gone), community: "GDG Bhubaneswar", source: "bevy", is_active: 1 },
+    ];
+
+    await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
+    expect(rows.find((r) => r.id === eventUrlKey(kiit))?.is_active).toBe(1);
+    expect(rows.find((r) => r.id === eventUrlKey(gone))?.is_active).toBe(0);
+  });
+
   it("keeps the retirement query within D1's bound-parameter limit for large syncs", async () => {
     const urls = Array.from(
       { length: 150 },

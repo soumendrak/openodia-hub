@@ -69,9 +69,12 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   const settled = await Promise.allSettled(
     CHAPTERS.map((c) => fetchChapterEventsOrThrow(c.organizerId ?? c.community, c.slug)),
   );
-  const failedCommunities = CHAPTERS.filter((_, i) => settled[i].status === "rejected").map(
-    (c) => c.community,
-  );
+  // A chapter that failed, or returned entries sync cannot store (no URL or
+  // start date, e.g. a renamed field), is not an authoritative snapshot.
+  const keptCommunities = CHAPTERS.filter((_, i) => {
+    const result = settled[i];
+    return result.status === "rejected" || result.value.some((e) => !e.url || !e.startDate);
+  }).map((c) => c.community);
   const events = dedupeEventsByUrl(settledValues(settled).flat());
 
   const seenIds: string[] = [];
@@ -97,15 +100,15 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
 
   // Deactivate Bevy events no longer present upstream. Static events are not
   // tracked here, so the WHERE clause scopes to source='bevy'. Rows of chapters
-  // whose fetch failed are left alone: a failed fetch is not evidence that its
-  // events are gone. Rows of chapters no longer in CHAPTERS (removed or renamed)
-  // still retire as before. Both lists are bound as JSON arrays so
-  // the query stays within D1's 100-bound-parameter limit however many events
-  // were seen.
+  // whose fetch failed or returned unusable entries are left alone: that is not
+  // evidence that their events are gone. Rows of chapters no longer in CHAPTERS
+  // (removed or renamed) still retire as before. Both lists are bound as JSON
+  // arrays so the query stays within D1's 100-bound-parameter limit however
+  // many events were seen.
   if (seenIds.length > 0) {
     await db
       .prepare(RETIRE_SQL)
-      .bind(JSON.stringify(failedCommunities), JSON.stringify(seenIds))
+      .bind(JSON.stringify(keptCommunities), JSON.stringify(seenIds))
       .run();
   }
 
