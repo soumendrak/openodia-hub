@@ -19,6 +19,7 @@ import { Route as EventsFeedRouteImport } from './routes/events-feed'
 import { Route as EventsRouteImport } from './routes/events'
 import { Route as DatasetsRouteImport } from './routes/datasets'
 import { Route as ContributeRouteImport } from './routes/contribute'
+import { Route as CommunitiesRouteImport } from './routes/communities'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiIndexRouteImport } from './routes/api/index'
@@ -84,6 +85,11 @@ const DatasetsRoute = DatasetsRouteImport.update({
 const ContributeRoute = ContributeRouteImport.update({
   id: '/contribute',
   path: '/contribute',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunitiesRoute = CommunitiesRouteImport.update({
+  id: '/communities',
+  path: '/communities',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutRoute = AboutRouteImport.update({
@@ -170,6 +176,7 @@ const ApiAwesomeRoute = ApiAwesomeRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/communities': typeof CommunitiesRoute
   '/contribute': typeof ContributeRoute
   '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
@@ -198,6 +205,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/communities': typeof CommunitiesRoute
   '/contribute': typeof ContributeRoute
   '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/communities': typeof CommunitiesRoute
   '/contribute': typeof ContributeRoute
   '/datasets': typeof DatasetsRoute
   '/events': typeof EventsRoute
@@ -257,6 +266,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/communities'
     | '/contribute'
     | '/datasets'
     | '/events'
@@ -285,6 +295,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/communities'
     | '/contribute'
     | '/datasets'
     | '/events'
@@ -313,6 +324,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/communities'
     | '/contribute'
     | '/datasets'
     | '/events'
@@ -342,6 +354,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  CommunitiesRoute: typeof CommunitiesRoute
   ContributeRoute: typeof ContributeRoute
   DatasetsRoute: typeof DatasetsRoute
   EventsRoute: typeof EventsRoute
@@ -438,6 +451,13 @@ declare module '@tanstack/react-router' {
       path: '/contribute'
       fullPath: '/contribute'
       preLoaderRoute: typeof ContributeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/communities': {
+      id: '/communities'
+      path: '/communities'
+      fullPath: '/communities'
+      preLoaderRoute: typeof CommunitiesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about': {
@@ -558,6 +578,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  CommunitiesRoute: CommunitiesRoute,
   ContributeRoute: ContributeRoute,
   DatasetsRoute: DatasetsRoute,
   EventsRoute: EventsRoute,

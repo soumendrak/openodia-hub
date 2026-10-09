@@ -25,6 +25,7 @@ const PAGES = [
   { label: "Tutorials", path: "/tutorials" },
   { label: "Playground", path: "/playground" },
   { label: "Events", path: "/events" },
+  { label: "Communities", path: "/communities" },
   { label: "Papers", path: "/papers" },
   { label: "Treebank search", path: "/treebank" },
   { label: "Add your project", path: "/contribute" },
