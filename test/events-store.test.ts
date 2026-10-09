@@ -182,7 +182,7 @@ describe("event persistence URL deduplication", () => {
   });
 
   it("binds null for endDate and description when an upstream event omits them", async () => {
-    // syncEventsToD1 only ever sees events produced by fetchChapterEventsOrThrow, and
+    // syncEventsToD1 only ever sees events produced by fetchChapterSnapshot, and
     // that mapper always sets endDate = startDate and description = "" — so
     // the `?? null` fallbacks can never fire through a real Bevy scrape.
     // Mocking the module boundary simulates a different/future event producer
@@ -192,18 +192,22 @@ describe("event persistence URL deduplication", () => {
       const actual = await importOriginal<typeof import("../src/routes/api/events")>();
       return {
         ...actual,
-        fetchChapterEventsOrThrow: vi.fn(async () => [
-          {
-            year: "2026",
-            date: "1 Jul 2026",
-            title: "Bare event",
-            url: "https://gdg.community.dev/events/details/bare-event",
-            type: "Talk",
-            community: "GDG Bhubaneswar",
-            startDate: "2026-07-01",
-            // endDate and description intentionally omitted.
-          },
-        ]),
+        fetchChapterSnapshot: vi.fn(async () => ({
+          upcomingComplete: true,
+          pastComplete: true,
+          events: [
+            {
+              year: "2026",
+              date: "1 Jul 2026",
+              title: "Bare event",
+              url: "https://gdg.community.dev/events/details/bare-event",
+              type: "Talk",
+              community: "GDG Bhubaneswar",
+              startDate: "2026-07-01",
+              // endDate and description intentionally omitted.
+            },
+          ],
+        })),
       };
     });
 
