@@ -10,7 +10,7 @@
 import { CHAPTERS, fetchChapterSnapshot } from "../routes/api/events";
 import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
-import { resolveOrganizerId } from "../data/organizers";
+import { getOrganizerById, resolveOrganizerId } from "../data/organizers";
 
 type D1PreparedStatement = {
   bind: (...values: unknown[]) => D1PreparedStatement;
@@ -71,6 +71,12 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   const settled = await Promise.allSettled(
     CHAPTERS.map((c) => fetchChapterSnapshot(c.organizerId ?? c.community, c.slug)),
   );
+  // Rows may still carry an organizer alias (e.g. a former canonical name), so
+  // a chapter is protected under every name it is known by.
+  const names = (c: (typeof CHAPTERS)[number]) => [
+    c.community,
+    ...(c.organizerId ? getOrganizerById(c.organizerId).aliases : []),
+  ];
   // A chapter that failed, returned entries sync cannot store (no URL or start
   // date, e.g. a renamed field), or has a truncated upcoming list is not an
   // authoritative snapshot. A chapter whose past list is truncated (Bevy shows
@@ -86,9 +92,9 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       !result.value.upcomingComplete ||
       result.value.events.some((e) => !e.url || !e.startDate)
     ) {
-      keptCommunities.push(chapter.community);
+      keptCommunities.push(...names(chapter));
     } else if (!result.value.pastComplete) {
-      upcomingOnlyCommunities.push(chapter.community);
+      upcomingOnlyCommunities.push(...names(chapter));
     }
   });
 
