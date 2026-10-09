@@ -4,11 +4,12 @@
  * Context-based, two locales (`en`, `or`), localStorage-persisted. Missing
  * Odia keys fall back to English so the site never shows raw key names.
  *
- * Why custom over react-i18next: this is intentionally a scaffold. The Odia
- * translation set is empty until a native speaker contributes; pulling in a
- * 30 KB i18n library to manage zero translations would be silly. Once real
- * Odia copy lands and we need plurals / interpolation / lazy loading, swap
- * the implementation behind useTranslation() without touching call sites.
+ * Why custom over react-i18next: this is intentionally a scaffold. Only the
+ * nav chrome is translated (every `en.ts` key has an Odia string, enforced by
+ * test/locale-coverage.test.ts), so a 30 KB i18n library would be overkill.
+ * Once page bodies move to i18n and we need plurals / interpolation / lazy
+ * loading, swap the implementation behind useTranslation() without touching
+ * call sites.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { en } from "../locales/en";
