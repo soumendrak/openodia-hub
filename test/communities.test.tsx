@@ -54,6 +54,8 @@ describe("organizer directory search", () => {
     expect(validateDirectorySearch({ q: `  ${"x".repeat(79)}` })).toEqual({ q: "x".repeat(79) });
     expect(validateDirectorySearch({ q: 2024 })).toEqual({ q: "2024" });
     expect(validateDirectorySearch({ q: false })).toEqual({ q: "false" });
+    expect(validateDirectorySearch({ q: null })).toEqual({ q: "null" });
+    expect(validateDirectorySearch({ q: undefined })).toEqual({});
     expect(validateDirectorySearch({ q: ["kiit"] })).toEqual({});
   });
 
@@ -180,6 +182,7 @@ describe("/communities route", () => {
     ["padded ?q=+kiit+", "?q=+kiit+", "kiit", 1],
     ["numeric ?q=2024", "?q=2024", "2024", 0],
     ["boolean-looking ?q=true", "?q=true", "true", 0],
+    ["null-looking ?q=null", "?q=null", "null", 0],
     ["a 120-character ?q", `?q=${"g".repeat(120)}`, "g".repeat(80), 0],
   ])("normalises a %s from the URL like the filter does", async (_, query, value, cards) => {
     await renderAt(`/communities${query}`);
