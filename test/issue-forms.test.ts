@@ -11,6 +11,7 @@ type Element = {
   attributes: {
     label?: string;
     value?: string;
+    description?: string;
     default?: number;
     options?: (string | { label: string })[];
   };
@@ -90,6 +91,8 @@ describe("event submission issue form", () => {
       expect(required(id)).toBe(true);
     }
     expect(options("event_type")).toEqual([...EVENT_TYPES, UNKNOWN]);
+    // Event.type has no unknown value, so the form says how review resolves it.
+    expect(field("event_type").attributes.description).toMatch(/maintainer then picks the type/);
     // Options read like "public — explicit open invitation".
     expect(options("attendance_policy").map((o) => o.split(" — ")[0])).toEqual([
       ...ATTENDANCE_POLICIES,

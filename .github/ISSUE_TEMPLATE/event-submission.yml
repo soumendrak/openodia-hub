@@ -75,6 +75,7 @@ body:
     id: event_type
     attributes:
       label: Event type
+      description: If the source does not say, choose Unknown. A maintainer then picks the type from the source and description during review, or holds the event until the source supports one.
       options:
         - Conference
         - Summit
