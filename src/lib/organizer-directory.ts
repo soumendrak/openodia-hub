@@ -35,12 +35,14 @@ function isKind(value: unknown): value is OrganizerKind {
 /**
  * Trims, then caps at MAX_DIRECTORY_QUERY. A query with nothing searchable
  * (blank, or only punctuation such as "!!!") is dropped, using the same
- * normalisation the filter matches with. The router parses `?q=2024`,
- * `?q=true`, and `?q=null` as JSON primitives, so those are read back as text.
+ * normalisation the filter matches with. The router JSON-parses values such
+ * as `?q=2024`, `?q=null` or `?q=[2026]`, so anything that is not a string is
+ * read back as its JSON text.
  */
 export function boundDirectoryQuery(value: unknown): string | undefined {
-  if (value !== null && !["string", "number", "boolean"].includes(typeof value)) return undefined;
-  const q = String(value).trim().slice(0, MAX_DIRECTORY_QUERY);
+  const text = typeof value === "string" ? value : JSON.stringify(value);
+  if (text === undefined) return undefined;
+  const q = text.trim().slice(0, MAX_DIRECTORY_QUERY);
   return normalizeSearch(q) !== "" ? q : undefined;
 }
 
