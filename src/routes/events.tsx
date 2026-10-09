@@ -11,6 +11,7 @@ import type { Event } from "../data/events";
 import { pageHead } from "../lib/seo";
 import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 import { normalizeSearch } from "../lib/search";
+import { issueFormUrl } from "../lib/issue-forms";
 
 export const Route = createFileRoute("/events")({
   validateSearch: (search: Record<string, unknown>): { q?: string } =>
@@ -551,6 +552,18 @@ function EventsPage() {
             GDG Bhubaneswar
           </a>
           .
+        </p>
+        <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
+          Missing an event?{" "}
+          <a
+            href={issueFormUrl("event")}
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            Submit an event
+          </a>
+          . Submissions are reviewed before they appear.
         </p>
       </Reveal>
 

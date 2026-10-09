@@ -56,6 +56,32 @@ Check the organiser's page before adding a record. Keep date, location, and regi
 claims grounded in that source; an event being listed does not imply registration is open.
 Avoid duplicate URLs, including tracking-parameter variants.
 
+### Without code: submit an event
+
+Organizers and attendees can use the
+[Submit an event](https://github.com/soumendrak/openodia-hub/issues/new?template=event-submission.yml)
+issue form instead of editing TypeScript. It is linked from `/contribute` and `/events`.
+
+The form collects the fields of the `Event` record in `src/data/events/types.ts`, plus an evidence
+URL and the date it was checked. Nothing is published automatically. A maintainer turns a reviewed
+submission into a pull request, and the repository tests validate that record, not the issue text.
+
+For example: "GDGoC KIIT · Build with AI", event URL
+`https://gdg.community.dev/events/details/...`, registration URL left blank because the source
+gives none, organizer `GDGoC KIIT (gdgoc-kiit)`, type `Workshop`, start date `2026-11-21` with
+precision `Exact day`, format `In person`, attendance `eligibility` with the note "KIIT students
+with college ID; 60 seats", registration `Unknown / not stated`, fee `Unknown / not stated`.
+
+The canonical event URL is the event's identity, and listings are deduplicated by it. A
+registration form, cohost alias, or tracking link is not the identity; put it in the separate
+registration URL field.
+
+Choose **Unknown / not stated** whenever the source is silent. An omitted fee is not "free", and
+being listed does not mean registration is open.
+
+The form adds records for review. Automatic collection from a new source still needs separate
+engineering work on a crawler adapter (see `scripts/crawl-events.mjs` and `CHAPTERS`).
+
 ### 1. How to add an Event to an existing Community
 
 1. Open the community's file under `src/data/events/<community-slug>.ts`.

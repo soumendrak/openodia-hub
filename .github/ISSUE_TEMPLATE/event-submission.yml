@@ -1,0 +1,205 @@
+name: Submit an event
+description: Propose an Odia AI event for the OpenOdia events listing.
+title: "[Event]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Publication requires maintainer review. A listing on OpenOdia never means registration is open, and
+        nothing here is published automatically. Fill in only what the official source states, and choose
+        **Unknown / not stated** for anything it does not say. Prefer to edit the data yourself? Open a pull
+        request instead; see [CONTRIBUTING.md](https://github.com/soumendrak/openodia-hub/blob/main/CONTRIBUTING.md#adding-events-or-communities).
+  - type: input
+    id: title
+    attributes:
+      label: Event title
+      description: As written by the organizer.
+    validations:
+      required: true
+  - type: input
+    id: event_url
+    attributes:
+      label: Canonical event URL
+      description: The official event or detail page. This is the event's identity, so do not use a registration form or a tracking link here.
+      placeholder: https://...
+    validations:
+      required: true
+  - type: input
+    id: registration_url
+    attributes:
+      label: Registration URL
+      description: Only if it differs from the event URL. Leave blank if there is none or it is not stated.
+      placeholder: https://...
+  - type: dropdown
+    id: organizer
+    attributes:
+      label: Organizer
+      description: Pick the organizer if it is already listed on /communities.
+      options:
+        - "Odisha AI (odishaai)"
+        - "OdiaGenAI (odiagenai)"
+        - "TFUG Bhubaneswar (tfug-bbsr)"
+        - "GDG Bhubaneswar (gdg-bhubaneswar)"
+        - "GDGoC NIST Berhampur (gdgoc-nist-berhampur)"
+        - "GDGoC KIIT (gdgoc-kiit)"
+        - "GDGoC CVR University (gdgoc-cvr)"
+        - "GDGoC IIIT Bhubaneswar (gdgoc-iiit-bbsr)"
+        - "GDGoC ITER SOA (gdgoc-iter-soa)"
+        - "GDGoC VSSUT Burla (gdgoc-vssut-burla)"
+        - "GDGoC NIT Rourkela (gdgoc-nit-rourkela)"
+        - "GDGoC GIET Gunupur (gdgoc-giet-gunupur)"
+        - "GDGoC Birla Global University (gdgoc-birla-global)"
+        - "GDG Cloud Bhubaneswar (gdg-cloud-bhubaneswar)"
+        - "IIT Bhubaneswar (iit-bhubaneswar)"
+        - "IIIT Bhubaneswar (iiit-bhubaneswar)"
+        - "NIT Rourkela (nit-rourkela)"
+        - "Fakir Mohan University (fakir-mohan-university)"
+        - "Ravenshaw University (ravenshaw-university)"
+        - "Odisha State Open University (osou)"
+        - "PMEC Berhampur (pmec-berhampur)"
+        - "SOA (OAIC) (soa-oaic)"
+        - "Startup Odisha (startup-odisha)"
+        - "Odisha E&IT / OCAC (odisha-eit)"
+        - "Not listed yet (name it below)"
+    validations:
+      required: true
+  - type: input
+    id: organizer_name
+    attributes:
+      label: Organizer name, if not listed
+      description: The organizer's own name for itself.
+  - type: dropdown
+    id: event_type
+    attributes:
+      label: Event type
+      options:
+        - Conference
+        - Summit
+        - Workshop
+        - Hackathon
+        - Talk
+        - Research
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: input
+    id: start_date
+    attributes:
+      label: Start date
+      description: YYYY-MM-DD, or YYYY-MM or YYYY if that is all the source states.
+      placeholder: "2026-11-21"
+    validations:
+      required: true
+  - type: input
+    id: end_date
+    attributes:
+      label: End date
+      description: Leave blank for a single-day event or if it is not stated.
+      placeholder: "2026-11-22"
+  - type: dropdown
+    id: date_precision
+    attributes:
+      label: Date precision stated by the source
+      options:
+        - Exact day
+        - Month only
+        - Year only
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Format
+      options:
+        - In person
+        - Online
+        - Hybrid
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Location
+      description: Venue and city as stated. Leave blank for online-only events.
+      placeholder: KIIT Campus 15, Bhubaneswar
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: One or two sentences in your own words. Do not paste marketing copy.
+    validations:
+      required: true
+  - type: dropdown
+    id: attendance_policy
+    attributes:
+      label: Who may attend
+      description: Based only on what the source says.
+      options:
+        - public — explicit open invitation
+        - eligibility — fee, ID, capacity, or audience rules
+        - approval — request to attend or selection
+        - restricted — staff, officials, or campus only
+        - unknown — no explicit evidence
+    validations:
+      required: true
+  - type: textarea
+    id: attendance_evidence
+    attributes:
+      label: Attendance evidence
+      description: One sentence from the source, e.g. "Open to all students with college ID; 60 seats."
+  - type: dropdown
+    id: registration
+    attributes:
+      label: Registration status stated by the source
+      options:
+        - Unknown / not stated
+        - Open
+        - Not yet open
+        - Closed
+        - Full or waitlist only
+    validations:
+      required: true
+  - type: dropdown
+    id: fee
+    attributes:
+      label: Fee stated by the source
+      description: Choose Free only if the source says it is free.
+      options:
+        - Unknown / not stated
+        - Free
+        - Paid (give the amount below)
+    validations:
+      required: true
+  - type: textarea
+    id: registration_details
+    attributes:
+      label: Fee, deadline, capacity, or eligibility details
+      description: Only details the source states. Leave blank otherwise.
+  - type: input
+    id: evidence_url
+    attributes:
+      label: Evidence URL
+      description: The official page where you checked these details.
+      placeholder: https://...
+    validations:
+      required: true
+  - type: input
+    id: evidence_checked_on
+    attributes:
+      label: Date you checked the evidence
+      description: YYYY-MM-DD.
+      placeholder: "2026-10-10"
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Review
+      options:
+        - label: I understand this is reviewed before anything is published, and a listing does not mean registration is open.
+          required: true
+        - label: Every detail above comes from the source, and anything the source does not state is marked unknown.
+          required: true
