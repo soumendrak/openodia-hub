@@ -88,7 +88,8 @@ function formatHumanDate(isoStr: string): string {
   }
 }
 
-export async function fetchChapterEvents(
+/** Like `fetchChapterEvents`, but rejects when the chapter page cannot be read. */
+export async function fetchChapterEventsOrThrow(
   organizerIdentity: string,
   slug: string,
 ): Promise<Event[]> {
@@ -102,21 +103,19 @@ export async function fetchChapterEvents(
       },
     });
     if (!response.ok) {
-      console.warn(`Failed to fetch Bevy page for slug: ${slug}, Status: ${response.status}`);
-      return [];
+      throw new Error(`Failed to fetch Bevy page for slug: ${slug}, Status: ${response.status}`);
     }
     const html = await response.text();
     const match = html.match(
       /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/,
     );
     if (!match) {
-      console.warn(`No React hydrated state script found for slug: ${slug}`);
-      return [];
+      throw new Error(`No React hydrated state script found for slug: ${slug}`);
     }
     const data = JSON.parse(match[1]);
     const pageProps = data?.props?.pageProps;
     if (!pageProps?.prerenderData) {
-      return [];
+      throw new Error(`No prerender data found for slug: ${slug}`);
     }
 
     const upcomingResults: BevyEvent[] = pageProps.prerenderData.upcomingEvents?.results || [];
@@ -148,8 +147,15 @@ export async function fetchChapterEvents(
     );
   } catch (err) {
     console.error(`Error fetching Bevy events for chapter ${slug}:`, err);
-    return [];
+    throw err;
   }
+}
+
+export async function fetchChapterEvents(
+  organizerIdentity: string,
+  slug: string,
+): Promise<Event[]> {
+  return fetchChapterEventsOrThrow(organizerIdentity, slug).catch(() => []);
 }
 
 export const Route = createFileRoute("/api/events")({
