@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
+import { eventUrlKey } from "../src/lib/event-url";
 
 function eventPage(baseUrl: string): string {
   return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
@@ -176,7 +177,7 @@ describe("event persistence URL deduplication", () => {
   });
 
   it("binds null for endDate and description when an upstream event omits them", async () => {
-    // syncEventsToD1 only ever sees events produced by fetchChapterEvents, and
+    // syncEventsToD1 only ever sees events produced by fetchChapterEventsOrThrow, and
     // that mapper always sets endDate = startDate and description = "" — so
     // the `?? null` fallbacks can never fire through a real Bevy scrape.
     // Mocking the module boundary simulates a different/future event producer
@@ -186,7 +187,7 @@ describe("event persistence URL deduplication", () => {
       const actual = await importOriginal<typeof import("../src/routes/api/events")>();
       return {
         ...actual,
-        fetchChapterEvents: vi.fn(async () => [
+        fetchChapterEventsOrThrow: vi.fn(async () => [
           {
             year: "2026",
             date: "1 Jul 2026",
@@ -227,5 +228,99 @@ describe("event persistence URL deduplication", () => {
 
     vi.doUnmock("../src/routes/api/events");
     vi.resetModules();
+  });
+});
+
+type StoredRow = { id: string; community: string; source: string; is_active: number };
+
+// Applies the upsert and retirement statements to in-memory rows, honouring
+// an optional `community IN (...)` scope ahead of the `id NOT IN (...)` list.
+function inMemoryD1(rows: StoredRow[]): D1Like {
+  return {
+    prepare(sql) {
+      let values: unknown[] = [];
+      const statement = {
+        bind(...bound: unknown[]) {
+          values = bound;
+          return statement;
+        },
+        run: async () => {
+          if (sql.includes("INSERT INTO events")) {
+            const [id, , , community] = values as string[];
+            const row = rows.find((r) => r.id === id);
+            if (row) Object.assign(row, { community, is_active: 1 });
+            else rows.push({ id, community, source: "bevy", is_active: 1 });
+          } else if (sql.startsWith("UPDATE events SET is_active = 0")) {
+            const scope = sql.match(/community IN \(([^)]*)\)/)?.[1].match(/\?/g)?.length ?? 0;
+            const communities = values.slice(0, scope);
+            const seenIds = values.slice(scope);
+            for (const r of rows) {
+              if (r.source !== "bevy" || seenIds.includes(r.id)) continue;
+              if (scope === 0 || communities.includes(r.community)) r.is_active = 0;
+            }
+          } else {
+            throw new Error(`unexpected SQL: ${sql}`);
+          }
+          return {};
+        },
+        all: async <T>() => ({ results: [] as T[] }),
+      };
+      return statement;
+    },
+  };
+}
+
+describe("event persistence with mixed source outcomes", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  it("never retires rows because a chapter fetch failed", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const listed = "https://gdg.community.dev/events/details/bbsr-listed";
+    const emptyPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { prerenderData: { upcomingEvents: { results: [] } } } },
+    })}</script>`;
+    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("kalinga-institute")) {
+        return { ok: false, status: 503, text: async () => "" } as Response;
+      }
+      if (url.includes("c-v-raman")) throw new Error("network timeout");
+      const html = url.endsWith("/gdg-bhubaneswar/") ? eventPage(listed) : emptyPage;
+      return { ok: true, status: 200, text: async () => html } as Response;
+    }) as typeof fetch;
+
+    const row = (url: string, community: string, source = "bevy"): StoredRow => ({
+      id: eventUrlKey(url),
+      community,
+      source,
+      is_active: 1,
+    });
+    const rows = [
+      row(listed, "GDG Bhubaneswar"),
+      row("https://gdg.community.dev/events/details/bbsr-gone", "GDG Bhubaneswar"),
+      row("https://gdg.community.dev/events/details/kiit-1", "GDGoC KIIT"),
+      row("https://gdg.community.dev/events/details/kiit-2", "GDGoC KIIT"),
+      row("https://gdg.community.dev/events/details/cvr-1", "GDGoC CVR University"),
+      row("https://example.com/static-event", "GDGoC KIIT", "static"),
+    ];
+
+    await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
+
+    const active = Object.fromEntries(rows.map((r) => [r.id, r.is_active]));
+    expect(active).toEqual({
+      [eventUrlKey(listed)]: 1,
+      // The successful chapter still retires its own missing event.
+      [eventUrlKey("https://gdg.community.dev/events/details/bbsr-gone")]: 0,
+      // Failed chapters (HTTP 503 and a thrown network error) keep their rows.
+      [eventUrlKey("https://gdg.community.dev/events/details/kiit-1")]: 1,
+      [eventUrlKey("https://gdg.community.dev/events/details/kiit-2")]: 1,
+      [eventUrlKey("https://gdg.community.dev/events/details/cvr-1")]: 1,
+      [eventUrlKey("https://example.com/static-event")]: 1,
+    });
   });
 });

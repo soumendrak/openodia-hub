@@ -7,7 +7,7 @@
  * back to a live Bevy scrape so the page never goes blank.
  */
 
-import { CHAPTERS, fetchChapterEvents } from "../routes/api/events";
+import { CHAPTERS, fetchChapterEventsOrThrow } from "../routes/api/events";
 import { settledValues } from "./fetch-utils";
 import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
@@ -60,7 +60,10 @@ ORDER BY start_date DESC
 
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
   const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
+    CHAPTERS.map((c) => fetchChapterEventsOrThrow(c.organizerId ?? c.community, c.slug)),
+  );
+  const succeededCommunities = CHAPTERS.filter((_, i) => settled[i].status === "fulfilled").map(
+    (c) => c.community,
   );
   const events = dedupeEventsByUrl(settledValues(settled).flat());
 
@@ -86,14 +89,17 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   }
 
   // Deactivate Bevy events no longer present upstream. Static events are not
-  // tracked here, so the WHERE clause scopes to source='bevy'.
+  // tracked here, so the WHERE clause scopes to source='bevy'. Only chapters
+  // that fetched successfully may retire their rows: a failed fetch is not
+  // evidence that its events are gone.
   if (seenIds.length > 0) {
+    const communities = succeededCommunities.map(() => "?").join(",");
     const placeholders = seenIds.map(() => "?").join(",");
     await db
       .prepare(
-        `UPDATE events SET is_active = 0 WHERE source = 'bevy' AND id NOT IN (${placeholders})`,
+        `UPDATE events SET is_active = 0 WHERE source = 'bevy' AND community IN (${communities}) AND id NOT IN (${placeholders})`,
       )
-      .bind(...seenIds)
+      .bind(...succeededCommunities, ...seenIds)
       .run();
   }
 
