@@ -51,7 +51,7 @@ ON CONFLICT(id) DO UPDATE SET
 const RETIRE_SQL = `
 UPDATE events SET is_active = 0
 WHERE source = 'bevy'
-  AND community IN (SELECT value FROM json_each(?))
+  AND community NOT IN (SELECT value FROM json_each(?))
   AND id NOT IN (SELECT value FROM json_each(?))
 `;
 
@@ -69,7 +69,7 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   const settled = await Promise.allSettled(
     CHAPTERS.map((c) => fetchChapterEventsOrThrow(c.organizerId ?? c.community, c.slug)),
   );
-  const succeededCommunities = CHAPTERS.filter((_, i) => settled[i].status === "fulfilled").map(
+  const failedCommunities = CHAPTERS.filter((_, i) => settled[i].status === "rejected").map(
     (c) => c.community,
   );
   const events = dedupeEventsByUrl(settledValues(settled).flat());
@@ -96,15 +96,16 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   }
 
   // Deactivate Bevy events no longer present upstream. Static events are not
-  // tracked here, so the WHERE clause scopes to source='bevy'. Only chapters
-  // that fetched successfully may retire their rows: a failed fetch is not
-  // evidence that its events are gone. Both lists are bound as JSON arrays so
+  // tracked here, so the WHERE clause scopes to source='bevy'. Rows of chapters
+  // whose fetch failed are left alone: a failed fetch is not evidence that its
+  // events are gone. Rows of chapters no longer in CHAPTERS (removed or renamed)
+  // still retire as before. Both lists are bound as JSON arrays so
   // the query stays within D1's 100-bound-parameter limit however many events
   // were seen.
   if (seenIds.length > 0) {
     await db
       .prepare(RETIRE_SQL)
-      .bind(JSON.stringify(succeededCommunities), JSON.stringify(seenIds))
+      .bind(JSON.stringify(failedCommunities), JSON.stringify(seenIds))
       .run();
   }
 
