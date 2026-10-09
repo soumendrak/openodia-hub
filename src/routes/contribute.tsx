@@ -8,6 +8,12 @@ import { pageHead } from "../lib/seo";
 
 const AWESOME_REPO = "https://github.com/odisha-ml/Awesome-Odia-AI";
 const HUB_ISSUES = "https://github.com/soumendrak/openodia-hub/issues/new";
+const EVENT_SUBMISSION =
+  "https://github.com/soumendrak/openodia-hub/issues/new?template=event-or-organizer-submission.yml";
+const ORGANIZER_SUBMISSION =
+  "https://github.com/soumendrak/openodia-hub/issues/new?template=organizer-submission.yml";
+const EVENT_CORRECTION =
+  "https://github.com/soumendrak/openodia-hub/issues/new?template=event-correction.yml";
 
 export const Route = createFileRoute("/contribute")({
   head: () =>
@@ -107,7 +113,7 @@ function ContributePage() {
 
       <Reveal delay={0.05} className="mt-12">
         <h2 className="font-display text-3xl font-semibold">Two routes</h2>
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
           <a
             href={AWESOME_REPO}
             target="_blank"
@@ -163,6 +169,62 @@ function ContributePage() {
         </p>
         <div className="mt-4">
           <CopyBlock value={TEMPLATE} />
+        </div>
+      </Reveal>
+
+      <Reveal delay={0.12} className="mt-12">
+        <h2 className="font-display text-3xl font-semibold">Events and communities</h2>
+        <p className="mt-2 max-w-2xl text-muted-foreground">
+          Found an event, represent an organizer, or spotted an outdated listing? Send structured
+          evidence for review. Event detail pages and registration pages are intentionally separate:
+          a listing never means registration is open.
+        </p>
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <a
+            href={EVENT_SUBMISSION}
+            target="_blank"
+            rel="noreferrer"
+            className="group rounded-2xl border border-border bg-surface p-6 transition hover:border-neon/40"
+          >
+            <h3 className="font-display text-lg font-semibold">
+              Submit an event{" "}
+              <ExternalLink size={14} className="inline transition group-hover:text-neon" />
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Include the official source, date precision, attendance evidence, and any stated
+              registration details. Unknown is a useful answer.
+            </p>
+          </a>
+          <a
+            href={ORGANIZER_SUBMISSION}
+            target="_blank"
+            rel="noreferrer"
+            className="group rounded-2xl border border-border bg-surface p-6 transition hover:border-neon/40"
+          >
+            <h3 className="font-display text-lg font-semibold">
+              Submit an organizer{" "}
+              <ExternalLink size={14} className="inline transition group-hover:text-neon" />
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Provide an evidence-backed official identity, aliases, region, and a concise
+              description without guessing organizer-wide attendance rules.
+            </p>
+          </a>
+          <a
+            href={EVENT_CORRECTION}
+            target="_blank"
+            rel="noreferrer"
+            className="group rounded-2xl border border-border bg-surface p-6 transition hover:border-neon/40"
+          >
+            <h3 className="font-display text-lg font-semibold">
+              Correct an event listing{" "}
+              <ExternalLink size={14} className="inline transition group-hover:text-neon" />
+            </h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Report changed dates, cancellations, URLs, organizer details, or evidence without
+              editing TypeScript.
+            </p>
+          </a>
         </div>
       </Reveal>
 
