@@ -167,6 +167,17 @@ describe("/communities route", () => {
     expect(router.state.location.search).toEqual({});
   });
 
+  it("treats a whitespace-only query as no filter in both the input and the URL", async () => {
+    const router = await renderAt("/communities");
+    await act(async () => {
+      fireEvent.change(screen.getByRole("searchbox"), { target: { value: "   " } });
+    });
+    expect(router.state.location.search).toEqual({});
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(screen.queryByRole("button", { name: "Clear search" })).not.toBeInTheDocument();
+    expect(screen.getByText(`${ORGANIZERS.length} organizers listed`)).toBeInTheDocument();
+  });
+
   it("shows an empty state whose reset clears every filter", async () => {
     const router = await renderAt("/communities?q=kiit&kind=government");
     expect(cardNames()).toEqual([]);

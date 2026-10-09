@@ -40,8 +40,10 @@ function CommunitiesPage() {
     navigate({ search: (prev) => validateDirectorySearch({ ...prev, ...patch }), replace: true });
   const setQuery = (next: string) => {
     const bounded = next.slice(0, MAX_DIRECTORY_QUERY);
-    setDraftQuery(bounded);
-    void update({ q: bounded });
+    // The URL drops a blank query, so keep the input in step with it.
+    const draft = bounded.trim() ? bounded : "";
+    setDraftQuery(draft);
+    void update({ q: draft });
   };
   const reset = () => {
     setDraftQuery("");
