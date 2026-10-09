@@ -89,10 +89,8 @@ body:
     id: start_date
     attributes:
       label: Start date
-      description: YYYY-MM-DD, or YYYY-MM or YYYY if that is all the source states.
+      description: YYYY-MM-DD, or YYYY-MM or YYYY if that is all the source states. Leave blank only if the source gives no date at all (precision Unknown); the event is then held until a date is announced.
       placeholder: "2026-11-21"
-    validations:
-      required: true
   - type: input
     id: end_date
     attributes:
@@ -127,6 +125,11 @@ body:
       label: Location
       description: Venue and city as stated. Leave blank for online-only events.
       placeholder: KIIT Campus 15, Bhubaneswar
+  - type: input
+    id: theme
+    attributes:
+      label: Theme
+      description: Only if the source names an official theme.
   - type: textarea
     id: description
     attributes:

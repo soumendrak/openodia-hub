@@ -72,7 +72,10 @@ describe("event submission issue form", () => {
   });
 
   it("collects every Event field, with the event and registration URLs kept separate", () => {
-    for (const id of ["end_date", "location"]) expect(field(id)).toBeDefined();
+    // An undated announcement can be submitted with precision "Unknown / not stated".
+    for (const id of ["start_date", "end_date", "location", "theme", "registration_url"]) {
+      expect(required(id)).toBe(false);
+    }
     for (const id of [
       "title",
       "event_url",
@@ -80,14 +83,12 @@ describe("event submission issue form", () => {
       // Required so a "Not listed yet" organizer is still named.
       "organizer_name",
       "event_type",
-      "start_date",
       "description",
       // Event.attendance.note is required alongside the policy.
       "attendance_evidence",
     ]) {
       expect(required(id)).toBe(true);
     }
-    expect(required("registration_url")).toBe(false);
     expect(options("event_type")).toEqual([...EVENT_TYPES, UNKNOWN]);
     // Options read like "public — explicit open invitation".
     expect(options("attendance_policy").map((o) => o.split(" — ")[0])).toEqual([
