@@ -88,10 +88,27 @@ function formatHumanDate(isoStr: string): string {
   }
 }
 
-export async function fetchChapterEvents(
+type BevyEventList = { count?: unknown; links?: { next?: unknown } | null; results?: unknown };
+
+/** One chapter page, with whether each Bevy list holds every event it counts. */
+export type ChapterSnapshot = {
+  events: Event[];
+  upcomingComplete: boolean;
+  pastComplete: boolean;
+};
+
+// Bevy pages a list (e.g. 4 of 87 past events with `links.next` set). Only a
+// list whose `count` is covered and that has no next page is complete, so an
+// empty list is a real zero only when its count is 0.
+function isCompleteList(list: BevyEventList, results: unknown[]): boolean {
+  return typeof list.count === "number" && results.length >= list.count && !list.links?.next;
+}
+
+/** Reads a chapter page, rejecting when it cannot be read or has an unexpected shape. */
+export async function fetchChapterSnapshot(
   organizerIdentity: string,
   slug: string,
-): Promise<Event[]> {
+): Promise<ChapterSnapshot> {
   try {
     const organizer = resolveOrganizer(organizerIdentity);
     const community = organizer?.canonicalName ?? organizerIdentity;
@@ -102,29 +119,37 @@ export async function fetchChapterEvents(
       },
     });
     if (!response.ok) {
-      console.warn(`Failed to fetch Bevy page for slug: ${slug}, Status: ${response.status}`);
-      return [];
+      throw new Error(`Failed to fetch Bevy page for slug: ${slug}, Status: ${response.status}`);
     }
     const html = await response.text();
     const match = html.match(
       /<script id="__NEXT_DATA__" type="application\/json">([\s\S]*?)<\/script>/,
     );
     if (!match) {
-      console.warn(`No React hydrated state script found for slug: ${slug}`);
-      return [];
+      throw new Error(`No React hydrated state script found for slug: ${slug}`);
     }
     const data = JSON.parse(match[1]);
     const pageProps = data?.props?.pageProps;
     if (!pageProps?.prerenderData) {
-      return [];
+      throw new Error(`No prerender data found for slug: ${slug}`);
     }
 
-    const upcomingResults: BevyEvent[] = pageProps.prerenderData.upcomingEvents?.results || [];
-    const pastResults: BevyEvent[] = pageProps.prerenderData.pastEvents?.results || [];
+    // Both collections must be present: a renamed or missing list is a page-shape
+    // change, not a chapter with no events, so it must not count as success.
+    const collections: BevyEvent[][] = [];
+    const complete: boolean[] = [];
+    for (const key of ["upcomingEvents", "pastEvents"] as const) {
+      const list: BevyEventList = pageProps.prerenderData[key] ?? {};
+      if (!Array.isArray(list.results)) {
+        throw new Error(`prerenderData.${key}.results missing for slug: ${slug}`);
+      }
+      collections.push(list.results);
+      complete.push(isCompleteList(list, list.results));
+    }
 
-    const rawEvents = [...upcomingResults, ...pastResults];
+    const rawEvents = collections.flat();
 
-    return dedupeEventsByUrl(
+    const events = dedupeEventsByUrl(
       rawEvents.map((item) => {
         const startStr = item.start_date ? item.start_date.split("T")[0] : "";
         const year = startStr ? startStr.split("-")[0] : new Date().getFullYear().toString();
@@ -146,10 +171,21 @@ export async function fetchChapterEvents(
         };
       }),
     );
+    return { events, upcomingComplete: complete[0], pastComplete: complete[1] };
   } catch (err) {
     console.error(`Error fetching Bevy events for chapter ${slug}:`, err);
-    return [];
+    throw err;
   }
+}
+
+export async function fetchChapterEvents(
+  organizerIdentity: string,
+  slug: string,
+): Promise<Event[]> {
+  return fetchChapterSnapshot(organizerIdentity, slug).then(
+    (snapshot) => snapshot.events,
+    () => [],
+  );
 }
 
 export const Route = createFileRoute("/api/events")({

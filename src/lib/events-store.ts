@@ -7,11 +7,10 @@
  * back to a live Bevy scrape so the page never goes blank.
  */
 
-import { CHAPTERS, fetchChapterEvents } from "../routes/api/events";
-import { settledValues } from "./fetch-utils";
+import { CHAPTERS, fetchChapterSnapshot } from "../routes/api/events";
 import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
-import { resolveOrganizerId } from "../data/organizers";
+import { getOrganizerById, resolveOrganizerId } from "../data/organizers";
 
 type D1PreparedStatement = {
   bind: (...values: unknown[]) => D1PreparedStatement;
@@ -33,7 +32,7 @@ type Row = {
   location: string | null;
 };
 
-const UPSERT_SQL = `
+export const UPSERT_SQL = `
 INSERT INTO events (id, url, title, community, type, start_date, end_date, description, location, source)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'bevy')
 ON CONFLICT(id) DO UPDATE SET
@@ -48,6 +47,16 @@ ON CONFLICT(id) DO UPDATE SET
   is_active = 1
 `;
 
+// Binds: communities to leave alone, communities whose past list was
+// truncated (only their upcoming rows may retire), then the seen IDs.
+export const RETIRE_SQL = `
+UPDATE events SET is_active = 0
+WHERE source = 'bevy'
+  AND community NOT IN (SELECT value FROM json_each(?))
+  AND (community NOT IN (SELECT value FROM json_each(?)) OR start_date >= date('now'))
+  AND id NOT IN (SELECT value FROM json_each(?))
+`;
+
 // Active events + recently-deactivated ones (30-day grace period) so events
 // briefly missing from a single Bevy fetch don't disappear from the site.
 const SELECT_ACTIVE_SQL = `
@@ -60,12 +69,37 @@ ORDER BY start_date DESC
 
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
   const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
+    CHAPTERS.map((c) => fetchChapterSnapshot(c.organizerId ?? c.community, c.slug)),
   );
-  const events = dedupeEventsByUrl(settledValues(settled).flat());
+  // Rows may still carry an organizer alias (e.g. a former canonical name), so
+  // a chapter is protected under every name it is known by.
+  const names = (c: (typeof CHAPTERS)[number]) => [
+    c.community,
+    ...(c.organizerId ? getOrganizerById(c.organizerId).aliases : []),
+  ];
+  // A chapter that failed, returned entries sync cannot store (no URL or start
+  // date, e.g. a renamed field), or has a truncated upcoming list is not an
+  // authoritative snapshot. A chapter whose past list is truncated (Bevy shows
+  // 4 of N) may only retire upcoming rows.
+  const keptCommunities: string[] = [];
+  const upcomingOnlyCommunities: string[] = [];
+  const events: Event[] = [];
+  CHAPTERS.forEach((chapter, i) => {
+    const result = settled[i];
+    if (result.status === "fulfilled") events.push(...result.value.events);
+    if (
+      result.status === "rejected" ||
+      !result.value.upcomingComplete ||
+      result.value.events.some((e) => !e.url || !e.startDate)
+    ) {
+      keptCommunities.push(...names(chapter));
+    } else if (!result.value.pastComplete) {
+      upcomingOnlyCommunities.push(...names(chapter));
+    }
+  });
 
   const seenIds: string[] = [];
-  for (const e of events) {
+  for (const e of dedupeEventsByUrl(events)) {
     if (!e.url || !e.startDate) continue;
     const id = eventUrlKey(e.url);
     seenIds.push(id);
@@ -86,14 +120,20 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   }
 
   // Deactivate Bevy events no longer present upstream. Static events are not
-  // tracked here, so the WHERE clause scopes to source='bevy'.
+  // tracked here, so the WHERE clause scopes to source='bevy'. Rows of chapters
+  // whose fetch failed or returned unusable entries are left alone: that is not
+  // evidence that their events are gone. Rows of chapters no longer in CHAPTERS
+  // (removed or renamed) still retire as before. Both lists are bound as JSON
+  // arrays so the query stays within D1's 100-bound-parameter limit however
+  // many events were seen.
   if (seenIds.length > 0) {
-    const placeholders = seenIds.map(() => "?").join(",");
     await db
-      .prepare(
-        `UPDATE events SET is_active = 0 WHERE source = 'bevy' AND id NOT IN (${placeholders})`,
+      .prepare(RETIRE_SQL)
+      .bind(
+        JSON.stringify(keptCommunities),
+        JSON.stringify(upcomingOnlyCommunities),
+        JSON.stringify(seenIds),
       )
-      .bind(...seenIds)
       .run();
   }
 

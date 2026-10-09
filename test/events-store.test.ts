@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
+import {
+  readEventsFromD1,
+  RETIRE_SQL,
+  syncEventsToD1,
+  UPSERT_SQL,
+  type D1Like,
+} from "../src/lib/events-store";
 
 function eventPage(baseUrl: string): string {
   return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
@@ -176,7 +182,7 @@ describe("event persistence URL deduplication", () => {
   });
 
   it("binds null for endDate and description when an upstream event omits them", async () => {
-    // syncEventsToD1 only ever sees events produced by fetchChapterEvents, and
+    // syncEventsToD1 only ever sees events produced by fetchChapterSnapshot, and
     // that mapper always sets endDate = startDate and description = "" — so
     // the `?? null` fallbacks can never fire through a real Bevy scrape.
     // Mocking the module boundary simulates a different/future event producer
@@ -186,18 +192,22 @@ describe("event persistence URL deduplication", () => {
       const actual = await importOriginal<typeof import("../src/routes/api/events")>();
       return {
         ...actual,
-        fetchChapterEvents: vi.fn(async () => [
-          {
-            year: "2026",
-            date: "1 Jul 2026",
-            title: "Bare event",
-            url: "https://gdg.community.dev/events/details/bare-event",
-            type: "Talk",
-            community: "GDG Bhubaneswar",
-            startDate: "2026-07-01",
-            // endDate and description intentionally omitted.
-          },
-        ]),
+        fetchChapterSnapshot: vi.fn(async () => ({
+          upcomingComplete: true,
+          pastComplete: true,
+          events: [
+            {
+              year: "2026",
+              date: "1 Jul 2026",
+              title: "Bare event",
+              url: "https://gdg.community.dev/events/details/bare-event",
+              type: "Talk",
+              community: "GDG Bhubaneswar",
+              startDate: "2026-07-01",
+              // endDate and description intentionally omitted.
+            },
+          ],
+        })),
       };
     });
 
@@ -227,5 +237,60 @@ describe("event persistence URL deduplication", () => {
 
     vi.doUnmock("../src/routes/api/events");
     vi.resetModules();
+  });
+});
+
+// Semantics of the retirement SQL are tested against a real D1 in
+// events-store-d1.test.ts; this fake only records how many values each
+// statement binds, which miniflare does not limit.
+describe("event persistence bound parameters", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("keeps every statement within D1's 100-bound-parameter limit for large syncs", async () => {
+    const urls = Array.from(
+      { length: 150 },
+      (_, i) => `https://gdg.community.dev/events/details/bulk-${i}`,
+    );
+    const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: { results: [], count: 0 },
+            pastEvents: {
+              results: urls.map((url) => ({ title: url, start_date: "2025-07-15T18:00:00Z", url })),
+              count: 150,
+            },
+          },
+        },
+      },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => html,
+    } as Response);
+
+    const bound = new Map<string, number>();
+    const db: D1Like = {
+      prepare(sql) {
+        const statement = {
+          bind(...values: unknown[]) {
+            bound.set(sql, Math.max(bound.get(sql) ?? 0, values.length));
+            return statement;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({ results: [] as T[] }),
+        };
+        return statement;
+      },
+    };
+
+    await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 150 });
+    expect(bound.get(UPSERT_SQL)).toBe(9);
+    expect(bound.get(RETIRE_SQL)).toBeLessThanOrEqual(100);
   });
 });

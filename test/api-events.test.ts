@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchChapterEvents, Route } from "../src/routes/api/events";
+import { fetchChapterEvents, fetchChapterSnapshot, Route } from "../src/routes/api/events";
 
 describe("fetchChapterEvents", () => {
   const originalFetch = globalThis.fetch;
@@ -203,6 +203,25 @@ describe("fetchChapterEvents", () => {
     expect(events).toEqual([]);
   });
 
+  it.each([
+    ["upcomingEvents", { pastEvents: { results: [] } }],
+    ["pastEvents", { upcomingEvents: { results: [] }, pastEvents: { results: "oops" } }],
+  ])("rejects a page whose %s.results is not an array", async (key, prerenderData) => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { prerenderData } },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => html,
+    } as Response);
+
+    await expect(fetchChapterSnapshot("Community", "chapter")).rejects.toThrow(
+      `prerenderData.${key}.results missing for slug: chapter`,
+    );
+  });
+
   it("maps all Bevy type labels and missing dates", async () => {
     const labels = ["Conference", "AI Summit", "Study Jam", "Speaker session", "Research", "Other"];
     const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
@@ -218,7 +237,7 @@ describe("fetchChapterEvents", () => {
                 url: `https://gdg.community.dev/events/details/event-${index}`,
               })),
             },
-            pastEvents: {},
+            pastEvents: { results: [] },
           },
         },
       },
