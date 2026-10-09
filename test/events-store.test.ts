@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
-import { eventUrlKey } from "../src/lib/event-url";
+import {
+  readEventsFromD1,
+  RETIRE_SQL,
+  syncEventsToD1,
+  UPSERT_SQL,
+  type D1Like,
+} from "../src/lib/events-store";
 
 function eventPage(baseUrl: string): string {
   return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
@@ -231,211 +236,57 @@ describe("event persistence URL deduplication", () => {
   });
 });
 
-type StoredRow = { id: string; community: string; source: string; is_active: number };
-
-// Applies the upsert and retirement statements to in-memory rows. Retirement
-// binds two JSON arrays: the communities to leave alone, then the seen IDs.
-function inMemoryD1(rows: StoredRow[]): D1Like {
-  return {
-    prepare(sql) {
-      let values: unknown[] = [];
-      const statement = {
-        bind(...bound: unknown[]) {
-          values = bound;
-          return statement;
-        },
-        run: async () => {
-          if (sql.includes("INSERT INTO events")) {
-            const [id, , , community] = values as string[];
-            const row = rows.find((r) => r.id === id);
-            if (row) Object.assign(row, { community, is_active: 1 });
-            else rows.push({ id, community, source: "bevy", is_active: 1 });
-          } else if (sql.includes("UPDATE events SET is_active = 0")) {
-            const [kept, seenIds] = values.map((v) => JSON.parse(v as string) as string[]);
-            for (const r of rows) {
-              if (r.source !== "bevy" || seenIds.includes(r.id)) continue;
-              if (!kept.includes(r.community)) r.is_active = 0;
-            }
-          } else {
-            throw new Error(`unexpected SQL: ${sql}`);
-          }
-          return {};
-        },
-        all: async <T>() => ({ results: [] as T[] }),
-      };
-      return statement;
-    },
-  };
-}
-
-describe("event persistence with mixed source outcomes", () => {
+// Semantics of the retirement SQL are tested against a real D1 in
+// events-store-d1.test.ts; this fake only records how many values each
+// statement binds, which miniflare does not limit.
+describe("event persistence bound parameters", () => {
   const originalFetch = globalThis.fetch;
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    vi.restoreAllMocks();
   });
 
-  it("never retires rows because a chapter fetch failed", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const listed = "https://gdg.community.dev/events/details/bbsr-listed";
-    const emptyPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
-      props: {
-        pageProps: {
-          prerenderData: { upcomingEvents: { results: [] }, pastEvents: { results: [] } },
-        },
-      },
-    })}</script>`;
-    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
-      const url = String(input);
-      if (url.includes("kalinga-institute")) {
-        return { ok: false, status: 503, text: async () => "" } as Response;
-      }
-      if (url.includes("c-v-raman")) throw new Error("network timeout");
-      const html = url.endsWith("/gdg-bhubaneswar/") ? eventPage(listed) : emptyPage;
-      return { ok: true, status: 200, text: async () => html } as Response;
-    }) as typeof fetch;
-
-    const row = (url: string, community: string, source = "bevy"): StoredRow => ({
-      id: eventUrlKey(url),
-      community,
-      source,
-      is_active: 1,
-    });
-    const rows = [
-      row(listed, "GDG Bhubaneswar"),
-      row("https://gdg.community.dev/events/details/bbsr-gone", "GDG Bhubaneswar"),
-      row("https://gdg.community.dev/events/details/kiit-1", "GDGoC KIIT"),
-      row("https://gdg.community.dev/events/details/kiit-2", "GDGoC KIIT"),
-      row("https://gdg.community.dev/events/details/cvr-1", "GDGoC CVR University"),
-      row("https://example.com/static-event", "GDGoC KIIT", "static"),
-      // A chapter that is no longer in CHAPTERS (removed in 7524ff0).
-      row("https://gdg.community.dev/events/details/iiit-old", "GDGoC IIIT Bhubaneswar"),
-    ];
-
-    await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
-
-    const active = Object.fromEntries(rows.map((r) => [r.id, r.is_active]));
-    expect(active).toEqual({
-      [eventUrlKey(listed)]: 1,
-      // The successful chapter still retires its own missing event.
-      [eventUrlKey("https://gdg.community.dev/events/details/bbsr-gone")]: 0,
-      // Failed chapters (HTTP 503 and a thrown network error) keep their rows.
-      [eventUrlKey("https://gdg.community.dev/events/details/kiit-1")]: 1,
-      [eventUrlKey("https://gdg.community.dev/events/details/kiit-2")]: 1,
-      [eventUrlKey("https://gdg.community.dev/events/details/cvr-1")]: 1,
-      [eventUrlKey("https://example.com/static-event")]: 1,
-      // A removed chapter's rows still retire, as before this change.
-      [eventUrlKey("https://gdg.community.dev/events/details/iiit-old")]: 0,
-    });
-  });
-
-  it("does not treat a page without its event lists as a successful empty chapter", async () => {
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
-    const listed = "https://gdg.community.dev/events/details/bbsr-listed";
-    // prerenderData is present but both result lists were renamed upstream.
-    const reshapedPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
-      props: { pageProps: { prerenderData: { upcoming: [], past: [] } } },
-    })}</script>`;
-    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
-      const html = String(input).endsWith("/gdg-bhubaneswar/") ? eventPage(listed) : reshapedPage;
-      return { ok: true, status: 200, text: async () => html } as Response;
-    }) as typeof fetch;
-
-    const kiit = "https://gdg.community.dev/events/details/kiit-1";
-    const rows: StoredRow[] = [
-      { id: eventUrlKey(listed), community: "GDG Bhubaneswar", source: "bevy", is_active: 1 },
-      { id: eventUrlKey(kiit), community: "GDGoC KIIT", source: "bevy", is_active: 1 },
-    ];
-
-    await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
-    expect(rows.map((r) => r.is_active)).toEqual([1, 1]);
-  });
-
-  it("keeps a chapter's rows when its entries lack the fields sync needs", async () => {
-    const listed = "https://gdg.community.dev/events/details/bbsr-listed";
-    // KIIT's entries lost start_date (e.g. a renamed field upstream).
-    const undatedPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
-      props: {
-        pageProps: {
-          prerenderData: {
-            upcomingEvents: {
-              results: [
-                { title: "Undated", url: "https://gdg.community.dev/events/details/kiit-new" },
-              ],
-            },
-            pastEvents: { results: [] },
-          },
-        },
-      },
-    })}</script>`;
-    const emptyPage = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
-      props: {
-        pageProps: {
-          prerenderData: { upcomingEvents: { results: [] }, pastEvents: { results: [] } },
-        },
-      },
-    })}</script>`;
-    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
-      const url = String(input);
-      let html = emptyPage;
-      if (url.endsWith("/gdg-bhubaneswar/")) html = eventPage(listed);
-      if (url.includes("kalinga-institute")) html = undatedPage;
-      return { ok: true, status: 200, text: async () => html } as Response;
-    }) as typeof fetch;
-
-    const kiit = "https://gdg.community.dev/events/details/kiit-1";
-    const gone = "https://gdg.community.dev/events/details/bbsr-gone";
-    const rows: StoredRow[] = [
-      { id: eventUrlKey(kiit), community: "GDGoC KIIT", source: "bevy", is_active: 1 },
-      { id: eventUrlKey(gone), community: "GDG Bhubaneswar", source: "bevy", is_active: 1 },
-    ];
-
-    await expect(syncEventsToD1(inMemoryD1(rows))).resolves.toEqual({ upserted: 1 });
-    expect(rows.find((r) => r.id === eventUrlKey(kiit))?.is_active).toBe(1);
-    expect(rows.find((r) => r.id === eventUrlKey(gone))?.is_active).toBe(0);
-  });
-
-  it("keeps the retirement query within D1's bound-parameter limit for large syncs", async () => {
+  it("keeps every statement within D1's 100-bound-parameter limit for large syncs", async () => {
     const urls = Array.from(
       { length: 150 },
       (_, i) => `https://gdg.community.dev/events/details/bulk-${i}`,
     );
-    const page = (results: unknown[]) =>
-      `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
-        props: {
-          pageProps: {
-            prerenderData: { upcomingEvents: { results }, pastEvents: { results: [] } },
+    const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: { results: [], count: 0 },
+            pastEvents: {
+              results: urls.map((url) => ({ title: url, start_date: "2025-07-15T18:00:00Z", url })),
+              count: 150,
+            },
           },
         },
-      })}</script>`;
-    const bulk = page(urls.map((url) => ({ title: url, start_date: "2026-07-15T18:00:00Z", url })));
-    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
-      const html = String(input).endsWith("/gdg-bhubaneswar/") ? bulk : page([]);
-      return { ok: true, status: 200, text: async () => html } as Response;
-    }) as typeof fetch;
+      },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => html,
+    } as Response);
 
-    const gone = "https://gdg.community.dev/events/details/bbsr-gone";
-    const rows: StoredRow[] = [
-      { id: eventUrlKey(gone), community: "GDG Bhubaneswar", source: "bevy", is_active: 1 },
-    ];
-    const db = inMemoryD1(rows);
-    const bindCounts: number[] = [];
-    const counted: D1Like = {
+    const bound = new Map<string, number>();
+    const db: D1Like = {
       prepare(sql) {
-        const statement = db.prepare(sql);
-        const bind = statement.bind.bind(statement);
-        statement.bind = (...values: unknown[]) => {
-          bindCounts.push(values.length);
-          return bind(...values);
+        const statement = {
+          bind(...values: unknown[]) {
+            bound.set(sql, Math.max(bound.get(sql) ?? 0, values.length));
+            return statement;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({ results: [] as T[] }),
         };
         return statement;
       },
     };
 
-    await expect(syncEventsToD1(counted)).resolves.toEqual({ upserted: 150 });
-    expect(Math.max(...bindCounts)).toBeLessThanOrEqual(100);
-    expect(rows.find((r) => r.id === eventUrlKey(gone))?.is_active).toBe(0);
-    expect(rows.filter((r) => r.is_active === 1)).toHaveLength(150);
+    await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 150 });
+    expect(bound.get(UPSERT_SQL)).toBe(9);
+    expect(bound.get(RETIRE_SQL)).toBeLessThanOrEqual(100);
   });
 });
