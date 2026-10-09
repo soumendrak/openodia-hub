@@ -178,6 +178,20 @@ describe("syncEventsToD1 against a real D1", () => {
     expect({ past: active["kiit-past"], upcoming: active["kiit-upcoming"] }).toEqual(expected);
   });
 
+  it("protects rows stored under an organizer alias", async () => {
+    serve({
+      [BBSR]: lists(list([ev("bbsr-next", "2099-01-01")]), list([], { count: 87 })),
+      [KIIT]: 503,
+    });
+    await seed([
+      ["kiit-alias", "GDG on Campus KIIT"],
+      ["bbsr-alias-past", "Google Developer Group Bhubaneswar"],
+    ]);
+
+    await syncEventsToD1(db);
+    expect(await activeBySlug()).toMatchObject({ "kiit-alias": 1, "bbsr-alias-past": 1 });
+  });
+
   it("retires correctly when more than 100 event IDs were seen", async () => {
     const many = Array.from({ length: 150 }, (_, i) => ev(`bulk-${i}`));
     serve({ [BBSR]: lists(list(), list(many)) });
