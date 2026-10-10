@@ -17,8 +17,11 @@ const tokens = (text: string) => (text.match(/\{+[^{}]*\}+|[{}]/g) ?? []).sort()
 /** The text with whitespace (including NBSP) and zero-width characters removed. */
 const visible = (text: string) => text.replace(/[\s\u200B-\u200D\u2060\uFEFF]/g, "");
 
-/** Whether the text has at least one character from the Odia Unicode block. */
-const hasOdia = (text: string) => /[\u0B00-\u0B7F]/.test(text);
+/**
+ * Whether the text has at least one Odia letter: a letter in the Odia block, so an
+ * Odia digit, sign or combining mark alone (`About୦`, `About଼`) doesn't count.
+ */
+const hasOdia = (text: string) => /(?=[\u0B00-\u0B7F])\p{L}/u.test(text);
 
 describe("Odia locale coverage", () => {
   it("has exactly the English keys", () => {
@@ -36,9 +39,12 @@ describe("Odia locale coverage", () => {
     expect(tokens(value!)).toEqual(tokens(en[key]));
   });
 
-  it.each(["about", "About.", "Abuot"])("rejects %j as an Odia string", (value) => {
-    expect(hasOdia(value)).toBe(false);
-  });
+  it.each(["about", "About.", "Abuot", "About\u0B66", "About\u0B3C", "About\u0B4D"])(
+    "rejects %j as an Odia string",
+    (value) => {
+      expect(hasOdia(value)).toBe(false);
+    },
+  );
 
   it.each([
     ["NBSP + ZWSP", "\u00A0\u200B"],
