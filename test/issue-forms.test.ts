@@ -100,7 +100,10 @@ describe("event submission issue form", () => {
   });
 
   it("lets an individual organizer enter their own name", () => {
-    expect(field("organizer_name").attributes.description).toMatch(/your own name/);
+    const description = field("organizer_name").attributes.description;
+    expect(description).toMatch(/your own name/);
+    // There is no individual organizer kind, so listing one is a review decision.
+    expect(description).toMatch(/maintainer decides in review/);
   });
 
   it("offers every registry organizer by name and ID, plus a not-listed choice", () => {

@@ -91,8 +91,9 @@ repository tests validate that record, not the issue text.
 - **Format** has no field of its own; it goes into `location`, e.g. `Online`, or
   `Online & CUTM Bhubaneswar` for a hybrid event.
 - **Month-only dates:** when the source states only a month, the record uses `date: "Nov 2026"`
-  and `year: "2026"` with no `startDate`. The month section then comes from `date`, and a
-  maintainer sets `status: "upcoming"` by hand, since status is only computed from `startDate`.
+  and `year: "2026"` with no `startDate`. `src/data/events/index.ts` then treats the event as
+  spanning that whole month, so it shows as upcoming before November, live during it, and past
+  afterwards. Leave `status` unset, because the computed value replaces it.
 - **Review-only fields**, set by maintainers rather than the form: `community` (filled in by
   `src/data/events/index.ts`), `organizerId` (from the organizer you picked), `year` and `date`
   (from the start date and its precision), and `status` (computed from the dates). For organizers:
