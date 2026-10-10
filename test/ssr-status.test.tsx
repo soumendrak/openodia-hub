@@ -77,12 +77,15 @@ function serverRouter(path: string) {
   return router;
 }
 
-async function render(path: string, userAgent = "Mozilla/5.0") {
+async function render(path: string, userAgent = "Mozilla/5.0", signal?: AbortSignal) {
   const router = serverRouter(path);
   // The same steps createStartHandler runs before calling the stream handler.
   await router.load();
   await router.serverSsr!.dehydrate();
-  const request = new Request(`http://localhost${path}`, { headers: { "User-Agent": userAgent } });
+  const request = new Request(`http://localhost${path}`, {
+    headers: { "User-Agent": userAgent },
+    signal,
+  });
   const response = await streamHandler({ request, router, responseHeaders: new Headers() });
   return { status: response.status, html: await response.text() };
 }
@@ -133,6 +136,15 @@ describe("SSR response status", () => {
     expect(html.trimEnd().endsWith("</html>")).toBe(true);
     // The failure did happen, after the headers had gone out.
     expect(log).toHaveBeenCalledWith(expect.objectContaining({ message: "late failure" }));
+  });
+
+  it("doesn't log or answer 500 when the client disconnects mid-render", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const abort = new AbortController();
+    setTimeout(() => abort.abort(), 10); // Before /late fails at 50 ms.
+    const { status } = await render("/late", "Googlebot/2.1", abort.signal);
+    expect(status).not.toBe(500);
+    expect(log).not.toHaveBeenCalled();
   });
 
   it("answers 500 when a page throws a render error and then notFound()", async () => {

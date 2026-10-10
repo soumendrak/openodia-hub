@@ -31,6 +31,8 @@ export const streamHandler = defineHandlerCallback(async ({ request, router, res
     progressiveChunkSize: Number.POSITIVE_INFINITY,
     // Every error React reports becomes a 500: don't rely on throw-on-server, render-on-client patterns.
     onError(error) {
+      // A client disconnect aborts the render; React reports that here. Not a failure.
+      if (request.signal.aborted) return;
       if (isNotFound(error)) {
         status ??= 404;
         return;
