@@ -69,7 +69,8 @@ linked from `/contribute`, and the event and correction forms from `/events`:
 Each form collects what the `Event` record in `src/data/events/types.ts` or the `Organizer` record
 in `src/data/organizers.ts` needs, plus an evidence URL and the date it was checked. Nothing is
 published automatically. A maintainer turns a reviewed submission into a pull request, and the
-repository tests validate that record, not the issue text.
+repository tests validate that record, not the issue text. Every organizer must be a community,
+group, or organisation; individuals are not listed as organizers.
 
 **Examples**
 

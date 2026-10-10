@@ -14,7 +14,7 @@ body:
     id: canonical_name
     attributes:
       label: Organizer name
-      description: The name the organizer uses for itself on its official pages.
+      description: The name the organizer uses for itself on its official pages. Organizers must be a community, group, or organisation, not an individual.
     validations:
       required: true
   - type: textarea
