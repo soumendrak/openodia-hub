@@ -14,7 +14,7 @@ const serverHarness = vi.hoisted(() => ({
   capturedError: vi.fn(),
 }));
 
-vi.mock("@tanstack/react-start/server-entry", () => ({
+vi.mock("../src/lib/ssr-entry", () => ({
   default: { fetch: serverHarness.entryFetch },
 }));
 vi.mock("../src/lib/error-capture", () => ({
@@ -392,14 +392,14 @@ describe("scheduled cache and event refresh", () => {
 
 describe("getServerEntry default export fallback", () => {
   afterEach(() => {
-    vi.doUnmock("@tanstack/react-start/server-entry");
+    vi.doUnmock("../src/lib/ssr-entry");
     vi.resetModules();
   });
 
   it("uses the module namespace directly when it has no default export", async () => {
     vi.resetModules();
     const freshFetch = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
-    vi.doMock("@tanstack/react-start/server-entry", () => ({
+    vi.doMock("../src/lib/ssr-entry", () => ({
       fetch: freshFetch,
       default: undefined,
     }));
