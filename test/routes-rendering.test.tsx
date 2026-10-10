@@ -208,11 +208,12 @@ afterEach(() => {
   routeHarness.invalidate.mockClear();
 });
 
-function expectFormLink(name: string) {
-  const link = screen.getByRole("link", { name });
+function expectFormLink(name: string, template: string) {
+  // The sr-only suffix warns screen-reader users that the form opens in a new tab.
+  const link = screen.getByRole("link", { name: `${name} (opens in a new tab)` });
   expect(link).toHaveAttribute(
     "href",
-    "https://github.com/soumendrak/openodia-hub/issues/new?template=event-submission.yml",
+    `https://github.com/soumendrak/openodia-hub/issues/new?template=${template}`,
   );
   link.focus();
   expect(link).toHaveFocus();
@@ -275,7 +276,9 @@ describe("route rendering", () => {
 
     await renderRoute("/contribute", () => import("../src/routes/contribute"));
     expect(screen.getByText(/Add your/i)).toBeInTheDocument();
-    expectFormLink("Submit an event");
+    expectFormLink("Submit an event", "event-submission.yml");
+    expectFormLink("Add an organizer", "organizer-submission.yml");
+    expectFormLink("Correct or update an event", "event-correction.yml");
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     cleanup();
 
@@ -459,7 +462,8 @@ describe("route rendering", () => {
   it("renders events and the Odialang playground without loading Pyodide", async () => {
     await renderRoute("/events", () => import("../src/routes/events"));
     expect(screen.getAllByText(/Odia AI/i).length).toBeGreaterThan(0);
-    expectFormLink("Submit an event");
+    expectFormLink("Submit an event", "event-submission.yml");
+    expectFormLink("Suggest a correction", "event-correction.yml");
     cleanup();
 
     routeHarness.search["/playground"] = { tab: "odia" };
