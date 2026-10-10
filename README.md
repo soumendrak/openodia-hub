@@ -145,7 +145,7 @@ The dev server starts at `http://localhost:9090`.
 | `bun run dev`                            | Start Vite dev server                              |
 | `bun run build`                          | Production build                                   |
 | `bun run build:dev`                      | Development-mode build                             |
-| `bun run preview`                        | Preview production build                           |
+| `bun run preview`                        | Serve the built Worker locally (after `build`)     |
 | `bun run lint`                           | Run ESLint                                         |
 | `bun run format`                         | Format with Prettier                               |
 | `bun run test`                           | Run Vitest tests                                   |
