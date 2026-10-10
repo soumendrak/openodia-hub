@@ -30,6 +30,7 @@ const PAGES: SearchDocument[] = [
   ["Tutorials", "/tutorials", "Odia AI community videos and learning"],
   ["Playground", "/playground", "Try Odia language tools in the browser"],
   ["Events", "/events", "Odia AI community events"],
+  ["Communities", "/communities", "Odia AI communities and event organizers"],
   ["Papers", "/papers", "Odia NLP research papers"],
   ["Treebank search", "/treebank", "Search the Odia Universal Dependencies treebank"],
   ["Add your project", "/contribute", "Contribute an Odia open-source project"],
