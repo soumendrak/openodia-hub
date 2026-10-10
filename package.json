@@ -15,7 +15,7 @@
     "test:coverage:diff": "bun scripts/check-diff-coverage.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
     "prepare": "bun run hooks:install",
-    "test:e2e": "playwright test",
+    "test:e2e": "vite build && playwright test",
     "test:watch": "vitest"
   },
   "dependencies": {

@@ -1,3 +1,3 @@
 import { smokeRoute } from "./smoke";
 
-smokeRoute("/tools", "Every Odia project, in one place.");
+smokeRoute("/tools", "Every Odia project, in one place.", { text: "sovogpt" });
