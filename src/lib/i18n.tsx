@@ -47,6 +47,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // No interpolation yet: t() returns the string as-is. The placeholder check
+  // in test/locale-coverage.test.ts guards against `{name}` tokens drifting
+  // between en.ts and or.ts once interpolation is added.
   const t = (key: TranslationKey): string => {
     return STRINGS[locale][key] ?? en[key];
   };
