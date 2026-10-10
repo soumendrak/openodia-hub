@@ -4,6 +4,7 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
+  notFound,
 } from "@tanstack/react-router";
 import { attachRouterServerSsrUtils } from "@tanstack/react-router/ssr/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -28,8 +29,15 @@ function serverRouter(path: string) {
       throw new Error("render failed");
     },
   });
+  const missing = createRoute({
+    getParentRoute: () => root,
+    path: "/missing",
+    component: () => {
+      throw notFound();
+    },
+  });
   const router = createRouter({
-    routeTree: root.addChildren([home, boom]),
+    routeTree: root.addChildren([home, boom, missing]),
     history: createMemoryHistory({ initialEntries: [path] }),
     isServer: true,
   });
@@ -60,6 +68,12 @@ describe("SSR response status", () => {
     const { status, html } = await render("/no-such-page");
     expect(status).toBe(404);
     expect(html).toContain("<h1>404</h1>");
+  });
+
+  it("answers 404 when a route component throws notFound(), without logging an error", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await render("/missing")).status).toBe(404);
+    expect(log).not.toHaveBeenCalled();
   });
 
   it("answers 500 when a route throws during render, and logs the error", async () => {
