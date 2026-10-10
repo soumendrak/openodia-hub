@@ -14,6 +14,12 @@ const SAME_AS_ENGLISH = new Set<string>([]);
  */
 const tokens = (text: string) => (text.match(/\{+[^{}]*\}+|[{}]/g) ?? []).sort();
 
+/** The text with whitespace (including NBSP) and zero-width characters removed. */
+const visible = (text: string) => text.replace(/[\s\u200B-\u200D\u2060\uFEFF]/g, "");
+
+/** Whether the text has at least one character from the Odia Unicode block. */
+const hasOdia = (text: string) => /[\u0B00-\u0B7F]/.test(text);
+
 describe("Odia locale coverage", () => {
   it("has exactly the English keys", () => {
     expect(Object.keys(or).sort()).toEqual([...enKeys].sort());
@@ -22,9 +28,29 @@ describe("Odia locale coverage", () => {
   it.each(enKeys)("%s has a translated Odia string with the same placeholders", (key) => {
     const value = or[key];
     expect(typeof value).toBe("string");
-    expect(value!.trim()).not.toBe("");
-    if (!SAME_AS_ENGLISH.has(key)) expect(value!.trim()).not.toBe(en[key].trim());
+    expect(visible(value!)).not.toBe("");
+    if (!SAME_AS_ENGLISH.has(key)) {
+      expect(value!.trim()).not.toBe(en[key].trim());
+      expect(hasOdia(value!), `${key} has no Odia character`).toBe(true);
+    }
     expect(tokens(value!)).toEqual(tokens(en[key]));
+  });
+
+  it.each(["about", "About.", "Abuot"])("rejects %j as an Odia string", (value) => {
+    expect(hasOdia(value)).toBe(false);
+  });
+
+  it.each([
+    ["NBSP + ZWSP", "\u00A0\u200B"],
+    ["ZWJ + word joiner + BOM", "\u200D\u2060\uFEFF"],
+  ])("treats %s as empty", (_, value) => {
+    expect(visible(value)).toBe("");
+  });
+
+  it("accepts Odia text, including mixed Odia and Latin", () => {
+    expect(hasOdia("ପରିଚୟ")).toBe(true);
+    expect(hasOdia("ସନ୍ଧାନ ଖୋଲନ୍ତୁ (Cmd+K)")).toBe(true);
+    expect(visible("\u00A0ପରିଚୟ\u200B")).toBe("ପରିଚୟ");
   });
 
   it("finds interpolation tokens", () => {
