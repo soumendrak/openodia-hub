@@ -1,4 +1,21 @@
-export type EventType = "Conference" | "Summit" | "Workshop" | "Hackathon" | "Talk" | "Research";
+export const EVENT_TYPES = [
+  "Conference",
+  "Summit",
+  "Workshop",
+  "Hackathon",
+  "Talk",
+  "Research",
+] as const;
+
+export type EventType = (typeof EVENT_TYPES)[number];
+
+export const ATTENDANCE_POLICIES = [
+  "public",
+  "eligibility",
+  "approval",
+  "restricted",
+  "unknown",
+] as const;
 
 export type Event = {
   year: string;
@@ -25,7 +42,7 @@ export type Event = {
    * only · unknown: no explicit evidence.
    */
   attendance?: {
-    policy: "public" | "eligibility" | "approval" | "restricted" | "unknown";
+    policy: (typeof ATTENDANCE_POLICIES)[number];
     /** One sentence of evidence, e.g. "ID proof, fee and 60-seat cap." */
     note: string;
   };

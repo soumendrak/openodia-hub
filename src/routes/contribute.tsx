@@ -5,6 +5,7 @@ import { Reveal } from "../components/Reveal";
 import { GithubIcon } from "../components/icons";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 import { pageHead } from "../lib/seo";
+import { ISSUE_FORMS, issueFormUrl } from "../lib/issue-forms";
 
 const AWESOME_REPO = "https://github.com/odisha-ml/Awesome-Odia-AI";
 const HUB_ISSUES = "https://github.com/soumendrak/openodia-hub/issues/new";
@@ -153,6 +154,24 @@ function ContributePage() {
           <code className="rounded bg-surface-2 px-1">size_categories</code> and the card fills
           itself in.
         </p>
+      </Reveal>
+
+      <Reveal delay={0.05} className="mt-12">
+        <h2 className="font-display text-3xl font-semibold">Events</h2>
+        <p className="mt-2 max-w-2xl text-muted-foreground">
+          No code needed: the form asks for the fields an event record uses, with an explicit
+          &ldquo;Unknown / not stated&rdquo; choice wherever a source is silent. A maintainer
+          reviews every submission before anything is published, and a listing never means
+          registration is open.
+        </p>
+        <a
+          href={issueFormUrl("event")}
+          target="_blank"
+          rel="noreferrer"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition hover:border-neon hover:text-neon focus-visible:border-neon focus-visible:text-neon"
+        >
+          {ISSUE_FORMS.event.label} <ExternalLink size={13} aria-hidden="true" />
+        </a>
       </Reveal>
 
       <Reveal delay={0.1} className="mt-12">

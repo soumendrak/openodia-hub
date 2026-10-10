@@ -208,6 +208,16 @@ afterEach(() => {
   routeHarness.invalidate.mockClear();
 });
 
+function expectFormLink(name: string) {
+  const link = screen.getByRole("link", { name });
+  expect(link).toHaveAttribute(
+    "href",
+    "https://github.com/soumendrak/openodia-hub/issues/new?template=event-submission.yml",
+  );
+  link.focus();
+  expect(link).toHaveFocus();
+}
+
 describe("route rendering", () => {
   it("renders root shell, application frame, not-found, and error recovery", async () => {
     const root = await import("../src/routes/__root");
@@ -265,6 +275,7 @@ describe("route rendering", () => {
 
     await renderRoute("/contribute", () => import("../src/routes/contribute"));
     expect(screen.getByText(/Add your/i)).toBeInTheDocument();
+    expectFormLink("Submit an event");
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     cleanup();
 
@@ -448,6 +459,7 @@ describe("route rendering", () => {
   it("renders events and the Odialang playground without loading Pyodide", async () => {
     await renderRoute("/events", () => import("../src/routes/events"));
     expect(screen.getAllByText(/Odia AI/i).length).toBeGreaterThan(0);
+    expectFormLink("Submit an event");
     cleanup();
 
     routeHarness.search["/playground"] = { tab: "odia" };
