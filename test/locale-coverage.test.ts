@@ -5,7 +5,7 @@ import { or } from "../src/locales/or";
 
 const enKeys = Object.keys(en) as (keyof typeof en)[];
 
-/** Keys whose Odia string may legitimately equal the English one (e.g. a brand name). */
+/** Keys whose Odia string must equal the English one (e.g. a brand name). */
 const SAME_AS_ENGLISH = new Set<string>([]);
 
 /**
@@ -32,7 +32,10 @@ describe("Odia locale coverage", () => {
     const value = or[key];
     expect(typeof value).toBe("string");
     expect(visible(value!)).not.toBe("");
-    if (!SAME_AS_ENGLISH.has(key)) {
+    if (SAME_AS_ENGLISH.has(key)) {
+      // An allowlisted string must stay exactly the English one, not drift or typo.
+      expect(value).toBe(en[key]);
+    } else {
       expect(value!.trim()).not.toBe(en[key].trim());
       expect(hasOdia(value!), `${key} has no Odia character`).toBe(true);
     }
