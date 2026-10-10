@@ -99,11 +99,12 @@ describe("event submission issue form", () => {
     expect(form.body[0].attributes.value).toMatch(/never means registration is open/);
   });
 
-  it("lets an individual organizer enter their own name", () => {
+  it("says the organizer must be a community, group, or organisation", () => {
     const description = field("organizer_name").attributes.description;
-    expect(description).toMatch(/your own name/);
-    // There is no individual organizer kind, so listing one is a review decision.
-    expect(description).toMatch(/maintainer decides in review/);
+    expect(description).toMatch(/must be a community, group, or organisation, not an individual/);
+    expect(description).not.toMatch(
+      /your own name|individual's event|maintainer decides in review/,
+    );
   });
 
   it("offers every registry organizer by name and ID, plus a not-listed choice", () => {
@@ -158,6 +159,12 @@ describe("event submission issue form", () => {
 
 describe("organizer issue form", () => {
   const organizer = forms.organizer;
+
+  it("says the organizer must be a community, group, or organisation", () => {
+    expect(field("canonical_name", organizer).attributes.description).toMatch(
+      /must be a community, group, or organisation, not an individual/,
+    );
+  });
 
   it("collects the Organizer fields a contributor can know", () => {
     for (const id of ["canonical_name", "kind", "region", "description", "official_links"]) {
