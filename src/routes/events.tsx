@@ -561,7 +561,16 @@ function EventsPage() {
             rel="noreferrer"
             className="text-neon hover:underline"
           >
-            Submit an event
+            Submit an event <span className="sr-only">(opens in a new tab)</span>
+          </a>
+          . Wrong, postponed, or cancelled?{" "}
+          <a
+            href={issueFormUrl("correction")}
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            Suggest a correction <span className="sr-only">(opens in a new tab)</span>
           </a>
           . Submissions are reviewed before they appear.
         </p>

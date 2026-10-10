@@ -68,7 +68,7 @@ body:
     id: organizer_name
     attributes:
       label: Organizer name
-      description: The organizer's own name for itself. Required even if you picked it above, so an unlisted organizer is never left unnamed.
+      description: The organizer's own name for itself, or your own name if you are organizing as an individual. Required even if you picked it above, so an unlisted organizer is never left unnamed.
     validations:
       required: true
   - type: dropdown
