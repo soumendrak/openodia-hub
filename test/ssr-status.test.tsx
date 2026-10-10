@@ -143,7 +143,7 @@ describe("SSR response status", () => {
     const abort = new AbortController();
     setTimeout(() => abort.abort(), 10); // Before /late fails at 50 ms.
     const { status } = await render("/late", "Googlebot/2.1", abort.signal);
-    expect(status).not.toBe(500);
+    expect(status).toBe(200);
     expect(log).not.toHaveBeenCalled();
   });
 

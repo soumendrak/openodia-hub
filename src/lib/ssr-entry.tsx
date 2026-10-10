@@ -31,7 +31,9 @@ export const streamHandler = defineHandlerCallback(async ({ request, router, res
     progressiveChunkSize: Number.POSITIVE_INFINITY,
     // Every error React reports becomes a 500: don't rely on throw-on-server, render-on-client patterns.
     onError(error) {
-      // A client disconnect aborts the render; React reports that here. Not a failure.
+      // A client disconnect aborts the render and React reports it here: not a failure.
+      // This only fires with the `enable_request_signal` compatibility flag, which
+      // wrangler.jsonc doesn't set; without it request.signal never aborts, so it's a no-op.
       if (request.signal.aborted) return;
       if (isNotFound(error)) {
         status ??= 404;
