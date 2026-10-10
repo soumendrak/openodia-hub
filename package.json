@@ -7,7 +7,7 @@
     "dev": "vite dev --port 9090",
     "build": "vite build",
     "build:dev": "vite build --mode development",
-    "preview": "vite preview",
+    "preview": "wrangler dev -c dist/server/wrangler.json --local --port 4173",
     "lint": "eslint .",
     "format": "prettier --write .",
     "test": "vitest run",
