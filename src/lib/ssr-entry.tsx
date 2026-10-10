@@ -19,6 +19,9 @@ type AppStream = Parameters<typeof transformReadableStreamWithRouter>[1];
  * from the router alone: 200. Errors React reports before the shell is ready
  * (before allReady, for bots) now set 500; later ones can't, as the headers are sent.
  * A component throwing notFound() is a not-found signal, not a failure: 404.
+ *
+ * Copied from @tanstack/react-router 1.168.25 renderRouterToStream (its
+ * renderToReadableStream branch). Re-diff against upstream on every upgrade.
  */
 export const streamHandler = defineHandlerCallback(async ({ request, router, responseHeaders }) => {
   let status: number | undefined;
@@ -26,6 +29,7 @@ export const streamHandler = defineHandlerCallback(async ({ request, router, res
     signal: request.signal,
     nonce: router.options.ssr?.nonce,
     progressiveChunkSize: Number.POSITIVE_INFINITY,
+    // Every error React reports becomes a 500: don't rely on throw-on-server, render-on-client patterns.
     onError(error) {
       if (isNotFound(error)) {
         status ??= 404;
