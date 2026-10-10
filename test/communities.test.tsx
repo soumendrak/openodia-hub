@@ -31,6 +31,30 @@ async function renderAt(url: string) {
   return router;
 }
 
+const nestedQuery = (depth: number) => `?q=${"[".repeat(depth)}${"]".repeat(depth)}`;
+
+/**
+ * The deepest nested ?q the router itself can parse: it re-stringifies the
+ * search while parsing and overflows past this, before validateSearch runs.
+ * Found at runtime because the limit depends on the stack size.
+ */
+function deepestParsableQuery(): string {
+  let [ok, bad] = [1, 20_000];
+  while (bad - ok > 1) {
+    const mid = Math.floor((ok + bad) / 2);
+    try {
+      createRouter({
+        routeTree,
+        history: createMemoryHistory({ initialEntries: [`/communities${nestedQuery(mid)}`] }),
+      });
+      ok = mid;
+    } catch {
+      bad = mid;
+    }
+  }
+  return nestedQuery(ok);
+}
+
 function cardNames(): string[] {
   return screen.queryAllByRole("heading", { level: 2 }).map((h) => h.textContent ?? "");
 }
@@ -58,6 +82,14 @@ describe("organizer directory search", () => {
     expect(validateDirectorySearch({ q: undefined })).toEqual({});
     expect(validateDirectorySearch({ q: ["kiit"] })).toEqual({ q: '["kiit"]' });
     expect(validateDirectorySearch({ q: [2026] })).toEqual({ q: "[2026]" });
+  });
+
+  it("drops a q too deeply nested for JSON.stringify instead of throwing", () => {
+    // The router JSON-parses ?q; JSON.parse accepts nesting that JSON.stringify overflows on.
+    const deep = JSON.parse(`${"[".repeat(10_000)}${"]".repeat(10_000)}`);
+    expect(validateDirectorySearch({ q: deep, kind: "institution" })).toEqual({
+      kind: "institution",
+    });
   });
 
   it("matches canonical names, aliases, regions, descriptions, and kind labels", () => {
@@ -206,6 +238,30 @@ describe("/communities route", () => {
       expect(screen.getByText(`${ORGANIZERS.length} organizers listed`)).toBeInTheDocument();
     },
   );
+
+  it("shows the full directory for the deepest nested ?q the router can parse", async () => {
+    const router = await renderAt(`/communities${deepestParsableQuery()}`);
+    expect(router.state.matches.at(-1)?.search).toEqual({});
+    expect(screen.getByRole("searchbox")).toHaveValue("");
+    expect(cardNames()).toHaveLength(ORGANIZERS.length);
+  });
+
+  // The URL query is trimmed; when it changes, the input must not take the trimmed value back.
+  it.each([
+    ['pasting "kiit " into the empty box', "", "kiit "],
+    ['deleting "kiit x" back to "kiit "', "kiit x", "kiit "],
+  ])("keeps a trailing space after %s", async (_, before, typed) => {
+    const router = await renderAt(
+      `/communities${before ? `?q=${encodeURIComponent(before)}` : ""}`,
+    );
+    const input = screen.getByRole("searchbox");
+    await act(async () => {
+      fireEvent.change(input, { target: { value: typed } });
+    });
+    expect(router.state.location.search).toEqual({ q: "kiit" });
+    expect(input).toHaveValue(typed);
+    expect(cardNames()).toEqual(["GDGoC KIIT"]);
+  });
 
   it("shows an empty state whose reset clears every filter", async () => {
     const router = await renderAt("/communities?q=kiit&kind=government");
