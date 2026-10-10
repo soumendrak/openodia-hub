@@ -56,30 +56,61 @@ Check the organiser's page before adding a record. Keep date, location, and regi
 claims grounded in that source; an event being listed does not imply registration is open.
 Avoid duplicate URLs, including tracking-parameter variants.
 
-### Without code: submit an event
+### Without code: issue forms
 
-Organizers and attendees can use the
-[Submit an event](https://github.com/soumendrak/openodia-hub/issues/new?template=event-submission.yml)
-issue form instead of editing TypeScript. It is linked from `/contribute` and `/events`.
+Organizers and attendees can use the GitHub issue forms instead of editing TypeScript. They are
+linked from `/contribute`, and the event and correction forms from `/events`:
 
-The form collects the fields of the `Event` record in `src/data/events/types.ts`, plus an evidence
-URL and the date it was checked. Nothing is published automatically. A maintainer turns a reviewed
-submission into a pull request, and the repository tests validate that record, not the issue text.
+- [Submit an event](https://github.com/soumendrak/openodia-hub/issues/new?template=event-submission.yml)
+- [Add an organizer](https://github.com/soumendrak/openodia-hub/issues/new?template=organizer-submission.yml)
+- [Correct or update an event](https://github.com/soumendrak/openodia-hub/issues/new?template=event-correction.yml)
+  (a wrong detail, a postponement, a cancellation, or a duplicate)
 
-For example: "GDGoC KIIT · Build with AI", event URL
-`https://gdg.community.dev/events/details/...`, registration URL left blank because the source
-gives none, organizer `GDGoC KIIT (gdgoc-kiit)`, type `Workshop`, start date `2026-11-21` with
-precision `Exact day`, format `In person`, attendance `eligibility` with the note "KIIT students
-with college ID; 60 seats", registration `Unknown / not stated`, fee `Unknown / not stated`.
+Each form collects what the `Event` record in `src/data/events/types.ts` or the `Organizer` record
+in `src/data/organizers.ts` needs, plus an evidence URL and the date it was checked. Nothing is
+published automatically. A maintainer turns a reviewed submission into a pull request, and the
+repository tests validate that record, not the issue text.
 
-The canonical event URL is the event's identity, and listings are deduplicated by it. A
-registration form, cohost alias, or tracking link is not the identity; put it in the separate
-registration URL field.
+**Examples**
+
+- **Event:** "GDGoC KIIT · Build with AI", event URL
+  `https://gdg.community.dev/events/details/...`, registration URL left blank because the source
+  gives none, organizer `GDGoC KIIT (gdgoc-kiit)`, type `Workshop`, start date `2026-11-21` with
+  precision `Exact day`, format `In person`, attendance `eligibility` with the note "KIIT students
+  with college ID; 60 seats", registration `Unknown / not stated`, fee `Unknown / not stated`.
+- **Organizer:** name "GDGoC Example University", other names "GDG on Campus Example University",
+  kind `student-community`, region "Cuttack", official links "Official chapter -
+  https://gdg.community.dev/...". Maintainers pick the final `id` and collection mode after the
+  identity review in [docs/organizers.md](docs/organizers.md).
+- **Correction:** the event URL shown on OpenOdia, `Postponed or rescheduled`, fields `Dates`,
+  "OpenOdia shows 2026-11-21; the page now says 2026-12-05", and the page that states the change.
+  A cancelled or duplicate listing is removed, because a listing has no cancelled status.
+
+**How form answers become a record**
+
+- **Format** has no field of its own; it goes into `location`, e.g. `Online`, or
+  `Online & CUTM Bhubaneswar` for a hybrid event.
+- **Month-only dates:** when the source states only a month, the record uses `date: "Nov 2026"`
+  and `year: "2026"` with no `startDate`. The month section then comes from `date`, and a
+  maintainer sets `status: "upcoming"` by hand, since status is only computed from `startDate`.
+- **Review-only fields**, set by maintainers rather than the form: `community` (filled in by
+  `src/data/events/index.ts`), `organizerId` (from the organizer you picked), `year` and `date`
+  (from the start date and its precision), and `status` (computed from the dates). For organizers:
+  `id`, `collectionMode`, and each official link's `verificationNote`; your check date becomes
+  `verifiedOn`.
+- **Registration URL, status, and fee** are not stored as `Event` fields. They inform the
+  attendance policy and its note, and keep a registration link from becoming the event URL.
+
+**Identity and aliases.** The canonical event URL is the event's identity, and listings are
+deduplicated by it. A registration form, cohost alias, or tracking link is not the identity; put
+it in the separate registration URL field. An organizer's other names (abbreviations, earlier
+names, "GDG on Campus ..." spellings) go in "Other names" and become reviewed `aliases`, never a
+second organizer.
 
 Choose **Unknown / not stated** whenever the source is silent. An omitted fee is not "free", and
 being listed does not mean registration is open.
 
-The form adds records for review. Automatic collection from a new source still needs separate
+Issue forms add records for review. Automatic collection from a new source still needs separate
 engineering work on a crawler adapter (see `scripts/crawl-events.mjs` and `CHAPTERS`).
 
 ### 1. How to add an Event to an existing Community

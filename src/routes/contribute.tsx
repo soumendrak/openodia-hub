@@ -157,21 +157,28 @@ function ContributePage() {
       </Reveal>
 
       <Reveal delay={0.05} className="mt-12">
-        <h2 className="font-display text-3xl font-semibold">Events</h2>
+        <h2 className="font-display text-3xl font-semibold">Events and organizers</h2>
         <p className="mt-2 max-w-2xl text-muted-foreground">
-          No code needed: the form asks for the fields an event record uses, with an explicit
-          &ldquo;Unknown / not stated&rdquo; choice wherever a source is silent. A maintainer
-          reviews every submission before anything is published, and a listing never means
-          registration is open.
+          No code needed: the forms ask for the fields an event or organizer record uses, with an
+          explicit &ldquo;Unknown / not stated&rdquo; choice wherever a source is silent, and the
+          correction form fixes, postpones, or removes an existing listing. A maintainer reviews
+          every submission before anything is published, and a listing never means registration is
+          open.
         </p>
-        <a
-          href={issueFormUrl("event")}
-          target="_blank"
-          rel="noreferrer"
-          className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition hover:border-neon hover:text-neon focus-visible:border-neon focus-visible:text-neon"
-        >
-          {ISSUE_FORMS.event.label} <ExternalLink size={13} aria-hidden="true" />
-        </a>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {(["event", "organizer", "correction"] as const).map((form) => (
+            <a
+              key={form}
+              href={issueFormUrl(form)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground transition hover:border-neon hover:text-neon focus-visible:border-neon focus-visible:text-neon"
+            >
+              {ISSUE_FORMS[form].label} <ExternalLink size={13} aria-hidden="true" />{" "}
+              <span className="sr-only">(opens in a new tab)</span>
+            </a>
+          ))}
+        </div>
       </Reveal>
 
       <Reveal delay={0.1} className="mt-12">
