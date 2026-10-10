@@ -11,6 +11,7 @@ import {
   COLLECTION_LABELS,
   KIND_LABELS,
   MAX_DIRECTORY_QUERY,
+  boundDirectoryQuery,
   filterOrganizers,
   validateDirectorySearch,
   type DirectorySearch,
@@ -33,7 +34,16 @@ function CommunitiesPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [draftQuery, setDraftQuery] = useState(search.q ?? "");
-  useEffect(() => setDraftQuery(search.q ?? ""), [search.q]);
+  // Follow the URL (links, back/forward), but keep the draft when it already
+  // matches: the URL q is trimmed, and taking it back would drop a trailing
+  // space and move the cursor.
+  useEffect(
+    () =>
+      setDraftQuery((draft) =>
+        boundDirectoryQuery(draft) === search.q ? draft : (search.q ?? ""),
+      ),
+    [search.q],
+  );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
@@ -52,8 +62,8 @@ function CommunitiesPage() {
   };
 
   const organizers = filterOrganizers({ q: draftQuery, kind: search.kind });
-  const hasQuery = normalizeSearch(draftQuery) !== "";
-  const filtered = hasQuery || Boolean(search.kind);
+  // setQuery and the URL validator only ever leave a searchable draft or "".
+  const filtered = draftQuery !== "" || Boolean(search.kind);
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-24">
@@ -91,7 +101,7 @@ function CommunitiesPage() {
             onChange={(e) => setQuery(e.target.value)}
             className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
           />
-          {hasQuery && (
+          {draftQuery !== "" && (
             <button
               type="button"
               aria-label="Clear search"
