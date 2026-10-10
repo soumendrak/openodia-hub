@@ -7,13 +7,33 @@ import {
   notFound,
 } from "@tanstack/react-router";
 import { attachRouterServerSsrUtils } from "@tanstack/react-router/ssr/server";
+import { Suspense, lazy } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import ssrEntry, { streamHandler } from "../src/lib/ssr-entry";
+import { streamHandler } from "../src/lib/ssr-entry";
 
-// A real router with a test-only route whose component throws during render.
+function Boom(): never {
+  throw new Error("render failed");
+}
+
+function Missing(): never {
+  throw notFound();
+}
+
+// A real router with test-only routes whose components throw during render.
 function serverRouter(path: string) {
+  // Fails 50 ms into the render, after the shell (and its headers) can be sent.
+  // Built per router: a rejected lazy() would throw synchronously on reuse.
+  const LateBoom = lazy<() => never>(
+    () => new Promise((_, reject) => setTimeout(() => reject(new Error("late failure")), 50)),
+  );
   const root = createRootRoute({
-    component: () => <Outlet />,
+    component: () => (
+      <html>
+        <body>
+          <Outlet />
+        </body>
+      </html>
+    ),
     notFoundComponent: () => <h1>404</h1>,
     errorComponent: () => <h1>Something broke</h1>,
   });
@@ -22,22 +42,34 @@ function serverRouter(path: string) {
     path: "/",
     component: () => <h1>Home</h1>,
   });
-  const boom = createRoute({
+  const boom = createRoute({ getParentRoute: () => root, path: "/boom", component: Boom });
+  const missing = createRoute({ getParentRoute: () => root, path: "/missing", component: Missing });
+  const late = createRoute({
     getParentRoute: () => root,
-    path: "/boom",
-    component: () => {
-      throw new Error("render failed");
-    },
+    path: "/late",
+    component: () => (
+      <Suspense fallback={<p>Loading</p>}>
+        <LateBoom />
+      </Suspense>
+    ),
   });
-  const missing = createRoute({
+  // The render error is reported first, then notFound(): it must not downgrade 500 to 404.
+  const both = createRoute({
     getParentRoute: () => root,
-    path: "/missing",
-    component: () => {
-      throw notFound();
-    },
+    path: "/both",
+    component: () => (
+      <>
+        <Suspense fallback={null}>
+          <Boom />
+        </Suspense>
+        <Suspense fallback={null}>
+          <Missing />
+        </Suspense>
+      </>
+    ),
   });
   const router = createRouter({
-    routeTree: root.addChildren([home, boom, missing]),
+    routeTree: root.addChildren([home, boom, missing, late, both]),
     history: createMemoryHistory({ initialEntries: [path] }),
     isServer: true,
   });
@@ -88,7 +120,23 @@ describe("SSR response status", () => {
     expect((await render("/boom", "Googlebot/2.1")).status).toBe(500);
   });
 
-  it("is the handler the Worker's server entry uses", () => {
-    expect(typeof ssrEntry.fetch).toBe("function");
+  it("answers 500 to a bot when a Suspense boundary fails after the shell", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await render("/late", "Googlebot/2.1")).status).toBe(500);
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ message: "late failure" }));
+  });
+
+  it("streams a browser the full document with 200 when the failure comes after the shell", async () => {
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { status, html } = await render("/late", "Mozilla/5.0 Chrome/130.0.0.0 Safari/537.36");
+    expect(status).toBe(200);
+    expect(html.trimEnd().endsWith("</html>")).toBe(true);
+    // The failure did happen, after the headers had gone out.
+    expect(log).toHaveBeenCalledWith(expect.objectContaining({ message: "late failure" }));
+  });
+
+  it("answers 500 when a page throws a render error and then notFound()", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect((await render("/both")).status).toBe(500);
   });
 });
