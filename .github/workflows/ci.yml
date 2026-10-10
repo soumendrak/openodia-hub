@@ -35,6 +35,17 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run build
+      # Route smoke tests against the build above, with recorded fixtures (no network).
+      - run: bunx playwright install --with-deps chromium
+      - run: bunx playwright test
+        env:
+          WRANGLER_SEND_METRICS: "false"
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7
 
   deploy:
     if: github.ref == 'refs/heads/main'
