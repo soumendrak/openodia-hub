@@ -49,7 +49,10 @@ try {
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
       page.on("console", (message) => {
-        if (message.type() === "error" && /hydration|Minified React error/.test(message.text()))
+        if (
+          ["error", "warning"].includes(message.type()) &&
+          /hydrat|react error|server rendered|did not match/i.test(message.text())
+        )
           errors.push(message.text());
       });
       // Static strings and locale controls do not require upstream catalog services.

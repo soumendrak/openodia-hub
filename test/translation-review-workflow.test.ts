@@ -12,6 +12,8 @@ async function runGate({
   reviews = [],
   comments = [],
   commentEvent = false,
+  reviewEvent = false,
+  fork = false,
   payloadSha = "current",
   activeSha = "current",
   changedSha,
@@ -23,6 +25,8 @@ async function runGate({
   reviews?: object[];
   comments?: object[];
   commentEvent?: boolean;
+  reviewEvent?: boolean;
+  fork?: boolean;
   payloadSha?: string;
   activeSha?: string;
   changedSha?: string;
@@ -40,7 +44,8 @@ async function runGate({
   };
   const commentsApi = vi.fn();
   Object.assign(issues, { listComments: commentsApi });
-  const pr = { number: 7, head: { sha: activeSha }, user: { login: "author" } };
+  const head = { sha: activeSha, repo: { full_name: fork ? "contributor/hub" : "owner/hub" } };
+  const pr = { number: 7, head, user: { login: "author" } };
   let readCount = 0;
   const filesApi = vi.fn();
   const reviewsApi = vi.fn();
@@ -50,7 +55,10 @@ async function runGate({
         listFiles: filesApi,
         listReviews: reviewsApi,
         get: vi.fn(async () => ({
-          data: { ...pr, head: { sha: readCount++ > 0 ? (changedSha ?? activeSha) : activeSha } },
+          data: {
+            ...pr,
+            head: { ...head, sha: readCount++ > 0 ? (changedSha ?? activeSha) : activeSha },
+          },
         })),
       },
       issues,
@@ -66,6 +74,11 @@ async function runGate({
   const core = { setFailed: vi.fn() };
   const context = {
     repo: { owner: "owner", repo: "hub" },
+    eventName: commentEvent
+      ? "issue_comment"
+      : reviewEvent
+        ? "pull_request_review"
+        : "pull_request_target",
     payload: commentEvent
       ? { issue: { number: 7 } }
       : { pull_request: { ...pr, head: { sha: payloadSha } } },
@@ -157,6 +170,33 @@ describe("native Odia review policy", () => {
     expect(result.core.setFailed).toHaveBeenCalled();
     expect(result.issues.addLabels).toHaveBeenCalled();
     expect(result.issues.removeLabel).not.toHaveBeenCalled();
+  });
+  it("evaluates fork reviews with a read-only token and updates labels from base events", async () => {
+    const approved = await runGate({
+      fork: true,
+      reviewEvent: true,
+      reviews: [review("APPROVED")],
+      createError: { status: 403 },
+      removeError: { status: 403 },
+    });
+    expect(approved.core.setFailed).not.toHaveBeenCalled();
+    for (const mutation of [
+      approved.issues.createLabel,
+      approved.issues.addLabels,
+      approved.issues.removeLabel,
+    ])
+      expect(mutation).not.toHaveBeenCalled();
+    const pending = await runGate({ fork: true, reviewEvent: true, createError: { status: 403 } });
+    expect(pending.core.setFailed).toHaveBeenCalled();
+    expect(pending.issues.addLabels).not.toHaveBeenCalled();
+    const trusted = await runGate({
+      fork: true,
+      commentEvent: true,
+      reviews: [review("APPROVED")],
+    });
+    expect(trusted.issues.removeLabel).toHaveBeenCalled();
+    const sameRepo = await runGate({ reviewEvent: true, reviews: [review("APPROVED")] });
+    expect(sameRepo.issues.removeLabel).toHaveBeenCalled();
   });
   it("skips unrelated PRs and handles only expected label races", async () => {
     const unchanged = await runGate({ files: ["src/routes/tools.tsx"] });

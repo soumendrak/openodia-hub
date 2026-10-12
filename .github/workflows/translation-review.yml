@@ -29,13 +29,18 @@ jobs:
               owner: context.repo.owner, repo: context.repo.repo, pull_number: number
             })).data;
             const args = { owner: context.repo.owner, repo: context.repo.repo, pull_number: pr.number };
+            // Fork review events have a read-only token. Trusted base events manage labels.
+            const canWriteLabels = context.eventName !== 'pull_request_review'
+              || pr.head.repo?.full_name?.toLowerCase() === `${args.owner}/${args.repo}`.toLowerCase();
             const files = await github.paginate(github.rest.pulls.listFiles, args);
             if (!files.some(file => [file.filename, file.previous_filename].some(path => ['src/locales/en.ts', 'src/locales/or.ts', 'src/locales/review.ts'].includes(path)))) return;
             const label = 'needs-native-speaker-review';
-            try {
-              await github.rest.issues.createLabel({ owner: args.owner, repo: args.repo, name: label, color: 'd876e3', description: 'Native Odia review of the current translation wording is required' });
-            } catch (error) {
-              if (error.status !== 422) throw error;
+            if (canWriteLabels) {
+              try {
+                await github.rest.issues.createLabel({ owner: args.owner, repo: args.repo, name: label, color: 'd876e3', description: 'Native Odia review of the current translation wording is required' });
+              } catch (error) {
+                if (error.status !== 422) throw error;
+              }
             }
             const allowed = new Set((process.env.ODIA_NATIVE_REVIEWERS || '').split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
             const reviews = await github.paginate(github.rest.pulls.listReviews, args);
@@ -65,9 +70,11 @@ jobs:
             if ((await github.rest.pulls.get(args)).data.head.sha !== pr.head.sha) return;
             const issue = { owner: args.owner, repo: args.repo, issue_number: pr.number };
             if (approved) {
-              try { await github.rest.issues.removeLabel({ ...issue, name: label }); }
-              catch (error) { if (error.status !== 404) throw error; }
+              if (canWriteLabels) {
+                try { await github.rest.issues.removeLabel({ ...issue, name: label }); }
+                catch (error) { if (error.status !== 404) throw error; }
+              }
             } else {
-              await github.rest.issues.addLabels({ ...issue, labels: [label] });
+              if (canWriteLabels) await github.rest.issues.addLabels({ ...issue, labels: [label] });
               core.setFailed(allowed.size ? 'A configured native Odia reviewer must approve this exact commit. Draft wording requires an explicit native review.' : 'Configure ODIA_NATIVE_REVIEWERS with actual native Odia reviewer logins, then obtain approval of this exact commit.');
             }
