@@ -5,7 +5,12 @@ import { describe, expect, it, vi } from "vitest";
 const workflow = parse(
   readFileSync(`${process.cwd()}/.github/workflows/translation-review.yml`, "utf8"),
 );
-const script = workflow.jobs["native-review"].steps[0].with.script;
+const publisher = workflow.jobs["publish-native-review"];
+const script = publisher.steps[0].with.script;
+const discoverScript = workflow.jobs["discover-review-prs"].steps[0].with.script;
+const notification = parse(
+  readFileSync(`${process.cwd()}/.github/workflows/translation-review-notification.yml`, "utf8"),
+);
 async function runGate({
   files = ["src/locales/or.ts"],
   reviewers = "odia-reviewer",
@@ -18,6 +23,10 @@ async function runGate({
   payloadSha = "current",
   activeSha = "current",
   changedSha,
+  changeAfterRead = 1,
+  state = "open",
+  baseRepository = "owner/hub",
+  statusCalls = [],
   createError,
   removeError,
 }: {
@@ -32,6 +41,10 @@ async function runGate({
   payloadSha?: string;
   activeSha?: string;
   changedSha?: string;
+  changeAfterRead?: number;
+  state?: string;
+  baseRepository?: string;
+  statusCalls?: object[];
   createError?: object;
   removeError?: object;
 } = {}) {
@@ -48,7 +61,13 @@ async function runGate({
   const timelineApi = vi.fn();
   Object.assign(issues, { listComments: commentsApi, listEventsForTimeline: timelineApi });
   const head = { sha: activeSha, repo: { full_name: fork ? "contributor/hub" : "owner/hub" } };
-  const pr = { number: 7, head, user: { login: "author" } };
+  const pr = {
+    number: 7,
+    state,
+    base: { repo: { full_name: baseRepository } },
+    head,
+    user: { login: "author" },
+  };
   let readCount = 0;
   const filesApi = vi.fn();
   const reviewsApi = vi.fn();
@@ -60,11 +79,15 @@ async function runGate({
         get: vi.fn(async () => ({
           data: {
             ...pr,
-            head: { ...head, sha: readCount++ > 0 ? (changedSha ?? activeSha) : activeSha },
+            head: {
+              ...head,
+              sha: readCount++ >= changeAfterRead ? (changedSha ?? activeSha) : activeSha,
+            },
           },
         })),
       },
       issues,
+      repos: { createCommitStatus: vi.fn((status) => statusCalls.push(status)) },
     },
     paginate: vi.fn(async (api) =>
       api === filesApi
@@ -79,10 +102,11 @@ async function runGate({
   const core = { setFailed: vi.fn() };
   const context = {
     repo: { owner: "owner", repo: "hub" },
+    runId: 99,
     eventName: commentEvent
       ? "issue_comment"
       : reviewEvent
-        ? "pull_request_review"
+        ? "workflow_run"
         : "pull_request_target",
     payload: commentEvent
       ? { issue: { number: 7 } }
@@ -90,9 +114,9 @@ async function runGate({
   };
   const execute = Object.getPrototypeOf(async function () {}).constructor;
   await new execute("github", "context", "core", "process", script)(github, context, core, {
-    env: { ODIA_NATIVE_REVIEWERS: reviewers },
+    env: { ODIA_NATIVE_REVIEWERS: reviewers, PR_NUMBER: "7" },
   });
-  return { issues, core };
+  return { issues, core, statuses: github.rest.repos.createCommitStatus, github };
 }
 let reviewId = 0;
 const review = (
@@ -171,7 +195,7 @@ describe("native Odia review policy", () => {
     const newer = await runGate({ reviews: [review("APPROVED")], changedSha: "newer" });
     expect(newer.issues.removeLabel).not.toHaveBeenCalled();
     expect(newer.issues.addLabels).not.toHaveBeenCalled();
-    expect(workflow.jobs["native-review"].concurrency["cancel-in-progress"]).toBe(true);
+    expect(publisher.concurrency["cancel-in-progress"]).toBe(true);
   });
   it("honors an edited revocation even when its comment was created before approval", async () => {
     const result = await runGate({
@@ -315,32 +339,25 @@ describe("native Odia review policy", () => {
     });
     expect(multi.core.setFailed).not.toHaveBeenCalled();
   });
-  it("evaluates fork reviews with a read-only token and updates labels from base events", async () => {
+  it("publishes trusted decisions and labels for fork review notifications", async () => {
     const approved = await runGate({
       fork: true,
       reviewEvent: true,
       reviews: [review("APPROVED")],
-      createError: { status: 403 },
-      removeError: { status: 403 },
     });
     expect(approved.core.setFailed).not.toHaveBeenCalled();
-    for (const mutation of [
-      approved.issues.createLabel,
-      approved.issues.addLabels,
-      approved.issues.removeLabel,
-    ])
-      expect(mutation).not.toHaveBeenCalled();
-    const pending = await runGate({ fork: true, reviewEvent: true, createError: { status: 403 } });
+    expect(approved.issues.removeLabel).toHaveBeenCalled();
+    expect(approved.statuses.mock.calls.map(([status]) => status.state)).toEqual([
+      "pending",
+      "success",
+    ]);
+    const pending = await runGate({ fork: true, reviewEvent: true });
     expect(pending.core.setFailed).toHaveBeenCalled();
-    expect(pending.issues.addLabels).not.toHaveBeenCalled();
-    const trusted = await runGate({
-      fork: true,
-      commentEvent: true,
-      reviews: [review("APPROVED")],
-    });
-    expect(trusted.issues.removeLabel).toHaveBeenCalled();
-    const sameRepo = await runGate({ reviewEvent: true, reviews: [review("APPROVED")] });
-    expect(sameRepo.issues.removeLabel).toHaveBeenCalled();
+    expect(pending.issues.addLabels).toHaveBeenCalled();
+    expect(pending.statuses.mock.calls.map(([status]) => status.state)).toEqual([
+      "pending",
+      "failure",
+    ]);
   });
   it("skips unrelated PRs and handles only expected label races", async () => {
     const unchanged = await runGate({ files: ["src/routes/tools.tsx"] });
@@ -357,16 +374,16 @@ describe("native Odia review policy", () => {
         .setFailed,
     ).not.toHaveBeenCalled();
   });
-  it("clears a reverted locale label only with a trusted token and unchanged head", async () => {
-    const fork = await runGate({
-      files: [],
-      fork: true,
-      reviewEvent: true,
-      removeError: { status: 403 },
-    });
+  it("clears reverted locale requirements from the trusted publisher with an unchanged head", async () => {
+    const cleanFork = await runGate({ files: [], fork: true, reviewEvent: true });
+    expect(cleanFork.issues.removeLabel).toHaveBeenCalled();
+    expect(cleanFork.statuses.mock.calls.map(([status]) => status.state)).toEqual([
+      "pending",
+      "success",
+    ]);
     const obsolete = await runGate({ files: [], changedSha: "newer" });
-    expect(fork.issues.removeLabel).not.toHaveBeenCalled();
     expect(obsolete.issues.removeLabel).not.toHaveBeenCalled();
+    expect(obsolete.statuses.mock.calls.map(([status]) => status.state)).toEqual(["pending"]);
     expect(
       (await runGate({ files: [], removeError: { status: 404 } })).core.setFailed,
     ).not.toHaveBeenCalled();
@@ -374,14 +391,154 @@ describe("native Odia review policy", () => {
       status: 403,
     });
   });
-  it("does not check out or execute pull-request code with write permissions", () => {
-    expect(workflow.jobs["native-review"].steps).toHaveLength(1);
-    expect(workflow.jobs["native-review"].steps[0].uses).toBe("actions/github-script@v7");
-    expect(script).not.toMatch(/checkout|exec\(|fetch\(|eval\(/);
-    expect(workflow.permissions).toEqual({
-      contents: "read",
-      issues: "write",
-      "pull-requests": "write",
+  it("publishes explicit same-author comment approval on the fresh PR head rather than the event SHA", async () => {
+    const result = await runGate({
+      reviewers: "author",
+      commentEvent: true,
+      payloadSha: "default-branch",
+      comments: [decisionComment("odia-review-approved current", "2026-10-12T13:00:00Z", "author")],
     });
+    expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual([
+      "pending",
+      "success",
+    ]);
+    for (const [status] of result.statuses.mock.calls) {
+      expect(status).toMatchObject({
+        owner: "owner",
+        repo: "hub",
+        sha: "current",
+        context: "native-review",
+      });
+      expect(status.target_url).toBe("https://github.com/owner/hub/actions/runs/99");
+    }
+    expect(result.statuses.mock.invocationCallOrder[0]).toBeLessThan(
+      result.github.paginate.mock.invocationCallOrder[0],
+    );
+  });
+  it.each(["success", "failure", "cancelled"])(
+    "never turns an untrusted notification outcome (%s) into native approval",
+    async (conclusion) => {
+      const setOutput = vi.fn();
+      const get = vi.fn(async () => ({
+        data: {
+          number: 7,
+          state: "open",
+          base: { repo: { full_name: "owner/hub" } },
+          head: { sha: "current", ref: "topic", repo: { full_name: "contributor/hub" } },
+        },
+      }));
+      const execute = Object.getPrototypeOf(async function () {}).constructor;
+      await new execute("github", "context", "core", discoverScript)(
+        {
+          rest: {
+            actions: {
+              getWorkflowRun: async () => ({
+                data: {
+                  event: "pull_request_review",
+                  path: ".github/workflows/translation-review-notification.yml",
+                  name: "Native Odia review notification",
+                  repository: { full_name: "owner/hub" },
+                  head_sha: "current",
+                  head_branch: "topic",
+                  head_repository: { full_name: "contributor/hub" },
+                  pull_requests: [{ number: 7 }],
+                  conclusion,
+                },
+              }),
+            },
+            pulls: { get },
+          },
+        },
+        {
+          repo: { owner: "owner", repo: "hub" },
+          eventName: "workflow_run",
+          payload: { workflow_run: { id: 99 } },
+        },
+        { setOutput },
+      );
+      expect(setOutput).toHaveBeenCalledWith("prs", "[7]");
+      // Even a contributor-controlled job named native-review reporting success
+      // supplies no allowed-reviewer decision to this trusted commit-status path.
+      const result = await runGate({ fork: true, reviewEvent: true });
+      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual([
+        "pending",
+        "failure",
+      ]);
+      expect(result.statuses.mock.calls[1][0]).toMatchObject({
+        context: "native-review",
+        sha: "current",
+      });
+    },
+  );
+  it("does not publish a final decision after the head moves during label mutation", async () => {
+    for (const files of [["src/locales/or.ts"], []]) {
+      const result = await runGate({
+        files,
+        reviews: [review("APPROVED")],
+        changedSha: "newer",
+        changeAfterRead: 2,
+      });
+      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(["pending"]);
+    }
+  });
+  it("leaves an error status after a trusted API failure, but never publishes on a moved head", async () => {
+    const result = await runGate({ state: "closed" });
+    expect(result.statuses).not.toHaveBeenCalled();
+    expect((await runGate({ baseRepository: "other/hub" })).statuses).not.toHaveBeenCalled();
+    const statusCalls: object[] = [];
+    const failure = runGate({ createError: { status: 403 }, statusCalls });
+    await expect(failure).rejects.toEqual({ status: 403 });
+    expect(statusCalls).toEqual([
+      expect.objectContaining({ state: "pending", sha: "current" }),
+      expect.objectContaining({ state: "error", sha: "current" }),
+    ]);
+  });
+  it("keeps write-capable decisions in trusted code and reserves the native-review status context", () => {
+    expect(workflow.on).not.toHaveProperty("pull_request_review");
+    expect(workflow.on.workflow_run).toEqual({
+      workflows: ["Native Odia review notification"],
+      types: ["completed"],
+    });
+    expect(publisher.steps).toHaveLength(1);
+    expect(publisher.steps[0].uses).toBe("actions/github-script@v7");
+    expect(script).not.toMatch(/checkout|exec\(|fetch\(|eval\(/);
+    expect(discoverScript).not.toMatch(
+      /downloadArtifact|conclusion|checkout|exec\(|fetch\(|eval\(/,
+    );
+    expect(publisher.permissions).toEqual({
+      contents: "read",
+      "pull-requests": "read",
+      issues: "write",
+      statuses: "write",
+    });
+    expect(workflow.jobs).not.toHaveProperty("native-review");
+    expect(notification.jobs).not.toHaveProperty("native-review");
+    expect(publisher.concurrency.group).toBe("native-odia-${{ matrix.pr }}");
+    expect(publisher.strategy["fail-fast"]).toBe(false);
+    expect(publisher.strategy.matrix.pr).toContain(
+      "fromJSON(needs.discover-review-prs.outputs.prs)",
+    );
+  });
+  it("uses the review workflow only as a powerless notification", async () => {
+    expect(notification.permissions).toEqual({});
+    expect(notification.on).toEqual({
+      pull_request_review: { types: ["submitted", "edited", "dismissed"] },
+    });
+    const info = vi.fn();
+    const api = new Proxy(
+      {},
+      {
+        get() {
+          throw new Error("Notification must not call GitHub APIs");
+        },
+      },
+    );
+    const execute = Object.getPrototypeOf(async function () {}).constructor;
+    await new execute(
+      "github",
+      "core",
+      notification.jobs["notify-review-change"].steps[0].with.script,
+    )(api, { info });
+    expect(info).toHaveBeenCalledOnce();
   });
 });

@@ -14,4 +14,9 @@
 - [ ] Changed wording in `src/locales/or.ts` has a native Odia speaker review
 - [ ] Updated the explicit tracking inventory and exact-wording review record where applicable
 
-The translation-review workflow adds `needs-native-speaker-review` automatically.
+Once installed on the default branch, the trusted translation-review publisher adds
+`needs-native-speaker-review` and reports the `native-review` commit status on the
+current PR head. A configured reviewer may approve with a formal review or the exact
+PR conversation comment `odia-review-approved <current full head SHA>` after reviewing
+the wording. Account ownership or an intention to review does not count as approval.
+The first workflow-installation PR needs manually verified native approval before landing.

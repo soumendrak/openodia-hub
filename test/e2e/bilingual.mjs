@@ -161,6 +161,20 @@ try {
       assert.equal(report.reviewed, 0);
       assert.deepEqual(report.errors, []);
       assert.equal(report.entries.length, 46);
+      await page.goto(`${origin}/playground`);
+      await waitForHydration(page);
+      const editor = page.getByRole("textbox", { name: /code editor/ });
+      await editor.fill("    print(1)");
+      await editor.press("Escape");
+      // Real Shift+Tab emits a modifier keydown before Tab; synthetic shiftKey misses it.
+      await page.keyboard.press("Shift+Tab");
+      assert.equal(await editor.evaluate((el) => document.activeElement === el), false);
+      assert.equal(await editor.inputValue(), "    print(1)");
+      await editor.focus();
+      await page.keyboard.press("Tab");
+      assert.equal(await editor.evaluate((el) => document.activeElement === el), true);
+      assert.equal(await editor.inputValue(), "    print(1)    ");
+      assert.deepEqual(errors, []);
       await context.close();
     }
   }
