@@ -120,3 +120,15 @@ _Example Event:_
 Use the issue templates. Bugs get a reproduction step, features get a problem-statement.
 
 Questions? Open a discussion instead.
+
+### Reviewed lifecycle and registration corrections
+
+For a cancellation, postponement, changed venue/time, or registration correction, provide
+the canonical event URL, the organizer's evidence URL, and the date that evidence was
+checked. Maintainers add an explicit patch to `src/data/event-overrides.ts`; see
+[the reviewed lifecycle contract](docs/event-lifecycle.md) for validation, merge precedence,
+and the additive D1 migration. Keep attendance eligibility separate from registration
+availability, and leave fee or registration claims unknown when the source is silent.
+
+The crawler skips known URLs in this increment. Corrections to existing events require
+reviewed manual updates; a daily crawl does not confirm that an event is still scheduled.

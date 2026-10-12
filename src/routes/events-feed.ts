@@ -1,9 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { events as staticEvents } from "../data/events";
-import { fetchChapterEvents, CHAPTERS } from "./api/events";
-import { settledValues } from "../lib/fetch-utils";
-import { mergeNonEmpty } from "../lib/utils";
-import { mergeEventCollectionsByUrl } from "../lib/event-url";
+import {
+  mergeReviewedCollections,
+  lifecycleLabel,
+  REGISTRATION_LABELS,
+} from "../lib/event-lifecycle";
+import { EVENT_OVERRIDES } from "../data/event-overrides";
+
 import type { Event } from "../data/events/types";
 
 const XML_ESCAPES: Record<string, string> = {
@@ -65,7 +68,9 @@ function generateRssFeed(events: Event[], baseUrl: string): string {
 
   const items = events
     .map((e) => {
-      const title = escapeXml(e.title || "Untitled Event");
+      const state =
+        e.lifecycle && e.lifecycle.state !== "scheduled" ? `[${lifecycleLabel(e)}] ` : "";
+      const title = escapeXml(state + (e.title || "Untitled Event"));
       const link = escapeXml(e.url || baseUrl + "/events");
       const guid = escapeXml(e.url || `${baseUrl}/events#${e.title}-${e.startDate}`);
       const pubDate = formatRfc822Date(e.startDate || e.date, e.year);
@@ -78,6 +83,12 @@ function generateRssFeed(events: Event[], baseUrl: string): string {
         e.date ? `<p><strong>Date:</strong> ${e.date}</p>` : "",
         e.theme ? `<p><strong>Theme:</strong> <em>&ldquo;${e.theme}&rdquo;</em></p>` : "",
         `<p><strong>Organized by:</strong> ${community}</p>`,
+        e.lifecycle ? `<p><strong>Lifecycle:</strong> ${escapeXml(lifecycleLabel(e))}</p>` : "",
+        e.registration ? `<p>${escapeXml(REGISTRATION_LABELS[e.registration.state])}</p>` : "",
+        ...(e.notices ?? []).map(
+          (notice) =>
+            `<p>${escapeXml(notice.text)} — checked ${escapeXml(notice.verifiedAt)}; evidence: ${escapeXml(notice.evidenceUrl)}</p>`,
+        ),
       ]
         .filter(Boolean)
         .join("\n");
@@ -113,42 +124,26 @@ export const Route = createFileRoute("/events-feed")({
       GET: async () => {
         try {
           // Fetch dynamic events
-          const results = await Promise.allSettled(
-            CHAPTERS.map((ch) => fetchChapterEvents(ch.organizerId ?? ch.community, ch.slug)),
-          );
-          const fetchedEvents = settledValues(results).flat();
+          const { loadReviewedEventCollection } = await import("../lib/sources/events");
+          const { events: fetchedEvents } = await loadReviewedEventCollection();
 
           // Merge static and dynamic events
           const today = getISTDateString();
-          const mergedEventsList = mergeEventCollectionsByUrl(
+          const mergedEventsList = mergeReviewedCollections(
             staticEvents,
             fetchedEvents,
-            mergeNonEmpty,
-          )
-            .map((e) => {
-              let status = e.status;
-              if (e.startDate) {
-                const end = e.endDate || e.startDate;
-                if (today < e.startDate) {
-                  status = "upcoming";
-                } else if (today >= e.startDate && today <= end) {
-                  status = "live";
-                } else {
-                  status = undefined; // past event
-                }
-              }
-              return { ...e, status };
-            })
-            .sort((a, b) => {
-              const yearDiff = Number(b.year) - Number(a.year);
-              if (yearDiff !== 0) return yearDiff;
-              if (a.startDate && b.startDate) {
-                return b.startDate.localeCompare(a.startDate);
-              }
-              if (a.startDate) return -1;
-              if (b.startDate) return 1;
-              return 0;
-            });
+            EVENT_OVERRIDES,
+            today,
+          ).sort((a, b) => {
+            const yearDiff = Number(b.year) - Number(a.year);
+            if (yearDiff !== 0) return yearDiff;
+            if (a.startDate && b.startDate) {
+              return b.startDate.localeCompare(a.startDate);
+            }
+            if (a.startDate) return -1;
+            if (b.startDate) return 1;
+            return 0;
+          });
 
           const baseUrl = "https://openodia.com";
           const xml = generateRssFeed(mergedEventsList, baseUrl);

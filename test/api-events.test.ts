@@ -1,3 +1,5 @@
+import { events as curated } from "../src/data/events";
+import { dedupeEventsByUrl } from "../src/lib/event-url";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { fetchChapterEvents, Route } from "../src/routes/api/events";
 
@@ -277,11 +279,11 @@ describe("fetchChapterEvents", () => {
     expect(await paged.json()).toMatchObject({
       events: expect.any(Array),
       nextCursor: "2",
-      total: 3,
+      total: dedupeEventsByUrl(curated).length + 3,
     });
     const defaulted = await get({
       request: new Request("https://openodia.com/api/events?page=nope&limit=500"),
     });
-    expect((await defaulted.json()).nextCursor).toBeUndefined();
+    expect((await defaulted.json()).nextCursor).toBe("2");
   });
 });

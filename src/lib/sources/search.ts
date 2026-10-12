@@ -1,3 +1,5 @@
+import { mergeReviewedCollections, lifecycleLabel, REGISTRATION_LABELS } from "../event-lifecycle";
+import { EVENT_OVERRIDES } from "../../data/event-overrides";
 import { events, type Event } from "../../data/events";
 import { dedupeEventsByUrl } from "../event-url";
 import { type SearchDocument, type SearchKind, type SearchSourceStatus } from "../search";
@@ -58,7 +60,12 @@ function eventDocument(event: Event): SearchDocument {
     id: `event:${event.url}`,
     kind: "event",
     title: event.title,
-    summary: event.description,
+    summary: [
+      event.description,
+      ...(event.lifecycle ? [lifecycleLabel(event)] : []),
+      ...(event.registration ? [REGISTRATION_LABELS[event.registration.state]] : []),
+      ...(event.notices ?? []).map((notice) => notice.text),
+    ].join(" · "),
     keywords: [event.community, event.type, event.location ?? "", event.date, event.year],
     href,
     externalHref: event.url,
@@ -67,9 +74,13 @@ function eventDocument(event: Event): SearchDocument {
 }
 
 export async function loadLiveSearchEvents(
-  fetcher: typeof fetchChapterEvents = fetchChapterEvents,
+  fetcher?: typeof fetchChapterEvents,
   chapters: typeof CHAPTERS = CHAPTERS,
 ): Promise<Event[]> {
+  if (!fetcher) {
+    const { loadReviewedEventCollection } = await import("./events");
+    return (await loadReviewedEventCollection()).events;
+  }
   const settled = await Promise.allSettled(
     chapters.map((chapter) => fetcher(chapter.organizerId ?? chapter.community, chapter.slug)),
   );
@@ -158,7 +169,12 @@ export async function buildSearchSnapshot(
     sources.push({ source: "videos", status: "ready", count: records.length });
   } else sources.push({ source: "videos", status: "unavailable", count: 0 });
 
-  const known = [...events, ...(live.status === "fulfilled" ? live.value : [])];
+  const known = mergeReviewedCollections(
+    events,
+    live.status === "fulfilled" ? live.value : [],
+    EVENT_OVERRIDES,
+    new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
+  );
   const eventRecords = dedupeEventsByUrl(known).map(eventDocument);
   documents.push(...eventRecords);
   sources.push({
@@ -172,9 +188,14 @@ export async function buildSearchSnapshot(
 
 export function createSearchSnapshotLoader(
   loaders: SearchLoaders = DEFAULT_LOADERS,
-  cacheKey = "search-snapshot:v1",
+  cacheKey = "search-snapshot:v2-reviewed-events",
 ): () => Promise<SearchSnapshot> {
-  return () => cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+  return async () => {
+    const { getEventDatabase } = await import("../event-request-context");
+    // Reviewed D1 state is current per request; retain the upstream catalog caches.
+    if (getEventDatabase()) return buildSearchSnapshot(loaders);
+    return cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+  };
 }
 
 const loadDefaultSearchSnapshot = createSearchSnapshotLoader();

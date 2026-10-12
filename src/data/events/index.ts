@@ -1,3 +1,5 @@
+import { applyEventOverrides, resolveEventStatus } from "../../lib/event-lifecycle";
+import { EVENT_OVERRIDES } from "../event-overrides";
 /**
  * Aggregates all community event sources into a single sorted array.
  *
@@ -235,28 +237,11 @@ export const events: Event[] = sources
       }
     }
 
-    // 2. Fall back to event's original status if parsing is impossible
-    let status = event.status;
-
-    if (startStr) {
-      const today = getISTDateString();
-      const end = endStr || startStr;
-
-      if (today < startStr) {
-        status = "upcoming";
-      } else if (today >= startStr && today <= end) {
-        status = "live";
-      } else {
-        status = undefined; // past event
-      }
-    }
-
-    return {
-      ...event,
-      status,
-      startDate: startStr,
-      endDate: endStr,
-    };
+    const reviewed = applyEventOverrides(
+      { ...event, startDate: startStr, endDate: endStr },
+      EVENT_OVERRIDES,
+    );
+    return { ...reviewed, status: resolveEventStatus(reviewed, getISTDateString()) };
   })
   .sort((a, b) => {
     const yearDiff = Number(b.year) - Number(a.year);

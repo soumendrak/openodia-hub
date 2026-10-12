@@ -1,3 +1,5 @@
+import { eventSchemaStatus } from "./event-lifecycle";
+import type { Event } from "../data/events/types";
 import React from "react";
 
 /**
@@ -155,6 +157,8 @@ export function eventListSchema(
     endDate?: string;
     location?: string;
     organizer?: string;
+    lifecycle?: Event["lifecycle"];
+    previousStartDate?: string;
   }[],
 ) {
   return {
@@ -172,7 +176,8 @@ export function eventListSchema(
         description: e.description,
         startDate: e.startDate,
         ...(e.endDate ? { endDate: e.endDate } : {}),
-        eventStatus: "https://schema.org/EventScheduled",
+        eventStatus: eventSchemaStatus(e),
+        ...(e.previousStartDate ? { previousStartDate: e.previousStartDate } : {}),
         ...(e.location
           ? {
               eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",

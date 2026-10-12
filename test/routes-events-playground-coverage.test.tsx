@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event } from "../src/data/events/types";
+import { eventListSchema } from "../src/lib/jsonld";
 
 // ---------------------------------------------------------------------------
 // Shared mock state
@@ -36,9 +37,14 @@ const queryHarness = vi.hoisted(() => ({
     | undefined,
 }));
 
+vi.mock("@tanstack/react-start", () => ({
+  createServerFn: () => ({ handler: (callback: () => Promise<unknown>) => callback }),
+}));
+
 vi.mock("@tanstack/react-router", () => ({
   createFileRoute: (_path: string) => (options: Record<string, unknown>) => ({
     options,
+    useLoaderData: () => ({ events: dataFixture.events }),
     useSearch: () => routeHarness.search,
     useNavigate: () => routeHarness.navigate,
   }),
@@ -62,7 +68,7 @@ vi.mock("../src/components/Reveal", () => ({
 vi.mock("../src/lib/jsonld", () => ({
   JsonLd: () => null,
   breadcrumbSchema: () => ({}),
-  eventListSchema: () => ({}),
+  eventListSchema: vi.fn(() => ({})),
 }));
 
 vi.mock("../src/data/events", () => ({
@@ -195,6 +201,100 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("events.tsx", () => {
+  it("loads reviewed initial server data without blocking on a live scrape", async () => {
+    dataFixture.events = PAST_2020;
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("no live request expected");
+    });
+    const initial = await EventsRouteAny.options.loader();
+    expect(initial.events).toHaveLength(PAST_2020.length);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+  it("keeps cancellations and unresolved postponements visible outside active and past recommendations", () => {
+    const proof = { evidenceUrl: "https://example.com/official", verifiedAt: "2026-10-12" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        url: "https://example.com/cancelled",
+        title: "Cancelled future",
+        year: "2099",
+        startDate: "2099-01-01",
+        lifecycle: { state: "cancelled", ...proof },
+      },
+      {
+        ...PAST_2020[0],
+        url: "https://example.com/postponed",
+        title: "Unresolved future",
+        year: "2099",
+        startDate: "2099-01-01",
+        lifecycle: { state: "postponed", ...proof },
+      },
+    ];
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    const section = screen.getByRole("region", { name: "Cancelled or postponed" });
+    expect(section).toHaveTextContent("Cancelled future");
+    expect(section).toHaveTextContent("Unresolved future");
+    expect(screen.queryByRole("heading", { name: "Upcoming" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Past Events" })).not.toBeInTheDocument();
+    expect(document.querySelector("a a")).toBeNull();
+  });
+  it("uses replacement dates in active cards and preserves separate registration and eligibility", () => {
+    const proof = { evidenceUrl: "https://example.com/official", verifiedAt: "2026-10-12" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        date: "10 Jan 2027",
+        year: "2027",
+        startDate: "2027-01-10",
+        endDate: "2027-01-11",
+        lifecycle: {
+          state: "postponed",
+          previousDate: "2027-01-10",
+          replacementDate: "2099-03-01",
+          ...proof,
+        },
+        registration: { state: "closed", ...proof },
+        attendance: { policy: "public", note: "Public audience" },
+      },
+    ];
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByText(/Rescheduled/)).toHaveTextContent("2099-03-01");
+    expect(screen.getByText(/Original date:/)).toHaveTextContent("2027-01-10");
+    expect(screen.getByText(/Registration closed/)).toBeInTheDocument();
+    expect(screen.getByText("Open to all")).toBeInTheDocument();
+    expect(screen.queryByText(/free/i)).not.toBeInTheDocument();
+  });
+  it("does not invent an original date when a rescheduling notice gives only the new date", () => {
+    const proof = { evidenceUrl: "https://example.com/official", verifiedAt: "2026-10-12" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        startDate: "2099-01-10",
+        year: "2099",
+        lifecycle: { state: "postponed", replacementDate: "2099-03-01", ...proof },
+      },
+    ];
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(/Original date:/)).toHaveTextContent("unknown");
+    expect(screen.getByText(/Rescheduled/)).toHaveTextContent("2099-03-01");
+    const schemaEvents = vi.mocked(eventListSchema).mock.calls.at(-1)![0];
+    expect(schemaEvents[0].previousStartDate).toBeUndefined();
+    expect(schemaEvents[0].startDate).toBe("2099-03-01");
+  });
+  it("ignores a cached full-search corpus after filters are cleared", () => {
+    dataFixture.events = [];
+    infiniteHarness.data = { pages: [{ events: [PAST_2020[0]], total: 2, nextCursor: "2" }] };
+    infiniteHarness.hasNextPage = true;
+    queryHarness.data = { events: PAST_2020 };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Workshop")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Load more/ })).toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+  });
   it("restores a linkable query and searches the complete event corpus", async () => {
     const hiddenEvent: Event = {
       year: "2026",
@@ -821,8 +921,8 @@ describe("api/events.ts", () => {
   it("returns 500 when dedupe throws during live event ingestion", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    (dedupeEventsByUrl as unknown as Mock).mockImplementationOnce(() => {
-      throw new Error("dedupe boom");
+    (mergeEventCollectionsByUrl as unknown as Mock).mockImplementationOnce(() => {
+      throw new Error("canonical merge boom");
     });
 
     const response = await apiEventsGet(new Request("https://openodia.com/api/events"));

@@ -148,7 +148,7 @@
   --accent-foreground: #fff2d3;
 
   --destructive: #9c1226;
-  --destructive-foreground: oklch(0.98 0.01 90);
+  --destructive-foreground: #241a11;
 
   --border: rgb(122 88 44 / 32%);
   --input: rgb(122 88 44 / 22%);

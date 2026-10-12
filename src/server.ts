@@ -1,3 +1,7 @@
+import { withEventDatabase } from "./lib/event-request-context";
+import { loadReviewedEventCollection } from "./lib/sources/events";
+import { applyEventOverrides, mergeReviewedEvents } from "./lib/event-lifecycle";
+import { EVENT_OVERRIDES } from "./data/event-overrides";
 import "./lib/error-capture";
 import { OPENAPI_SPEC } from "./lib/openapi";
 import { handleApiDiscovery } from "./lib/api-discovery";
@@ -5,15 +9,12 @@ import { handleApiDiscovery } from "./lib/api-discovery";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { estimateTokens, htmlToMarkdown } from "./lib/html-to-markdown";
-import { readEventsFromD1, syncEventsToD1, type D1Like } from "./lib/events-store";
-import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
-import { settledValues } from "./lib/fetch-utils";
-import { dedupeEventsByResolvedUrl, dedupeEventsByUrl } from "./lib/event-url";
+import { syncEventsToD1, type D1Like } from "./lib/events-store";
+import { dedupeEventsByResolvedUrl } from "./lib/event-url";
 import { loadAwesome } from "./lib/sources/awesome";
 import { loadRepos } from "./lib/sources/repos";
 import { setCacheStore, setExecutionContext } from "./lib/sources/cache";
 import { loadDatasets, loadModels } from "./lib/sources/huggingface";
-import type { Event } from "./data/events/types";
 
 type KVRead = { get: (key: string) => Promise<string | null> };
 type KVReadWrite = KVRead & {
@@ -183,34 +184,16 @@ const EVENTS_CORS = {
   "Access-Control-Allow-Headers": "Content-Type, User-Agent",
 };
 
-async function liveScrapeEvents(): Promise<Event[]> {
-  const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
-  );
-  return dedupeEventsByUrl(settledValues(settled).flat());
-}
-
-async function handleEvents(env: Env | undefined, request: Request): Promise<Response> {
-  let events: Event[] = [];
-  let source: "d1" | "scrape" = "scrape";
-
-  if (env?.EVENTS_DB) {
-    try {
-      events = await readEventsFromD1(env.EVENTS_DB);
-      if (events.length > 0) source = "d1";
-    } catch (err) {
-      console.warn("EVENTS_DB read failed; falling back to live scrape", err);
-    }
-  }
-
-  if (events.length === 0) {
-    events = await liveScrapeEvents();
-    source = "scrape";
-  }
+async function handleEvents(_env: Env | undefined, request: Request): Promise<Response> {
+  const collection = await loadReviewedEventCollection();
+  let { events } = collection;
+  const { source } = collection;
 
   // Also protects reads from databases populated before canonical URL IDs were
   // introduced; legacy duplicate rows disappear immediately at the API edge.
-  events = await dedupeEventsByResolvedUrl(events);
+  events = (await dedupeEventsByResolvedUrl(events, undefined, mergeReviewedEvents)).map((event) =>
+    applyEventOverrides(event, EVENT_OVERRIDES),
+  );
 
   const url = new URL(request.url);
   const pageParam = url.searchParams.get("page");
@@ -236,110 +219,112 @@ async function handleEvents(env: Env | undefined, request: Request): Promise<Res
 
 export default {
   async fetch(request: Request, env: Env | undefined, ctx: unknown) {
-    // Lets cachedJson keep a background refresh alive past the response.
-    setExecutionContext(ctx);
-    // The globally-replicated layer behind the in-isolate memo. Without it a
-    // cold isolate re-runs the whole upstream fan-out on the request path.
-    setCacheStore(env?.CATALOG_KV);
-    try {
-      // URL rewrites: map dot-path URLs to TanStack Router paths
-      // TanStack Router treats dots as path separators in file-based routing,
-      // so llms.txt.ts → /llms/txt instead of /llms.txt
-      const url = new URL(request.url);
-      const originalPath = url.pathname;
+    return withEventDatabase(env?.EVENTS_DB, async () => {
+      // Lets cachedJson keep a background refresh alive past the response.
+      setExecutionContext(ctx);
+      // The globally-replicated layer behind the in-isolate memo. Without it a
+      // cold isolate re-runs the whole upstream fan-out on the request path.
+      setCacheStore(env?.CATALOG_KV);
+      try {
+        // URL rewrites: map dot-path URLs to TanStack Router paths
+        // TanStack Router treats dots as path separators in file-based routing,
+        // so llms.txt.ts → /llms/txt instead of /llms.txt
+        const url = new URL(request.url);
+        const originalPath = url.pathname;
 
-      const discovery = handleApiDiscovery(request);
-      if (discovery) return discovery;
-      if (originalPath === "/mcp") {
-        const { handleMcpRequest } = await import("./lib/mcp");
-        return await handleMcpRequest(request);
+        const discovery = handleApiDiscovery(request);
+        if (discovery) return discovery;
+        if (originalPath === "/mcp") {
+          const { handleMcpRequest } = await import("./lib/mcp");
+          return await handleMcpRequest(request);
+        }
+
+        // Served from KV (populated by .github/workflows/sync-contributors.yml).
+        // Kept out of TanStack routes so the handler can reach env bindings.
+        if (originalPath === "/api/contributors") {
+          return await handleContributors(env);
+        }
+
+        // Served from D1 (populated daily by the scheduled handler below).
+        // Falls back to live Bevy scrape if the DB is unavailable or empty.
+        if (originalPath === "/api/events") {
+          return await handleEvents(env, request);
+        }
+
+        // /projects merged into /tools — preserve link equity with a 301.
+        if (originalPath === "/projects") {
+          return Response.redirect(`${url.origin}/tools`, 301);
+        }
+
+        // Handle .well-known routes at the workers level — TanStack Router ignores
+        // files/directories starting with a dot (hidden files convention)
+        if (originalPath === "/.well-known/ai-plugin.json") {
+          const manifest = {
+            schema_version: "v1",
+            name_for_model: "openodia",
+            name_for_human: "OpenOdia",
+            description_for_model:
+              "OpenOdia is a hub for Odia language open-source. Use it to find Odia AI tools, datasets, models, YouTube tutorials, GitHub projects, community events, and PyPI packages. It aggregates resources from the OdishaAI community and the Awesome-Odia-AI directory.",
+            description_for_human:
+              "Open source tools, datasets, and resources for the Odia language.",
+            api: {
+              type: "openapi",
+              url: "https://openodia.com/.well-known/openapi.json",
+              has_user_authentication: false,
+            },
+            auth: { type: "none" },
+            logo_url: "https://openodia.com/openodia-logo.svg",
+            contact_email: "soumendra.s@outlook.com",
+            legal_info_url: "https://github.com/soumendrak/openodia-hub/blob/main/LICENSE",
+          };
+          return new Response(JSON.stringify(manifest, null, 2), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "public, max-age=86400",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+
+        if (originalPath === "/.well-known/openapi.json") {
+          return new Response(JSON.stringify(OPENAPI_SPEC, null, 2), {
+            status: 200,
+            headers: {
+              "Content-Type": "application/json",
+              "Cache-Control": "public, max-age=86400",
+              "Access-Control-Allow-Origin": "*",
+            },
+          });
+        }
+
+        if (originalPath === "/llms.txt") {
+          url.pathname = "/llms/txt";
+        } else if (originalPath === "/llms-full.txt") {
+          url.pathname = "/llms-full/txt";
+        } else if (originalPath === "/sitemap.xml") {
+          url.pathname = "/sitemap/xml";
+        }
+
+        const rewrittenRequest =
+          url.pathname !== originalPath ? new Request(url.toString(), request) : request;
+
+        // Ask the SSR handler for HTML even when the agent asked for markdown —
+        // it rejects any other Accept outright — and convert on the way out.
+        const markdown = wantsMarkdown(request);
+        const ssrRequest = markdown
+          ? new Request(rewrittenRequest, { headers: acceptHtml(rewrittenRequest.headers) })
+          : rewrittenRequest;
+
+        const handler = await getServerEntry();
+        const response = await handler.fetch(ssrRequest, env, ctx);
+        const html = withAgentLinks(await normalizeCatastrophicSsrResponse(response));
+        return markdown ? await toMarkdownResponse(html) : html;
+      } catch (error) {
+        console.error(error);
+        return brandedErrorResponse();
       }
-
-      // Served from KV (populated by .github/workflows/sync-contributors.yml).
-      // Kept out of TanStack routes so the handler can reach env bindings.
-      if (originalPath === "/api/contributors") {
-        return await handleContributors(env);
-      }
-
-      // Served from D1 (populated daily by the scheduled handler below).
-      // Falls back to live Bevy scrape if the DB is unavailable or empty.
-      if (originalPath === "/api/events") {
-        return await handleEvents(env, request);
-      }
-
-      // /projects merged into /tools — preserve link equity with a 301.
-      if (originalPath === "/projects") {
-        return Response.redirect(`${url.origin}/tools`, 301);
-      }
-
-      // Handle .well-known routes at the workers level — TanStack Router ignores
-      // files/directories starting with a dot (hidden files convention)
-      if (originalPath === "/.well-known/ai-plugin.json") {
-        const manifest = {
-          schema_version: "v1",
-          name_for_model: "openodia",
-          name_for_human: "OpenOdia",
-          description_for_model:
-            "OpenOdia is a hub for Odia language open-source. Use it to find Odia AI tools, datasets, models, YouTube tutorials, GitHub projects, community events, and PyPI packages. It aggregates resources from the OdishaAI community and the Awesome-Odia-AI directory.",
-          description_for_human:
-            "Open source tools, datasets, and resources for the Odia language.",
-          api: {
-            type: "openapi",
-            url: "https://openodia.com/.well-known/openapi.json",
-            has_user_authentication: false,
-          },
-          auth: { type: "none" },
-          logo_url: "https://openodia.com/openodia-logo.svg",
-          contact_email: "soumendra.s@outlook.com",
-          legal_info_url: "https://github.com/soumendrak/openodia-hub/blob/main/LICENSE",
-        };
-        return new Response(JSON.stringify(manifest, null, 2), {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=86400",
-            "Access-Control-Allow-Origin": "*",
-          },
-        });
-      }
-
-      if (originalPath === "/.well-known/openapi.json") {
-        return new Response(JSON.stringify(OPENAPI_SPEC, null, 2), {
-          status: 200,
-          headers: {
-            "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=86400",
-            "Access-Control-Allow-Origin": "*",
-          },
-        });
-      }
-
-      if (originalPath === "/llms.txt") {
-        url.pathname = "/llms/txt";
-      } else if (originalPath === "/llms-full.txt") {
-        url.pathname = "/llms-full/txt";
-      } else if (originalPath === "/sitemap.xml") {
-        url.pathname = "/sitemap/xml";
-      }
-
-      const rewrittenRequest =
-        url.pathname !== originalPath ? new Request(url.toString(), request) : request;
-
-      // Ask the SSR handler for HTML even when the agent asked for markdown —
-      // it rejects any other Accept outright — and convert on the way out.
-      const markdown = wantsMarkdown(request);
-      const ssrRequest = markdown
-        ? new Request(rewrittenRequest, { headers: acceptHtml(rewrittenRequest.headers) })
-        : rewrittenRequest;
-
-      const handler = await getServerEntry();
-      const response = await handler.fetch(ssrRequest, env, ctx);
-      const html = withAgentLinks(await normalizeCatastrophicSsrResponse(response));
-      return markdown ? await toMarkdownResponse(html) : html;
-    } catch (error) {
-      console.error(error);
-      return brandedErrorResponse();
-    }
+    });
   },
 
   // Cloudflare cron trigger (configured in wrangler.jsonc, every 6h). Warms the

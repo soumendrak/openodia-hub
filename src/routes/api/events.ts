@@ -1,5 +1,7 @@
+import { applyEventOverrides } from "../../lib/event-lifecycle";
+import { EVENT_OVERRIDES } from "../../data/event-overrides";
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchWithTimeout, settledValues } from "../../lib/fetch-utils";
+import { fetchWithTimeout } from "../../lib/fetch-utils";
 import { dedupeEventsByUrl } from "../../lib/event-url";
 import type { Event, EventType } from "../../data/events/types";
 import { getOrganizerById, resolveOrganizer, type OrganizerId } from "../../data/organizers";
@@ -157,10 +159,8 @@ export const Route = createFileRoute("/api/events")({
     handlers: {
       GET: async ({ request }: { request: Request }) => {
         try {
-          const results = await Promise.allSettled(
-            CHAPTERS.map((ch) => fetchChapterEvents(ch.organizerId ?? ch.community, ch.slug)),
-          );
-          const allEvents = dedupeEventsByUrl(settledValues(results).flat());
+          const { loadReviewedEventCollection } = await import("../../lib/sources/events");
+          const { events: allEvents } = await loadReviewedEventCollection();
 
           const url = new URL(request.url);
           const pageParam = url.searchParams.get("page");

@@ -30,6 +30,10 @@ vi.mock("../src/lib/sources/huggingface", () => ({
   loadModels: serverHarness.models,
   loadDatasets: serverHarness.datasets,
 }));
+vi.mock("../src/data/events", () => ({ events: [] }));
+vi.mock("../src/lib/event-reviewed-store", () => ({
+  restoreReviewedEvents: async (_db: unknown, events: unknown[]) => events,
+}));
 vi.mock("../src/lib/events-store", () => ({
   readEventsFromD1: serverHarness.readEvents,
   syncEventsToD1: serverHarness.syncEvents,

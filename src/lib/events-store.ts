@@ -1,3 +1,6 @@
+import { applyEventOverrides } from "./event-lifecycle";
+import { EVENT_OVERRIDES } from "../data/event-overrides";
+import { persistReviewedEvent, restoreReviewedEvents } from "./event-reviewed-store";
 /**
  * D1-backed persistence for Bevy-scraped community events.
  *
@@ -62,10 +65,13 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   const settled = await Promise.allSettled(
     CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
   );
-  const events = dedupeEventsByUrl(settledValues(settled).flat());
+  const events = dedupeEventsByUrl(settledValues(settled).flat()).map((event) =>
+    applyEventOverrides(event, EVENT_OVERRIDES),
+  );
 
   const seenIds: string[] = [];
   for (const e of events) {
+    await persistReviewedEvent(db, e);
     if (!e.url || !e.startDate) continue;
     const id = eventUrlKey(e.url);
     seenIds.push(id);
@@ -102,7 +108,7 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
 
 export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
   const result = await db.prepare(SELECT_ACTIVE_SQL).all<Row>();
-  return dedupeEventsByUrl(
+  const events = dedupeEventsByUrl(
     result.results.map((r) => {
       const organizerId = resolveOrganizerId(r.community);
       return {
@@ -120,4 +126,16 @@ export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
       };
     }),
   );
+  try {
+    return (await restoreReviewedEvents(db, events)).map((event) =>
+      applyEventOverrides(event, EVENT_OVERRIDES),
+    );
+  } catch (error) {
+    if (!(error instanceof Error) || !/no such table.*event_reviewed_metadata/i.test(error.message))
+      throw error;
+    console.warn(
+      "Reviewed event metadata unavailable; serving legacy records with checked-in corrections",
+    );
+    return events.map((event) => applyEventOverrides(event, EVENT_OVERRIDES));
+  }
 }

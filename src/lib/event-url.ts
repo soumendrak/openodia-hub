@@ -103,6 +103,7 @@ type DatedEventUrl = Pick<Event, "url"> & Partial<Pick<Event, "startDate" | "dat
 export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
   items: T[],
   resolveDestination: (url: string) => Promise<string> = cachedDestinationUrl,
+  mergeMetadata?: (previous: T, next: T) => T,
 ): Promise<T[]> {
   const dateCounts = new Map<string, number>();
   for (const item of items) {
@@ -124,6 +125,18 @@ export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
     const key = eventUrlKey(destination);
     const isDirectDestination = eventUrlKey(item.url) === key;
     const existing = winners.get(key);
+
+    if (existing && mergeMetadata) {
+      const resolved = { ...item, url: destination };
+      const directWins = isDirectDestination && !existing.isDirectDestination;
+      winners.set(key, {
+        item: directWins
+          ? mergeMetadata(existing.item, resolved)
+          : mergeMetadata(resolved, existing.item),
+        isDirectDestination: existing.isDirectDestination || isDirectDestination,
+      });
+      return;
+    }
 
     // Prefer the record already stored at the final URL. It carries the latest
     // title/metadata; a redirecting legacy row may still have an obsolete name.

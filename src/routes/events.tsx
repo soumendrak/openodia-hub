@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from "react";
+import { createServerFn } from "@tanstack/react-start";
 import { createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
-import { mergeNonEmpty } from "../lib/utils";
-import { mergeEventCollectionsByUrl } from "../lib/event-url";
+import { mergeReviewedCollections } from "../lib/event-lifecycle";
+import { EVENT_OVERRIDES } from "../data/event-overrides";
+import { EventUpdates } from "../components/EventUpdates";
+
 import { events } from "../data/events";
 import type { Event } from "../data/events";
 import { pageHead } from "../lib/seo";
@@ -13,7 +16,13 @@ import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 import { normalizeSearch } from "../lib/search";
 import { issueFormUrl } from "../lib/issue-forms";
 
+const getInitialEvents = createServerFn({ method: "GET" }).handler(async () => {
+  const { loadReviewedEventCollection } = await import("../lib/sources/events");
+  return { events: (await loadReviewedEventCollection(false)).events };
+});
+
 export const Route = createFileRoute("/events")({
+  loader: () => getInitialEvents(),
   validateSearch: (search: Record<string, unknown>): { q?: string } =>
     typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
   head: () =>
@@ -56,13 +65,10 @@ function EventCard({ event }: { event: Event }) {
   const isUpcoming = event.status === "upcoming";
   const isLive = event.status === "live";
   return (
-    <a
-      href={event.url}
-      target="_blank"
-      rel="noreferrer"
+    <article
       // min-w-0: grid items default to min-width:auto, so a long unbroken venue
       // or title sets the card's minimum width and pushes the row past 375px.
-      className={`anim-in hover-lift group flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
+      className={`anim-in hover-lift group flex min-w-0 [overflow-wrap:anywhere] flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
         isLive
           ? "border-green-500/60 hover:border-green-400"
           : isUpcoming
@@ -101,7 +107,9 @@ function EventCard({ event }: { event: Event }) {
           )}
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
             <Calendar size={11} />
-            {event.date}
+            {event.lifecycle?.state === "postponed"
+              ? `Original date: ${event.lifecycle.previousDate ?? (event.lifecycle.replacementDate ? "unknown" : event.date)}`
+              : event.date}
           </span>
           {event.location && (
             <span className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -116,12 +124,17 @@ function EventCard({ event }: { event: Event }) {
         />
       </div>
 
-      <h3 className="font-display text-base font-semibold leading-snug">{event.title}</h3>
+      <h3 className="font-display text-base font-semibold leading-snug">
+        <a href={event.url} target="_blank" rel="noreferrer" className="hover:underline">
+          {event.title}
+        </a>
+      </h3>
+      <EventUpdates event={event} />
 
       {event.theme && <p className="text-xs italic text-neon">&ldquo;{event.theme}&rdquo;</p>}
 
       <p className="text-sm leading-relaxed text-muted-foreground">{event.description}</p>
-    </a>
+    </article>
   );
 }
 
@@ -188,6 +201,7 @@ const getEventMonthName = (e: Event): string => {
 };
 
 function EventsPage() {
+  const initialEvents = Route.useLoaderData()?.events ?? events;
   const routeSearch = Route.useSearch();
   const [draftQuery, setDraftQuery] = useState(routeSearch.q ?? "");
   useEffect(() => setDraftQuery(routeSearch.q ?? ""), [routeSearch.q]);
@@ -215,6 +229,8 @@ function EventsPage() {
     };
   }, []);
 
+  const needle = normalizeSearch(query);
+  const isFiltering = !!needle || !!activeType || !!activeCommunity;
   const PAST_PAGE_SIZE = 20;
 
   // useInfiniteQuery accumulates pages so filters can search across every
@@ -246,49 +262,37 @@ function EventsPage() {
   // Pagination keeps the idle timeline light, but a search must not silently
   // exclude a live event merely because its page has not been visited yet.
   const { data: completeSearchEvents } = useQuery({
-    queryKey: ["allLiveEventsForSearch", query],
+    queryKey: ["allLiveEventsForSearch"],
     queryFn: async () => {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
       return response.json() as Promise<{ events: Event[] }>;
     },
-    enabled: Boolean(query.trim()),
+    enabled: isFiltering,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  const fetchedEvents =
-    completeSearchEvents?.events ?? liveData?.pages.flatMap((p) => p.events) ?? [];
+  const loadedEvents = liveData?.pages.flatMap((page) => page.events) ?? [];
+  const fetchedEvents = isFiltering ? (completeSearchEvents?.events ?? loadedEvents) : loadedEvents;
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const today = getISTDateString();
-  const mergedEventsList = mergeEventCollectionsByUrl(events, fetchedEvents, mergeNonEmpty)
-    .map((e) => {
-      let status = e.status;
-      if (e.startDate) {
-        const end = e.endDate || e.startDate;
-        if (today < e.startDate) {
-          status = "upcoming";
-        } else if (today >= e.startDate && today <= end) {
-          status = "live";
-        } else {
-          status = undefined; // past event
-        }
-      }
-      return { ...e, status };
-    })
-    .sort((a, b) => {
-      const yearDiff = Number(b.year) - Number(a.year);
-      if (yearDiff !== 0) return yearDiff;
-      if (a.startDate && b.startDate) {
-        return b.startDate.localeCompare(a.startDate);
-      }
-      if (a.startDate) return -1;
-      if (b.startDate) return 1;
-      return 0;
-    });
-
-  const needle = normalizeSearch(query);
+  const mergedEventsList = mergeReviewedCollections(
+    initialEvents,
+    fetchedEvents,
+    EVENT_OVERRIDES,
+    today,
+  ).sort((a, b) => {
+    const yearDiff = Number(b.year) - Number(a.year);
+    if (yearDiff !== 0) return yearDiff;
+    if (a.startDate && b.startDate) {
+      return b.startDate.localeCompare(a.startDate);
+    }
+    if (a.startDate) return -1;
+    if (b.startDate) return 1;
+    return 0;
+  });
 
   const upcomingEvents = mergedEventsList.filter(
     (e) => e.status === "upcoming" || e.status === "live",
@@ -309,11 +313,14 @@ function EventsPage() {
 
   const filtered = applyFilter(mergedEventsList);
   const isSearching = !!needle;
-  const isFiltering = !!needle || !!activeType || !!activeCommunity;
 
   // Past events are the ones the status pass left undefined; "past" is not a
   // value Event["status"] can hold.
-  const filteredPastEvents = filtered.filter((e) => !e.status);
+  const changedEvent = (event: Event) =>
+    event.lifecycle?.state === "cancelled" ||
+    (event.lifecycle?.state === "postponed" && !event.lifecycle.replacementDate);
+  const filteredChangedEvents = filtered.filter(changedEvent);
+  const filteredPastEvents = filtered.filter((event) => !event.status && !changedEvent(event));
   const filteredUpcomingEvents = filtered.filter(
     (e) => e.status === "upcoming" || e.status === "live",
   );
@@ -473,16 +480,19 @@ function EventsPage() {
     }
   };
 
-  // Only the statically-bundled events are in the server HTML, so those are the
-  // ones the schema describes. `startDate` is required by schema.org/Event, and
-  // a handful of entries only carry a prose date that never parsed.
-  const schemaEvents = events
+  // Structured data follows the same reviewed collection as the visible cards.
+  const schemaEvents = mergedEventsList
     .filter((e) => !!e.startDate)
     .map((e) => ({
       name: e.title,
       url: e.url,
       description: e.description,
-      startDate: e.startDate as string,
+      startDate: e.lifecycle?.replacementDate ?? (e.startDate as string),
+      lifecycle: e.lifecycle,
+      previousStartDate:
+        e.lifecycle?.state === "postponed"
+          ? (e.lifecycle.previousDate ?? (e.lifecycle.replacementDate ? undefined : e.startDate))
+          : undefined,
       endDate: e.endDate,
       location: e.location,
       organizer: e.community,
@@ -801,6 +811,23 @@ function EventsPage() {
               </div>
             )}
 
+            {filteredChangedEvents.length > 0 && (
+              <section aria-labelledby="changed-events-heading" className="mb-16">
+                <h2 id="changed-events-heading" className="font-display text-2xl font-bold">
+                  Cancelled or postponed
+                </h2>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  These records remain visible for reference and are excluded from active attendance
+                  recommendations.
+                </p>
+                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                  {filteredChangedEvents.map((event) => (
+                    <EventCard key={event.url} event={event} />
+                  ))}
+                </div>
+              </section>
+            )}
+
             {filteredPastEvents.length > 0 && (
               <Reveal>
                 <div className="mb-8 flex items-center gap-3">
@@ -864,9 +891,9 @@ function EventsPage() {
             {!isSearching && totalLiveEvents > 0 && (
               <div className="mt-10 flex flex-col items-center gap-3">
                 <p className="text-xs text-muted-foreground">
-                  Showing {fetchedEvents.length} of {totalLiveEvents} past events
+                  Showing {fetchedEvents.length} of {totalLiveEvents} events
                 </p>
-                {hasNextPage && (
+                {hasNextPage && !isFiltering && (
                   <button
                     onClick={() => fetchNextPage()}
                     disabled={isFetchingNextPage}
