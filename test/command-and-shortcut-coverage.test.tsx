@@ -164,6 +164,19 @@ describe("search shortcut", () => {
     expect(key.defaultPrevented).toBe(true);
     expect(document.activeElement).toBe(document.body);
   });
+  it("leaves ordinary keys and Escape in another typing surface alone", () => {
+    render(<ShortcutFixture />);
+    const textarea = screen.getByRole("textbox", { name: "other" });
+    textarea.focus();
+    const ordinaryKey = new KeyboardEvent("keydown", { key: "a", cancelable: true });
+    window.dispatchEvent(ordinaryKey);
+    expect(ordinaryKey.defaultPrevented).toBe(false);
+    expect(textarea).toHaveFocus();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
+    window.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(false);
+    expect(textarea).toHaveFocus();
+  });
   it("focuses and selects on slash, ignores typing surfaces, and blurs on Escape", () => {
     render(<ShortcutFixture />);
     const search = screen.getByRole("textbox", { name: "search" }) as HTMLInputElement;
