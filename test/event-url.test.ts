@@ -102,21 +102,70 @@ describe("redirect-aware event deduplication", () => {
     ]);
   });
 
+  it("resolves manual redirect locations without depending on a runtime rewriting Response.url", async () => {
+    const fetcher = vi.fn(async (url: string, _options?: RequestInit) => new Response(url));
+    // Response.url is readonly in Node; a controlled descriptor represents the final HTTP request.
+    fetcher.mockImplementation(async (url: string) => {
+      const r = new Response(
+        null,
+        url === legacy ? { status: 302, headers: { location: current } } : {},
+      );
+      Object.defineProperty(r, "url", { value: url });
+      return r;
+    });
+    expect(await resolveEventDestinationUrl(legacy, fetcher as typeof fetch)).toBe(current);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+    expect(fetcher.mock.calls[0][1]?.signal).toBe(fetcher.mock.calls[1][1]?.signal);
+  });
+  it("bounds redirect loops/chains and rejects missing or unsafe locations", async () => {
+    for (const location of [
+      null,
+      "https://[invalid",
+      "https://example.org/outside",
+      "http://gdg.community.dev/events/details/unsafe",
+      "https://user@gdg.community.dev/events/details/unsafe",
+      "https://:secret@gdg.community.dev/events/details/unsafe",
+    ]) {
+      const fetcher = vi.fn(
+        async () => new Response(null, { status: 302, headers: location ? { location } : {} }),
+      );
+      expect(await resolveEventDestinationUrl(legacy, fetcher as typeof fetch)).toBe(legacy);
+    }
+    const loop = vi.fn(
+      async () => new Response(null, { status: 302, headers: { location: legacy } }),
+    );
+    expect(await resolveEventDestinationUrl(legacy, loop as typeof fetch)).toBe(legacy);
+    expect(loop).toHaveBeenCalledTimes(1);
+    let count = 0;
+    const chain = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: `/events/details/hop-${++count}` },
+        }),
+    );
+    expect(await resolveEventDestinationUrl(legacy, chain as typeof fetch)).toBe(legacy);
+    expect(chain).toHaveBeenCalledTimes(5);
+  });
   it("follows only successful redirects that remain GDG event-detail URLs", async () => {
-    const fetcher = vi.fn().mockResolvedValue({ ok: true, url: current });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: current } }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
     await expect(resolveEventDestinationUrl(legacy, fetcher as typeof fetch)).resolves.toBe(
       current,
     );
     expect(fetcher).toHaveBeenCalledWith(
       legacy,
-      expect.objectContaining({ method: "HEAD", redirect: "follow" }),
+      expect.objectContaining({ method: "HEAD", redirect: "manual" }),
     );
 
     await expect(
       resolveEventDestinationUrl(
         legacy,
         vi.fn().mockResolvedValue({
-          ok: true,
+          ok: false,
           url: "https://gdg.community.dev/gdg-bhubaneswar/",
         }) as typeof fetch,
       ),

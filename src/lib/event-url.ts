@@ -8,6 +8,9 @@ function isGdgEventUrl(rawUrl: string): boolean {
   try {
     const url = new URL(rawUrl);
     return (
+      url.protocol === "https:" &&
+      !url.username &&
+      !url.password &&
       url.hostname.toLowerCase() === "gdg.community.dev" &&
       url.pathname.startsWith("/events/details/")
     );
@@ -70,14 +73,30 @@ export async function resolveEventDestinationUrl(
   if (!isGdgEventUrl(rawUrl)) return rawUrl;
 
   try {
-    const response = await fetcher(rawUrl, {
-      method: "HEAD",
-      redirect: "follow",
-      headers: { "User-Agent": "OpenOdiaBot/1.0 (+https://openodia.org)" },
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok || !response.url || !isGdgEventUrl(response.url)) return rawUrl;
-    return response.url;
+    const signal = AbortSignal.timeout(5000);
+    let destination = rawUrl;
+    const visited = new Set<string>();
+    for (let hop = 0; hop < 5; hop++) {
+      if (visited.has(destination)) return rawUrl;
+      visited.add(destination);
+      const response = await fetcher(destination, {
+        method: "HEAD",
+        redirect: "manual",
+        headers: { "User-Agent": "OpenOdiaBot/1.0 (+https://openodia.org)" },
+        signal,
+      });
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        const location = response.headers.get("location");
+        if (!location) return rawUrl;
+        const next = new URL(location, destination);
+        if (!isGdgEventUrl(next.href)) return rawUrl;
+        destination = next.href;
+        continue;
+      }
+      if (!response.ok) return rawUrl;
+      return destination;
+    }
+    return rawUrl;
   } catch {
     return rawUrl;
   }

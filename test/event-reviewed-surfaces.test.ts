@@ -150,11 +150,15 @@ describe("the same persisted review reaches every server surface", () => {
         },
       ]),
     );
-    globalThis.fetch = vi.fn(async () => {
-      const response = new Response("", { status: 200 });
-      Object.defineProperty(response, "url", { value: canonical });
-      return response;
-    });
+    globalThis.fetch = vi.fn(
+      async (input) =>
+        new Response(
+          null,
+          String(input) === alias
+            ? { status: 302, headers: { location: canonical } }
+            : { status: 200 },
+        ),
+    );
     try {
       await withEventDatabase(db, async () => {
         const initial = await loadReviewedEventCollection(false);

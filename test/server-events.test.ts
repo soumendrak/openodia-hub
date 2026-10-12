@@ -51,7 +51,10 @@ describe("production events endpoint", () => {
 
     globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      return { ok: true, url: url === legacy ? current : url } as Response;
+      return new Response(
+        null,
+        url === legacy ? { status: 302, headers: { location: current } } : { status: 200 },
+      );
     }) as typeof fetch;
 
     const response = await server.fetch(
