@@ -32,9 +32,20 @@ jobs:
             // Fork review events have a read-only token. Trusted base events manage labels.
             const canWriteLabels = context.eventName !== 'pull_request_review'
               || pr.head.repo?.full_name?.toLowerCase() === `${args.owner}/${args.repo}`.toLowerCase();
-            const files = await github.paginate(github.rest.pulls.listFiles, args);
-            if (!files.some(file => [file.filename, file.previous_filename].some(path => ['src/locales/en.ts', 'src/locales/or.ts', 'src/locales/review.ts'].includes(path)))) return;
             const label = 'needs-native-speaker-review';
+            const issue = { owner: args.owner, repo: args.repo, issue_number: pr.number };
+            const removeReviewLabel = async () => {
+              try { await github.rest.issues.removeLabel({ ...issue, name: label }); }
+              catch (error) { if (error.status !== 404) throw error; }
+            };
+            const files = await github.paginate(github.rest.pulls.listFiles, args);
+            if (!files.some(file => [file.filename, file.previous_filename].some(path => ['src/locales/en.ts', 'src/locales/or.ts', 'src/locales/review.ts'].includes(path)))) {
+              // Reverting all protected changes clears the old requirement, using trusted tokens only.
+              if (canWriteLabels && (await github.rest.pulls.get(args)).data.head.sha === pr.head.sha) {
+                await removeReviewLabel();
+              }
+              return;
+            }
             if (canWriteLabels) {
               try {
                 await github.rest.issues.createLabel({ owner: args.owner, repo: args.repo, name: label, color: 'd876e3', description: 'Native Odia review of the current translation wording is required' });
@@ -44,11 +55,19 @@ jobs:
             }
             const allowed = new Set((process.env.ODIA_NATIVE_REVIEWERS || '').split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
             const reviews = await github.paginate(github.rest.pulls.listReviews, args);
-            const latest = new Map();
-            for (const review of reviews) {
-              if (review.state === 'COMMENTED') continue;
-              const login = review.user?.login?.toLowerCase();
-              if (login && allowed.has(login)) latest.set(login, review);
+            // submitted_at remains the original submission time after a dismissal. Use
+            // the timeline's review_dismissed timestamp, joined by dismissed_review.review_id.
+            const dismissed = reviews.some(review => review.state === 'DISMISSED'
+              && review.commit_id === pr.head.sha && allowed.has(review.user?.login?.toLowerCase()));
+            const timeline = dismissed ? await github.paginate(github.rest.issues.listEventsForTimeline, issue) : [];
+            const dismissalTimes = new Map();
+            for (const event of timeline) {
+              if (event.event !== 'review_dismissed' || event.dismissed_review?.review_id == null) continue;
+              const id = String(event.dismissed_review.review_id);
+              const at = Date.parse(event.created_at);
+              if (Number.isFinite(at) && (!dismissalTimes.has(id) || at > dismissalTimes.get(id))) {
+                dismissalTimes.set(id, at);
+              }
             }
             // Agent-created PRs can share the native reviewer's GitHub account. An explicit
             // SHA-bound human review comment supports that case without inferred approval.
@@ -56,24 +75,39 @@ jobs:
               owner: args.owner, repo: args.repo, issue_number: pr.number
             });
             const decisions = new Map();
-            for (const comment of comments.sort((a, b) => (a.updated_at || a.created_at || "").localeCompare(b.updated_at || b.created_at || ""))) {
+            const recordDecision = (login, approved, at) => {
+              // Unknown approval chronology cannot authorize a merge. Unknown revocation
+              // chronology blocks approval; equal-time conflicts also resolve to rejection.
+              if (!Number.isFinite(at)) {
+                if (approved) return;
+                at = Infinity;
+              }
+              const previous = decisions.get(login);
+              if (!previous || at > previous.at || (at === previous.at && !approved)) {
+                decisions.set(login, { approved, at });
+              }
+            };
+            for (const review of reviews) {
+              const login = review.user?.login?.toLowerCase();
+              if (!login || !allowed.has(login) || review.commit_id !== pr.head.sha
+                || !['APPROVED', 'CHANGES_REQUESTED', 'DISMISSED'].includes(review.state)) continue;
+              const at = review.state === 'DISMISSED'
+                ? dismissalTimes.get(String(review.id)) : Date.parse(review.submitted_at);
+              recordDecision(login, review.state === 'APPROVED' && login !== pr.user.login.toLowerCase(), at);
+            }
+            for (const comment of comments) {
               const login = comment.user?.login?.toLowerCase();
               if (!login || !allowed.has(login)) continue;
               const command = comment.body?.trim();
-              if (command === `odia-review-approved ${pr.head.sha}`) decisions.set(login, true);
-              if (command === `odia-review-revoke ${pr.head.sha}`) decisions.set(login, false);
+              const at = Date.parse(comment.updated_at || comment.created_at);
+              if (command === `odia-review-approved ${pr.head.sha}`) recordDecision(login, true, at);
+              if (command === `odia-review-revoke ${pr.head.sha}`) recordDecision(login, false, at);
             }
-            const approved = [...allowed].some(login => decisions.has(login)
-              ? decisions.get(login)
-              : latest.get(login)?.state === 'APPROVED' && latest.get(login)?.commit_id === pr.head.sha && login !== pr.user.login.toLowerCase());
+            const approved = [...decisions.values()].some(decision => decision.approved);
             // Recheck immediately before mutation; never let an obsolete run clear a newer head's label.
             if ((await github.rest.pulls.get(args)).data.head.sha !== pr.head.sha) return;
-            const issue = { owner: args.owner, repo: args.repo, issue_number: pr.number };
             if (approved) {
-              if (canWriteLabels) {
-                try { await github.rest.issues.removeLabel({ ...issue, name: label }); }
-                catch (error) { if (error.status !== 404) throw error; }
-              }
+              if (canWriteLabels) await removeReviewLabel();
             } else {
               if (canWriteLabels) await github.rest.issues.addLabels({ ...issue, labels: [label] });
               core.setFailed(allowed.size ? 'A configured native Odia reviewer must approve this exact commit. Draft wording requires an explicit native review.' : 'Configure ODIA_NATIVE_REVIEWERS with actual native Odia reviewer logins, then obtain approval of this exact commit.');

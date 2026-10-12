@@ -270,6 +270,31 @@ describe("search API contract", () => {
     return (route.Route as unknown as SearchRoute).options.server.handlers.GET;
   }
 
+  it.each(["translate", "translation", "Odia contributor"])(
+    "finds the translation contributor page for %s from the static snapshot inventory",
+    async (query) => {
+      const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+      const snapshot = await buildSearchSnapshot(loaders);
+      apiHarness.snapshot.mockResolvedValueOnce(snapshot);
+      const get = await handler();
+      const response = await get({
+        request: new Request(
+          `https://openodia.com/api/search?q=${encodeURIComponent(query)}&kind=page`,
+        ),
+      });
+
+      expect(response.status).toBe(200);
+      expect((await response.json()).results).toContainEqual(
+        expect.objectContaining({
+          kind: "page",
+          title: "Help translate OpenOdia",
+          href: "/translation-status",
+          source: "pages",
+        }),
+      );
+    },
+  );
+
   it("validates queries, kinds, and limits", async () => {
     const get = await handler();
     expect((await get({ request: new Request("https://openodia.com/api/search") })).status).toBe(

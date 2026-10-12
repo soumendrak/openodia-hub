@@ -11,6 +11,7 @@ async function runGate({
   reviewers = "odia-reviewer",
   reviews = [],
   comments = [],
+  timeline = [],
   commentEvent = false,
   reviewEvent = false,
   fork = false,
@@ -24,6 +25,7 @@ async function runGate({
   reviewers?: string;
   reviews?: object[];
   comments?: object[];
+  timeline?: object[];
   commentEvent?: boolean;
   reviewEvent?: boolean;
   fork?: boolean;
@@ -43,7 +45,8 @@ async function runGate({
     }),
   };
   const commentsApi = vi.fn();
-  Object.assign(issues, { listComments: commentsApi });
+  const timelineApi = vi.fn();
+  Object.assign(issues, { listComments: commentsApi, listEventsForTimeline: timelineApi });
   const head = { sha: activeSha, repo: { full_name: fork ? "contributor/hub" : "owner/hub" } };
   const pr = { number: 7, head, user: { login: "author" } };
   let readCount = 0;
@@ -68,7 +71,9 @@ async function runGate({
         ? files.map((file) => (typeof file === "string" ? { filename: file } : file))
         : api === commentsApi
           ? comments
-          : reviews,
+          : api === timelineApi
+            ? timeline
+            : reviews,
     ),
   };
   const core = { setFailed: vi.fn() };
@@ -89,10 +94,23 @@ async function runGate({
   });
   return { issues, core };
 }
-const review = (state: string, commit_id = "current", login = "odia-reviewer") => ({
+let reviewId = 0;
+const review = (
+  state: string,
+  commit_id = "current",
+  login = "odia-reviewer",
+  submitted_at = "2026-10-12T10:00:00Z",
+) => ({
+  id: ++reviewId,
   state,
   commit_id,
   user: { login },
+  submitted_at,
+});
+const decisionComment = (body: string, at: string, login = "odia-reviewer") => ({
+  body,
+  user: { login },
+  created_at: at,
 });
 
 describe("native Odia review policy", () => {
@@ -123,7 +141,11 @@ describe("native Odia review policy", () => {
     }
   });
   it("accepts explicit current-SHA comments from configured native reviewers and supports revocation", async () => {
-    const comment = (body: string, login = "author") => ({ body, user: { login } });
+    const comment = (body: string, login = "author") => ({
+      body,
+      user: { login },
+      created_at: "2026-10-12T11:00:00Z",
+    });
     const approved = await runGate({
       reviewers: "author",
       commentEvent: true,
@@ -171,6 +193,128 @@ describe("native Odia review policy", () => {
     expect(result.issues.addLabels).toHaveBeenCalled();
     expect(result.issues.removeLabel).not.toHaveBeenCalled();
   });
+  it.each([
+    ["odia-review-approved current", "11:00", "CHANGES_REQUESTED", "12:00", false],
+    ["odia-review-approved current", "12:00", "CHANGES_REQUESTED", "11:00", true],
+    ["odia-review-revoke current", "12:00", "APPROVED", "11:00", false],
+    ["odia-review-revoke current", "11:00", "APPROVED", "12:00", true],
+    ["odia-review-approved current", "12:00", "CHANGES_REQUESTED", "12:00", false],
+    ["odia-review-revoke current", "12:00", "APPROVED", "12:00", false],
+  ])(
+    "uses latest cross-channel decision: %s at %s, formal %s at %s",
+    async (body, commentTime, state, reviewTime, approved) => {
+      const result = await runGate({
+        reviews: [review(state, "current", "odia-reviewer", `2026-10-12T${reviewTime}:00Z`)],
+        comments: [decisionComment(body, `2026-10-12T${commentTime}:00Z`)],
+      });
+      expect(result.core.setFailed.mock.calls.length === 0).toBe(approved);
+      expect(result.issues.removeLabel.mock.calls.length > 0).toBe(approved);
+      expect(result.issues.addLabels.mock.calls.length > 0).toBe(!approved);
+    },
+  );
+  it("compares edited comments and formal review timestamps rather than API order", async () => {
+    const result = await runGate({
+      reviews: [
+        review("CHANGES_REQUESTED", "current", "odia-reviewer", "2026-10-12T12:00:00Z"),
+        review("APPROVED", "current", "odia-reviewer", "2026-10-12T09:00:00Z"),
+        review("COMMENTED", "current", "odia-reviewer", "2026-10-12T14:00:00Z"),
+        review("PENDING", "current", "odia-reviewer", "2026-10-12T14:00:00Z"),
+      ],
+      comments: [
+        {
+          ...decisionComment("odia-review-approved current", "2026-10-12T10:00:00Z"),
+          updated_at: "2026-10-12T13:00:00Z",
+        },
+        decisionComment("odia-review-revoke current", "2026-10-12T11:00:00Z"),
+      ],
+    });
+    expect(result.core.setFailed).not.toHaveBeenCalled();
+    expect(result.issues.removeLabel).toHaveBeenCalled();
+    const reversed = await runGate({
+      reviews: [
+        review("CHANGES_REQUESTED", "current", "odia-reviewer", "2026-10-12T12:00:00Z"),
+        review("APPROVED", "current", "odia-reviewer", "2026-10-12T09:00:00Z"),
+      ],
+    });
+    expect(reversed.core.setFailed).toHaveBeenCalled();
+  });
+  it.each(["11:00", "13:00"])(
+    "uses dismissal time, not the dismissed approval's submitted_at (comment at %s)",
+    async (commentTime) => {
+      const dismissed = review("DISMISSED", "current", "odia-reviewer", "2026-10-12T09:00:00Z");
+      const result = await runGate({
+        reviewEvent: true,
+        reviews: [dismissed],
+        comments: [
+          decisionComment("odia-review-approved current", `2026-10-12T${commentTime}:00Z`),
+        ],
+        timeline: [
+          { event: "commented", created_at: "2026-10-12T15:00:00Z" },
+          { event: "review_dismissed", dismissed_review: null },
+          {
+            event: "review_dismissed",
+            created_at: "2026-10-12T15:00:00Z",
+            dismissed_review: { review_id: 99999 },
+          },
+          {
+            event: "review_dismissed",
+            created_at: "2026-10-12T12:00:00Z",
+            dismissed_review: { review_id: String(dismissed.id) },
+          },
+        ],
+      });
+      expect(result.core.setFailed.mock.calls.length === 0).toBe(commentTime === "13:00");
+      expect(result.issues.removeLabel.mock.calls.length > 0).toBe(commentTime === "13:00");
+    },
+  );
+  it("fails closed for unknown approval or dismissal chronology", async () => {
+    const dismissed = review("DISMISSED");
+    for (const timeline of [
+      [],
+      [
+        {
+          event: "review_dismissed",
+          created_at: "invalid",
+          dismissed_review: { review_id: dismissed.id },
+        },
+      ],
+    ]) {
+      const result = await runGate({
+        reviews: [dismissed],
+        timeline,
+        comments: [decisionComment("odia-review-approved current", "2026-10-12T13:00:00Z")],
+      });
+      expect(result.core.setFailed).toHaveBeenCalled();
+      expect(result.issues.removeLabel).not.toHaveBeenCalled();
+    }
+    for (const input of [
+      { reviews: [review("APPROVED", "current", "odia-reviewer", "invalid")] },
+      { comments: [decisionComment("odia-review-approved current", "invalid")] },
+      {
+        reviews: [review("APPROVED", "current", "odia-reviewer", "2026-10-12T13:00:00Z")],
+        comments: [decisionComment("odia-review-revoke current", "invalid")],
+      },
+    ]) {
+      const result = await runGate(input);
+      expect(result.core.setFailed).toHaveBeenCalled();
+      expect(result.issues.removeLabel).not.toHaveBeenCalled();
+    }
+  });
+  it("ignores other-head decisions and keeps reviewer decisions independent", async () => {
+    const approved = await runGate({
+      reviews: [review("DISMISSED", "old", "odia-reviewer", "2026-10-12T15:00:00Z")],
+      comments: [decisionComment("odia-review-approved current", "2026-10-12T13:00:00Z")],
+    });
+    expect(approved.core.setFailed).not.toHaveBeenCalled();
+    const multi = await runGate({
+      reviewers: "odia-reviewer,second-reviewer",
+      reviews: [review("CHANGES_REQUESTED", "current", "odia-reviewer", "2026-10-12T15:00:00Z")],
+      comments: [
+        decisionComment("odia-review-approved current", "2026-10-12T13:00:00Z", "second-reviewer"),
+      ],
+    });
+    expect(multi.core.setFailed).not.toHaveBeenCalled();
+  });
   it("evaluates fork reviews with a read-only token and updates labels from base events", async () => {
     const approved = await runGate({
       fork: true,
@@ -201,6 +345,8 @@ describe("native Odia review policy", () => {
   it("skips unrelated PRs and handles only expected label races", async () => {
     const unchanged = await runGate({ files: ["src/routes/tools.tsx"] });
     expect(unchanged.issues.createLabel).not.toHaveBeenCalled();
+    expect(unchanged.issues.removeLabel).toHaveBeenCalled();
+    expect(unchanged.core.setFailed).not.toHaveBeenCalled();
     expect((await runGate({ createError: { status: 422 } })).core.setFailed).toHaveBeenCalled();
     await expect(runGate({ createError: { status: 403 } })).rejects.toEqual({ status: 403 });
     await expect(
@@ -210,6 +356,23 @@ describe("native Odia review policy", () => {
       (await runGate({ reviews: [review("APPROVED")], removeError: { status: 404 } })).core
         .setFailed,
     ).not.toHaveBeenCalled();
+  });
+  it("clears a reverted locale label only with a trusted token and unchanged head", async () => {
+    const fork = await runGate({
+      files: [],
+      fork: true,
+      reviewEvent: true,
+      removeError: { status: 403 },
+    });
+    const obsolete = await runGate({ files: [], changedSha: "newer" });
+    expect(fork.issues.removeLabel).not.toHaveBeenCalled();
+    expect(obsolete.issues.removeLabel).not.toHaveBeenCalled();
+    expect(
+      (await runGate({ files: [], removeError: { status: 404 } })).core.setFailed,
+    ).not.toHaveBeenCalled();
+    await expect(runGate({ files: [], removeError: { status: 403 } })).rejects.toEqual({
+      status: 403,
+    });
   });
   it("does not check out or execute pull-request code with write permissions", () => {
     expect(workflow.jobs["native-review"].steps).toHaveLength(1);

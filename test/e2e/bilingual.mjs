@@ -5,6 +5,17 @@ import { createRequire } from "node:module";
 import { chromium } from "playwright";
 
 const require = createRequire(import.meta.url);
+async function waitForHydration(page) {
+  await page.waitForFunction(() => {
+    const button = document.querySelector("header button");
+    return (
+      button &&
+      Object.keys(button).some(
+        (key) => key.startsWith("__reactProps") && typeof button[key]?.onClick === "function",
+      )
+    );
+  });
+}
 const origin = process.env.BILINGUAL_BASE_URL || "http://127.0.0.1:9158";
 let server;
 if (!process.env.BILINGUAL_BASE_URL) {
@@ -36,7 +47,7 @@ const checks = [];
 try {
   for (const locale of ["en", "or"]) {
     for (const theme of ["light", "dark"]) {
-      const context = await browser.newContext({ reducedMotion: "reduce" });
+      const context = await browser.newContext({ reducedMotion: "reduce", locale: "tr-TR" });
       await context.addInitScript(
         ({ locale, theme }) => {
           localStorage.setItem("locale", locale);
@@ -61,15 +72,7 @@ try {
       );
       for (const path of ["/", "/translation-status"]) {
         await page.goto(`${origin}${path}`);
-        await page.waitForFunction(() => {
-          const button = document.querySelector("header button");
-          return (
-            button &&
-            Object.keys(button).some(
-              (key) => key.startsWith("__reactProps") && typeof button[key]?.onClick === "function",
-            )
-          );
-        });
+        await waitForHydration(page);
         await page.waitForFunction(
           (locale) => document.querySelector("header")?.lang === locale,
           locale,
@@ -90,6 +93,9 @@ try {
             await page.locator("main li p[lang=or]").textContent(),
             "ଶିଖିବା ଆରମ୍ଭ କରନ୍ତୁ",
           );
+          // The browser's language must not change English/key search case folding.
+          await page.getByRole("searchbox").fill("NAV.THEME.ARIA");
+          await page.getByText("1 strings shown", { exact: true }).waitFor();
           await page.getByRole("checkbox").check();
           await page.getByRole("searchbox").fill("no-such-key");
           await page.getByText("No matching strings. Clear the search or review filter.").waitFor();
@@ -119,14 +125,36 @@ try {
             await page.screenshot({ path: `${output}/status-${locale}-${theme}-320.png` });
         }
       }
+      await page.goto(`${origin}/`);
+      await waitForHydration(page);
+      await page.keyboard.press("Control+k");
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("combobox").fill("translate");
+      await dialog
+        .getByRole("option", { name: /Help translate OpenOdia/ })
+        .first()
+        .click();
+      await page.getByRole("heading", { name: "Help translate OpenOdia.", exact: true }).waitFor();
       assert.deepEqual(errors, []);
       const clock = await (await page.request.get(`${origin}/__fixture-clock`)).json();
       assert.equal(clock.now, await page.evaluate(() => Date.now()));
       assert.equal(clock.iso, "2026-10-12T00:00:00.000Z");
+      const search = await page.request.get(`${origin}/api/search?q=translate`);
+      assert.equal(search.status(), 200);
+      assert.ok(
+        (await search.json()).results.some((entry) => entry.href === "/translation-status"),
+      );
+      const sitemap = await page.request.get(`${origin}/sitemap.xml`);
+      assert.equal(sitemap.status(), 200);
+      assert.match(await sitemap.text(), /\/translation-status<\/loc>/);
+      await page.request.get(`${origin}/api/models`);
+      const cachedModels = await page.request.get(`${origin}/api/models`);
+      assert.match(cachedModels.headers()["x-cache"], /^(MISS|MEMO|KV|STALE)$/);
       const response = await page.request.get(`${origin}/api/translation-status`);
       assert.equal(response.status(), 200);
       assert.equal(response.headers()["access-control-allow-origin"], "*");
       assert.match(response.headers()["cache-control"], /s-maxage=300/);
+      assert.equal(response.headers()["x-cache"], undefined);
       const report = await response.json();
       assert.equal(report.total, 46);
       assert.equal(report.translated, 46);
@@ -138,7 +166,7 @@ try {
   }
   await writeFile(`${output}/results.json`, JSON.stringify({ checks, api: "pass" }, null, 2));
   console.log(
-    `PASS ${checks.length} bilingual layout/axe checks; locale persistence, search/filter recovery and API contract`,
+    `PASS ${checks.length} bilingual layout/axe checks; Turkish-case search, palette/API/sitemap discovery, cache isolation, locale persistence and recovery`,
   );
 } finally {
   await browser.close();

@@ -22,8 +22,8 @@ function TranslationStatus() {
     (entry) =>
       (!pendingOnly || entry.status !== "reviewed") &&
       `${entry.key} ${entry.english} ${entry.translation}`
-        .toLocaleLowerCase()
-        .includes(query.toLocaleLowerCase()),
+        .toLowerCase()
+        .includes(query.toLowerCase()),
   );
   const percent = (count: number) =>
     report.total === 0 ? 0 : Math.round((count / report.total) * 100);
