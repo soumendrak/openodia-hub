@@ -36,12 +36,12 @@ export const Route = createFileRoute("/events")({
 });
 
 const TYPE_COLORS: Record<Event["type"], string> = {
-  Conference: "border-blue-500/40 text-blue-400",
+  Conference: "border-blue-500/40 text-blue-400 light:text-blue-900",
   Summit: "border-neon/40 text-neon",
-  Workshop: "border-purple-500/40 text-purple-400",
-  Research: "border-amber-500/40 text-amber-400",
-  Hackathon: "border-rose-500/40 text-rose-400",
-  Talk: "border-sky-500/40 text-sky-400",
+  Workshop: "border-purple-500/40 text-purple-400 light:text-purple-900",
+  Research: "border-amber-500/40 text-amber-400 light:text-amber-900",
+  Hackathon: "border-rose-500/40 text-rose-400 light:text-rose-900",
+  Talk: "border-sky-500/40 text-sky-400 light:text-sky-900",
 };
 
 const ATTENDANCE_LABELS: Record<NonNullable<Event["attendance"]>["policy"], string> = {
@@ -73,7 +73,7 @@ function EventCard({ event }: { event: Event }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {isLive && (
-            <span className="flex items-center gap-1.5 rounded-full border border-green-500/50 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-400">
+            <span className="flex items-center gap-1.5 rounded-full border border-green-500/50 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-400 light:text-green-900">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
@@ -118,7 +118,7 @@ function EventCard({ event }: { event: Event }) {
 
       <h3 className="font-display text-base font-semibold leading-snug">{event.title}</h3>
 
-      {event.theme && <p className="text-xs italic text-neon/80">&ldquo;{event.theme}&rdquo;</p>}
+      {event.theme && <p className="text-xs italic text-neon">&ldquo;{event.theme}&rdquo;</p>}
 
       <p className="text-sm leading-relaxed text-muted-foreground">{event.description}</p>
     </a>
@@ -579,6 +579,7 @@ function EventsPage() {
               <input
                 ref={searchInputRef}
                 type="search"
+                aria-label="Search events"
                 placeholder="Search events… [/]"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -586,6 +587,7 @@ function EventsPage() {
               />
               {query && (
                 <button
+                  aria-label="Clear event search"
                   onClick={() => setQuery("")}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
@@ -597,6 +599,7 @@ function EventsPage() {
             {/* Communities Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
+                aria-label="Community"
                 value={activeCommunity ?? ""}
                 onChange={(e) => setActiveCommunity(e.target.value || null)}
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
@@ -617,6 +620,7 @@ function EventsPage() {
             {/* Event Types Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
+                aria-label="Event type"
                 value={activeType ?? ""}
                 onChange={(e) =>
                   setActiveType((e.target.value as (typeof ALL_TYPES)[number]) || null)
@@ -829,7 +833,7 @@ function EventsPage() {
                   <div key={year} id={`year-${year}`} className="scroll-mt-28 space-y-8">
                     <Reveal>
                       <div className="border-b border-border/40 pb-2">
-                        <h2 className="font-display text-3xl font-bold text-neon/90">{year}</h2>
+                        <h2 className="font-display text-3xl font-bold text-neon">{year}</h2>
                       </div>
                     </Reveal>
                     <div className="space-y-10">
@@ -838,7 +842,7 @@ function EventsPage() {
                         return (
                           <div key={monthName} id={monthId} className="scroll-mt-28 space-y-4">
                             <Reveal>
-                              <h3 className="text-xs font-bold tracking-widest uppercase text-muted-foreground/80 flex items-center gap-2">
+                              <h3 className="text-xs font-bold tracking-widest uppercase text-muted-foreground flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-neon/60" />
                                 {monthName}
                               </h3>
