@@ -2,7 +2,7 @@
 
 ## Scope
 
-Completes the existing PR #124 smoke foundation against current main: per-route smoke specs, strict WCAG2 A/AA and WCAG2.1 AA scans in both themes, native built-Worker API contracts and upstream outages, keyboard/locale/dialog/editor checks, and six screenshot regressions. The minimal accessibility prerequisite is included verbatim from issue #59 so this is independently reviewable against main.
+Completes the existing PR #124 smoke foundation against current main: per-route smoke specs, strict WCAG2 A/AA and WCAG2.1 A/AA scans in both themes, native built-Worker API contracts and upstream outages, keyboard/locale/dialog/editor checks, and six screenshot regressions. The minimal accessibility prerequisite is included verbatim from issue #59 so this is independently reviewable against main.
 
 ## Running the suite
 
@@ -10,7 +10,7 @@ Bun 1.3+, Node 22+ and Playwright Chromium are required. Run `bun install --froz
 
 The Worker has local ephemeral KV/D1 bindings. Recorded catalog values exercise production cache paths. Synthetic Bevy HTML and PyPI JSON exercise production adapters. All other external Worker requests receive explicit 503 fixture responses; browser fonts, analytics, images and external runtimes are aborted. No Cloudflare credentials or live upstream availability are required. A second cold Worker demonstrates upstream failure handling rather than a cached success.
 
-Fixtures are sampled records (trimmed to 2–3 items), not a completeness statement about today's catalogs. Screenshots use fixed 2026-10-12 browser time, pinned OFL production font families, reduced motion and a 1.5% pixel tolerance. They are checked in and must be reviewed when deliberately updated. Pinned test-only fonts remove the large Mac/Linux fallback-font difference; CI still needs to be observed after publication.
+Fixtures are sampled records (trimmed to 2–3 items), not a completeness statement about today's catalogs. Screenshots and event rendering use the same fixed 2026-10-12 Worker/browser JavaScript time, pinned OFL production font families, reduced motion and a 1.5% pixel tolerance. They are checked in and must be reviewed when deliberately updated. Pinned test-only fonts remove the large Mac/Linux fallback-font difference; The executable-head Linux CI run passed all checks and its preview.
 
 ## Assertions
 
@@ -28,9 +28,9 @@ Recorded browser/API checks are deterministic regression evidence, not an assert
 
 ## Verified results
 
-The final suite passed **63/66 Chromium checks** without updating snapshots. A separate native API run passed **12/12** including MCP tool discovery, and real local Odialang execution plus search-filter restoration passed **2/2**. Both-theme route axe scans report no WCAG A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass.
+The final executable head `ca97e4c` passed **66/66 Chromium checks**, including **13/13 native API/clock checks**, MCP tool discovery, real local Odialang execution, search-filter restoration and all six visual regressions at the unchanged 1.5% tolerance. Both-theme route axe scans report no WCAG 2/2.1 A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass. GitHub CI and preview passed for this executable head.
 
-The final full Vitest gate passed **807 tests across 78 files**, with **100% statements (4781/4781), branches (3091/3091), functions (1238/1238), and lines (4288/4288)**. Whole-PR changed executable lines passed **61/61**. The shared baseline fallback/tie tests close the previous branch gaps; no coverage exclusions were added.
+The final full Vitest gate passed **809 tests across 79 files**, with **100% statements (4785/4785), branches (3091/3091), functions (1239/1239), and lines (4293/4293)**. Whole-PR changed executable lines passed **98/98**. The shared baseline fallback/tie tests close the previous branch gaps; no coverage exclusions were added.
 
 An actual T3 browser session at 320px verified first Tab skip visibility and a 3px focus ring, Enter focus transfer, mobile menu reachability, language attributes, command dialog focus/close and theme toggling without overflow. No new uncaught exceptions were recorded for that session. Native screen-reader speech and remote CI results remain distinct from this local evidence.
 
