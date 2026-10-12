@@ -45,7 +45,7 @@ describe("the hero letter", () => {
 
   it("is announced as the Odia letter", () => {
     const { container } = render(<OdiaGlyph />);
-    expect(container.querySelector("svg")?.getAttribute("aria-label")).toContain("ଓ");
+    expect(container.querySelector("svg")?.getAttribute("aria-label")).toBe("The Odia letter O");
   });
 });
 

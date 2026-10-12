@@ -15,9 +15,15 @@ it("allows Escape then Tab and Shift+Tab to leave the labeled editor without edi
   const editor = screen.getByRole("textbox", { name: /Python code editor/ });
   fireEvent.keyDown(editor, { key: "Escape" });
   expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(true);
+  expect(editor).not.toHaveAttribute("data-tab-navigation");
+  fireEvent.keyDown(editor, { key: "Escape" });
   expect(fireEvent.keyDown(editor, { key: "Tab", shiftKey: true })).toBe(true);
+  expect(editor).not.toHaveAttribute("data-tab-navigation");
   expect(changed).not.toHaveBeenCalled();
-  fireEvent.keyDown(editor, { key: "ArrowRight" });
+  fireEvent.keyDown(editor, { key: "Escape" });
+  fireEvent.blur(editor);
+  fireEvent.focus(editor);
+  expect(editor).not.toHaveAttribute("data-tab-navigation");
   expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(false);
   expect(changed).toHaveBeenCalled();
 });

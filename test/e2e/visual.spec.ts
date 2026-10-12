@@ -1,5 +1,8 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
+});
 for (const path of ["/", "/tools", "/models", "/datasets", "/events", "/playground"]) {
   test(`visual ${path}`, async ({ page, baseURL }) => {
     await page.route(

@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
+});
 for (const [path, key] of [
   ["repos", "repos"],
   ["models", "models"],
@@ -92,4 +95,12 @@ test("MCP tool discovery uses the built Worker protocol endpoint", async ({ requ
   const text = await response.text();
   expect(text).toContain('"tools"');
   expect(text).toContain('"jsonrpc":"2.0"');
+});
+
+test("Worker and browser share the deterministic fixture clock", async ({ page, request }) => {
+  const clock = await (await request.get("/__fixture-clock")).json();
+  await page.goto("/about");
+  const browser = await page.evaluate(() => ({ now: Date.now(), iso: new Date().toISOString() }));
+  expect(clock).toEqual({ now: 1791763200000, iso: "2026-10-12T00:00:00.000Z" });
+  expect(browser).toEqual(clock);
 });

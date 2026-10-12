@@ -1,5 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
+});
 test.beforeEach(async ({ page, baseURL }) => {
   await page.route(
     (url) => url.origin !== new URL(baseURL!).origin,

@@ -20,6 +20,14 @@ export function smokeRoute(
         (route) => route.abort(),
       );
       const errors: string[] = [];
+      const hydrationErrors: string[] = [];
+      page.on("console", (message) => {
+        if (
+          message.type() === "error" &&
+          /hydrat|react error|server rendered|did not match/i.test(message.text())
+        )
+          hydrationErrors.push(message.text());
+      });
       page.on("pageerror", (error) => errors.push(error.message));
 
       await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
@@ -33,6 +41,7 @@ export function smokeRoute(
       // so errors thrown after they resolve are caught too.
       await page.waitForLoadState("networkidle");
       expect(errors).toEqual([]);
+      expect(hydrationErrors).toEqual([]);
       const audit = await new AxeBuilder({ page })
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
         .analyze();

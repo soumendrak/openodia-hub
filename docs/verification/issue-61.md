@@ -28,10 +28,16 @@ Recorded browser/API checks are deterministic regression evidence, not an assert
 
 ## Verified results
 
-The final suite passed **63/63 Chromium checks** without updating snapshots. A separate native API run passed **12/12** including MCP tool discovery, and real local Odialang execution plus search-filter restoration passed **2/2**. Both-theme route axe scans report no WCAG A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass.
+The final suite passed **63/66 Chromium checks** without updating snapshots. A separate native API run passed **12/12** including MCP tool discovery, and real local Odialang execution plus search-filter restoration passed **2/2**. Both-theme route axe scans report no WCAG A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass.
 
 The final full Vitest gate passed **807 tests across 78 files**, with **100% statements (4781/4781), branches (3091/3091), functions (1238/1238), and lines (4288/4288)**. Whole-PR changed executable lines passed **61/61**. The shared baseline fallback/tie tests close the previous branch gaps; no coverage exclusions were added.
 
 An actual T3 browser session at 320px verified first Tab skip visibility and a 3px focus ring, Enter focus transfer, mobile menu reachability, language attributes, command dialog focus/close and theme toggling without overflow. No new uncaught exceptions were recorded for that session. Native screen-reader speech and remote CI results remain distinct from this local evidence.
 
 Linux Chromium uses separately reviewed home/playground baselines because the pinned fonts still rasterize differently across operating systems. The other four key-page baselines pass on both platforms. Linux images were inspected from the CI artifact; the 1.5% regression tolerance is unchanged.
+
+## Bot-review follow-up
+
+Editor Escape navigation is consumed by one Tab and cleared on blur; keyboard re-entry restores indentation. The marquee control is hidden while reduced motion makes scrolling static. Locale-control names reference separate language-tagged elements, and remaining static Odia fragments/input examples carry `lang=or`; the glyph has an English accessible description. Browser checks exercise these behaviors and compare the Worker and browser clocks, both fixed at 2026-10-12 before production code evaluates.
+
+Smoke checks also reject recoverable React hydration errors. CI cancels superseded runs and checks the current PR head before creating/updating the sticky coverage report; tests exercise head changes before and during comment lookup.
