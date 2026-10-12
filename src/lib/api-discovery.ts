@@ -40,7 +40,10 @@ export function handleApiDiscovery(request: Request): Response | undefined {
     path === "/api/health" ? "application/json" : "application/linkset+json",
   );
   if (path !== "/api/health") {
-    headers.set("Link", '<https://www.rfc-editor.org/info/rfc9727>; rel="profile"');
+    headers.set(
+      "Link",
+      '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json", <https://www.rfc-editor.org/info/rfc9727>; rel="profile"',
+    );
   }
   const body =
     path === "/api/health"
