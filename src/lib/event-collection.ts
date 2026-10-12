@@ -4,7 +4,7 @@ import { readEventsFromD1, readEventSourceStatuses, type D1Like } from "./events
 import { mergeEventCollectionsByUrl } from "./event-url";
 import { mergeNonEmpty } from "./utils";
 
-// Same request-scoped Worker binding setup pattern as the shared catalog cache.
+// Worker requests initialize this isolate's binding, like the shared catalog cache.
 let eventDatabase: D1Like | undefined;
 export function setEventDatabase(db: D1Like | undefined): void {
   eventDatabase = db;

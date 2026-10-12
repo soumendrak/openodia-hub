@@ -151,7 +151,11 @@ export const Route = createFileRoute("/events-feed")({
           const xml = generateRssFeed(mergedEventsList, baseUrl);
 
           return new Response(xml, {
-            status: 200,
+            status:
+              collection.events.length === 0 &&
+              collection.sources.every((source) => source.outcome === "failed")
+                ? 503
+                : 200,
             headers: {
               "Content-Type": "application/rss+xml; charset=utf-8",
               "Cache-Control": collection.partial

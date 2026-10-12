@@ -186,11 +186,7 @@ async function handleEvents(env: Env | undefined, request: Request): Promise<Res
   let { events } = collection;
   const { source, sources, partial } = collection;
   const status =
-    events.length === 0 &&
-    sources.length > 0 &&
-    sources.every((source) => source.outcome === "failed")
-      ? 503
-      : 200;
+    events.length === 0 && sources.every((source) => source.outcome === "failed") ? 503 : 200;
 
   // Also protects reads from databases populated before canonical URL IDs were
   // introduced; legacy duplicate rows disappear immediately at the API edge.
@@ -269,6 +265,11 @@ export default {
         const { generateRssFeed } = await import("./routes/events-feed");
         const collection = await loadEventCollection(env?.EVENTS_DB);
         return new Response(generateRssFeed(collection.events, "https://openodia.com"), {
+          status:
+            collection.events.length === 0 &&
+            collection.sources.every((source) => source.outcome === "failed")
+              ? 503
+              : 200,
           headers: {
             "Content-Type": "application/rss+xml; charset=utf-8",
             "X-OpenOdia-Partial": String(collection.partial),

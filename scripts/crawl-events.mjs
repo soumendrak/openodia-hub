@@ -27,7 +27,7 @@ export function organizerSource(id, file, options = {}) {
   const link = linkLabel
     ? organizer.officialLinks.find((candidate) => candidate.label === linkLabel)
     : organizer.officialLinks[0];
-  if (!link) throw new Error(`Organizer ${id} has no ${linkLabel ?? "official"} link`);
+  if (!link) throw new Error(`Organizer ${id} has no ${linkLabel} link`);
   return { id, url: link.url, file, ...settings };
 }
 

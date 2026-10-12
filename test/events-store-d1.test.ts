@@ -212,6 +212,18 @@ describe("syncEventsToD1 against a real D1", () => {
 });
 
 describe("persisted measured outcomes and cohosts", () => {
+  it("has no fabricated success timestamp when the first measured attempt fails", async () => {
+    const { readEventSourceStatuses } = await import("../src/lib/events-store");
+    serve({ [BBSR]: 503 });
+    await syncEventsToD1(db);
+    const firstFailure = (await readEventSourceStatuses(db)).find(
+      (status) => status.sourceId === "gdg-bhubaneswar",
+    )!;
+    expect(firstFailure.outcome).toBe("failed");
+    expect(firstFailure.lastSuccessAt).toBeUndefined();
+    expect(firstFailure.errorCategory).toBe("http");
+  });
+
   it("keeps last success separate from attempts across repeated failing runs", async () => {
     const { readEventSourceStatuses, readEventsFromD1 } = await import("../src/lib/events-store");
     serve({ [BBSR]: lists(list([ev("known")])), [KIIT]: lists() });

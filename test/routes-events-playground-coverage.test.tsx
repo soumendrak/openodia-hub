@@ -823,6 +823,7 @@ describe("events-feed.ts", () => {
   });
 
   it("falls back to the UTC date string when Intl formatting throws while computing today's date", async () => {
+    dataFixture.events = PAST_2020;
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
     const intlSpy = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(() => {
       throw new Error("Intl not available");
@@ -890,6 +891,25 @@ describe("api/events.ts", () => {
 
     const events = await fetchChapterEvents("Community", "chapter");
     expect(events).toEqual([]);
+  });
+
+  it("keeps RSS retryable on total failure without retained events, while successful-empty stays available", async () => {
+    dataFixture.events = [];
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
+    const failed = await eventsFeedGet();
+    expect(failed.status).toBe(503);
+    expect(failed.headers.get("X-OpenOdia-Partial")).toBe("true");
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { prerenderData: { upcomingEvents: { results: [], count: 0 }, pastEvents: { results: [], count: 0 } } } } })}</script>`,
+    } as Response);
+    const empty = await eventsFeedGet();
+    expect(empty.status).toBe(200);
+    expect(empty.headers.get("X-OpenOdia-Partial")).toBe("false");
+    const api = await apiEventsGet(new Request("https://openodia.com/api/events"));
+    expect(api.status).toBe(200);
+    expect((await api.json()).partial).toBe(false);
   });
 
   it("returns a retryable unavailable response on total failure without retained events", async () => {

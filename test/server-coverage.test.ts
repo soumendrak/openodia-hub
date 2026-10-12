@@ -9,6 +9,7 @@ const serverHarness = vi.hoisted(() => ({
   models: vi.fn(),
   datasets: vi.fn(),
   readEvents: vi.fn(),
+  readStatuses: vi.fn(),
   syncEvents: vi.fn(),
   chapterEvents: vi.fn(),
   capturedError: vi.fn(),
@@ -32,7 +33,7 @@ vi.mock("../src/lib/sources/huggingface", () => ({
 }));
 vi.mock("../src/data/events", () => ({ events: [] }));
 vi.mock("../src/lib/events-store", () => ({
-  readEventSourceStatuses: async () => [],
+  readEventSourceStatuses: serverHarness.readStatuses,
   readEventsFromD1: serverHarness.readEvents,
   syncEventsToD1: serverHarness.syncEvents,
 }));
@@ -98,6 +99,7 @@ beforeEach(() => {
   serverHarness.datasets.mockResolvedValue({ items: [], truncated: false });
   serverHarness.chapterEvents.mockResolvedValue([]);
   serverHarness.readEvents.mockResolvedValue([]);
+  serverHarness.readStatuses.mockResolvedValue([]);
   serverHarness.syncEvents.mockResolvedValue({ upserted: 2 });
   serverHarness.capturedError.mockReturnValue(undefined);
 });
@@ -280,6 +282,48 @@ describe("event endpoint fallbacks and paging", () => {
     );
     expect(await response.json()).toMatchObject({ source: "d1" });
     expect(serverHarness.chapterEvents).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed empty RSS feed unavailable instead of replacing subscriber history", async () => {
+    serverHarness.chapterEvents.mockRejectedValue(new TypeError("offline"));
+    const failed = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      undefined,
+      {},
+    );
+    expect(failed.status).toBe(503);
+    expect(failed.headers.get("X-OpenOdia-Partial")).toBe("true");
+    serverHarness.chapterEvents.mockResolvedValue([]);
+    const empty = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      undefined,
+      {},
+    );
+    expect(empty.status).toBe(200);
+    expect(empty.headers.get("X-OpenOdia-Partial")).toBe("false");
+  });
+
+  it("caches persisted RSS only when every measured source is complete and fresh", async () => {
+    serverHarness.readEvents.mockResolvedValueOnce([event]);
+    serverHarness.readStatuses.mockResolvedValueOnce(
+      ["one", "two"].map((sourceId) => ({
+        sourceId,
+        outcome: "success-events",
+        eventCount: 1,
+        lastAttemptAt: new Date().toISOString(),
+        lastSuccessAt: new Date().toISOString(),
+        upcomingComplete: true,
+        pastComplete: true,
+      })),
+    );
+    const response = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      { EVENTS_DB: {} },
+      {},
+    );
+    expect(response.headers.get("X-OpenOdia-Partial")).toBe("false");
+    expect(response.headers.get("Cache-Control")).toBe("public, s-maxage=3600");
+    expect(await response.text()).toContain("<title>Event</title>");
   });
 
   it("serves persisted RSS events during source uncertainty without a live fetch", async () => {

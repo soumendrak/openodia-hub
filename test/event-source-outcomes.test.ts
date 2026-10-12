@@ -137,4 +137,28 @@ describe("measured event outcomes", () => {
       fallback.sources.every((source: { outcome: string }) => source.outcome === "failed"),
     ).toBe(true);
   });
+  it("caches complete measured API and RSS results while keeping fetch success separate from registration", async () => {
+    globalThis.fetch = vi.fn(async () => new Response(page([event])));
+    const get = (
+      Route.options as unknown as {
+        server: { handlers: { GET: (args: { request: Request }) => Promise<Response> } };
+      }
+    ).server.handlers.GET;
+    const response = await get({ request: new Request("https://openodia.com/api/events") });
+    const data = await response.json();
+    expect(data.partial).toBe(false);
+    expect(response.headers.get("Cache-Control")).toContain("s-maxage=3600");
+    expect(
+      data.sources.every((source: { outcome: string }) => source.outcome === "success-events"),
+    ).toBe(true);
+    expect(data.sources[0]).not.toHaveProperty("registration");
+    const { Route: FeedRoute } = await import("../src/routes/events-feed");
+    const feedGet = (
+      FeedRoute.options as unknown as { server: { handlers: { GET: () => Promise<Response> } } }
+    ).server.handlers.GET;
+    const feed = await feedGet();
+    expect(feed.headers.get("X-OpenOdia-Partial")).toBe("false");
+    expect(feed.headers.get("Cache-Control")).toContain("s-maxage=3600");
+    expect(await feed.text()).toContain("Healthy event");
+  });
 });
