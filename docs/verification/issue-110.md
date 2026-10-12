@@ -35,3 +35,13 @@ Local screenshots (T3 artifact paths):
 - 320px dark/light changed section: `/Users/soumen/.t3/userdata/browser-artifacts/browser-screenshot-127-0-0-1-mv5fb84j-a5796ee1.png`, `/Users/soumen/.t3/userdata/browser-artifacts/browser-screenshot-127-0-0-1-mv5fbz3w-e5f8b5dd.png`.
 
 Machine evidence resides in `/tmp/openodia-110-verified/worker-fixture.json` and `worker-events.html`. These are local verification artifacts, not production records.
+
+## Final automated gates
+
+- Full repository: **82 suites, 847 tests**, all pass.
+- Coverage: **100% statements (4,942/4,942), branches (3,351/3,351), functions (1,273/1,273), lines (4,422/4,422)**. No coverage exclusions were added.
+- Required staged gate: **656/656 changed executable lines**. Against the complete `origin/main` diff (including shared baseline improvements): **714/714**, no missing measured files.
+- `bun run lint`: zero errors; 18 existing Fast Refresh warnings. `bunx tsc --noEmit` and `bun run build` pass.
+- The built Worker fixture API/search/RSS/SSR gate passes with local D1/KV. No production migration ran.
+
+Coverage JSON and commit-gate log are backed up under `/tmp/openodia-110-verified/`. The repository coverage result is reported separately from changed-line coverage; both are 100%.
