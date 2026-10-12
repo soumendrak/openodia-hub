@@ -1,4 +1,6 @@
 import "./lib/error-capture";
+import { OPENAPI_SPEC } from "./lib/openapi";
+import { handleApiDiscovery } from "./lib/api-discovery";
 
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
@@ -98,6 +100,7 @@ async function normalizeCatastrophicSsrResponse(response: Response): Promise<Res
 // RFC 8288 Link headers so agents can find the machine-readable surface from any
 // HTML page without guessing paths. Relations are IANA-registered.
 const AGENT_LINK_HEADER = [
+  '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json"',
   '</.well-known/openapi.json>; rel="service-desc"; type="application/json"',
   '</api>; rel="service-doc"; type="text/html"',
   '</llms.txt>; rel="alternate"; type="text/plain"',
@@ -245,6 +248,13 @@ export default {
       const url = new URL(request.url);
       const originalPath = url.pathname;
 
+      const discovery = handleApiDiscovery(request);
+      if (discovery) return discovery;
+      if (originalPath === "/mcp") {
+        const { handleMcpRequest } = await import("./lib/mcp");
+        return await handleMcpRequest(request);
+      }
+
       // Served from KV (populated by .github/workflows/sync-contributors.yml).
       // Kept out of TanStack routes so the handler can reach env bindings.
       if (originalPath === "/api/contributors") {
@@ -294,177 +304,7 @@ export default {
       }
 
       if (originalPath === "/.well-known/openapi.json") {
-        const spec = {
-          openapi: "3.0.0",
-          info: {
-            title: "OpenOdia API",
-            version: "1.0.0",
-            description: "Public API for OpenOdia — Odia language open-source resources.",
-            contact: {
-              name: "Soumendra Kumar Sahoo",
-              url: "https://www.soumendrak.com",
-              email: "soumendra.s@outlook.com",
-            },
-          },
-          servers: [{ url: "https://openodia.com", description: "Production" }],
-          paths: {
-            "/api/awesome": {
-              get: {
-                summary: "Awesome-Odia-AI directory",
-                description:
-                  "Curated open-source Odia tools, datasets, and models parsed from the Awesome-Odia-AI README. Returns the full list; use /api/resources for filtering and pagination.",
-                responses: {
-                  "200": { description: "Array of categorized items" },
-                  "503": { description: "The README is unreachable" },
-                },
-              },
-            },
-            "/api/contributors": {
-              get: {
-                summary: "Contributors leaderboard",
-                description:
-                  "Aggregated contributors across the OpenOdia orgs, populated daily by a GitHub Action writing to KV. Returns an empty list while KV is warming up.",
-                responses: { "200": { description: "Aggregated contributor list" } },
-              },
-            },
-            "/api/events": {
-              get: {
-                summary: "Community events",
-                description:
-                  "Live + static event feed (GDG/GDGoC chapters scraped from Bevy, merged with the curated archive).",
-                parameters: [
-                  {
-                    name: "page",
-                    in: "query",
-                    schema: { type: "integer", default: 1 },
-                  },
-                  {
-                    name: "limit",
-                    in: "query",
-                    schema: { type: "integer", maximum: 50, default: 20 },
-                  },
-                ],
-                responses: { "200": { description: "Array of events" } },
-              },
-            },
-            "/api/models": {
-              get: {
-                summary: "Odia AI models",
-                description:
-                  "Live registry of models tagged for Odia on Hugging Face. Returns normalized fields (author, name, task, license, downloads, likes, tags) and a `truncated` flag when the page cap stopped the fetch, in which case the count is a floor.",
-                responses: {
-                  "200": { description: "Array of models" },
-                  "503": { description: "Hugging Face unreachable" },
-                },
-              },
-            },
-            "/api/datasets": {
-              get: {
-                summary: "Odia datasets",
-                description:
-                  "Live browser of datasets with `language:or` on Hugging Face. Returns normalized fields including task category, SPDX license, size bucket, and modalities, plus a `truncated` flag when the page cap stopped the fetch.",
-                responses: {
-                  "200": { description: "Array of datasets" },
-                  "503": { description: "Hugging Face unreachable" },
-                },
-              },
-            },
-            "/api/pypi": {
-              get: {
-                summary: "OpenOdia PyPI package info",
-                description: "Version, summary, and release count for the openodia PyPI package.",
-                responses: { "200": { description: "Package metadata" } },
-              },
-            },
-            "/api/repos": {
-              get: {
-                summary: "GitHub repositories",
-                description:
-                  "The curated set of Odia GitHub repositories. Returns the full list; there is no pagination.",
-                responses: {
-                  "200": { description: "Repository list" },
-                  "503": { description: "GitHub unreachable or rate-limiting" },
-                },
-              },
-            },
-            "/api/resources": {
-              get: {
-                summary: "Unified catalog",
-                description:
-                  "One normalised record per resource across every source, deduplicated by permalink — a curated Awesome-Odia-AI entry and the repo it points at are one record, not two. This is the machine-readable catalog: stable `permalink`, SPDX `license`, `task`, `sizeCategory`, and the `sources` that contributed each record.",
-                parameters: [
-                  {
-                    name: "kind",
-                    in: "query",
-                    description: "Filter by resource type.",
-                    schema: { type: "string", enum: ["gh", "model", "dataset", "link"] },
-                  },
-                  {
-                    name: "license",
-                    in: "query",
-                    description: "Exact SPDX id, e.g. `Apache-2.0`.",
-                    schema: { type: "string" },
-                  },
-                  {
-                    name: "author",
-                    in: "query",
-                    description: "Owning account or organisation, e.g. `OdiaGenAI`.",
-                    schema: { type: "string" },
-                  },
-                  {
-                    name: "q",
-                    in: "query",
-                    description: "Free-text match over name, description, task, and tags.",
-                    schema: { type: "string" },
-                  },
-                  {
-                    name: "limit",
-                    in: "query",
-                    schema: { type: "integer", maximum: 200, default: 50 },
-                  },
-                  { name: "offset", in: "query", schema: { type: "integer", default: 0 } },
-                ],
-                responses: {
-                  "200": { description: "`{ resources, total, limit, offset, fetchedAt }`" },
-                  "503": { description: "Every upstream source is unreachable" },
-                },
-              },
-            },
-            "/api/videos": {
-              get: {
-                summary: "YouTube videos",
-                description:
-                  "Latest videos and playlists from the five community channels. Enriched with view counts when YOUTUBE_API_KEY is set. A channel whose feed is unavailable is still listed, with an empty video list.",
-                responses: {
-                  "200": { description: "Videos and playlists" },
-                  "503": {
-                    description:
-                      "YouTube unreachable, or the fan-out budget expired before every channel was attempted. Body carries `channels: []` and an `error` of `youtube_unavailable` or `youtube_incomplete`; retry rather than treating it as a fault in this service.",
-                  },
-                },
-              },
-            },
-            "/events-feed": {
-              get: {
-                summary: "Events RSS feed",
-                responses: { "200": { description: "RSS XML feed" } },
-              },
-            },
-            "/llms.txt": {
-              get: {
-                summary: "llms.txt agent context",
-                responses: { "200": { description: "Plain text" } },
-              },
-            },
-            "/llms-full.txt": {
-              get: {
-                summary: "llms-full.txt full context",
-                responses: { "200": { description: "Plain text" } },
-              },
-            },
-          },
-        };
-        return new Response(JSON.stringify(spec, null, 2), {
+        return new Response(JSON.stringify(OPENAPI_SPEC, null, 2), {
           status: 200,
           headers: {
             "Content-Type": "application/json",

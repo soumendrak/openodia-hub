@@ -2,6 +2,7 @@
 @source "../src";
 @import "tw-animate-css";
 @import "./styles/pattachitra.css";
+@import "./styles/api-reference.css";
 
 @custom-variant dark (&:is(.dark *));
 

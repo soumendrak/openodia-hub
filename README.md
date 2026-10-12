@@ -81,6 +81,7 @@ being listed does not certify quality, accuracy, or unrestricted use.
 
 ## Documentation
 
+- [MCP search and API discovery](docs/mcp.md): agent setup, tool arguments, transport, and validation.
 - [Contributor guide](CONTRIBUTING.md): setup, conventions, checks, and adding resources/events.
 - [Architecture and data](docs/architecture.md): loaders, caching, storage, APIs, and deployment.
 - [Odia video walkthrough](docs/video-walkthrough-or.md): 10–20 minute recording plan, speaking cues, and FocuSee checklist.
