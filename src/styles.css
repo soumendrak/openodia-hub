@@ -83,7 +83,7 @@
   --accent-foreground: #241a11;
 
   --destructive: #ff8790;
-  --destructive-foreground: oklch(0.98 0 0);
+  --destructive-foreground: #241a11;
 
   --border: rgb(211 171 102 / 18%);
   --input: rgb(211 171 102 / 24%);
@@ -522,4 +522,10 @@ p a,
 li a {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Icon-only clear/close controls need a usable pointer target too. */
+button {
+  min-width: 24px;
+  min-height: 24px;
 }

@@ -15,7 +15,8 @@
     "test:coverage:diff": "bun scripts/check-diff-coverage.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
     "prepare": "bun run hooks:install",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:a11y": "vite build && playwright test --config playwright.accessibility.config.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",
@@ -101,6 +102,9 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
     "vitest": "^4.1.5",
-    "yaml": "^2.9.1"
+    "yaml": "^2.9.1",
+    "@playwright/test": "1.60.0",
+    "@axe-core/playwright": "^4.13.0",
+    "miniflare": "4.20260421.0"
   }
 }

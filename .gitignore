@@ -39,3 +39,7 @@ package-lock.json
 scratch/
 .playwright-mcp/
 .lavish/
+
+# Browser accessibility evidence
+/test-results/
+/playwright-report/

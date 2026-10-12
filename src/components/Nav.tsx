@@ -31,6 +31,7 @@ export function Nav() {
   const { location } = useRouterState();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const { locale, setLocale, t } = useTranslation();
+  const targetLanguage = locale === "en" ? "ଓଡ଼ିଆ" : "English";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -121,13 +122,11 @@ export function Nav() {
             <button
               onClick={() => setLocale(locale === "en" ? "or" : "en")}
               className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface/40 px-2 py-2 text-xs text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"
-              aria-label={t("nav.locale.aria")}
+              aria-label={`${t("nav.locale.aria")}: ${targetLanguage}`}
               title={t("nav.locale.aria")}
             >
               <Languages size={14} className="hidden sm:block" />
-              <span lang={locale === "en" ? "or" : "en"}>
-                {locale === "en" ? "ଓଡ଼ିଆ" : "English"}
-              </span>
+              <span lang={locale === "en" ? "or" : "en"}>{targetLanguage}</span>
             </button>
 
             <button

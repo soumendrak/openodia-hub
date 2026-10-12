@@ -1,0 +1,70 @@
+import { expect, test } from "@playwright/test";
+import AxeBuilder from "@axe-core/playwright";
+for (const theme of ["light", "dark"] as const)
+  for (const width of [320, 390, 768, 1440]) {
+    test(`keyboard landmarks and navigation ${theme} ${width}px`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 850 });
+      await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
+      await page.route(
+        (u) => u.origin !== new URL(baseURL!).origin,
+        (r) => r.abort(),
+      );
+      await page.goto("/about");
+      await page.waitForLoadState("networkidle");
+      await page.keyboard.press("Tab");
+      const skip = page.getByRole("link", { name: "Skip to content" });
+      await expect(skip).toBeFocused();
+      expect(await skip.evaluate((el) => el.getBoundingClientRect().top)).toBeGreaterThanOrEqual(0);
+      await page.keyboard.press("Enter");
+      await expect(page.locator("main")).toBeFocused();
+      await page.getByRole("button", { name: "Switch language" }).click();
+      await expect(page.locator("html")).toHaveAttribute("lang", "or");
+      await expect(page.locator("main")).toHaveAttribute("lang", "en");
+      await expect(page.locator("header")).toHaveAttribute("lang", "or");
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+      expect(overflow).toBe(false);
+      const opener = page.getByRole("button", { name: /ସନ୍ଧାନ|search/i });
+      await opener.click();
+      await expect(page.getByRole("dialog")).toHaveAccessibleName("Search OpenOdia");
+      for (let i = 0; i < 4; i++) {
+        await page.keyboard.press("Tab");
+        expect(
+          await page.getByRole("dialog").evaluate((el) => el.contains(document.activeElement)),
+        ).toBe(true);
+      }
+      expect(
+        (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze())
+          .violations,
+      ).toEqual([]);
+      await page.keyboard.press("Escape");
+      await expect(page.getByRole("dialog")).toHaveCount(0);
+      await expect(opener).toBeFocused();
+      expect(
+        (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze())
+          .violations,
+      ).toEqual([]);
+    });
+  }
+test("editor Escape releases tab navigation and reduced motion removes entrance animation", async ({
+  page,
+  baseURL,
+}) => {
+  await page.route(
+    (u) => u.origin !== new URL(baseURL!).origin,
+    (r) => r.abort(),
+  );
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/playground");
+  await page.waitForLoadState("networkidle");
+  const editor = page.getByRole("textbox", { name: /code editor/ });
+  await editor.focus();
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Tab");
+  await expect(editor).not.toBeFocused();
+  expect(
+    await page
+      .locator(".anim-in")
+      .first()
+      .evaluate((el) => getComputedStyle(el).animationName),
+  ).toBe("none");
+});

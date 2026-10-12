@@ -660,7 +660,12 @@ function EventsPage() {
       {isSearching ? (
         <div className="mt-10">
           <Reveal>
-            <p className="text-sm text-muted-foreground">
+            <p
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="text-sm text-muted-foreground"
+            >
               {filtered.length} event{filtered.length !== 1 ? "s" : ""} matched
             </p>
           </Reveal>
@@ -863,7 +868,12 @@ function EventsPage() {
 
             {!isSearching && totalLiveEvents > 0 && (
               <div className="mt-10 flex flex-col items-center gap-3">
-                <p className="text-xs text-muted-foreground">
+                <p
+                  role="status"
+                  aria-live="polite"
+                  aria-atomic="true"
+                  className="text-xs text-muted-foreground"
+                >
                   Showing {fetchedEvents.length} of {totalLiveEvents} past events
                 </p>
                 {hasNextPage && (
