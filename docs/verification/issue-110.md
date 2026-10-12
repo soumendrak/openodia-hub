@@ -45,3 +45,5 @@ Machine evidence resides in `/tmp/openodia-110-verified/worker-fixture.json` and
 - The built Worker fixture API/search/RSS/SSR gate passes with local D1/KV. No production migration ran.
 
 Coverage JSON and commit-gate log are backed up under `/tmp/openodia-110-verified/`. The repository coverage result is reported separately from changed-line coverage; both are 100%.
+
+The complete `bun scripts/check-pattachitra.mjs http://127.0.0.1:9110` checklist passes against the built local Worker fixture: responsive pages, loaded art, no console errors, light/dark contrast, keyboard search, community/channel names, hover geometry, animation timing, and reduced motion. The fixture seeds checked-in channel shells for unrelated Tutorials layout checks. An initial attempt encountered two transient external browser network errors; the clean retry passed every check. Final log: `/tmp/110-design-check-final.log`.
