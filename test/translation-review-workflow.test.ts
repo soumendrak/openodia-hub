@@ -12,14 +12,20 @@ async function runGate({
   reviews = [],
   comments = [],
   commentEvent = false,
+  payloadSha = "current",
+  activeSha = "current",
+  changedSha,
   createError,
   removeError,
 }: {
-  files?: string[];
+  files?: (string | { filename: string; previous_filename?: string })[];
   reviewers?: string;
   reviews?: object[];
   comments?: object[];
   commentEvent?: boolean;
+  payloadSha?: string;
+  activeSha?: string;
+  changedSha?: string;
   createError?: object;
   removeError?: object;
 } = {}) {
@@ -34,7 +40,8 @@ async function runGate({
   };
   const commentsApi = vi.fn();
   Object.assign(issues, { listComments: commentsApi });
-  const pr = { number: 7, head: { sha: "current" }, user: { login: "author" } };
+  const pr = { number: 7, head: { sha: activeSha }, user: { login: "author" } };
+  let readCount = 0;
   const filesApi = vi.fn();
   const reviewsApi = vi.fn();
   const github = {
@@ -42,13 +49,15 @@ async function runGate({
       pulls: {
         listFiles: filesApi,
         listReviews: reviewsApi,
-        get: vi.fn(async () => ({ data: pr })),
+        get: vi.fn(async () => ({
+          data: { ...pr, head: { sha: readCount++ > 0 ? (changedSha ?? activeSha) : activeSha } },
+        })),
       },
       issues,
     },
     paginate: vi.fn(async (api) =>
       api === filesApi
-        ? files.map((filename) => ({ filename }))
+        ? files.map((file) => (typeof file === "string" ? { filename: file } : file))
         : api === commentsApi
           ? comments
           : reviews,
@@ -57,7 +66,9 @@ async function runGate({
   const core = { setFailed: vi.fn() };
   const context = {
     repo: { owner: "owner", repo: "hub" },
-    payload: commentEvent ? { issue: { number: 7 } } : { pull_request: pr },
+    payload: commentEvent
+      ? { issue: { number: 7 } }
+      : { pull_request: { ...pr, head: { sha: payloadSha } } },
   };
   const execute = Object.getPrototypeOf(async function () {}).constructor;
   await new execute("github", "context", "core", "process", script)(github, context, core, {
@@ -113,6 +124,39 @@ describe("native Odia review policy", () => {
       [{ body: "odia-review-approved current", user: null }],
     ])
       expect((await runGate({ reviewers: "author", comments })).core.setFailed).toHaveBeenCalled();
+  });
+  it("protects renamed locale paths and ignores obsolete event heads", async () => {
+    const renamed = await runGate({
+      files: [{ filename: "src/locales/odia.ts", previous_filename: "src/locales/or.ts" }],
+    });
+    expect(renamed.issues.addLabels).toHaveBeenCalled();
+    const stale = await runGate({ payloadSha: "old", reviews: [review("APPROVED", "old")] });
+    expect(stale.core.setFailed).toHaveBeenCalled();
+    expect(stale.issues.removeLabel).not.toHaveBeenCalled();
+    const newer = await runGate({ reviews: [review("APPROVED")], changedSha: "newer" });
+    expect(newer.issues.removeLabel).not.toHaveBeenCalled();
+    expect(newer.issues.addLabels).not.toHaveBeenCalled();
+    expect(workflow.jobs["native-review"].concurrency["cancel-in-progress"]).toBe(true);
+  });
+  it("honors an edited revocation even when its comment was created before approval", async () => {
+    const result = await runGate({
+      comments: [
+        {
+          body: "odia-review-revoke current",
+          user: { login: "odia-reviewer" },
+          created_at: "2026-10-12T10:00:00Z",
+          updated_at: "2026-10-12T12:00:00Z",
+        },
+        {
+          body: "odia-review-approved current",
+          user: { login: "odia-reviewer" },
+          created_at: "2026-10-12T11:00:00Z",
+        },
+      ],
+    });
+    expect(result.core.setFailed).toHaveBeenCalled();
+    expect(result.issues.addLabels).toHaveBeenCalled();
+    expect(result.issues.removeLabel).not.toHaveBeenCalled();
   });
   it("skips unrelated PRs and handles only expected label races", async () => {
     const unchanged = await runGate({ files: ["src/routes/tools.tsx"] });

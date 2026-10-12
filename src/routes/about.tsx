@@ -87,7 +87,11 @@ function About() {
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">About</p>
         <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Open source for <span className="text-gradient">ଓଡ଼ିଆ</span>.
+          Open source for{" "}
+          <span lang="or" className="text-gradient">
+            ଓଡ଼ିଆ
+          </span>
+          .
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
           OpenOdia is a community hub for the Odia language — spoken by 50+ million people — and the

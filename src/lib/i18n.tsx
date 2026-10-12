@@ -51,7 +51,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   // in test/locale-coverage.test.ts guards against `{name}` tokens drifting
   // between en.ts and or.ts once interpolation is added.
   const t = (key: TranslationKey): string => {
-    return STRINGS[locale][key] ?? en[key];
+    const translation = STRINGS[locale][key];
+    return translation?.trim() ? translation : en[key];
   };
 
   return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>;

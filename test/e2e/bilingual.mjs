@@ -45,8 +45,13 @@ try {
         { locale, theme },
       );
       const page = await context.newPage();
+      await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
       const errors = [];
       page.on("pageerror", (error) => errors.push(error.message));
+      page.on("console", (message) => {
+        if (message.type() === "error" && /hydration|Minified React error/.test(message.text()))
+          errors.push(message.text());
+      });
       // Static strings and locale controls do not require upstream catalog services.
       await page.route("**/*", (route) =>
         new URL(route.request().url()).origin === origin ? route.continue() : route.abort(),
@@ -112,6 +117,9 @@ try {
         }
       }
       assert.deepEqual(errors, []);
+      const clock = await (await page.request.get(`${origin}/__fixture-clock`)).json();
+      assert.equal(clock.now, await page.evaluate(() => Date.now()));
+      assert.equal(clock.iso, "2026-10-12T00:00:00.000Z");
       const response = await page.request.get(`${origin}/api/translation-status`);
       assert.equal(response.status(), 200);
       assert.equal(response.headers()["access-control-allow-origin"], "*");

@@ -124,8 +124,8 @@ Questions? Open a discussion instead.
 ## Translate one string
 
 1. Open [/translation-status](https://openodia.com/translation-status), search for a string, and follow its **Edit translation** link. The same inventory is available at `/api/translation-status`; presence and native review are reported separately.
-2. Edit the matching structural key in `src/locales/or.ts`. Preserve placeholders, proper names and meaning. When registering new English UI copy, add its key to `src/locales/en.ts` and the explicit `ODIA_REVIEW_QUEUE` in `src/locales/review.ts`; untranslated tracked keys may be left absent while review is in progress.
-3. Run `bun run check:locales` and the normal contribution gates. Unknown keys, untracked English strings, invalid Odia text and mismatched placeholders fail the inventory check.
+2. Edit the matching structural key in `src/locales/or.ts`. Preserve placeholders, proper names and meaning. When registering new English UI copy, add its key to `src/locales/en.ts` and the explicit `ODIA_REVIEW_QUEUE` in `src/locales/review.ts`; untranslated tracked keys must have an explicit blank-string placeholder in `or.ts` (for example, `"new.key": ""`) while wording is in progress.
+3. Run `bun run check:locales` and the normal contribution gates. Unknown keys, untracked English strings, missing placeholders, invalid Odia text and mismatched placeholders fail the inventory check.
 4. Open a PR. A workflow automatically applies `needs-native-speaker-review` for locale wording and review-record changes. A configured native reviewer must approve the current commit; an old approval or a label by itself is insufficient.
 5. After native review, record the **exact translation**, reviewer and review date in `ODIA_REVIEWS`. Changed wording invalidates its old review record automatically. Do not mark draft or generated wording as reviewed.
 

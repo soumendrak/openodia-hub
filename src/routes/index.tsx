@@ -169,7 +169,9 @@ function Hero() {
             </div>
           </div>
         </div>
-        <span className="art-index">The living letter / ଓ</span>
+        <span className="art-index">
+          The living letter / <span lang="or">ଓ</span>
+        </span>
       </div>
     </section>
   );
