@@ -129,6 +129,15 @@ test("marquee controls reflect motion preference and editor reentry restores ind
   await page.keyboard.press("Tab");
   await expect(editor).toBeFocused();
   expect((await editor.inputValue()).length).toBe(before.length + 4);
+  await editor.fill("    print(1)");
+  await page.keyboard.press("Escape");
+  await page.keyboard.press("Shift+Tab");
+  await expect(editor).not.toBeFocused();
+  await expect(editor).toHaveValue("    print(1)");
+  await editor.focus();
+  await page.keyboard.press("Tab");
+  await expect(editor).toBeFocused();
+  await expect(editor).toHaveValue("    print(1)    ");
 });
 
 test("Odia fragments and locale control name keep their language boundaries", async ({
