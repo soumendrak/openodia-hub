@@ -260,6 +260,8 @@ function EventsPage() {
     requestedCommunity && getOrganizerById(requestedCommunity) ? requestedCommunity! : null;
   const unknownCommunity = requestedCommunity && !activeCommunity ? requestedCommunity : null;
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const needle = normalizeSearch(query);
+  const isFiltering = !!needle || !!activeType || !!requestedCommunity;
 
   const isProgrammaticScroll = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -313,13 +315,14 @@ function EventsPage() {
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
       return response.json() as Promise<{ events: Event[] }>;
     },
-    enabled: Boolean(query.trim() || requestedCommunity || activeType),
+    enabled: isFiltering,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  const fetchedEvents =
-    completeSearchEvents?.events ?? liveData?.pages.flatMap((p) => p.events) ?? [];
+  const loadedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  // Disabled queries keep cached data: clearing filters must restore pagination.
+  const fetchedEvents = isFiltering ? (completeSearchEvents?.events ?? loadedEvents) : loadedEvents;
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const today = getISTDateString();
@@ -349,8 +352,6 @@ function EventsPage() {
       return 0;
     });
 
-  const needle = normalizeSearch(query);
-
   const upcomingEvents = mergedEventsList.filter(
     (e) => e.status === "upcoming" || e.status === "live",
   );
@@ -377,7 +378,6 @@ function EventsPage() {
 
   const filtered = unknownCommunity ? [] : applyFilter(mergedEventsList);
   const isSearching = !!needle;
-  const isFiltering = !!needle || !!activeType || !!requestedCommunity;
 
   // Past events are the ones the status pass left undefined; "past" is not a
   // value Event["status"] can hold.
@@ -741,7 +741,7 @@ function EventsPage() {
 
       {unknownCommunity && (
         <p
-          className="mt-4 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200"
+          className="mt-4 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200"
           role="status"
         >
           “{unknownCommunity}” is not a known organizer. Choose a listed community or clear the

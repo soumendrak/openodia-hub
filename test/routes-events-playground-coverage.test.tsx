@@ -302,6 +302,22 @@ describe("events.tsx", () => {
       replace: true,
     });
   });
+  it("returns to loaded-page pagination after clearing a cached full-corpus filter", () => {
+    const loaded = { ...PAST_2020[0], title: "Loaded first page" };
+    const hidden = { ...PAST_2020[1], title: "Hidden second page" };
+    infiniteHarness.data = { pages: [{ events: [loaded], total: 2, nextCursor: "2" }] };
+    infiniteHarness.hasNextPage = true;
+    queryHarness.data = { events: [loaded, hidden] };
+    routeHarness.search = { q: "Hidden" };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(hidden.title)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByText(loaded.title)).toBeInTheDocument();
+    expect(screen.queryByText(hidden.title)).not.toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(1);
+  });
   it("restores a linkable query and searches the complete event corpus", async () => {
     const hiddenEvent: Event = {
       year: "2026",

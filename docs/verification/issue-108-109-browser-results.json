@@ -225,6 +225,20 @@
       "overflow": 0
     },
     {
+      "port": 9109,
+      "path": "/events?community=<80-character unknown ID>",
+      "theme": "light",
+      "width": 320,
+      "overflow": 0
+    },
+    {
+      "port": 9109,
+      "path": "/events?community=<80-character unknown ID>",
+      "theme": "dark",
+      "width": 320,
+      "overflow": 0
+    },
+    {
       "form": "event-submission.yml",
       "url": "https://github.com/login?return_to=https%3A%2F%2Fgithub.com%2Fsoumendrak%2Fopenodia-hub%2Fissues%2Fnew%3Ftemplate%3Devent-submission.yml",
       "text": "Skip to content\nSign in to GitHub\nUsername or email address\nPassword\nForgot password?\n\nNew to GitHub? Create an account\n\nTerms\nPrivacy\nDocs\nContact GitHub Support\nManage cookies\nDo not share my personal information"
