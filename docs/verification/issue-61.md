@@ -28,8 +28,8 @@ Recorded browser/API checks are deterministic regression evidence, not an assert
 
 ## Verified results
 
-The final suite passed **61/61 Chromium checks** without updating snapshots. A separate native API run passed **12/12** including MCP tool discovery, and real local Odialang execution plus search-filter restoration passed **2/2**. Both-theme route axe scans report no WCAG A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass.
+The final suite passed **63/63 Chromium checks** without updating snapshots. A separate native API run passed **12/12** including MCP tool discovery, and real local Odialang execution plus search-filter restoration passed **2/2**. Both-theme route axe scans report no WCAG A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass.
 
-The shared accessibility prerequisite's full Vitest coverage gate passed 797 tests and 58/58 changed executable lines. At that point repository statements/functions/lines were 100%, with 13 existing branch gaps (99.57%), tracked separately for the shared baseline completion.
+The final full Vitest gate passed **807 tests across 78 files**, with **100% statements (4781/4781), branches (3091/3091), functions (1238/1238), and lines (4288/4288)**. Whole-PR changed executable lines passed **61/61**. The shared baseline fallback/tie tests close the previous branch gaps; no coverage exclusions were added.
 
 An actual T3 browser session at 320px verified first Tab skip visibility and a 3px focus ring, Enter focus transfer, mobile menu reachability, language attributes, command dialog focus/close and theme toggling without overflow. No new uncaught exceptions were recorded for that session. Native screen-reader speech and remote CI results remain distinct from this local evidence.
