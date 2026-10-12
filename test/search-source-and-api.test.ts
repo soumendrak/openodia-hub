@@ -211,6 +211,27 @@ describe("search snapshot adapters", () => {
     );
   });
 
+  it("keeps the curated archive and healthy catalog when live event discovery rejects", async () => {
+    const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+    const snapshot = await buildSearchSnapshot({
+      ...loaders,
+      events: async () => {
+        throw new Error("event source unavailable");
+      },
+    });
+    expect(snapshot.documents.some((document) => document.kind === "event")).toBe(true);
+    expect(
+      snapshot.documents.some((document) => document.id === `event:${liveEvents[0].url}`),
+    ).toBe(false);
+    expect(snapshot.documents.some((document) => document.kind === "model")).toBe(true);
+    expect(snapshot.sources).toContainEqual(
+      expect.objectContaining({
+        source: "events",
+        status: "unavailable",
+        count: expect.any(Number),
+      }),
+    );
+  });
   it("deduplicates curated and live events by canonical URL", async () => {
     const { buildSearchSnapshot } = await import("../src/lib/sources/search");
     const duplicate = { ...liveEvents[0], title: "Duplicate title" };
