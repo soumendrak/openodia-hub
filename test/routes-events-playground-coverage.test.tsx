@@ -238,6 +238,7 @@ describe("events.tsx", () => {
     routeHarness.search = { community: "unknown-id" };
     render(<EventsRouteAny.options.component />);
     expect(screen.getByRole("status")).toHaveTextContent("not a known organizer");
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
     expect(screen.getByText("No events matched.")).toBeInTheDocument();
   });
   it.each(["organizer", "type"])(

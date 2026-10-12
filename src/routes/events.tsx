@@ -315,7 +315,7 @@ function EventsPage() {
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
       return response.json() as Promise<{ events: Event[] }>;
     },
-    enabled: isFiltering,
+    enabled: isFiltering && !unknownCommunity,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });

@@ -5,6 +5,7 @@ const page = await browser.newPage();
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 const result = [];
+let completeCorpusRequests = 0;
 const fixture = {
   year: "2026",
   date: "12 Nov 2026",
@@ -24,6 +25,7 @@ const firstPageEvent = {
 };
 await page.route("**/api/events*", (route) => {
   const pageNumber = new URL(route.request().url()).searchParams.get("page");
+  if (!pageNumber) completeCorpusRequests += 1;
   return route.fulfill({
     status: 200,
     contentType: "application/json",
@@ -83,8 +85,19 @@ await page.goForward();
 await page.waitForURL("**/communities#gdgoc-kiit");
 for (const theme of ["light", "dark"]) {
   await page.setViewportSize({ width: 320, height: 800 });
+  const completeRequestsBeforeInvalid = completeCorpusRequests;
+  const loadedPageResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return url.pathname === "/api/events" && url.searchParams.has("page");
+  });
   await page.goto(`http://localhost:9109/events?community=${"x".repeat(80)}`);
   await page.getByRole("status").filter({ hasText: "not a known organizer" }).waitFor();
+  await loadedPageResponse;
+  await page.evaluate(
+    () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))),
+  );
+  if (completeCorpusRequests !== completeRequestsBeforeInvalid)
+    throw new Error("Unknown organizer fetched the complete corpus");
   await page.evaluate(
     (theme) => document.documentElement.classList.toggle("dark", theme === "dark"),
     theme,
