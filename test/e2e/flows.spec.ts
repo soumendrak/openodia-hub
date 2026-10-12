@@ -45,8 +45,11 @@ for (const theme of ["light", "dark"] as const)
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute("lang", "en");
     expect(
-      (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze())
-        .violations,
+      (
+        await new AxeBuilder({ page })
+          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+          .analyze()
+      ).violations,
     ).toEqual([]);
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);

@@ -33,15 +33,21 @@ for (const theme of ["light", "dark"] as const)
         ).toBe(true);
       }
       expect(
-        (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze())
-          .violations,
+        (
+          await new AxeBuilder({ page })
+            .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+            .analyze()
+        ).violations,
       ).toEqual([]);
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(opener).toBeFocused();
       expect(
-        (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21aa"]).analyze())
-          .violations,
+        (
+          await new AxeBuilder({ page })
+            .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+            .analyze()
+        ).violations,
       ).toEqual([]);
     });
   }
