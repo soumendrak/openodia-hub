@@ -280,10 +280,7 @@ describe("route rendering", () => {
     cleanup();
 
     await renderRoute("/api/", () => import("../src/routes/api/index"));
-    expect(document.querySelector("#api-reference")).toHaveAttribute(
-      "data-url",
-      "/.well-known/openapi.json",
-    );
+    expect(document.querySelector("#openodia-api-reference")).toHaveAttribute("data-api-reference");
   });
 
   it("renders populated model, dataset, paper, and tool directories", async () => {
