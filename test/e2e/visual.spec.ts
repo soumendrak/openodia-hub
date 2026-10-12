@@ -25,7 +25,9 @@ for (const path of ["/", "/tools", "/models", "/datasets", "/events", "/playgrou
     });
     await page.evaluate(() => document.fonts.ready);
     await page.waitForLoadState("networkidle");
-    await expect(page).toHaveScreenshot(`${path === "/" ? "home" : path.slice(1)}.png`, {
+    const platform =
+      process.platform === "linux" && ["/", "/playground"].includes(path) ? "linux/" : "";
+    await expect(page).toHaveScreenshot(`${platform}${path === "/" ? "home" : path.slice(1)}.png`, {
       animations: "disabled",
       maxDiffPixelRatio: 0.015,
     });
