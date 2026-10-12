@@ -29,8 +29,12 @@ Axe and scripted keyboard checks are not a certification or a physical screen-re
 
 ## Verified results
 
-The full Vitest gate passes 807 tests across 78 files with 100% statements, branches, functions and lines. Shared baseline tests close the previously reported 13 branch gaps through real supported fallback paths. No coverage exclusions were added.
+The final executable head `9da8fb5` passes **807 tests across 78 files**, with **100% statements (4786/4786), branches (3091/3091), functions (1239/1239), and lines (4294/4294)**. Whole-PR changed executable coverage is **113/113**, with no uncovered or missing measured files. Shared baseline tests close the previously reported 13 branch gaps through real supported fallback paths. No coverage exclusions were added.
 
-The standalone built-Worker suite passes 46 Chromium checks: all-route axe scans in both themes, all-route 320/390px overflow checks, native API contracts, responsive keyboard/dialog/locale behavior, reduced motion, editor escape, event-count announcements, minimum clear-button target size and visible-label matching for the locale control. TypeScript, lint and production build pass.
+The standalone built-Worker suite passes **49/49 Chromium checks**: all-route axe scans in both themes, all-route 320/390px overflow checks, native API contracts, responsive keyboard/dialog/locale behavior, reduced motion, editor escape, event-count announcements, minimum clear-button target size and visible-label matching for the locale control. TypeScript, lint and production build pass. GitHub CI and preview passed for this executable head.
 
 An actual T3 collaborative-browser pass at 320px confirmed the visible 3px skip-focus outline, Enter focus on main, mobile menu reachability, no overflow, locale inheritance, named English command dialog, Escape close/focus return and theme switching. Both-theme route axe scans and screenshot regression run in the independent issue-61 suite. The standalone accessibility branch includes its own all-route axe and responsive keyboard gate.
+
+## Bot-review follow-up
+
+Editor Escape navigation is consumed by one Tab and cleared on blur; keyboard re-entry restores indentation. The marquee control is hidden while reduced motion makes scrolling static. Locale-control names reference separate language-tagged elements, and remaining static Odia fragments/input examples carry `lang=or`; the glyph has an English accessible description. The browser suite verifies these behaviors and equality of Worker/browser JavaScript clocks fixed at 2026-10-12.
