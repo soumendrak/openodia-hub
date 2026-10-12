@@ -12,6 +12,26 @@ vi.mock("../src/lib/ssr-entry", () => ({
 import server from "../src/server";
 
 describe("RFC 9727 API discovery", () => {
+  it("advertises the catalog and profile on GET and bodyless HEAD responses", async () => {
+    const responses = [];
+    for (const method of ["GET", "HEAD"]) {
+      const response = await server.fetch(
+        new Request("https://preview.example/.well-known/api-catalog", { method }),
+        undefined,
+        {},
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-type")).toBe("application/linkset+json");
+      expect(response.headers.get("link")).toBe(
+        '</.well-known/api-catalog>; rel="api-catalog"; type="application/linkset+json", <https://www.rfc-editor.org/info/rfc9727>; rel="profile"',
+      );
+      responses.push(response);
+    }
+    expect([...responses[1].headers]).toEqual([...responses[0].headers]);
+    expect(await responses[1].text()).toBe("");
+    expect(await responses[0].json()).toEqual(API_CATALOG);
+  });
+
   it("serves linkset JSON at the Worker boundary for agent Accept headers without SSR or upstream calls", async () => {
     const response = await server.fetch(
       new Request("https://openodia.com/.well-known/api-catalog", {
