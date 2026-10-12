@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 // The real locale files: other suites mock `or`, so check the shipped strings here.
 import { en } from "../src/locales/en";
 import { or } from "../src/locales/or";
+import { ODIA_REVIEW_QUEUE } from "../src/locales/review";
 
 const enKeys = Object.keys(en) as (keyof typeof en)[];
 
@@ -25,11 +26,17 @@ const hasOdia = (text: string) => /(?=[\u0B00-\u0B7F])\p{L}/u.test(text);
 
 describe("Odia locale coverage", () => {
   it("has exactly the English keys", () => {
-    expect(Object.keys(or).sort()).toEqual([...enKeys].sort());
+    expect(Object.keys(or).every((key) => key in en)).toBe(true);
+    expect(new Set(ODIA_REVIEW_QUEUE)).toEqual(new Set(enKeys));
   });
 
   it.each(enKeys)("%s has a translated Odia string with the same placeholders", (key) => {
     const value = or[key];
+    if (value === undefined) {
+      expect(ODIA_REVIEW_QUEUE).toContain(key);
+      expect(key.startsWith("nav.")).toBe(false);
+      return;
+    }
     expect(typeof value).toBe("string");
     expect(visible(value!)).not.toBe("");
     if (SAME_AS_ENGLISH.has(key)) {

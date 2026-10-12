@@ -13,6 +13,7 @@ import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
 import { usePattachitraMotion } from "../hooks/usePattachitraMotion";
 import { COLLECTION, COMMUNITIES, ODIA_PHRASE } from "../lib/pattachitra";
 import { withDeadline } from "../lib/fetch-utils";
+import { useTranslation } from "../lib/i18n";
 import { pageHead } from "../lib/seo";
 import { loadAwesome } from "../lib/sources/awesome";
 import { loadRepos } from "../lib/sources/repos";
@@ -76,7 +77,7 @@ function Home() {
   const pattaClass = usePattachitraMotion();
 
   return (
-    <>
+    <div lang="en">
       {/* The painted composition. Everything inside .patta is laid out by
           src/styles/pattachitra.css; the live data sections below it follow
           the site's ordinary token styling, which is now the same palette. */}
@@ -109,49 +110,47 @@ function Home() {
           "Open Source",
         ]}
       />
-    </>
+    </div>
   );
 }
 
 function Hero() {
+  const { t, locale } = useTranslation();
   return (
-    <section className="hero">
+    <section className="hero" lang={locale}>
       <div className="hero-copy">
         <p className="eyebrow">
           <span className="rosette" aria-hidden="true">
             ✳
           </span>{" "}
-          From Odisha. For every possibility.
+          {t("home.hero.eyebrow")}
         </p>
         <p className="odia-intro" lang="or">
           {ODIA_PHRASE}
         </p>
         <h1>
-          Our language.
+          {t("home.hero.line1")}
           <br />
-          Our inheritance.
+          {t("home.hero.line2")}
           <br />
-          <em>Our next chapter.</em>
+          <em>{t("home.hero.line3")}</em>
         </h1>
         <div className="tiny-rule" aria-hidden="true">
           <span />✦<span />
         </div>
-        <p className="hero-description">
-          A language carries a world within it. Discover the people, open tools, and ideas helping
-          Odia flourish in the digital age.
-        </p>
+        <p className="hero-description">{t("home.hero.description")}</p>
         <div className="hero-actions">
           <Link to="/tools" className="button gold-button">
-            Explore the collection <span aria-hidden="true">↗</span>
+            {t("home.hero.explore")} <span aria-hidden="true">↗</span>
           </Link>
           <Link to="/tutorials" className="quiet-link">
-            Begin learning <span aria-hidden="true">→</span>
+            {t("home.hero.learn")} <span aria-hidden="true">→</span>
           </Link>
         </div>
-        <p className="hero-note">Our roots run deep. Our possibilities stay open.</p>
+        <p className="hero-note">{t("home.hero.note")}</p>
       </div>
 
-      <div className="hero-art">
+      <div className="hero-art" lang="en">
         <div className="painted-panel">
           <img
             className="pattachitra-frame"
@@ -177,18 +176,16 @@ function Hero() {
 }
 
 function Opening() {
+  const { t, locale } = useTranslation();
   return (
-    <section className="opening">
-      <p className="eyebrow">A shared language. A shared responsibility.</p>
+    <section className="opening" lang={locale}>
+      <p className="eyebrow">{t("home.opening.eyebrow")}</p>
       <h2>
-        What we inherit,
+        {t("home.opening.line1")}
         <br />
-        <em>we carry forward.</em>
+        <em>{t("home.opening.line2")}</em>
       </h2>
-      <p>
-        From the words we grew up with to the things we have yet to build. OpenOdia is a guide to
-        the resources and communities making new possibilities in our language.
-      </p>
+      <p>{t("home.opening.description")}</p>
     </section>
   );
 }
@@ -311,23 +308,29 @@ function LearningBanner() {
 }
 
 function Stats() {
+  const { t, locale } = useTranslation();
   const { projects, models, datasets } = Route.useLoaderData();
 
   // Counts come from the same sources the directories render, so the hero can't
   // contradict the pages it links to. A source that's down drops its tile
   // rather than showing a stale claim.
   const tiles = [
-    { label: "Projects listed", value: projects, approx: false, href: "/tools" },
-    { label: "Odia models", value: models.value, approx: models.approx, href: "/models" },
-    { label: "Odia datasets", value: datasets.value, approx: datasets.approx, href: "/datasets" },
-    { label: "Community channels", value: 5, approx: false, href: "/tutorials" },
+    { label: t("home.stats.projects"), value: projects, approx: false, href: "/tools" },
+    { label: t("home.stats.models"), value: models.value, approx: models.approx, href: "/models" },
+    {
+      label: t("home.stats.datasets"),
+      value: datasets.value,
+      approx: datasets.approx,
+      href: "/datasets",
+    },
+    { label: t("home.stats.channels"), value: 5, approx: false, href: "/tutorials" },
   ] as const;
   // ponytail: "Community channels" is a hardcoded tile, so `shown` can never
   // be empty — no empty-state branch needed here.
   const shown = tiles.filter((t) => t.value !== null);
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16">
+    <section lang={locale} className="mx-auto max-w-6xl px-4 py-16">
       <div className="grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-border bg-border md:grid-cols-4">
         {shown.map((s, i) => (
           <Reveal key={s.label} delay={i * 0.05} className="bg-surface">

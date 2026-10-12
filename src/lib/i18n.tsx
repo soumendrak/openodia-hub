@@ -4,9 +4,9 @@
  * Context-based, two locales (`en`, `or`), localStorage-persisted. Missing
  * Odia keys fall back to English so the site never shows raw key names.
  *
- * Why custom over react-i18next: this is intentionally a scaffold. Only the
- * nav chrome is translated (every `en.ts` key has an Odia string, enforced by
- * test/locale-coverage.test.ts), so a 30 KB i18n library would be overkill.
+ * Why custom over react-i18next: this is intentionally a scaffold. The registered
+ * navigation, home hero/opening/statistics and footer copy is translated;
+ * test/locale-coverage.test.ts validates the explicit key/review inventory, so a 30 KB i18n library would be overkill.
  * Once page bodies move to i18n and we need plurals / interpolation / lazy
  * loading, swap the implementation behind useTranslation() without touching
  * call sites.

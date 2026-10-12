@@ -15,7 +15,8 @@
     "test:coverage:diff": "bun scripts/check-diff-coverage.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
     "prepare": "bun run hooks:install",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "check:locales": "bun scripts/check-locale-coverage.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

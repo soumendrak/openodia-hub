@@ -1,11 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Rss } from "lucide-react";
 import { GithubIcon, YoutubeIcon } from "./icons";
+import { useTranslation } from "../lib/i18n";
 import { ODIA_PHRASE } from "../lib/pattachitra";
 
 export function Footer() {
+  const { t, locale } = useTranslation();
   return (
-    <footer className="border-t border-border mt-32">
+    <footer lang={locale} className="border-t border-border mt-32">
       <div className="mx-auto max-w-6xl px-4 py-12">
         <div className="grid gap-8 md:grid-cols-4">
           <div>
@@ -18,37 +20,35 @@ export function Footer() {
               </span>
               <span className="font-display text-lg font-semibold">OpenOdia</span>
             </Link>
-            <p className="mt-3 max-w-xs text-sm text-muted-foreground">
-              Open source initiatives for the Odia language — community-driven.
-            </p>
+            <p className="mt-3 max-w-xs text-sm text-muted-foreground">{t("footer.description")}</p>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold">Explore</h4>
+            <h4 className="text-sm font-semibold">{t("footer.explore")}</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link to="/tools" className="hover:text-foreground">
-                  Tools & projects
+                  {t("footer.tools")}
                 </Link>
               </li>
               <li>
                 <Link to="/models" className="hover:text-foreground">
-                  Models
+                  {t("nav.models")}
                 </Link>
               </li>
               <li>
                 <Link to="/datasets" className="hover:text-foreground">
-                  Datasets
+                  {t("nav.datasets")}
                 </Link>
               </li>
               <li>
                 <Link to="/tutorials" className="hover:text-foreground">
-                  Tutorials
+                  {t("nav.tutorials")}
                 </Link>
               </li>
               <li>
                 <Link to="/playground" className="hover:text-foreground">
-                  Playground
+                  {t("nav.playground")}
                 </Link>
               </li>
               <li>
@@ -57,49 +57,50 @@ export function Footer() {
                   search={{ tab: "translit" }}
                   className="hover:text-foreground"
                 >
-                  Transliteration
+                  {t("footer.transliteration")}
                 </Link>
               </li>
               <li className="flex items-center gap-1.5">
                 <Link to="/events" className="hover:text-foreground">
-                  Events
+                  {t("nav.events")}
                 </Link>
                 <a
                   href="/events-feed"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-orange-500 hover:text-orange-400 transition"
-                  title="Subscribe to RSS Feed of Events"
+                  title={t("footer.rss")}
+                  aria-label={t("footer.rss")}
                 >
                   <Rss size={13} />
                 </a>
               </li>
               <li>
                 <Link to="/communities" className="hover:text-foreground">
-                  Communities
+                  {t("footer.communities")}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold">Research</h4>
+            <h4 className="text-sm font-semibold">{t("footer.research")}</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link to="/papers" className="hover:text-foreground">
-                  Papers
+                  {t("footer.papers")}
                 </Link>
               </li>
               <li>
                 <Link to="/treebank" className="hover:text-foreground">
-                  Treebank search
+                  {t("footer.treebank")}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold">Develop</h4>
+            <h4 className="text-sm font-semibold">{t("footer.develop")}</h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
                 <Link to="/api" className="hover:text-foreground">
@@ -108,19 +109,24 @@ export function Footer() {
               </li>
               <li>
                 <Link to="/contribute" className="hover:text-foreground">
-                  Add your project
+                  {t("footer.add")}
+                </Link>
+              </li>
+              <li>
+                <Link to="/translation-status" className="hover:text-foreground">
+                  {t("footer.translations")}
                 </Link>
               </li>
               <li>
                 <Link to="/about" className="hover:text-foreground">
-                  About
+                  {t("nav.about")}
                 </Link>
               </li>
             </ul>
           </div>
 
           <div>
-            <h4 className="text-sm font-semibold">Connect</h4>
+            <h4 className="text-sm font-semibold">{t("footer.connect")}</h4>
             <div className="mt-3 flex gap-3">
               <a
                 href="https://github.com/soumendrak/openodia-hub"
@@ -146,13 +152,13 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
           <p>
-            © {new Date().getFullYear()} OpenOdia · Built with{" "}
+            © {new Date().getFullYear()} OpenOdia · {t("footer.built")}{" "}
             <Heart size={12} className="inline text-magenta" aria-hidden="true" />
-            <span className="sr-only">love</span> in Odisha
+            <span className="sr-only">{t("footer.love")}</span> {t("footer.odisha")}
           </p>
           <p lang="or">{ODIA_PHRASE}</p>
           <a href="/pattachitra/PROVENANCE.md" className="hover:text-foreground">
-            Art &amp; inspiration
+            {t("footer.art")}
           </a>
         </div>
       </div>

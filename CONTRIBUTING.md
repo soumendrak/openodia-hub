@@ -19,7 +19,7 @@ Open `http://localhost:9090` — you're in business.
 - **Framework:** TanStack Start with file-based routes in `src/routes/`. Share upstream loading logic in `src/lib/sources/` between server loaders and API routes.
 - **Styling:** Tailwind CSS 4 and tokens in `src/styles.css`. Existing utility names such as `text-neon` now resolve to the current theme palette; do not restore the old cyan/magenta values. Pattachitra composition rules live in `src/styles/pattachitra.css` and are scoped to `.patta`.
 - **Motion:** Follow the existing CSS and `Reveal` patterns; Framer Motion is no longer a dependency. Respect reduced motion and hidden-tab behavior.
-- **Language:** Navigation strings live in `src/locales/en.ts` and `src/locales/or.ts`; missing translations fall back to English. Full-page translation is not yet implemented.
+- **Language:** Navigation strings live in `src/locales/en.ts` and `src/locales/or.ts`; missing translations fall back to English. Registered home hero/opening/statistics and footer strings also use this inventory. Other page bodies remain in their original language; `/translation-status` reports the exact scope and review state.
 - **Data:** GitHub, Hugging Face, YouTube, research indexes, and curated lists are upstream sources. Handle failures without presenting unavailable data as an authoritative empty catalog.
 - **Reference:** [Architecture and data](docs/architecture.md), [design provenance](public/pattachitra/PROVENANCE.md), and the [public contribution page](https://openodia.com/contribute).
 
@@ -120,3 +120,15 @@ _Example Event:_
 Use the issue templates. Bugs get a reproduction step, features get a problem-statement.
 
 Questions? Open a discussion instead.
+
+## Translate one string
+
+1. Open [/translation-status](https://openodia.com/translation-status), search for a string, and follow its **Edit translation** link. The same inventory is available at `/api/translation-status`; presence and native review are reported separately.
+2. Edit the matching structural key in `src/locales/or.ts`. Preserve placeholders, proper names and meaning. When registering new English UI copy, add its key to `src/locales/en.ts` and the explicit `ODIA_REVIEW_QUEUE` in `src/locales/review.ts`; untranslated tracked keys may be left absent while review is in progress.
+3. Run `bun run check:locales` and the normal contribution gates. Unknown keys, untracked English strings, invalid Odia text and mismatched placeholders fail the inventory check.
+4. Open a PR. A workflow automatically applies `needs-native-speaker-review` for locale wording and review-record changes. A configured native reviewer must approve the current commit; an old approval or a label by itself is insufficient.
+5. After native review, record the **exact translation**, reviewer and review date in `ODIA_REVIEWS`. Changed wording invalidates its old review record automatically. Do not mark draft or generated wording as reviewed.
+
+Maintainers configure repository variable `ODIA_NATIVE_REVIEWERS` as comma-separated GitHub logins of actual native Odia reviewers. With no reviewers configured, the review gate explains what is missing and stays red for translation changes. No reviewer is assumed from account ownership. The workflow reads changed paths and reviews using the GitHub API without executing pull-request code in a privileged context.
+
+The initial 46-string batch includes navigation, the home hero/opening/statistics, and the footer. It is translated draft copy pending native review, not a claim that all upstream descriptions or all page bodies are translated.
