@@ -167,6 +167,8 @@ export function FacetGroup({
         </button>
       </PopoverTrigger>
       <PopoverContent
+        aria-label={`Filter by ${title}`}
+        lang="en"
         align="start"
         className="w-[min(22rem,calc(100vw-2rem))] rounded-2xl border-border bg-surface p-3 text-foreground shadow-2xl shadow-black/20"
       >

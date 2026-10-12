@@ -1,11 +1,5 @@
-import { readFileSync } from "node:fs";
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
-
-/** Recorded responses for the same-origin APIs pages call after hydration. */
-const apiFixtures = readFileSync(new URL("fixtures/api-events.jsonl", import.meta.url), "utf8")
-  .trim()
-  .split("\n")
-  .map((line) => JSON.parse(line) as { path: string; body: unknown });
 
 /**
  * One route loads with the expected status and <h1>, shows `text` from the recorded
@@ -17,27 +11,31 @@ export function smokeRoute(
   heading: string | RegExp,
   { status = 200, text }: { status?: number; text?: string } = {},
 ) {
-  test(`${path} renders`, async ({ page, baseURL }) => {
-    const origin = new URL(baseURL!).origin;
-    await page.route(
-      (url) => url.origin !== origin,
-      (route) => route.abort(),
-    );
-    for (const { path: api, body } of apiFixtures) {
-      await page.route(`${origin}${api}?*`, (route) => route.fulfill({ json: body }));
-    }
-    const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
+  for (const theme of ["light", "dark"] as const)
+    test(`${path} renders (${theme})`, async ({ page, baseURL }) => {
+      await page.emulateMedia({ colorScheme: theme, reducedMotion: "reduce" });
+      const origin = new URL(baseURL!).origin;
+      await page.route(
+        (url) => url.origin !== origin,
+        (route) => route.abort(),
+      );
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
 
-    const response = await page.goto(path);
+      await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
+      const response = await page.goto(path);
 
-    expect(response?.status()).toBe(status);
-    await expect(page.locator("h1")).toHaveText(heading);
-    await expect(page).toHaveTitle(/\S/);
-    if (text) await expect(page.getByText(text).first()).toBeVisible();
-    // The <h1> is already in the SSR HTML; let hydration and its client requests settle
-    // so errors thrown after they resolve are caught too.
-    await page.waitForLoadState("networkidle");
-    expect(errors).toEqual([]);
-  });
+      expect(response?.status()).toBe(status);
+      await expect(page.locator("h1")).toHaveText(heading);
+      await expect(page).toHaveTitle(/\S/);
+      if (text) await expect(page.getByText(text).first()).toBeVisible();
+      // The <h1> is already in the SSR HTML; let hydration and its client requests settle
+      // so errors thrown after they resolve are caught too.
+      await page.waitForLoadState("networkidle");
+      expect(errors).toEqual([]);
+      const audit = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
+        .analyze();
+      expect(audit.violations).toEqual([]);
+    });
 }
