@@ -5,6 +5,7 @@
 @import "./styles/api-reference.css";
 
 @custom-variant dark (&:is(.dark *));
+@custom-variant light (&:is(.light *));
 
 @theme inline {
   --font-display: "Cormorant Garamond", Georgia, serif;
@@ -81,7 +82,7 @@
   --accent: #d97a5e;
   --accent-foreground: #241a11;
 
-  --destructive: oklch(0.65 0.24 25);
+  --destructive: #ff8790;
   --destructive-foreground: oklch(0.98 0 0);
 
   --border: rgb(211 171 102 / 18%);
@@ -146,7 +147,7 @@
   --accent: #721d20;
   --accent-foreground: #fff2d3;
 
-  --destructive: oklch(0.5 0.2 25);
+  --destructive: #9c1226;
   --destructive-foreground: oklch(0.98 0.01 90);
 
   --border: rgb(122 88 44 / 32%);
@@ -405,8 +406,14 @@
   *,
   *::before,
   *::after {
-    animation-duration: 0.01ms !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
+  }
+  .hover-lift:hover,
+  .light .bg-surface:hover,
+  .light .bg-card:hover {
+    transform: none;
   }
 }
 
@@ -489,4 +496,30 @@
 .code-editor-pre .token.constant,
 .code-editor-pre .token.symbol {
   color: var(--saffron);
+}
+
+/* Visible keyboard focus across every route, including inputs with outline-none. */
+:focus-visible {
+  outline: 3px solid #2b1a0b !important;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px #ffeec2;
+}
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: var(--background);
+  color: var(--foreground);
+  transform: translateY(-200%);
+}
+.skip-link:focus {
+  transform: none;
+}
+/* Inline links must remain distinguishable without relying on color. */
+p a,
+li a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }

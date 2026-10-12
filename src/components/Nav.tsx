@@ -53,7 +53,7 @@ export function Nav() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50">
+    <header lang={locale} className="fixed top-0 left-0 right-0 z-50">
       <div className="mx-auto mt-4 max-w-6xl px-4">
         <div className="flex items-center justify-between rounded-2xl border border-border bg-background/60 px-4 py-3 backdrop-blur-xl">
           <Link to="/" className="group flex items-center gap-2">

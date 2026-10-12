@@ -26,7 +26,7 @@ Command.displayName = CommandPrimitive.displayName;
 const CommandDialog = ({ children, ...props }: DialogProps) => {
   return (
     <Dialog {...props}>
-      <DialogContent className="overflow-hidden p-0">
+      <DialogContent lang="en" className="overflow-hidden p-0">
         {/* Radix requires both on every dialog; sighted users get the input's
             own placeholder instead, so these are screen-reader only. */}
         <DialogTitle className="sr-only">Search OpenOdia</DialogTitle>
