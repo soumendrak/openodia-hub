@@ -20,12 +20,14 @@ Apply the additive `db/migrations/0001_event_source_outcomes.sql` to the existin
 
 ## Evidence
 
-- Targeted adapter, persistence, collection and UI checks: 63 passing tests; subsequent Worker/search surface checks: 63 passing tests. Real Miniflare D1 executes retirement SQL, legacy ownership backfill, 150 IDs, truncated lists, complete empty lists, repeated failed cron runs, and cohost ownership.
+- Final actual Git pre-commit gate: **81 test files, 866 passing tests; 100% statements (4826/4826), branches (3209/3209), functions (1262/1262), and lines (4336/4336)** across the complete configured repository coverage scope. No coverage exclusions were added. Real Miniflare D1 executes retirement SQL, legacy ownership backfill, 150 IDs, truncated lists, complete empty lists, repeated failed cron runs, and cohost ownership.
 - Fixture APIs exercise one healthy source/four HTTP failures, total failures with curated fallback, total failures without fallback (503), malformed JSON/records/dates, network failure, aborted requests, and stalled response bodies. Source metadata never includes sensitive error bodies.
 - Browser: T3 collaborative preview on port 9112, desktop 1280 × 800 and mobile 375 × 812. Verified URL-backed year/sort restoration, oldest archive order (2020 through 2026), clear year preserving sort, empty 1999 archive selection/message, partial-source warning, retained cards, and no horizontal overflow.
 - Live local API: HTTP 200, 149 canonical retained events, page limit 2 respected, five bounded source outcomes with measured attempt/success timestamps, `partial=true` because all five upstream past lists are truncated, and `Cache-Control: no-store`. This is source measurement, not an editorial or registration verification.
 - Adversarial browser check found TanStack numeric-year decoding was dropping/mismatching archive state; fixed with parser normalization and regression tests. Invalid/negative list counts cannot retire stored history. Invalid event dates are parse failures rather than invented calendar dates.
-- Frozen Bun 1.3.13 install; typecheck passes; lint reports zero errors and 18 existing warnings; production client/Worker build passes. Final suite/coverage results follow after exclusive verification slot.
+- Changed executable coverage: **510/510 against origin/main**, with no uncovered or missing files. The implementation commit hook verified 499/499 changed lines; the final RSS/coverage follow-up hook verified 12/12. The final origin/main assessment covers the combined change.
+- Frozen Bun 1.3.13 install; typecheck passes; lint reports zero errors and 18 existing warnings; production client/Worker build passes. Source, diff, dependency and edge-case review completed with the but-for-real skill.
+- Existing PR #119 implementation and follow-up commits were inspected and reused; the final patch extends that safety fix through persistence, API, search, RSS and Events UI. Existing remote history is preserved by an ancestry-only merge with an unchanged tree before fast-forward push.
 
 ## Operator checks
 
