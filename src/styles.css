@@ -403,6 +403,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .marquee-control {
+    display: none;
+  }
   *,
   *::before,
   *::after {

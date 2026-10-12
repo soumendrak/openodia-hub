@@ -1,5 +1,8 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
+});
 test("native API fixtures support accessible catalogs and dialog search", async ({ request }) => {
   for (const [endpoint, key] of [
     ["models", "models"],
@@ -109,8 +112,16 @@ test("locale toggle includes its visible target-language text in its accessible 
   await page.waitForLoadState("networkidle");
   const toggle = page.locator("header button").filter({ has: page.locator("span[lang]") });
   for (let i = 0; i < 2; i++) {
-    const label = (await toggle.innerText()).trim();
+    const label = (await toggle.locator("span:not(.sr-only)").innerText()).trim();
     await expect(toggle).toHaveAccessibleName(new RegExp(label));
     await toggle.click();
   }
+});
+
+test("Worker and browser share the deterministic fixture clock", async ({ page, request }) => {
+  const clock = await (await request.get("/__fixture-clock")).json();
+  await page.goto("/about");
+  const browser = await page.evaluate(() => ({ now: Date.now(), iso: new Date().toISOString() }));
+  expect(clock).toEqual({ now: 1791763200000, iso: "2026-10-12T00:00:00.000Z" });
+  expect(browser).toEqual(clock);
 });

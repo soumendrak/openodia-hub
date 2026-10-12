@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, Copy, ExternalLink } from "lucide-react";
 import { Reveal } from "../components/Reveal";
 import { GithubIcon } from "../components/icons";
@@ -38,10 +38,15 @@ const TEMPLATE = `- [Project name](https://github.com/owner/repo) : One sentence
 #   size         datasets   rows or hours, e.g. 120k sentence pairs / 40 hours audio
 #   citation     optional   BibTeX, if the project has a paper`;
 
-const CHECKS: { title: string; body: string }[] = [
+const CHECKS: { title: string; body: ReactNode }[] = [
   {
     title: "It is about Odia",
-    body: "The project targets ଓଡ଼ିଆ specifically, or covers it as a named language alongside others. A general multilingual tool with no Odia support is out of scope.",
+    body: (
+      <>
+        The project targets <span lang="or">ଓଡ଼ିଆ</span> specifically, or covers it as a named
+        language alongside others. A general multilingual tool with no Odia support is out of scope.
+      </>
+    ),
   },
   {
     title: "It is open",
@@ -101,8 +106,8 @@ function ContributePage() {
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
           OpenOdia lists the whole Odia open-source ecosystem, not one maintainer's work. If you
-          have built something for ଓଡ଼ିଆ — a model, a dataset, a font, a keyboard, a library, an app
-          — it belongs here.
+          have built something for <span lang="or">ଓଡ଼ିଆ</span> — a model, a dataset, a font, a
+          keyboard, a library, an app — it belongs here.
         </p>
       </Reveal>
 

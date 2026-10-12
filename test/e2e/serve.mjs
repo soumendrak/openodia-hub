@@ -1,6 +1,6 @@
 /** Production Worker with recorded cache entries and denied external networking. */
 import { Miniflare, createFetchMock } from "miniflare";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 const outage = process.env.E2E_UPSTREAM_FAILURE === "1";
 const port = Number(process.env.E2E_PORT ?? 9161);
@@ -38,11 +38,33 @@ mock
     headers: { "content-type": "application/json" },
   })
   .persist();
+// Freeze the Worker JavaScript clock before evaluating production imports.
+const fixtureNow = Date.parse("2026-10-12T00:00:00Z");
+const clockName = `e2e-clock-${port}.mjs`;
+const entryPath = resolve(`dist/server/e2e-entry-${port}.mjs`);
+writeFileSync(
+  resolve("dist/server", clockName),
+  `
+const NativeDate = globalThis.Date;
+function FixtureDate(...args) {
+  if (!new.target) return new NativeDate(${fixtureNow}).toString();
+  return new NativeDate(...(args.length ? args : [${fixtureNow}]));
+}
+Object.setPrototypeOf(FixtureDate, NativeDate);
+FixtureDate.prototype = NativeDate.prototype;
+FixtureDate.now = () => ${fixtureNow};
+globalThis.Date = FixtureDate;
+`,
+);
+writeFileSync(
+  entryPath,
+  `import "./${clockName}"; import production from "./index.js"; export default { ...production, fetch(request, env, ctx) { if (new URL(request.url).pathname === "/__fixture-clock") return Response.json({ now: Date.now(), iso: new Date().toISOString() }); return production.fetch(request, env, ctx); } };`,
+);
 const worker = new Miniflare({
   port,
   host: "127.0.0.1",
   modules: true,
-  scriptPath: resolve("dist/server/index.js"),
+  scriptPath: entryPath,
   modulesRules: [{ type: "ESModule", include: ["**/*.js"], fallthrough: true }],
   compatibilityDate: "2025-09-24",
   compatibilityFlags: ["nodejs_compat"],
@@ -65,7 +87,7 @@ if (!outage) {
     .split("\n")
     .map(JSON.parse);
   for (const { key, value } of entries)
-    await kv.put(`cache:v3:${key}`, JSON.stringify({ at: Date.now(), value }));
+    await kv.put(`cache:v3:${key}`, JSON.stringify({ at: fixtureNow, value }));
 }
 await worker.ready;
 console.log(

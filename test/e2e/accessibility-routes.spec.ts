@@ -1,4 +1,7 @@
 import { expect, test } from "@playwright/test";
+test.beforeEach(async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
+});
 import AxeBuilder from "@axe-core/playwright";
 for (const theme of ["light", "dark"] as const)
   for (const path of [
