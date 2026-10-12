@@ -95,6 +95,37 @@ describe("translation inventory and truthful native-review progress", () => {
 });
 
 describe("public translation status API and contributor UX", () => {
+  it("renders reviewed and missing strings, excludes reviewed rows, and handles an empty inventory", async () => {
+    const locale = await import("../src/lib/locale-status");
+    const report = assessLocale(
+      { reviewed: "Home", missing: "About" },
+      { reviewed: "ମୂଳପୃଷ୍ଠା" },
+      ["reviewed", "missing"],
+      {
+        reviewed: {
+          translation: "ମୂଳପୃଷ୍ଠା",
+          reviewer: "fixture-native-reviewer",
+          reviewedAt: "2026-10-12",
+        },
+      },
+    );
+    const status = vi.spyOn(locale, "getLocaleStatus").mockReturnValue(report);
+    const { Route } = await import("../src/routes/translation-status");
+    const Page = (Route as unknown as { options: { component: ComponentType } }).options.component;
+    render(<Page />);
+    expect(screen.getByText("Native-reviewed")).toBeInTheDocument();
+    expect(screen.getByText("Translation missing")).toBeInTheDocument();
+    expect(screen.getByText("ଅନୁବାଦ ଆବଶ୍ୟକ")).toHaveAttribute("lang", "or");
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(screen.queryByText("Native-reviewed")).toBeNull();
+    expect(screen.getByText("1 strings shown")).toBeInTheDocument();
+    cleanup();
+    status.mockReturnValue(assessLocale({}, {}, [], {}));
+    render(<Page />);
+    expect(screen.getAllByText("0/0 · 0%")).toHaveLength(2);
+    expect(screen.getByText(/No matching strings/)).toBeInTheDocument();
+  });
+
   it("returns JSON with CORS, bounded caching, exact entries and separate counts", async () => {
     const { Route } = await import("../src/routes/api/translation-status");
     const get = (Route as unknown as { options: { server: { handlers: { GET: () => Response } } } })
@@ -107,6 +138,12 @@ describe("public translation status API and contributor UX", () => {
     expect(json.total).toBe(46);
     expect(json.reviewed).toBe(0);
     expect(json.entries).toHaveLength(46);
+    const { OPENAPI_SPEC } = await import("../src/lib/openapi");
+    const { API_CATALOG } = await import("../src/lib/api-discovery");
+    expect(OPENAPI_SPEC.paths["/api/translation-status"].get.summary).toContain("native-review");
+    expect(
+      API_CATALOG.linkset.some((entry) => entry.anchor.endsWith("/api/translation-status")),
+    ).toBe(true);
   });
   it("shows scope, distinct progress, searchable strings and accessible contribution links", async () => {
     const { Route } = await import("../src/routes/translation-status");

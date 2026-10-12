@@ -10,12 +10,16 @@ async function runGate({
   files = ["src/locales/or.ts"],
   reviewers = "odia-reviewer",
   reviews = [],
+  comments = [],
+  commentEvent = false,
   createError,
   removeError,
 }: {
   files?: string[];
   reviewers?: string;
   reviews?: object[];
+  comments?: object[];
+  commentEvent?: boolean;
   createError?: object;
   removeError?: object;
 } = {}) {
@@ -28,18 +32,32 @@ async function runGate({
       if (removeError) throw removeError;
     }),
   };
+  const commentsApi = vi.fn();
+  Object.assign(issues, { listComments: commentsApi });
+  const pr = { number: 7, head: { sha: "current" }, user: { login: "author" } };
   const filesApi = vi.fn();
   const reviewsApi = vi.fn();
   const github = {
-    rest: { pulls: { listFiles: filesApi, listReviews: reviewsApi }, issues },
+    rest: {
+      pulls: {
+        listFiles: filesApi,
+        listReviews: reviewsApi,
+        get: vi.fn(async () => ({ data: pr })),
+      },
+      issues,
+    },
     paginate: vi.fn(async (api) =>
-      api === filesApi ? files.map((filename) => ({ filename })) : reviews,
+      api === filesApi
+        ? files.map((filename) => ({ filename }))
+        : api === commentsApi
+          ? comments
+          : reviews,
     ),
   };
   const core = { setFailed: vi.fn() };
   const context = {
     repo: { owner: "owner", repo: "hub" },
-    payload: { pull_request: { number: 7, head: { sha: "current" }, user: { login: "author" } } },
+    payload: commentEvent ? { issue: { number: 7 } } : { pull_request: pr },
   };
   const execute = Object.getPrototypeOf(async function () {}).constructor;
   await new execute("github", "context", "core", "process", script)(github, context, core, {
@@ -79,6 +97,22 @@ describe("native Odia review policy", () => {
       const result = await runGate({ reviewers: "odia-reviewer,author", reviews });
       expect(result.core.setFailed).toHaveBeenCalled();
     }
+  });
+  it("accepts explicit current-SHA comments from configured native reviewers and supports revocation", async () => {
+    const comment = (body: string, login = "author") => ({ body, user: { login } });
+    const approved = await runGate({
+      reviewers: "author",
+      commentEvent: true,
+      comments: [comment("odia-review-approved current")],
+    });
+    expect(approved.core.setFailed).not.toHaveBeenCalled();
+    for (const comments of [
+      [comment("odia-review-approved old")],
+      [comment("odia-review-approved current", "outsider")],
+      [comment("odia-review-approved current"), comment("odia-review-revoke current")],
+      [{ body: "odia-review-approved current", user: null }],
+    ])
+      expect((await runGate({ reviewers: "author", comments })).core.setFailed).toHaveBeenCalled();
   });
   it("skips unrelated PRs and handles only expected label races", async () => {
     const unchanged = await runGate({ files: ["src/routes/tools.tsx"] });

@@ -159,10 +159,10 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <I18nProvider>
-        <ScrollToTop />
         <a href="#main-content" lang="en" className="skip-link">
           Skip to content
         </a>
+        <ScrollToTop />
         <Nav />
         <CommandPalette />
         <main id="main-content" tabIndex={-1} lang="en" className="pt-24">

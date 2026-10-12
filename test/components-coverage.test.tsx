@@ -213,7 +213,7 @@ describe("shared presentational components", () => {
     render(<Nav />);
     fireEvent.click(screen.getByRole("button", { name: "nav.search.aria" }));
     expect(palette).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: "nav.locale.aria" }));
+    fireEvent.click(screen.getByRole("button", { name: /^nav\.locale\.aria:/ }));
     expect(componentHarness.setLocale).toHaveBeenCalledWith("or");
     const theme = screen.getByRole("button", { name: "nav.theme.aria" });
     fireEvent.click(theme);
@@ -240,7 +240,7 @@ describe("shared presentational components", () => {
     componentHarness.locale = "or";
     const { Nav } = await import("../src/components/Nav");
     render(<Nav />);
-    const localeButton = screen.getByRole("button", { name: "nav.locale.aria" });
+    const localeButton = screen.getByRole("button", { name: /^nav\.locale\.aria:/ });
     const label = screen.getByText("English");
     expect(label).toHaveAttribute("lang", "en");
     fireEvent.click(localeButton);
