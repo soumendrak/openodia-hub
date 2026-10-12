@@ -2,9 +2,14 @@
 import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { persistReviewedEvent, restoreReviewedEvents } from "../src/lib/event-reviewed-store";
-import { readEventsFromD1, type D1Like } from "../src/lib/events-store";
+import {
+  persistReviewedEvent,
+  restoreReviewedEvents,
+  persistReviewedOverride,
+} from "../src/lib/event-reviewed-store";
+import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
 import { applyEventOverrides } from "../src/lib/event-lifecycle";
+import { EVENT_OVERRIDES } from "../src/data/event-overrides";
 import type { Event } from "../src/data/events/types";
 
 let mf: Miniflare;
@@ -105,6 +110,96 @@ describe("real D1 additive reviewed metadata", () => {
     expect(restored.lifecycle?.state).toBe("cancelled");
     expect(restored.registration?.state).toBe("sold-out");
     expect(restored.reviewedFields).toEqual(expect.arrayContaining(["lifecycle", "registration"]));
+  });
+  it("atomically keeps nonconflicting same-day corrections and preserves whole-field ties", async () => {
+    const base = { ...event, url: "https://example.com/same-day" };
+    const initial = applyEventOverrides(base, [
+      {
+        url: base.url,
+        evidenceUrl: proof.evidenceUrl,
+        reviewedAt: "2026-10-12",
+        patch: { lifecycle: { state: "postponed", replacementDate: "2027-03-01", ...proof } },
+      },
+    ]);
+    await persistReviewedEvent(db, initial);
+    const later = applyEventOverrides(base, [
+      {
+        url: base.url,
+        evidenceUrl: proof.evidenceUrl,
+        reviewedAt: "2026-10-12",
+        patch: {
+          lifecycle: { state: "cancelled", ...proof },
+          registration: { state: "closed", ...proof },
+          title: "Reviewed title",
+        },
+      },
+    ]);
+    await persistReviewedEvent(db, later);
+    const restored = (await restoreReviewedEvents(db, [base]))[0];
+    expect(restored.lifecycle).toMatchObject({ state: "postponed", replacementDate: "2027-03-01" });
+    expect(restored.registration?.state).toBe("closed");
+    expect(restored.title).toBe("Reviewed title");
+    const racing = { ...event, url: "https://example.com/concurrent-review" };
+    await Promise.all([
+      persistReviewedEvent(
+        db,
+        applyEventOverrides(racing, [
+          {
+            url: racing.url,
+            evidenceUrl: proof.evidenceUrl,
+            reviewedAt: "2026-10-12",
+            patch: { title: "Concurrent title" },
+          },
+        ]),
+      ),
+      persistReviewedEvent(
+        db,
+        applyEventOverrides(racing, [
+          {
+            url: racing.url,
+            evidenceUrl: proof.evidenceUrl,
+            reviewedAt: "2026-10-12",
+            patch: { registration: { state: "open", ...proof } },
+          },
+        ]),
+      ),
+    ]);
+    const merged = (await restoreReviewedEvents(db, [racing]))[0];
+    expect(merged).toMatchObject({ title: "Concurrent title", registration: { state: "open" } });
+  });
+  it("persists archive-only/removed overrides during an empty scrape without creating base event rows", async () => {
+    const base = { ...event, url: "https://example.com/archive-only" };
+    const override = {
+      url: base.url,
+      evidenceUrl: proof.evidenceUrl,
+      reviewedAt: "2026-10-12",
+      patch: { lifecycle: { state: "cancelled" as const, ...proof } },
+    };
+    const originalFetch = globalThis.fetch;
+    EVENT_OVERRIDES.push(override);
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          '<script id="__NEXT_DATA__" type="application/json">' +
+            JSON.stringify({
+              props: { pageProps: { prerenderData: { upcomingEvents: [], pastEvents: [] } } },
+            }) +
+            "</script>",
+        ),
+    );
+    try {
+      await syncEventsToD1(db);
+      expect((await restoreReviewedEvents(db, [base]))[0].lifecycle?.state).toBe("cancelled");
+      expect(
+        (await db.prepare("SELECT id FROM events WHERE url=?").bind(base.url).all()).results,
+      ).toEqual([]);
+      await expect(
+        persistReviewedOverride(db, { ...override, reviewedAt: "not-a-date" }),
+      ).rejects.toThrow("Invalid reviewed event metadata");
+    } finally {
+      EVENT_OVERRIDES.pop();
+      globalThis.fetch = originalFetch;
+    }
   });
   it("rejects a newer duration that conflicts with a separately reviewed start date", async () => {
     const fixture = { ...event, url: "https://example.com/conflicting-duration" };

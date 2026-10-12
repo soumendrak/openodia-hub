@@ -104,6 +104,7 @@ export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
   items: T[],
   resolveDestination: (url: string) => Promise<string> = cachedDestinationUrl,
   mergeMetadata?: (previous: T, next: T) => T,
+  resolveAll = false,
 ): Promise<T[]> {
   const dateCounts = new Map<string, number>();
   for (const item of items) {
@@ -115,7 +116,9 @@ export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
     items.map((item) => {
       const date = item.startDate || item.date || "";
       // Counted from this same `items` list above, so every date has an entry.
-      return dateCounts.get(date)! > 1 ? resolveDestination(item.url) : Promise.resolve(item.url);
+      return resolveAll || dateCounts.get(date)! > 1
+        ? resolveDestination(item.url)
+        : Promise.resolve(item.url);
     }),
   );
 

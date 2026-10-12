@@ -160,17 +160,19 @@ export const Route = createFileRoute("/api/events")({
       GET: async ({ request }: { request: Request }) => {
         try {
           const { loadReviewedEventCollection } = await import("../../lib/sources/events");
-          const { events: allEvents } = await loadReviewedEventCollection();
+          const { events: allEvents, partial } = await loadReviewedEventCollection();
 
           const url = new URL(request.url);
           const pageParam = url.searchParams.get("page");
 
           if (pageParam === null) {
-            return new Response(JSON.stringify({ events: allEvents }), {
+            return new Response(JSON.stringify({ events: allEvents, partial }), {
               status: 200,
               headers: {
                 "Content-Type": "application/json",
-                "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
+                "Cache-Control": partial
+                  ? "no-store"
+                  : "public, s-maxage=3600, stale-while-revalidate=600",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Access-Control-Allow-Headers": "Content-Type, User-Agent",
@@ -189,12 +191,15 @@ export const Route = createFileRoute("/api/events")({
               events: pageItems,
               nextCursor,
               total: allEvents.length,
+              partial,
             }),
             {
               status: 200,
               headers: {
                 "Content-Type": "application/json",
-                "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
+                "Cache-Control": partial
+                  ? "no-store"
+                  : "public, s-maxage=3600, stale-while-revalidate=600",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Methods": "GET, OPTIONS",
                 "Access-Control-Allow-Headers": "Content-Type, User-Agent",

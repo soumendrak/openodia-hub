@@ -125,7 +125,7 @@ export const Route = createFileRoute("/events-feed")({
         try {
           // Fetch dynamic events
           const { loadReviewedEventCollection } = await import("../lib/sources/events");
-          const { events: fetchedEvents } = await loadReviewedEventCollection();
+          const { events: fetchedEvents, partial } = await loadReviewedEventCollection();
 
           // Merge static and dynamic events
           const today = getISTDateString();
@@ -152,7 +152,10 @@ export const Route = createFileRoute("/events-feed")({
             status: 200,
             headers: {
               "Content-Type": "application/rss+xml; charset=utf-8",
-              "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
+              "Cache-Control": partial
+                ? "no-store"
+                : "public, s-maxage=3600, stale-while-revalidate=600",
+              "X-OpenOdia-Partial": String(partial),
             },
           });
         } catch (e) {

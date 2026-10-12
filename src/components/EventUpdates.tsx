@@ -15,6 +15,18 @@ export function EventUpdates({ event }: { event: Event }) {
       {event.registration && (
         <p>{REGISTRATION_LABELS[event.registration.state]} · Attendance eligibility is separate.</p>
       )}
+      {event.registration?.url && (
+        <p>
+          <a
+            className="underline underline-offset-4"
+            href={event.registration.url}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Registration page
+          </a>
+        </p>
+      )}
       {event.lifecycle && (
         <p className="text-xs text-muted-foreground">
           <a

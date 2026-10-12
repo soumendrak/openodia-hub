@@ -187,7 +187,7 @@ const EVENTS_CORS = {
 async function handleEvents(_env: Env | undefined, request: Request): Promise<Response> {
   const collection = await loadReviewedEventCollection();
   let { events } = collection;
-  const { source } = collection;
+  const { source, partial } = collection;
 
   // Also protects reads from databases populated before canonical URL IDs were
   // introduced; legacy duplicate rows disappear immediately at the API edge.
@@ -199,9 +199,9 @@ async function handleEvents(_env: Env | undefined, request: Request): Promise<Re
   const pageParam = url.searchParams.get("page");
 
   if (pageParam === null) {
-    return new Response(JSON.stringify({ events, source }), {
+    return new Response(JSON.stringify({ events, source, partial }), {
       status: 200,
-      headers: EVENTS_CORS,
+      headers: { ...EVENTS_CORS, ...(partial ? { "Cache-Control": "no-store" } : {}) },
     });
   }
 
@@ -212,8 +212,11 @@ async function handleEvents(_env: Env | undefined, request: Request): Promise<Re
   const nextCursor = start + limit < events.length ? String(pageNum + 1) : undefined;
 
   return new Response(
-    JSON.stringify({ events: pageItems, nextCursor, total: events.length, source }),
-    { status: 200, headers: EVENTS_CORS },
+    JSON.stringify({ events: pageItems, nextCursor, total: events.length, source, partial }),
+    {
+      status: 200,
+      headers: { ...EVENTS_CORS, ...(partial ? { "Cache-Control": "no-store" } : {}) },
+    },
   );
 }
 

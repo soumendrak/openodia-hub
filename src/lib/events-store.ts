@@ -1,6 +1,10 @@
 import { applyEventOverrides } from "./event-lifecycle";
 import { EVENT_OVERRIDES } from "../data/event-overrides";
-import { persistReviewedEvent, restoreReviewedEvents } from "./event-reviewed-store";
+import {
+  persistReviewedEvent,
+  persistReviewedOverride,
+  restoreReviewedEvents,
+} from "./event-reviewed-store";
 /**
  * D1-backed persistence for Bevy-scraped community events.
  *
@@ -69,6 +73,8 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     applyEventOverrides(event, EVENT_OVERRIDES),
   );
 
+  // Every checked-in correction is cached, including archive-only and removed URLs.
+  for (const override of EVENT_OVERRIDES) await persistReviewedOverride(db, override);
   const seenIds: string[] = [];
   for (const e of events) {
     await persistReviewedEvent(db, e);

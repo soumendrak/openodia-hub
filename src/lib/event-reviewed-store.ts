@@ -11,8 +11,22 @@ import {
   type EventPatch,
 } from "./event-lifecycle";
 
+/** An override persists only admitted fields; no base event record is fabricated. */
+export async function persistReviewedOverride(db: D1Like, override: EventOverride): Promise<void> {
+  if (validateOverrides([override]).length) throw new Error("Invalid reviewed event metadata");
+  await persistReviewedEvent(db, {
+    url: override.url,
+    ...override.patch,
+    reviewedAt: override.reviewedAt,
+    reviewedFields: Object.keys(override.patch) as (typeof REVIEW_FIELDS)[number][],
+  });
+}
+
 /** Sidecar table avoids rewriting the existing events schema or fabricating review facts. */
-export async function persistReviewedEvent(db: D1Like, event: Event): Promise<void> {
+export async function persistReviewedEvent(
+  db: D1Like,
+  event: Pick<Event, "url"> & Partial<Event>,
+): Promise<void> {
   if (!event.reviewedAt) return;
   const incoming: EventPatch = {};
   for (const key of event.reviewedFields ?? REVIEW_FIELDS)
@@ -23,7 +37,9 @@ export async function persistReviewedEvent(db: D1Like, event: Event): Promise<vo
     ]).length
   )
     throw new Error("Invalid reviewed event metadata");
-  const restored = (await restoreReviewedEvents(db, [event]))[0];
+  // The restoration policy operates only on optional reviewed fields here;
+  // required display fields are unnecessary for a metadata-only cache write.
+  const restored = (await restoreReviewedEvents(db, [event as Event]))[0];
   const patch: EventPatch = {};
   for (const key of restored.reviewedFields ?? REVIEW_FIELDS)
     if (restored[key] !== undefined) Object.assign(patch, { [key]: restored[key] });
@@ -40,8 +56,19 @@ export async function persistReviewedEvent(db: D1Like, event: Event): Promise<vo
   await db
     .prepare(
       `INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at)
-    VALUES (?, ?, ?) ON CONFLICT(event_id) DO UPDATE SET payload_json = excluded.payload_json,
-    reviewed_at = excluded.reviewed_at WHERE excluded.reviewed_at > event_reviewed_metadata.reviewed_at`,
+    VALUES (?, ?, ?) ON CONFLICT(event_id) DO UPDATE SET payload_json = CASE
+      WHEN excluded.reviewed_at = event_reviewed_metadata.reviewed_at THEN
+        json_object('patch', (
+          SELECT json_group_object(key, CASE WHEN type IN ('object','array') THEN json(value) ELSE value END)
+          FROM (
+            SELECT key, value, type FROM json_each(event_reviewed_metadata.payload_json, '$.patch')
+            UNION ALL
+            SELECT incoming.key, incoming.value, incoming.type FROM json_each(excluded.payload_json, '$.patch') incoming
+            WHERE NOT EXISTS (SELECT 1 FROM json_each(event_reviewed_metadata.payload_json, '$.patch') existing WHERE existing.key = incoming.key)
+          )
+        ))
+      ELSE excluded.payload_json END,
+    reviewed_at = excluded.reviewed_at WHERE excluded.reviewed_at >= event_reviewed_metadata.reviewed_at`,
     )
     .bind(
       eventUrlKey(event.url),

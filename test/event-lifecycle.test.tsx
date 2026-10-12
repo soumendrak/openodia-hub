@@ -17,6 +17,7 @@ import {
   preciseDate,
   REGISTRATION_LABELS,
   resolveEventStatus,
+  sortEventCollection,
   validEventPatch,
   validateOverrides,
   type EventOverride,
@@ -63,6 +64,52 @@ describe("event lifecycle remains separate from dates, registration and eligibil
       lifecycle: { state: "cancelled" },
       status: undefined,
     });
+  });
+  it("places the nearest active opportunities ahead of a newest-first archive with stable ties", () => {
+    const row = (url: string, startDate: string | undefined, status?: Event["status"]): Event => ({
+      ...event,
+      url,
+      startDate,
+      year: "2026",
+      status,
+    });
+    expect(
+      sortEventCollection([
+        row("past-old", "2020-01-01"),
+        row("future-later", "2099-03-01", "upcoming"),
+        row("future-near", "2099-02-01", "upcoming"),
+        row("past-new", "2025-01-01"),
+        row("unknown-z", undefined),
+        row("unknown-a", undefined),
+        row("active-unknown", undefined, "upcoming"),
+      ]).map((e) => e.url),
+    ).toEqual([
+      "active-unknown",
+      "future-near",
+      "future-later",
+      "unknown-a",
+      "unknown-z",
+      "past-new",
+      "past-old",
+    ]);
+  });
+  it("exposes the dedicated registration destination independently of event and evidence", () => {
+    render(
+      <EventUpdates
+        event={{
+          ...event,
+          registration: { state: "waitlist", url: "https://example.com/join-waitlist", ...proof },
+        }}
+      />,
+    );
+    expect(screen.getByRole("link", { name: "Registration page" })).toHaveAttribute(
+      "href",
+      "https://example.com/join-waitlist",
+    );
+    expect(screen.getByRole("link", { name: "Registration evidence" })).toHaveAttribute(
+      "href",
+      proof.evidenceUrl,
+    );
   });
   it("recognizes identical reviewed start dates as no schedule change", () => {
     const previous = {

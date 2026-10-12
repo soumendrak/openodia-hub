@@ -251,3 +251,15 @@ export function mergeReviewedCollections(
     return { ...reviewed, status: resolveEventStatus(reviewed, today) };
   });
 }
+
+/** Active attendance opportunities precede the historical archive before pagination. */
+export function sortEventCollection(events: Event[]): Event[] {
+  return events.sort(
+    (a, b) =>
+      Number(!a.status) - Number(!b.status) ||
+      (a.status
+        ? (a.startDate ?? a.year).localeCompare(b.startDate ?? b.year)
+        : (b.startDate ?? b.year).localeCompare(a.startDate ?? a.year)) ||
+      a.url.localeCompare(b.url),
+  );
+}

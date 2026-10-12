@@ -126,6 +126,63 @@ describe("the same persisted review reaches every server surface", () => {
     });
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
+  it("resolves a stale redirect on every surface even when reviewed replacement dates differ", async () => {
+    const alias = "https://gdg.community.dev/events/details/old-slug";
+    const canonical = "https://gdg.community.dev/events/details/current-slug";
+    for (const [url, title, startDate] of [
+      [alias, "Stale alias", "2099-01-10"],
+      [canonical, "Canonical redirect fixture", "2099-02-01"],
+    ])
+      await db
+        .prepare(
+          "INSERT INTO events(id,url,title,community,type,start_date,description) VALUES(?,?,?,?,?,?,?)",
+        )
+        .bind(url, url, title, event.community, event.type, startDate, event.description)
+        .run();
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides({ ...event, url: canonical, startDate: "2099-02-01" }, [
+        {
+          url: canonical,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { lifecycle: { state: "cancelled", ...proof } },
+        },
+      ]),
+    );
+    globalThis.fetch = vi.fn(async () => {
+      const response = new Response("", { status: 200 });
+      Object.defineProperty(response, "url", { value: canonical });
+      return response;
+    });
+    try {
+      await withEventDatabase(db, async () => {
+        const initial = await loadReviewedEventCollection(false);
+        expect(initial.events.filter((e) => e.url === canonical)).toHaveLength(1);
+        expect(initial.events.some((e) => e.url === alias)).toBe(false);
+        expect(initial.events.find((e) => e.url === canonical)?.status).toBeUndefined();
+        const body = await (
+          await get(ApiRoute)({ request: new Request("https://openodia.com/api/events") })
+        ).json();
+        expect(body.events.filter((e: Event) => e.url === canonical)).toHaveLength(1);
+        expect(body.events.some((e: Event) => e.url === alias)).toBe(false);
+        const rss = await (
+          await get(FeedRoute)({ request: new Request("https://openodia.com/events-feed") })
+        ).text();
+        expect(rss).not.toContain(alias);
+        const snapshot = await buildSearchSnapshot(emptyLoaders);
+        expect(snapshot.documents.some((e) => e.id === `event:${alias}`)).toBe(false);
+        expect(snapshot.documents.find((e) => e.id === `event:${canonical}`)?.summary).toContain(
+          "Cancelled",
+        );
+      });
+    } finally {
+      for (const url of [alias, canonical]) {
+        await db.prepare("DELETE FROM events WHERE id=?").bind(url).run();
+        await db.prepare("DELETE FROM event_reviewed_metadata WHERE event_id=?").bind(url).run();
+      }
+    }
+  });
   it("restores reviewed fields for checked-in events even when their base D1 row is absent", async () => {
     fixture.events = [{ ...event, url: "https://example.org/curated", title: "Curated event" }];
     const reviewed = applyEventOverrides(fixture.events[0], [
@@ -189,12 +246,108 @@ describe("canonical collection fallback boundaries", () => {
     };
     const result = await withEventDatabase(legacy, () => loadReviewedEventCollection(false));
     expect(result.events[0].status).toBe("upcoming");
+    expect(result.partial).toBe(true);
+    expect(warn).toHaveBeenCalledWith(
+      "Event persistence unavailable; using checked-in and live records",
+    );
+  });
+  it("serves partial API/RSS/search and Worker fallback when the bound database is temporarily broken", async () => {
+    fixture.events = [event];
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const prepare = vi.fn(() => ({
+      bind() {
+        return this;
+      },
+      run: async () => ({}),
+      all: async () => {
+        throw new Error("temporary DB failure");
+      },
+    }));
+    const broken: D1Like = { prepare };
+    globalThis.fetch = vi.fn(
+      async () =>
+        new Response(
+          '<script id="__NEXT_DATA__" type="application/json">' +
+            JSON.stringify({
+              props: { pageProps: { prerenderData: { upcomingEvents: [], pastEvents: [] } } },
+            }) +
+            "</script>",
+        ),
+    );
+    await withEventDatabase(broken, async () => {
+      for (const suffix of ["", "?page=1&limit=1"]) {
+        const response = await get(ApiRoute)({
+          request: new Request("https://openodia.com/api/events" + suffix),
+        });
+        expect(response.status).toBe(200);
+        expect(response.headers.get("Cache-Control")).toBe("no-store");
+        expect((await response.json()).partial).toBe(true);
+      }
+      const feed = await get(FeedRoute)({
+        request: new Request("https://openodia.com/events-feed"),
+      });
+      expect(feed.status).toBe(200);
+      expect(feed.headers.get("X-OpenOdia-Partial")).toBe("true");
+      const snapshot = await buildSearchSnapshot(emptyLoaders);
+      expect(snapshot.sources).toContainEqual(
+        expect.objectContaining({ source: "events", status: "partial" }),
+      );
+    });
+    const { default: worker } = await import("../src/server");
+    for (const suffix of ["", "?page=1&limit=1"]) {
+      const response = await worker.fetch(
+        new Request("https://openodia.com/api/events" + suffix),
+        { EVENTS_DB: broken },
+        {},
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("Cache-Control")).toBe("no-store");
+      expect((await response.json()).partial).toBe(true);
+    }
+    expect(prepare).toHaveBeenCalledTimes(6);
+  });
+  it("keeps loaded facts and marks a partial response if only the second metadata read fails", async () => {
+    fixture.events = [event];
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    let sidecarReads = 0;
+    const intermittent: D1Like = {
+      prepare(sql) {
+        return {
+          bind() {
+            return this;
+          },
+          run: async () => ({}),
+          all: async <T>() => {
+            if (sql.includes("event_reviewed_metadata")) {
+              sidecarReads++;
+              if (sidecarReads === 2) throw new Error("temporary metadata failure");
+              return { results: [] as T[] };
+            }
+            return {
+              results: [
+                {
+                  url: event.url,
+                  title: event.title,
+                  community: event.community,
+                  type: event.type,
+                  start_date: event.startDate,
+                  description: event.description,
+                },
+              ] as T[],
+            };
+          },
+        };
+      },
+    };
+    const result = await withEventDatabase(intermittent, () => loadReviewedEventCollection(false));
+    expect(result.events[0].title).toBe(event.title);
+    expect(result.partial).toBe(true);
     expect(warn).toHaveBeenCalledWith(
       "Reviewed event metadata unavailable; retaining checked-in corrections",
     );
   });
   it.each([new Error("database unavailable"), "database unavailable"])(
-    "does not conceal non-migration persistence errors: %s",
+    "serves a marked fallback without retrying a broken database: %s",
     async (error) => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
       const unavailable: D1Like = {
@@ -208,9 +361,11 @@ describe("canonical collection fallback boundaries", () => {
           },
         }),
       };
-      await expect(
-        withEventDatabase(unavailable, () => loadReviewedEventCollection(false)),
-      ).rejects.toBe(error);
+      const fallback = await withEventDatabase(unavailable, () =>
+        loadReviewedEventCollection(false),
+      );
+      expect(fallback.partial).toBe(true);
+      expect(fallback.source).toBe("scrape");
       expect(warn).toHaveBeenCalledWith(
         "Event persistence unavailable; using checked-in and live records",
       );

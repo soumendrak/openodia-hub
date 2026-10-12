@@ -76,10 +76,10 @@ function eventDocument(event: Event): SearchDocument {
 export async function loadLiveSearchEvents(
   fetcher?: typeof fetchChapterEvents,
   chapters: typeof CHAPTERS = CHAPTERS,
-): Promise<Event[]> {
+): Promise<Event[] | Awaited<ReturnType<typeof import("./events").loadReviewedEventCollection>>> {
   if (!fetcher) {
     const { loadReviewedEventCollection } = await import("./events");
-    return (await loadReviewedEventCollection()).events;
+    return loadReviewedEventCollection();
   }
   const settled = await Promise.allSettled(
     chapters.map((chapter) => fetcher(chapter.organizerId ?? chapter.community, chapter.slug)),
@@ -171,7 +171,7 @@ export async function buildSearchSnapshot(
 
   const known = mergeReviewedCollections(
     events,
-    live.status === "fulfilled" ? live.value : [],
+    live.status === "fulfilled" ? (Array.isArray(live.value) ? live.value : live.value.events) : [],
     EVENT_OVERRIDES,
     new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
   );
@@ -179,7 +179,12 @@ export async function buildSearchSnapshot(
   documents.push(...eventRecords);
   sources.push({
     source: "events",
-    status: live.status === "rejected" ? "unavailable" : "ready",
+    status:
+      live.status === "rejected"
+        ? "unavailable"
+        : !Array.isArray(live.value) && live.value.partial
+          ? "partial"
+          : "ready",
     count: eventRecords.length,
   });
 
