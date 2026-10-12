@@ -21,7 +21,9 @@ for (const theme of ["light", "dark"] as const)
       await expect(page.locator("html")).toHaveAttribute("lang", "or");
       await expect(page.locator("main")).toHaveAttribute("lang", "en");
       await expect(page.locator("header")).toHaveAttribute("lang", "or");
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
       expect(overflow).toBe(false);
       const opener = page.getByRole("button", { name: /ସନ୍ଧାନ|search/i });
       await opener.click();
@@ -33,15 +35,21 @@ for (const theme of ["light", "dark"] as const)
         ).toBe(true);
       }
       expect(
-        (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze())
-          .violations,
+        (
+          await new AxeBuilder({ page })
+            .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+            .analyze()
+        ).violations,
       ).toEqual([]);
       await page.keyboard.press("Escape");
       await expect(page.getByRole("dialog")).toHaveCount(0);
       await expect(opener).toBeFocused();
       expect(
-        (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze())
-          .violations,
+        (
+          await new AxeBuilder({ page })
+            .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+            .analyze()
+        ).violations,
       ).toEqual([]);
     });
   }

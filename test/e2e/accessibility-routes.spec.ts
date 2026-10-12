@@ -28,8 +28,19 @@ for (const theme of ["light", "dark"] as const)
       expect(response?.status()).toBe(path === "/unknown-route" ? 404 : 200);
       await page.waitForLoadState("networkidle");
       expect(
-        (await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"]).analyze())
-          .violations,
+        (
+          await new AxeBuilder({ page })
+            .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+            .analyze()
+        ).violations,
       ).toEqual([]);
+      for (const width of [320, 390]) {
+        await page.setViewportSize({ width, height: 844 });
+        expect(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+          ),
+        ).toBe(true);
+      }
     });
   }

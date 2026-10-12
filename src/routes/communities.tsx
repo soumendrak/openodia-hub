@@ -65,7 +65,7 @@ function CommunitiesPage() {
       />
 
       <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
-      <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
+      <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl md:text-7xl">
         Communities & <span className="text-gradient">organizers</span>.
       </h1>
       <p className="mt-4 max-w-2xl text-muted-foreground">
