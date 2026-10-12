@@ -192,7 +192,16 @@ describe("event persistence URL deduplication", () => {
       const actual = await importOriginal<typeof import("../src/routes/api/events")>();
       return {
         ...actual,
-        fetchChapterSnapshot: vi.fn(async () => ({
+        fetchChapterOutcome: vi.fn(async () => ({
+          status: {
+            sourceId: "fixture",
+            outcome: "success-events",
+            eventCount: 1,
+            lastAttemptAt: "2026-10-12T00:00:00Z",
+            lastSuccessAt: "2026-10-12T00:00:00Z",
+            upcomingComplete: true,
+            pastComplete: true,
+          },
           upcomingComplete: true,
           pastComplete: true,
           events: [
@@ -291,6 +300,6 @@ describe("event persistence bound parameters", () => {
 
     await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 150 });
     expect(bound.get(UPSERT_SQL)).toBe(9);
-    expect(bound.get(RETIRE_SQL)).toBeLessThanOrEqual(100);
+    expect(bound.get(RETIRE_SQL) ?? 0).toBeLessThanOrEqual(100);
   });
 });

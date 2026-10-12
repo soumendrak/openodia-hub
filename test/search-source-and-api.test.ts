@@ -151,6 +151,20 @@ describe("search snapshot adapters", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps healthy event search results while exposing measured partial source state", async () => {
+    const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+    const snapshot = await buildSearchSnapshot({
+      ...loaders,
+      events: async () => ({ events: liveEvents, sources: [], partial: true }),
+    });
+    expect(snapshot.sources).toContainEqual(
+      expect.objectContaining({ source: "events", status: "partial" }),
+    );
+    expect(snapshot.documents).toContainEqual(
+      expect.objectContaining({ id: `event:${liveEvents[0].url}` }),
+    );
+  });
+
   it("maps every supported dynamic kind with stable internal destinations", async () => {
     const { buildSearchSnapshot } = await import("../src/lib/sources/search");
     const snapshot = await buildSearchSnapshot(loaders);

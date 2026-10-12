@@ -81,6 +81,8 @@ const originalFetch = globalThis.fetch;
 beforeEach(async () => {
   vi.spyOn(console, "error").mockImplementation(() => undefined);
   await db.prepare("DROP TABLE IF EXISTS events").run();
+  await db.prepare("DROP TABLE IF EXISTS event_source_memberships").run();
+  await db.prepare("DROP TABLE IF EXISTS event_source_status").run();
   const schema = readFileSync("db/schema.sql", "utf8").replace(/--.*$/gm, "");
   for (const statement of schema.split(";").map((s) => s.trim())) {
     if (statement) await db.prepare(statement).run();
@@ -116,7 +118,7 @@ describe("syncEventsToD1 against a real D1", () => {
       "kiit-1": 1,
       "cvr-1": 1,
       "static-under-bbsr": 1,
-      "iiit-old": 0,
+      "iiit-old": 1,
     });
   });
 
@@ -164,6 +166,11 @@ describe("syncEventsToD1 against a real D1", () => {
       lists(list([], { count: undefined })),
       { past: 1, upcoming: 1 },
     ],
+    [
+      "the upcoming list has an invalid count",
+      lists(list([], { count: -1 })),
+      { past: 1, upcoming: 1 },
+    ],
     ["the upcoming list counts 3", lists(list([], { count: 3 })), { past: 1, upcoming: 1 }],
     ["the past list counts 5", lists(list(), list([], { count: 5 })), { past: 1, upcoming: 0 }],
   ])("an empty KIIT page where %s", async (_, kiitPage, expected) => {
@@ -201,5 +208,46 @@ describe("syncEventsToD1 against a real D1", () => {
     const active = await activeBySlug();
     expect(active["bbsr-gone"]).toBe(0);
     expect(Object.values(active).filter((v) => v === 1)).toHaveLength(150);
+  });
+});
+
+describe("persisted measured outcomes and cohosts", () => {
+  it("keeps last success separate from attempts across repeated failing runs", async () => {
+    const { readEventSourceStatuses, readEventsFromD1 } = await import("../src/lib/events-store");
+    serve({ [BBSR]: lists(list([ev("known")])), [KIIT]: lists() });
+    await syncEventsToD1(db);
+    const first = (await readEventSourceStatuses(db)).find(
+      (status) => status.sourceId === "gdg-bhubaneswar",
+    )!;
+    expect(first.outcome).toBe("success-events");
+    serve({ [BBSR]: 503 });
+    await syncEventsToD1(db);
+    await syncEventsToD1(db);
+    const failed = (await readEventSourceStatuses(db)).find(
+      (status) => status.sourceId === "gdg-bhubaneswar",
+    )!;
+    expect(failed.outcome).toBe("failed");
+    expect(failed.lastSuccessAt).toBe(first.lastSuccessAt);
+    expect(Date.parse(failed.lastAttemptAt)).toBeGreaterThanOrEqual(
+      Date.parse(first.lastAttemptAt),
+    );
+    expect((await readEventsFromD1(db)).some((event) => event.title === "known")).toBe(true);
+    expect(failed).not.toHaveProperty("verifiedAt");
+  });
+  it("retains a cohosted event while either known owner is unavailable", async () => {
+    serve({ [BBSR]: lists(list([ev("cohost")])), [KIIT]: lists(list([ev("cohost")])) });
+    await syncEventsToD1(db);
+    serve({ [BBSR]: lists(), [KIIT]: 503 });
+    await syncEventsToD1(db);
+    expect((await activeBySlug()).cohost).toBe(1);
+    serve({ [BBSR]: lists(), [KIIT]: lists() });
+    await syncEventsToD1(db);
+    expect((await activeBySlug()).cohost).toBe(0);
+  });
+  it("preserves unknown legacy rows on an authoritative empty refresh", async () => {
+    await seed([["unknown", "Unmapped historical organizer"]]);
+    serve({});
+    await syncEventsToD1(db);
+    expect((await activeBySlug()).unknown).toBe(1);
   });
 });

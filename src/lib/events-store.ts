@@ -7,7 +7,7 @@
  * back to a live Bevy scrape so the page never goes blank.
  */
 
-import { CHAPTERS, fetchChapterSnapshot } from "../routes/api/events";
+import { CHAPTERS, fetchChapterOutcome, type EventSourceStatus } from "../routes/api/events";
 import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
 import { getOrganizerById, resolveOrganizerId } from "../data/organizers";
@@ -47,14 +47,13 @@ ON CONFLICT(id) DO UPDATE SET
   is_active = 1
 `;
 
-// Binds: communities to leave alone, communities whose past list was
-// truncated (only their upcoming rows may retire), then the seen IDs.
+// A row can belong to several chapter feeds. Retirement needs every known
+// owner to have authoritatively removed it; an unavailable cohost protects it.
 export const RETIRE_SQL = `
 UPDATE events SET is_active = 0
 WHERE source = 'bevy'
-  AND community NOT IN (SELECT value FROM json_each(?))
-  AND (community NOT IN (SELECT value FROM json_each(?)) OR start_date >= date('now'))
-  AND id NOT IN (SELECT value FROM json_each(?))
+ AND EXISTS (SELECT 1 FROM event_source_memberships m WHERE m.event_id = events.id)
+ AND NOT EXISTS (SELECT 1 FROM event_source_memberships m WHERE m.event_id = events.id AND m.is_active = 1)
 `;
 
 // Active events + recently-deactivated ones (30-day grace period) so events
@@ -68,76 +67,126 @@ ORDER BY start_date DESC
 `;
 
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
-  const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterSnapshot(c.organizerId ?? c.community, c.slug)),
+  const outcomes = await Promise.all(
+    CHAPTERS.map((chapter) =>
+      fetchChapterOutcome(chapter.organizerId ?? chapter.community, chapter.slug),
+    ),
   );
-  // Rows may still carry an organizer alias (e.g. a former canonical name), so
-  // a chapter is protected under every name it is known by.
-  const names = (c: (typeof CHAPTERS)[number]) => [
-    c.community,
-    ...(c.organizerId ? getOrganizerById(c.organizerId).aliases : []),
-  ];
-  // A chapter that failed, returned entries sync cannot store (no URL or start
-  // date, e.g. a renamed field), or has a truncated upcoming list is not an
-  // authoritative snapshot. A chapter whose past list is truncated (Bevy shows
-  // 4 of N) may only retire upcoming rows.
-  const keptCommunities: string[] = [];
-  const upcomingOnlyCommunities: string[] = [];
-  const events: Event[] = [];
-  CHAPTERS.forEach((chapter, i) => {
-    const result = settled[i];
-    if (result.status === "fulfilled") events.push(...result.value.events);
-    if (
-      result.status === "rejected" ||
-      !result.value.upcomingComplete ||
-      result.value.events.some((e) => !e.url || !e.startDate)
-    ) {
-      keptCommunities.push(...names(chapter));
-    } else if (!result.value.pastComplete) {
-      upcomingOnlyCommunities.push(...names(chapter));
+  const seenIds = new Set<string>();
+  for (const [index, chapter] of CHAPTERS.entries()) {
+    const { events, status, upcomingComplete, pastComplete } = outcomes[index];
+    const names = [
+      chapter.community,
+      ...(chapter.organizerId ? getOrganizerById(chapter.organizerId).aliases : []),
+    ];
+    // Safe legacy migration: exact registry aliases only. Unknown ownership is
+    // retained, and newly observed cohosts add ownership rather than overwrite it.
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO event_source_memberships (event_id, source_id, is_active)
+      SELECT id, ?, is_active FROM events WHERE source = 'bevy'
+      AND community IN (SELECT value FROM json_each(?))`,
+      )
+      .bind(chapter.slug, JSON.stringify(names))
+      .run();
+    const chapterIds: string[] = [];
+    for (const event of events) {
+      if (!event.url || !event.startDate) continue;
+      const id = eventUrlKey(event.url);
+      seenIds.add(id);
+      chapterIds.push(id);
+      await db
+        .prepare(UPSERT_SQL)
+        .bind(
+          id,
+          event.url,
+          event.title,
+          event.community,
+          event.type,
+          event.startDate,
+          event.endDate ?? null,
+          event.description ?? null,
+          event.location ?? null,
+        )
+        .run();
+      await db
+        .prepare(
+          `INSERT INTO event_source_memberships (event_id, source_id, is_active)
+        VALUES (?, ?, 1) ON CONFLICT(event_id, source_id) DO UPDATE SET is_active=1`,
+        )
+        .bind(id, chapter.slug)
+        .run();
     }
-  });
-
-  const seenIds: string[] = [];
-  for (const e of dedupeEventsByUrl(events)) {
-    if (!e.url || !e.startDate) continue;
-    const id = eventUrlKey(e.url);
-    seenIds.push(id);
+    if (
+      status.outcome !== "failed" &&
+      upcomingComplete &&
+      events.every((event) => event.url && event.startDate)
+    ) {
+      await db
+        .prepare(
+          `UPDATE event_source_memberships SET is_active=0 WHERE source_id=?
+        AND event_id NOT IN (SELECT value FROM json_each(?))
+        AND (?=1 OR event_id IN (SELECT id FROM events WHERE start_date >= date('now', '+5 hours', '+30 minutes')))`,
+        )
+        .bind(chapter.slug, JSON.stringify(chapterIds), Number(pastComplete))
+        .run();
+    }
     await db
-      .prepare(UPSERT_SQL)
+      .prepare(
+        `INSERT INTO event_source_status
+      (source_id, outcome, event_count, last_attempt_at, last_success_at, error_category, upcoming_complete, past_complete)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(source_id) DO UPDATE SET outcome=excluded.outcome, event_count=excluded.event_count,
+      last_attempt_at=excluded.last_attempt_at,
+      last_success_at=COALESCE(excluded.last_success_at, event_source_status.last_success_at),
+      error_category=excluded.error_category, upcoming_complete=excluded.upcoming_complete, past_complete=excluded.past_complete`,
+      )
       .bind(
-        id,
-        e.url,
-        e.title,
-        e.community,
-        e.type,
-        e.startDate,
-        e.endDate ?? null,
-        e.description ?? null,
-        e.location ?? null,
+        chapter.slug,
+        status.outcome,
+        status.eventCount,
+        status.lastAttemptAt,
+        status.lastSuccessAt ?? null,
+        status.errorCategory ?? null,
+        Number(upcomingComplete),
+        Number(pastComplete),
       )
       .run();
   }
+  await db.prepare(RETIRE_SQL).run();
+  return { upserted: seenIds.size };
+}
 
-  // Deactivate Bevy events no longer present upstream. Static events are not
-  // tracked here, so the WHERE clause scopes to source='bevy'. Rows of chapters
-  // whose fetch failed or returned unusable entries are left alone: that is not
-  // evidence that their events are gone. Rows of chapters no longer in CHAPTERS
-  // (removed or renamed) still retire as before. Both lists are bound as JSON
-  // arrays so the query stays within D1's 100-bound-parameter limit however
-  // many events were seen.
-  if (seenIds.length > 0) {
-    await db
-      .prepare(RETIRE_SQL)
-      .bind(
-        JSON.stringify(keptCommunities),
-        JSON.stringify(upcomingOnlyCommunities),
-        JSON.stringify(seenIds),
-      )
-      .run();
-  }
-
-  return { upserted: seenIds.length };
+export async function readEventSourceStatuses(db: D1Like): Promise<EventSourceStatus[]> {
+  const { results } = await db
+    .prepare(
+      `SELECT source_id, outcome, event_count, last_attempt_at,
+    last_success_at, error_category, upcoming_complete, past_complete FROM event_source_status`,
+    )
+    .all<{
+      source_id: string;
+      outcome: EventSourceStatus["outcome"];
+      event_count: number;
+      last_attempt_at: string;
+      last_success_at: string | null;
+      error_category: EventSourceStatus["errorCategory"] | null;
+      upcoming_complete: number;
+      past_complete: number;
+    }>();
+  return CHAPTERS.flatMap((chapter) =>
+    results
+      .filter((row) => row.source_id === chapter.slug)
+      .map((row) => ({
+        sourceId: row.source_id,
+        outcome: row.outcome,
+        eventCount: row.event_count,
+        lastAttemptAt: row.last_attempt_at,
+        lastSuccessAt: row.last_success_at ?? undefined,
+        errorCategory: row.error_category ?? undefined,
+        upcomingComplete: Boolean(row.upcoming_complete),
+        pastComplete: Boolean(row.past_complete),
+      })),
+  );
 }
 
 export async function readEventsFromD1(db: D1Like): Promise<Event[]> {

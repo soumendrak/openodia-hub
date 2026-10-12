@@ -30,7 +30,9 @@ vi.mock("../src/lib/sources/huggingface", () => ({
   loadModels: serverHarness.models,
   loadDatasets: serverHarness.datasets,
 }));
+vi.mock("../src/data/events", () => ({ events: [] }));
 vi.mock("../src/lib/events-store", () => ({
+  readEventSourceStatuses: async () => [],
   readEventsFromD1: serverHarness.readEvents,
   syncEventsToD1: serverHarness.syncEvents,
 }));
@@ -39,7 +41,24 @@ vi.mock("../src/routes/api/events", () => ({
     { community: "One", slug: "one" },
     { community: "Two", slug: "two" },
   ],
-  fetchChapterEvents: serverHarness.chapterEvents,
+  fetchLiveEventCollection: async () => {
+    const results = await Promise.allSettled([
+      serverHarness.chapterEvents(),
+      serverHarness.chapterEvents(),
+    ]);
+    return {
+      events: results.flatMap((result) => (result.status === "fulfilled" ? result.value : [])),
+      sources: results.map((result, index) => ({
+        sourceId: index === 0 ? "one" : "two",
+        outcome: result.status === "fulfilled" ? "success-events" : "failed",
+        eventCount: result.status === "fulfilled" ? result.value.length : 0,
+        lastAttemptAt: "2026-10-12T12:00:00Z",
+        upcomingComplete: result.status === "fulfilled",
+        pastComplete: result.status === "fulfilled",
+      })),
+      partial: results.some((result) => result.status === "rejected"),
+    };
+  },
 }));
 
 import server from "../src/server";
@@ -228,6 +247,17 @@ describe("event endpoint fallbacks and paging", () => {
     });
   });
 
+  it("returns 503 rather than complete empty success when every source fails and no retained records exist", async () => {
+    serverHarness.chapterEvents.mockRejectedValue(new TypeError("offline"));
+    const response = await server.fetch(
+      new Request("https://openodia.com/api/events"),
+      undefined,
+      {},
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ events: [], partial: true });
+  });
+
   it("falls back when D1 fails and caps malformed paging values", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     serverHarness.readEvents.mockRejectedValueOnce(new Error("D1 offline"));
@@ -249,6 +279,20 @@ describe("event endpoint fallbacks and paging", () => {
       {},
     );
     expect(await response.json()).toMatchObject({ source: "d1" });
+    expect(serverHarness.chapterEvents).not.toHaveBeenCalled();
+  });
+
+  it("serves persisted RSS events during source uncertainty without a live fetch", async () => {
+    serverHarness.readEvents.mockResolvedValueOnce([event]);
+    const response = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      { EVENTS_DB: {} },
+      {},
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-OpenOdia-Partial")).toBe("true");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.text()).toContain("<title>Event</title>");
     expect(serverHarness.chapterEvents).not.toHaveBeenCalled();
   });
 

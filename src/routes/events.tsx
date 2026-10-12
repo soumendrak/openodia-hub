@@ -11,11 +11,11 @@ import type { Event } from "../data/events";
 import { pageHead } from "../lib/seo";
 import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 import { normalizeSearch } from "../lib/search";
+import { parseEventArchiveSearch } from "../lib/event-archive";
 import { issueFormUrl } from "../lib/issue-forms";
 
 export const Route = createFileRoute("/events")({
-  validateSearch: (search: Record<string, unknown>): { q?: string } =>
-    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
+  validateSearch: parseEventArchiveSearch,
   head: () =>
     pageHead({
       path: "events",
@@ -188,7 +188,7 @@ const getEventMonthName = (e: Event): string => {
 };
 
 function EventsPage() {
-  const routeSearch = Route.useSearch();
+  const routeSearch = parseEventArchiveSearch(Route.useSearch());
   const [draftQuery, setDraftQuery] = useState(routeSearch.q ?? "");
   useEffect(() => setDraftQuery(routeSearch.q ?? ""), [routeSearch.q]);
   const query = draftQuery;
@@ -196,7 +196,7 @@ function EventsPage() {
   const setQuery = (next: string) => {
     const bounded = next.slice(0, 80);
     setDraftQuery(bounded);
-    void navigate({ search: bounded ? { q: bounded } : {}, replace: true });
+    void navigate({ search: { ...routeSearch, q: bounded || undefined }, replace: true });
   };
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
@@ -222,6 +222,7 @@ function EventsPage() {
   // page 2 and page 1 events vanish from the filter."
   const {
     data: liveData,
+    isError: liveSourceError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
@@ -235,6 +236,7 @@ function EventsPage() {
         events: Event[];
         nextCursor?: string;
         total: number;
+        partial?: boolean;
       }>;
     },
     getNextPageParam: (lastPage, allPages) =>
@@ -246,19 +248,23 @@ function EventsPage() {
   // Pagination keeps the idle timeline light, but a search must not silently
   // exclude a live event merely because its page has not been visited yet.
   const { data: completeSearchEvents } = useQuery({
-    queryKey: ["allLiveEventsForSearch", query],
+    queryKey: ["allLiveEventsForSearch"],
     queryFn: async () => {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
-      return response.json() as Promise<{ events: Event[] }>;
+      return response.json() as Promise<{ events: Event[]; partial?: boolean }>;
     },
-    enabled: Boolean(query.trim()),
+    enabled: Boolean(query.trim() || routeSearch.year || routeSearch.sort),
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
   const fetchedEvents =
     completeSearchEvents?.events ?? liveData?.pages.flatMap((p) => p.events) ?? [];
+  const partialEvents =
+    liveSourceError ||
+    completeSearchEvents?.partial ||
+    liveData?.pages.some((page) => page.partial);
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const today = getISTDateString();
@@ -279,9 +285,11 @@ function EventsPage() {
     })
     .sort((a, b) => {
       const yearDiff = Number(b.year) - Number(a.year);
-      if (yearDiff !== 0) return yearDiff;
+      if (yearDiff !== 0) return routeSearch.sort === "oldest" ? -yearDiff : yearDiff;
       if (a.startDate && b.startDate) {
-        return b.startDate.localeCompare(a.startDate);
+        return routeSearch.sort === "oldest"
+          ? a.startDate.localeCompare(b.startDate)
+          : b.startDate.localeCompare(a.startDate);
       }
       if (a.startDate) return -1;
       if (b.startDate) return 1;
@@ -304,12 +312,17 @@ function EventsPage() {
           normalizeSearch(e.description).includes(needle) ||
           normalizeSearch(e.location ?? "").includes(needle)
         : true;
-      return matchesType && matchesCommunity && matchesQuery;
+      return (
+        matchesType &&
+        matchesCommunity &&
+        matchesQuery &&
+        (!routeSearch.year || e.year === routeSearch.year)
+      );
     });
 
   const filtered = applyFilter(mergedEventsList);
   const isSearching = !!needle;
-  const isFiltering = !!needle || !!activeType || !!activeCommunity;
+  const isFiltering = !!needle || !!activeType || !!activeCommunity || !!routeSearch.year;
 
   // Past events are the ones the status pass left undefined; "past" is not a
   // value Event["status"] can hold.
@@ -318,8 +331,8 @@ function EventsPage() {
     (e) => e.status === "upcoming" || e.status === "live",
   );
 
-  const dynamicYears = [...new Set(filteredPastEvents.map((e) => e.year))].sort(
-    (a, b) => Number(b) - Number(a),
+  const dynamicYears = [...new Set(filteredPastEvents.map((e) => e.year))].sort((a, b) =>
+    routeSearch.sort === "oldest" ? Number(a) - Number(b) : Number(b) - Number(a),
   );
 
   const dynamicCommunities = [...new Set(mergedEventsList.map((e) => e.community))].sort();
@@ -497,6 +510,60 @@ function EventsPage() {
         ])}
       />
       {schemaEvents.length > 0 && <JsonLd data={eventListSchema(schemaEvents)} />}
+      {partialEvents && (
+        <p
+          role="status"
+          className="mb-6 rounded-xl border border-amber-500/40 bg-surface p-4 text-sm text-muted-foreground"
+        >
+          Some event sources are incomplete or unavailable. Known events remain listed. A successful
+          source check does not confirm registration or complete organizer coverage.
+        </p>
+      )}
+      <div className="mb-6 flex flex-wrap gap-4">
+        <label className="text-sm">
+          Archive year
+          <select
+            aria-label="Archive year"
+            className="ml-2 rounded border border-border bg-surface p-2"
+            value={routeSearch.year ?? ""}
+            onChange={(event) =>
+              void navigate({ search: { ...routeSearch, year: event.target.value || undefined } })
+            }
+          >
+            <option value="">All years</option>
+            {[
+              ...new Set([
+                ...mergedEventsList.map((event) => event.year),
+                ...(routeSearch.year ? [routeSearch.year] : []),
+              ]),
+            ]
+              .sort()
+              .reverse()
+              .map((year) => (
+                <option key={year}>{year}</option>
+              ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          Sort
+          <select
+            aria-label="Event sort"
+            className="ml-2 rounded border border-border bg-surface p-2"
+            value={routeSearch.sort ?? "newest"}
+            onChange={(event) =>
+              void navigate({
+                search: {
+                  ...routeSearch,
+                  sort: event.target.value === "oldest" ? "oldest" : undefined,
+                },
+              })
+            }
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
+      </div>
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Community</p>
         <h1 className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-display text-5xl font-bold md:text-7xl">
@@ -597,6 +664,7 @@ function EventsPage() {
             {/* Communities Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
+                aria-label="Community"
                 value={activeCommunity ?? ""}
                 onChange={(e) => setActiveCommunity(e.target.value || null)}
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
@@ -617,6 +685,7 @@ function EventsPage() {
             {/* Event Types Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
+                aria-label="Event type"
                 value={activeType ?? ""}
                 onChange={(e) =>
                   setActiveType((e.target.value as (typeof ALL_TYPES)[number]) || null)
@@ -640,7 +709,11 @@ function EventsPage() {
             {isFiltering && (
               <button
                 onClick={() => {
-                  setQuery("");
+                  setDraftQuery("");
+                  void navigate({
+                    search: { ...routeSearch, q: undefined, year: undefined },
+                    replace: true,
+                  });
                   setActiveType(null);
                   setActiveCommunity(null);
                 }}
@@ -652,6 +725,12 @@ function EventsPage() {
           </div>
         </Reveal>
       </div>
+
+      {!isSearching && filtered.length === 0 && (
+        <p aria-live="polite" className="mt-6 text-muted-foreground">
+          No events matched these filters.
+        </p>
+      )}
 
       {isSearching ? (
         <div className="mt-10">
@@ -860,9 +939,9 @@ function EventsPage() {
             {!isSearching && totalLiveEvents > 0 && (
               <div className="mt-10 flex flex-col items-center gap-3">
                 <p className="text-xs text-muted-foreground">
-                  Showing {fetchedEvents.length} of {totalLiveEvents} past events
+                  Showing {fetchedEvents.length} of {totalLiveEvents} events
                 </p>
-                {hasNextPage && (
+                {hasNextPage && !completeSearchEvents && (
                   <button
                     onClick={() => fetchNextPage()}
                     disabled={isFetchingNextPage}
