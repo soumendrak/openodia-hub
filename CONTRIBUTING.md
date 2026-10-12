@@ -138,15 +138,16 @@ _Example Event:_
 
 ### 2. How to add a brand new Community
 
-1. Create a new data file `src/data/events/<new-community-slug>.ts` using any existing community file as a template.
-2. Define and export your event array.
-3. Open `src/data/events/index.ts`:
+1. Review and add the stable organizer record in `src/data/organizers.ts` first. Follow [the organizer identity contract](docs/organizers.md); validate official links, aliases, IDs, and evidence with `bun run test -- test/organizers.test.ts`.
+2. Create a new data file `src/data/events/<new-community-slug>.ts` using any existing community file as a template.
+3. Define and export your event array.
+4. Open `src/data/events/index.ts`:
    - Import your exported array at the top.
    - Add a new entry to the `sources` array pairing your display name with your event array:
      ```typescript
      { community: "Your Community Name", events: yourCommunityEvents }
      ```
-4. That's it! The new community and all its events will render dynamically on the Events page with autocomplete filter options.
+5. Run the event and registry tests before opening the PR. The display name must resolve to the reviewed organizer ID; an unknown name must not manufacture a new identity. The directory and Events filters use this registry.
 
 ## Issues
 
