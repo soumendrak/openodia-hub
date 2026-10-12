@@ -12,7 +12,7 @@ The crawler's known-URL skip is covered as manual-correction behavior. No automa
 - Real D1 route tests exercise TanStack API, RSS, and search, including reviewed curated events with no base D1 row and separate request databases. AsyncLocalStorage tests overlap asynchronous requests and nest an unbound context.
 - Lifecycle tests exercise every typed state, invalid evidence and dates, contradictory replacement/start/end dates, a genuine replacement date across years, explicitly reviewed new duration, canonical redirect deduplication, and known-URL crawler skip behavior.
 - Route tests render cancelled/postponed events in a separate visible section, keep attendance independent, include persisted SSR corrections and structured data, and restore idle pagination after clearing a cached full-corpus search.
-- Legacy/missing-sidecar fallback keeps checked-in corrections. Other persistence errors are not reported as successful empty data. Invalid persisted payload diagnostics omit private payload details.
+- Legacy/missing-sidecar fallback keeps checked-in corrections. Other persistence errors retain a marked partial fallback and do not retry a broken binding. Invalid persisted payload diagnostics omit private payload details.
 
 Final build, whole-repository coverage, built Worker fixture, and browser evidence are recorded below after execution.
 
@@ -38,12 +38,22 @@ Machine evidence resides in `/tmp/openodia-110-verified/worker-fixture.json` and
 
 ## Final automated gates
 
-- Full repository: **82 suites, 847 tests**, all pass.
-- Coverage: **100% statements (4,942/4,942), branches (3,351/3,351), functions (1,273/1,273), lines (4,422/4,422)**. No coverage exclusions were added.
-- Required staged gate: **656/656 changed executable lines**. Against the complete `origin/main` diff (including shared baseline improvements): **714/714**, no missing measured files.
+- Full repository: **82 suites, 856 tests**, all pass.
+- Coverage: **100% statements (4,972/4,972), branches (3,383/3,383), functions (1,276/1,276), lines (4,446/4,446)**. No coverage exclusions were added.
+- Required review-fix gates: **90/90** and **27/27 changed executable lines**. Against the complete `origin/main` diff (including shared baseline improvements): **815/815**, no missing measured files.
 - `bun run lint`: zero errors; 18 existing Fast Refresh warnings. `bunx tsc --noEmit` and `bun run build` pass.
 - The built Worker fixture API/search/RSS/SSR gate passes with local D1/KV. No production migration ran.
 
 Coverage JSON and commit-gate log are backed up under `/tmp/openodia-110-verified/`. The repository coverage result is reported separately from changed-line coverage; both are 100%.
 
 The complete `bun scripts/check-pattachitra.mjs http://127.0.0.1:9110` checklist passes against the built local Worker fixture: responsive pages, loaded art, no console errors, light/dark contrast, keyboard search, community/channel names, hover geometry, animation timing, and reduced motion. The fixture seeds checked-in channel shells for unrelated Tutorials layout checks. An initial attempt encountered two transient external browser network errors; the clean retry passed every check. Final log: `/tmp/110-design-check-final.log`.
+
+## PR review findings closed
+
+All six concrete Codex findings on PR #133 were reproduced and fixed: failed-D1 fallback, alias canonicalization on every surface, active-first pagination, dedicated registration URL, archive-only override persistence, and equal-day independent review fields. No Grok review was present when these findings were read.
+
+Real local D1 tests exercise same-day concurrent writes and preserve whole conflicting lifecycle objects while unioning independent fields. Empty upstream scrape tests verify override-only sidecar persistence without fabricating an events row. API, Worker, RSS and search tests verify partial fallback without repeated database reads. Redirect tests use real 302 Location followed by final HEAD success, reject unsafe/missing locations and loops, and share one deadline across the bounded chain. They do not invent a changed Response.url on a 200 response.
+
+The final built Worker fixture uses a direct local outbound service to preserve HTTP redirect semantics; Miniflare's fetchMock adapter auto-followed redirects and hid Location even for manual mode. API, search, RSS, and SSR collapse stale aliases with different dates into one reviewed cancellation. A broken-D1 fixture returns a marked no-store fallback. Active records precede archive rows before pagination.
+
+T3 state checks verified registration destinations and canonical cancellation. Its desktop host subsequently disconnected and explicitly instructed no retries. Playwright finished the same built Worker at 320px and 1280px in both themes: separate registration/evidence destinations, six correctly wrapped cards, no nested anchors or overflow, one cancelled canonical alias, and zero page errors. Screenshots: `/tmp/openodia-110-verified/review-320-light.png`, `review-320-dark.png`, `review-1280-light.png`, `review-1280-dark.png`; machine evidence: `review-browser.json`. Final logs: `/tmp/133-review-final-worker-failure.log`, `/tmp/133-review-final-gate.log`, `/tmp/133-review-final-build.log`, `/tmp/133-review-final-types.log`, `/tmp/133-review-final-lint.log`.

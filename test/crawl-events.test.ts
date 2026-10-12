@@ -112,14 +112,12 @@ describe("resolveDestinationUrl", () => {
     await expect(
       resolveDestinationUrl(
         oldUrl,
-        vi
-          .fn()
-          .mockResolvedValue(
-            new Response(null, {
-              status: 302,
-              headers: { location: "https://gdg.community.dev/gdg-kiit/" },
-            }),
-          ),
+        vi.fn().mockResolvedValue(
+          new Response(null, {
+            status: 302,
+            headers: { location: "https://gdg.community.dev/gdg-kiit/" },
+          }),
+        ),
       ),
     ).resolves.toBe(oldUrl);
     await expect(
