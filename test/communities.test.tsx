@@ -8,6 +8,8 @@ import {
 } from "@tanstack/react-router";
 import { renderToString } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { events } from "../src/data/events";
+import { eventUrlKey } from "../src/lib/event-url";
 import { ORGANIZERS } from "../src/data/organizers";
 import { filterOrganizers, validateDirectorySearch } from "../src/lib/organizer-directory";
 import { Route as CommunitiesRoute } from "../src/routes/communities";
@@ -135,8 +137,24 @@ describe("/communities route", () => {
     }
     expect(html).toContain("https://www.odishaai.org/");
     expect(html).toContain("does not mean it is part of or endorsed");
+    expect(html).toContain('"@type":"ItemList"');
+    expect(html).toContain("https://openodia.com/communities#gdgoc-kiit");
+    expect(html).toContain("/events?community=gdgoc-kiit");
   });
 
+  it("links every organizer to events and labels canonical-deduplicated curated counts", async () => {
+    await renderAt("/communities");
+    for (const organizer of ORGANIZERS) {
+      const card = document.getElementById(organizer.id)!;
+      expect(
+        within(card).getByRole("link", { name: `View events from ${organizer.canonicalName}` }),
+      ).toHaveAttribute("href", `/events?community=${organizer.id}`);
+      const count = new Set(
+        events.filter((e) => e.organizerId === organizer.id).map((e) => eventUrlKey(e.url)),
+      ).size;
+      expect(within(card).getByText(`${count} curated events listed`)).toBeInTheDocument();
+    }
+  });
   it("restores the query and kind filter from the URL on load", async () => {
     await renderAt("/communities?q=kiit&kind=student-community");
     expect(screen.getByRole("searchbox", { name: /search communities/i })).toHaveValue("kiit");

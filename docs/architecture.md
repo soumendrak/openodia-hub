@@ -113,3 +113,18 @@ this document, and CONTRIBUTING as appropriate. Treat `plan.md`, `issues/`, and 
 verification totals as historical project records unless explicitly remeasured.
 For demonstrations, rehearse the deployed site: code inspection does not establish
 that every upstream dependency is available during recording.
+
+### Organizer directory and event deep links
+
+`/communities` server-renders the reviewed organizer registry. Search `q` and organizer `kind`
+are URL state; each card links to `/events?community=<stable-id>`. Counts explicitly mean
+**curated events listed**, deduplicated by canonical event URL. They do not claim complete
+coverage of live sources. Directory metadata, sitemap, footer and page-search entries support discovery.
+
+`/events` accepts composable `q`, `community` and `type` filters. The community parameter is
+a stable registry ID, not a display name. Unknown IDs show a warning and no results. Any filter
+loads the unpaginated `/api/events` collection so later live pages participate. While loading or
+after a failure, the UI explains the smaller result/count scope. Event links and organizer
+anchors are separate interactive elements. The API's human-readable `community` field remains
+compatible; additive `organizerId` identifies reviewed records and old aliases resolve through
+the registry.
