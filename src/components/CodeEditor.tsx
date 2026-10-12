@@ -120,6 +120,14 @@ export function CodeEditor({ value, onChange, rows, disabled, language = "python
     const text = ta.value;
     const hasSelection = selectionStart !== selectionEnd;
 
+    // Escape releases Tab navigation so keyboard users can leave the editor.
+    if (e.key === "Escape") {
+      e.currentTarget.dataset.tabNavigation = "true";
+      return;
+    }
+    if (e.key === "Tab" && e.currentTarget.dataset.tabNavigation === "true") return;
+    if (e.key !== "Tab") delete e.currentTarget.dataset.tabNavigation;
+
     if (e.key === "Tab") {
       e.preventDefault();
       if (e.shiftKey) {
@@ -186,7 +194,7 @@ export function CodeEditor({ value, onChange, rows, disabled, language = "python
     <div className="flex font-mono text-sm">
       <div
         aria-hidden
-        className="select-none border-r border-border bg-background/30 px-3 py-4 text-right text-muted-foreground/40"
+        className="select-none border-r border-border bg-background/30 px-3 py-4 text-right text-muted-foreground"
         style={{ lineHeight: "1.5" }}
       >
         {Array.from({ length: lineCount }, (_, i) => (
@@ -206,6 +214,7 @@ export function CodeEditor({ value, onChange, rows, disabled, language = "python
         </pre>
         <textarea
           ref={taRef}
+          aria-label={`${language === "python" ? "Python" : "Odialang"} code editor. Press Escape then Tab to leave.`}
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
