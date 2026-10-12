@@ -32,7 +32,8 @@ describe("Odia locale coverage", () => {
 
   it.each(enKeys)("%s has a translated Odia string with the same placeholders", (key) => {
     const value = or[key];
-    if (value === undefined) {
+    expect(Object.hasOwn(or, key)).toBe(true);
+    if (value === "") {
       expect(ODIA_REVIEW_QUEUE).toContain(key);
       expect(key.startsWith("nav.")).toBe(false);
       return;

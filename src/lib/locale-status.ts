@@ -29,6 +29,7 @@ export function assessLocale(
     if (!Object.hasOwn(english, key)) errors.push(`Unknown review key: ${key}`);
   const entries: LocaleEntry[] = keys.map((key) => {
     if (!tracked.has(key)) errors.push(`Untracked English key: ${key}`);
+    if (!Object.hasOwn(translations, key)) errors.push(`Missing translation placeholder: ${key}`);
     const translation = translations[key] ?? "";
     const present = /(?=[\u0B00-\u0B7F])\p{L}/u.test(translation);
     if (translation.trim() && !present) errors.push(`Not an Odia translation: ${key}`);

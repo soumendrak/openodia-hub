@@ -29,7 +29,7 @@ describe("translation inventory and truthful native-review progress", () => {
   it("accepts a tracked missing translation and only an exact-wording native review", () => {
     const result = assessLocale(
       { a: "Home", b: "About", c: "Help" },
-      { a: "ମୂଳପୃଷ୍ଠା", b: "ପରିଚୟ" },
+      { a: "ମୂଳପୃଷ୍ଠା", b: "ପରିଚୟ", c: "" },
       ["a", "b", "c"],
       {
         a: { translation: "ମୂଳପୃଷ୍ଠା", reviewer: "native-reviewer", reviewedAt: "2026-10-12" },
@@ -60,6 +60,9 @@ describe("translation inventory and truthful native-review progress", () => {
         "Not an Odia translation: b",
         "Placeholder mismatch: a",
       ]),
+    );
+    expect(assessLocale({ newKey: "New" }, {}, ["newKey"], {}).errors).toContain(
+      "Missing translation placeholder: newKey",
     );
     const output = { log: vi.fn(), error: vi.fn() };
     expect(checkLocaleCoverage(report, output)).toBe(1);
@@ -99,7 +102,7 @@ describe("public translation status API and contributor UX", () => {
     const locale = await import("../src/lib/locale-status");
     const report = assessLocale(
       { reviewed: "Home", missing: "About" },
-      { reviewed: "ମୂଳପୃଷ୍ଠା" },
+      { reviewed: "ମୂଳପୃଷ୍ଠା", missing: "" },
       ["reviewed", "missing"],
       {
         reviewed: {
