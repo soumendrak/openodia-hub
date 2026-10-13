@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import server from "../src/server";
+import { events as curated } from "../src/data/events";
 import type { D1Like } from "../src/lib/events-store";
 
 describe("production events endpoint", () => {
@@ -68,5 +69,44 @@ describe("production events endpoint", () => {
     expect(payload.events.filter((event) => event.startDate === "2026-09-13")).toEqual([
       expect.objectContaining({ title: "Code for Communities 2.0", url: current }),
     ]);
+  });
+  it("does not resolve the curated archive before first-page pagination", async () => {
+    const event = curated.find((event) => event.startDate)!;
+    const db: D1Like = {
+      prepare(sql) {
+        return {
+          bind() {
+            return this;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({
+            results: (sql.includes("SELECT url")
+              ? [
+                  {
+                    url: "https://example.com/persisted-single-row",
+                    title: "Persisted event",
+                    community: event.community,
+                    type: "Talk",
+                    start_date: event.startDate,
+                    end_date: null,
+                    description: "",
+                    location: null,
+                  },
+                ]
+              : []) as T[],
+          }),
+        };
+      },
+    };
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy;
+    const response = await server.fetch(
+      new Request("https://openodia.com/api/events?page=1&limit=1"),
+      { EVENTS_DB: db },
+      {},
+    );
+    expect(response.status).toBe(200);
+    expect((await response.json()).events).toHaveLength(1);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

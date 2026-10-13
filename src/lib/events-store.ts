@@ -10,6 +10,7 @@
 import { CHAPTERS, fetchChapterOutcome, type EventSourceStatus } from "../routes/api/events";
 import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
+import { events as curatedEvents } from "../data/events";
 import { getOrganizerById, resolveOrganizerId } from "../data/organizers";
 
 type D1PreparedStatement = {
@@ -93,22 +94,25 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     for (const event of events) {
       if (!event.url || !event.startDate) continue;
       const id = eventUrlKey(event.url);
-      seenIds.add(id);
       chapterIds.push(id);
-      await db
-        .prepare(UPSERT_SQL)
-        .bind(
-          id,
-          event.url,
-          event.title,
-          event.community,
-          event.type,
-          event.startDate,
-          event.endDate ?? null,
-          event.description ?? null,
-          event.location ?? null,
-        )
-        .run();
+      if (!seenIds.has(id)) {
+        seenIds.add(id);
+        const primary = curatedEvents.find((curated) => eventUrlKey(curated.url) === id);
+        await db
+          .prepare(UPSERT_SQL)
+          .bind(
+            id,
+            event.url,
+            event.title,
+            primary?.community ?? event.community,
+            event.type,
+            event.startDate,
+            event.endDate ?? null,
+            event.description ?? null,
+            event.location ?? null,
+          )
+          .run();
+      }
       await db
         .prepare(
           `INSERT INTO event_source_memberships (event_id, source_id, is_active)

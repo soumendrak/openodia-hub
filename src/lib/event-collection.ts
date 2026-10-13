@@ -1,7 +1,7 @@
 import { events as curated, type Event } from "../data/events";
 import { fetchLiveEventCollection, CHAPTERS, type LiveEventCollection } from "../routes/api/events";
 import { readEventsFromD1, readEventSourceStatuses, type D1Like } from "./events-store";
-import { mergeEventCollectionsByUrl } from "./event-url";
+import { dedupeEventsByResolvedUrl, mergeEventCollectionsByUrl } from "./event-url";
 import { mergeNonEmpty } from "./utils";
 
 // Worker requests initialize this isolate's binding, like the shared catalog cache.
@@ -13,7 +13,11 @@ export function setEventDatabase(db: D1Like | undefined): void {
 function mergeChronologicalEvents(events: Event[]): Event[] {
   // Merge insertion order places newly discovered events behind the entire
   // curated archive. Order this owned result before API pagination or RSS.
-  return mergeEventCollectionsByUrl(curated, events, mergeNonEmpty).sort(
+  return mergeEventCollectionsByUrl(curated, events, (previous, incoming) => ({
+    ...mergeNonEmpty(previous, incoming),
+    community: previous.community,
+    organizerId: previous.organizerId,
+  })).sort(
     (a, b) =>
       (b.startDate || b.year).localeCompare(a.startDate || a.year) || a.url.localeCompare(b.url),
   );
@@ -25,7 +29,7 @@ export async function loadEventCollection(
 ): Promise<LiveEventCollection & { source: "d1" | "scrape" }> {
   if (db) {
     try {
-      const events = await readEventsFromD1(db);
+      const events = await dedupeEventsByResolvedUrl(await readEventsFromD1(db));
       if (events.length) {
         // An older database can serve known records without pretending measured health exists.
         const sources = await readEventSourceStatuses(db).catch(() => []);

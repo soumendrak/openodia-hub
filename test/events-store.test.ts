@@ -1,3 +1,4 @@
+import { events as curated } from "../src/data/events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   readEventsFromD1,
@@ -63,8 +64,38 @@ describe("event persistence URL deduplication", () => {
     };
 
     await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 1 });
+    expect(calls.filter((call) => call.sql === UPSERT_SQL)).toHaveLength(1);
+    expect(calls.filter((call) => call.sql.includes("VALUES (?, ?, 1)"))).toHaveLength(5);
     const insert = calls.find((call) => call.sql.includes("INSERT INTO events"));
     expect(insert?.values[0]).toBe(base);
+  });
+
+  it("retains the curated primary organizer when all chapters report a shared URL", async () => {
+    const primary = curated.find((event) => event.community !== "GDG Bhubaneswar")!;
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: () => Promise.resolve(eventPage(primary.url)),
+      } as Response);
+    const writes: unknown[][] = [];
+    const db: D1Like = {
+      prepare(sql) {
+        const statement = {
+          bind(...values: unknown[]) {
+            if (sql === UPSERT_SQL) writes.push(values);
+            return statement;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({ results: [] as T[] }),
+        };
+        return statement;
+      },
+    };
+    await syncEventsToD1(db);
+    expect(writes).toHaveLength(1);
+    expect(writes[0][3]).toBe(primary.community);
   });
 
   it("hides legacy duplicate rows immediately when reading D1", async () => {
@@ -239,6 +270,8 @@ describe("event persistence URL deduplication", () => {
     };
 
     await expect(syncWithMockedSource(db)).resolves.toEqual({ upserted: 1 });
+    expect(calls.filter((call) => call.sql === UPSERT_SQL)).toHaveLength(1);
+    expect(calls.filter((call) => call.sql.includes("VALUES (?, ?, 1)"))).toHaveLength(5);
     const insert = calls.find((call) => call.sql.includes("INSERT INTO events"));
     // bind order: id, url, title, community, type, startDate, endDate, description, location
     expect(insert?.values[6]).toBeNull();

@@ -7,7 +7,6 @@ import { renderErrorPage } from "./lib/error-page";
 import { estimateTokens, htmlToMarkdown } from "./lib/html-to-markdown";
 import { syncEventsToD1, type D1Like } from "./lib/events-store";
 import { loadEventCollection, setEventDatabase } from "./lib/event-collection";
-import { dedupeEventsByResolvedUrl } from "./lib/event-url";
 import { loadAwesome } from "./lib/sources/awesome";
 import { loadRepos } from "./lib/sources/repos";
 import { setCacheStore, setExecutionContext } from "./lib/sources/cache";
@@ -183,14 +182,10 @@ const EVENTS_CORS = {
 
 async function handleEvents(env: Env | undefined, request: Request): Promise<Response> {
   const collection = await loadEventCollection(env?.EVENTS_DB);
-  let { events } = collection;
+  const { events } = collection;
   const { source, sources, partial } = collection;
   const status =
     events.length === 0 && sources.every((source) => source.outcome === "failed") ? 503 : 200;
-
-  // Also protects reads from databases populated before canonical URL IDs were
-  // introduced; legacy duplicate rows disappear immediately at the API edge.
-  events = await dedupeEventsByResolvedUrl(events);
 
   const url = new URL(request.url);
   const pageParam = url.searchParams.get("page");
