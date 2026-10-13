@@ -8,6 +8,7 @@ import { applyEventOverrides, validEventPatch } from "../src/lib/event-lifecycle
 import { persistReviewedEvent } from "../src/lib/event-reviewed-store";
 import { withEventDatabase } from "../src/lib/event-request-context";
 import { loadReviewedEventCollection } from "../src/lib/sources/events";
+import * as eventSource from "../src/lib/sources/events";
 import { buildSearchSnapshot, loadLiveSearchEvents } from "../src/lib/sources/search";
 import { Route as ApiRoute } from "../src/routes/api/events";
 import { Route as FeedRoute } from "../src/routes/events-feed";
@@ -292,5 +293,50 @@ it.each(["2099-01-01", "2098-12-31"])(
         xml.indexOf(`<link>${upcoming}</link>`),
       );
     });
+  },
+);
+
+it.each(["dated-first", "undated-first"])(
+  "orders a same-year RSS event with an unknown date after a dated event from %s input",
+  async (order) => {
+    const dated: Event = {
+      ...original,
+      title: "Dated RSS event",
+      url: "https://example.org/dated-rss-event",
+      year: "2099",
+      date: "January 15, 2099",
+      startDate: "2099-01-15",
+    };
+    const undated: Event = {
+      ...original,
+      title: "Year-only RSS event",
+      url: "https://example.org/undated-rss-event",
+      year: "2099",
+      date: "Date unknown",
+      startDate: undefined,
+      endDate: undefined,
+    };
+    const events = order === "dated-first" ? [dated, undated] : [undated, dated];
+    const originalOrder = events.map((event) => event.url);
+    const load = vi.spyOn(eventSource, "loadReviewedEventCollection").mockResolvedValue({
+      events,
+      source: "d1",
+      partial: false,
+    });
+    try {
+      const feed = await get(FeedRoute)({
+        request: new Request("https://openodia.com/events-feed"),
+      });
+      const xml = await feed.text();
+      expect(xml).toContain(`<link>${dated.url}</link>`);
+      expect(xml).toContain(`<link>${undated.url}</link>`);
+      expect(xml.indexOf(`<link>${dated.url}</link>`)).toBeLessThan(
+        xml.indexOf(`<link>${undated.url}</link>`),
+      );
+      expect(events.map((event) => event.url)).toEqual(originalOrder);
+      expect(undated.startDate).toBeUndefined();
+    } finally {
+      load.mockRestore();
+    }
   },
 );
