@@ -169,12 +169,17 @@ export async function buildSearchSnapshot(
     sources.push({ source: "videos", status: "ready", count: records.length });
   } else sources.push({ source: "videos", status: "unavailable", count: 0 });
 
-  const known = mergeReviewedCollections(
-    events,
-    live.status === "fulfilled" ? (Array.isArray(live.value) ? live.value : live.value.events) : [],
-    EVENT_OVERRIDES,
-    new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
-  );
+  // A collection result already includes curated history and stored aliases.
+  // Raw injected arrays retain their historical merge contract.
+  const known =
+    live.status === "fulfilled" && !Array.isArray(live.value)
+      ? live.value.events
+      : mergeReviewedCollections(
+          events,
+          live.status === "fulfilled" ? (live.value as Event[]) : [],
+          EVENT_OVERRIDES,
+          new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
+        );
   const eventRecords = dedupeEventsByUrl(known).map(eventDocument);
   documents.push(...eventRecords);
   sources.push({

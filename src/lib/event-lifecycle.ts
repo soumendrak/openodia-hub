@@ -78,7 +78,8 @@ export function validEventPatch(patch: EventPatch): boolean {
       !evidence(patch.lifecycle) ||
       (patch.lifecycle.replacementDate !== undefined &&
         (!preciseDate(patch.lifecycle.replacementDate) || patch.lifecycle.state !== "postponed")) ||
-      (patch.lifecycle.previousDate !== undefined && !preciseDate(patch.lifecycle.previousDate)))
+      (patch.lifecycle.previousDate !== undefined &&
+        (!preciseDate(patch.lifecycle.previousDate) || patch.lifecycle.state !== "postponed")))
   )
     return false;
   const replacement = patch.lifecycle?.replacementDate;

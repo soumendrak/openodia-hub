@@ -81,6 +81,16 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<{
     mergeReviewedEvents,
     true,
   );
+  if (db && databaseReadable) {
+    try {
+      collection = (await restoreReviewedEvents(db, collection)).map((event) =>
+        applyEventOverrides(event, EVENT_OVERRIDES),
+      );
+    } catch {
+      partial = true;
+      console.warn("Canonical reviewed event metadata unavailable; retaining merged corrections");
+    }
+  }
   return {
     source,
     partial,

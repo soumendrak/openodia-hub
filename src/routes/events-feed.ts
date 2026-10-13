@@ -1,11 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { events as staticEvents } from "../data/events";
-import {
-  mergeReviewedCollections,
-  lifecycleLabel,
-  REGISTRATION_LABELS,
-} from "../lib/event-lifecycle";
-import { EVENT_OVERRIDES } from "../data/event-overrides";
+import { lifecycleLabel, REGISTRATION_LABELS } from "../lib/event-lifecycle";
 
 import type { Event } from "../data/events/types";
 
@@ -23,20 +17,6 @@ function escapeXml(unsafe: string): string {
 
 function safeCdata(content: string): string {
   return `<![CDATA[${content.replace(/]]>/g, "]]&gt;")}]]>`;
-}
-
-function getISTDateString(): string {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    return formatter.format(new Date());
-  } catch {
-    return new Date().toISOString().split("T")[0];
-  }
 }
 
 function formatRfc822Date(dateStr?: string, year?: string): string {
@@ -127,26 +107,17 @@ export const Route = createFileRoute("/events-feed")({
           const { loadReviewedEventCollection } = await import("../lib/sources/events");
           const { events: fetchedEvents, partial } = await loadReviewedEventCollection();
 
-          // Merge static and dynamic events
-          const today = getISTDateString();
-          const mergedEventsList = mergeReviewedCollections(
-            staticEvents,
-            fetchedEvents,
-            EVENT_OVERRIDES,
-            today,
-          ).sort((a, b) => {
+          // The shared loader supplies the complete canonical corpus.
+          // Feed chronology uses a copy so API/SSR active-first order stays intact.
+          const chronologicalEvents = [...fetchedEvents].sort((a, b) => {
             const yearDiff = Number(b.year) - Number(a.year);
             if (yearDiff !== 0) return yearDiff;
-            if (a.startDate && b.startDate) {
-              return b.startDate.localeCompare(a.startDate);
-            }
+            if (a.startDate && b.startDate) return b.startDate.localeCompare(a.startDate);
             if (a.startDate) return -1;
             if (b.startDate) return 1;
             return 0;
           });
-
-          const baseUrl = "https://openodia.com";
-          const xml = generateRssFeed(mergedEventsList, baseUrl);
+          const xml = generateRssFeed(chronologicalEvents, "https://openodia.com");
 
           return new Response(xml, {
             status: 200,

@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { Miniflare } from "miniflare";
 import { CHANNELS } from "../../../src/data/channels.ts";
+import { eventUrlKey } from "../../../src/lib/event-url.ts";
 const alias = "https://gdg.community.dev/events/details/old-fixture-slug";
 const canonical = "https://gdg.community.dev/events/details/current-fixture-slug";
 let headRequests = 0;
@@ -80,6 +81,57 @@ try {
             : [],
       }),
     );
+  // Select an actual checked-in GDG alias from the production-built corpus.
+  const checkedIn = (
+    await (await mf.dispatchFetch("http://localhost:9110/api/events")).json()
+  ).events.find((event) => event.url.startsWith("https://gdg.community.dev/events/details/"));
+  assert(checkedIn, "Production curated GDG corpus must contain an event");
+  const checkedInCanonical =
+    "https://gdg.community.dev/events/details/reviewed-curated-canonical-fixture";
+  await db
+    .prepare("INSERT INTO event_destination_aliases VALUES(?,?,?)")
+    .bind(eventUrlKey(checkedIn.url), checkedInCanonical, "2026-10-13")
+    .run();
+  await db
+    .prepare("INSERT INTO event_reviewed_metadata VALUES(?,?,?)")
+    .bind(
+      checkedInCanonical,
+      JSON.stringify({
+        patch: {
+          lifecycle: {
+            state: "cancelled",
+            evidenceUrl: "https://example.org/official",
+            verifiedAt: "2026-10-13",
+          },
+          registration: {
+            state: "closed",
+            evidenceUrl: "https://example.org/official",
+            verifiedAt: "2026-10-13",
+          },
+        },
+      }),
+      "2026-10-13T00:00:00.000Z",
+    )
+    .run();
+  const checkedInHasBase = process.argv.includes("--canonical-base");
+  if (checkedInHasBase)
+    await db
+      .prepare("INSERT INTO events(id,url,title,community,type,start_date) VALUES(?,?,?,?,?,?)")
+      .bind(
+        checkedInCanonical,
+        checkedInCanonical,
+        checkedIn.title,
+        checkedIn.community,
+        checkedIn.type,
+        checkedIn.startDate ?? "2026-01-01",
+      )
+      .run();
+  assert.equal(
+    (await db.prepare("SELECT id FROM events WHERE id=?").bind(checkedInCanonical).all()).results
+      .length,
+    Number(checkedInHasBase),
+    "Only the explicit live-base fixture creates a row",
+  );
   const proof = { evidenceUrl: "https://example.org/official", verifiedAt: "2026-10-12" };
   const states = [
     ["cancelled", "cancelled", "closed", undefined],
@@ -225,6 +277,41 @@ try {
     ),
   );
   assert(!rss.includes(alias));
+  const checkedInRecord = api.events.find((event) => event.url === checkedInCanonical);
+  assert.equal(checkedInRecord.lifecycle?.state, "cancelled");
+  assert.equal(checkedInRecord.registration?.state, "closed");
+  assert(!api.events.some((event) => event.url === checkedIn.url));
+  const checkedInSearch = await (
+    await mf.dispatchFetch(
+      `http://localhost:9110/api/search?q=${encodeURIComponent(checkedIn.title)}&kind=event`,
+    )
+  ).json();
+  const curatedProof = {
+    searchAlias: checkedInSearch.results.some((event) => event.externalHref === checkedIn.url),
+    searchCanonicalCount: checkedInSearch.results.filter(
+      (event) => event.externalHref === checkedInCanonical,
+    ).length,
+    rssAlias: rss.includes(checkedIn.url),
+    rssCanonicalCount: rss.split(`<link>${checkedInCanonical}</link>`).length - 1,
+  };
+  console.log("Checked-in alias corpus proof", curatedProof);
+  assert.deepEqual(curatedProof, {
+    searchAlias: false,
+    searchCanonicalCount: 1,
+    rssAlias: false,
+    rssCanonicalCount: 1,
+  });
+  assert(
+    checkedInSearch.results
+      .find((event) => event.externalHref === checkedInCanonical)
+      .summary.includes("Cancelled"),
+  );
+  assert(!html.includes(checkedIn.url));
+  assert(html.includes(checkedInCanonical));
+  console.log(
+    "PASS actual checked-in curated GDG alias: one canonical cancellation across API/search/RSS/SSR, canonical sidecar without base",
+  );
+
   assert.equal(
     headRequests,
     0,
@@ -238,6 +325,8 @@ try {
     "/tmp/openodia-110-verified/worker-fixture.json",
     JSON.stringify(
       {
+        checkedInAlias: checkedIn.url,
+        checkedInCanonical,
         apiStatus: apiResponse.status,
         api,
         searchStatus: searchResponse.status,

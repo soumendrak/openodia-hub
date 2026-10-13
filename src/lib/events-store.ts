@@ -73,7 +73,8 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   let events = dedupeEventsByUrl(settledValues(settled).flatMap((outcome) => outcome.events)).map(
     (event) => applyEventOverrides(event, EVENT_OVERRIDES),
   );
-  const previous = await readEventsFromD1(db);
+  const previous = await readEventRecords(db);
+  const reviewedHistory = await restoreReviewedEvents(db, [...curated, ...previous]);
   const { aliases } = await refreshEventDestinationAliases(db, [
     ...curated,
     ...previous,
@@ -89,7 +90,10 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   // Preserve reviewed alias facts at the canonical identity before the old
   // base row retires. Only current live rows count as seen upstream.
   const previousCanonical = await dedupeEventsByResolvedUrl(
-    [...curated.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)), ...previous],
+    [
+      ...curated.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)),
+      ...reviewedHistory.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)),
+    ],
     async (url) => storedEventDestination(url, aliases),
     mergeReviewedEvents,
     true,
@@ -101,6 +105,7 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   });
   // Every checked-in correction is cached, including archive-only/removed URLs.
   await persistReviewedEvents(db, [
+    ...previousCanonical,
     ...events,
     ...EVENT_OVERRIDES.map((override) => ({
       url: override.url,
@@ -141,9 +146,9 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   return { upserted: seenIds.length };
 }
 
-export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
+async function readEventRecords(db: D1Like): Promise<Event[]> {
   const result = await db.prepare(SELECT_ACTIVE_SQL).all<Row>();
-  const events = dedupeEventsByUrl(
+  return dedupeEventsByUrl(
     result.results.map((r) => {
       const organizerId = resolveOrganizerId(r.community);
       return {
@@ -161,6 +166,10 @@ export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
       };
     }),
   );
+}
+
+export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
+  const events = await readEventRecords(db);
   try {
     return (await restoreReviewedEvents(db, events)).map((event) =>
       applyEventOverrides(event, EVENT_OVERRIDES),

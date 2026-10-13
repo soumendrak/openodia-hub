@@ -6,6 +6,8 @@ import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events
 import { applyEventOverrides } from "../src/lib/event-lifecycle";
 import { persistReviewedEvent } from "../src/lib/event-reviewed-store";
 import type { Event } from "../src/data/events/types";
+import { events as curated } from "../src/data/events";
+import { eventUrlKey } from "../src/lib/event-url";
 
 let mf: Miniflare;
 let db: D1Like;
@@ -154,3 +156,81 @@ it("does not retire old rows when a chapter fails", async () => {
     ).results[0].is_active,
   ).toBe(1);
 });
+
+it.each(["absent", "expired"])(
+  "caches reviewed curated alias facts without fabricating rows when its old base is %s",
+  async (oldBase) => {
+    const primary = curated.find((event) =>
+      event.url.startsWith("https://gdg.community.dev/events/details/"),
+    )!;
+    const key = eventUrlKey(primary.url);
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(primary, [
+        {
+          url: primary.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: {
+            lifecycle: { state: "cancelled", ...proof },
+            registration: { state: "closed", ...proof },
+          },
+        },
+      ]),
+    );
+    if (oldBase === "expired")
+      await db
+        .prepare(
+          "INSERT INTO events(id,url,title,community,type,start_date,is_active,last_seen) VALUES(?,?,?,?,?,?,0,'2000-01-01')",
+        )
+        .bind(
+          key,
+          primary.url,
+          primary.title,
+          primary.community,
+          primary.type,
+          primary.startDate ?? "2026-01-01",
+        )
+        .run();
+    await db
+      .prepare("INSERT INTO event_destination_aliases VALUES(?,?,?)")
+      .bind(key, canonical, "2026-10-12")
+      .run();
+    let hasLive = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input, init) =>
+        init?.method === "HEAD"
+          ? new Response(null)
+          : new Response(
+              page(hasLive && String(input).includes("gdg-bhubaneswar/") ? [canonical] : []),
+            ),
+      ),
+    );
+    expect(await syncEventsToD1(db)).toEqual({ upserted: 0 });
+    expect(
+      (await db.prepare("SELECT id FROM events WHERE id=?").bind(canonical).all()).results,
+    ).toEqual([]);
+    const cached = await db
+      .prepare("SELECT reviewed_at,payload_json FROM event_reviewed_metadata WHERE event_id=?")
+      .bind(canonical)
+      .all<{ reviewed_at: string; payload_json: string }>();
+    expect(cached.results).toHaveLength(1);
+    expect(cached.results[0].reviewed_at).toBe("2026-10-12T00:00:00.000Z");
+    expect(JSON.parse(cached.results[0].payload_json).patch).toMatchObject({
+      lifecycle: { state: "cancelled" },
+      registration: { state: "closed" },
+    });
+    hasLive = true;
+    expect(await syncEventsToD1(db)).toEqual({ upserted: 1 });
+    await db.prepare("DELETE FROM event_reviewed_metadata WHERE event_id=?").bind(key).run();
+    const rows = await readEventsFromD1(db);
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      url: canonical,
+      lifecycle: { state: "cancelled" },
+      registration: { state: "closed" },
+      reviewedAt: "2026-10-12T00:00:00.000Z",
+    });
+  },
+);
