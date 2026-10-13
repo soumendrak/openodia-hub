@@ -425,14 +425,14 @@ describe("events.tsx", () => {
     const Component = EventsRouteAny.options.component;
     render(<Component />);
     const region = screen.getByRole("status");
-    expect(region).toBeEmptyDOMElement();
+    expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
     const [community] = screen.getAllByRole("combobox");
     fireEvent.change(community, { target: { value: "Comm A" } });
     expect(screen.getByRole("status")).toBe(region);
     expect(region).toHaveTextContent("2 events matched");
     fireEvent.click(screen.getByRole("button", { name: /Clear Filters/i }));
     expect(screen.getByRole("status")).toBe(region);
-    expect(region).toBeEmptyDOMElement();
+    expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
     const search = screen.getByRole("searchbox", { name: "Search events" });
     fireEvent.change(search, { target: { value: "Alpha" } });
     expect(region).toHaveTextContent("1 event matched");
@@ -541,6 +541,25 @@ describe("events.tsx", () => {
 
     expect(document.getElementById("year-2020")).not.toBeNull();
   });
+
+  it.each([false, true])(
+    "bypasses animated timeline scrolling under reduced motion with Lenis=%s",
+    (withLenis) => {
+      dataFixture.events = PAST_2020;
+      infiniteHarness.data = { pages: [{ events: [FAR_FUTURE], total: 1 }] };
+      vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+      const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+      const lenisScrollTo = vi.fn();
+      if (withLenis) {
+        (window as unknown as { lenis?: unknown }).lenis = { scrollTo: lenisScrollTo };
+      }
+      const Component = EventsRouteAny.options.component;
+      render(<Component />);
+      clickTimelineNode("Upcoming");
+      expect(scrollTo).toHaveBeenCalledWith({ top: expect.any(Number), behavior: "instant" });
+      expect(lenisScrollTo).not.toHaveBeenCalled();
+    },
+  );
 
   it("navigates the timeline via lenis smooth-scroll, the native fallback, and releases the scroll lock on unmount", () => {
     dataFixture.events = PAST_2020;

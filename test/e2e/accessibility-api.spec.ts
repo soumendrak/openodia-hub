@@ -31,12 +31,16 @@ test("event filter changes announce the resulting count", async ({ page, baseURL
   await page.waitForLoadState("networkidle");
   const region = page.getByRole("status").filter({ hasNotText: /Showing/ });
   await expect(region).toHaveCount(1);
-  await expect(region).toHaveText("");
+  await expect(region).toHaveText(/^\d+ events? shown$/);
+  const unfilteredCount = await region.textContent();
   await region.evaluate((el) => el.setAttribute("data-present-before-filter", "true"));
   await page.getByRole("searchbox", { name: "Search events" }).fill("fixture-no-match-93817");
   await expect(region).toHaveText("0 events matched");
   await expect(region).toHaveAttribute("data-present-before-filter", "true");
   await expect(page.getByRole("status")).toHaveAttribute("aria-live", "polite");
+  await page.getByRole("button", { name: "Clear Filters" }).click();
+  await expect(region).toHaveText(unfilteredCount!);
+  await expect(region).toHaveAttribute("data-present-before-filter", "true");
 });
 
 test("small directory clear controls have a usable target and return focus", async ({
@@ -59,6 +63,58 @@ test("small directory clear controls have a usable target and return focus", asy
   await expect(input).toHaveValue("");
   await expect(input).toBeFocused();
 });
+
+for (const withLenis of [false, true]) {
+  test(`reduced-motion timeline navigation uses instant native scrolling with Lenis=${withLenis}`, async ({
+    page,
+    baseURL,
+  }) => {
+    await page.route(
+      (url) => url.origin !== new URL(baseURL!).origin,
+      (route) => route.abort(),
+    );
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/events");
+    await page.waitForLoadState("networkidle");
+    expect(await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches)).toBe(
+      true,
+    );
+    await page.evaluate((useLenis) => {
+      const state = { native: [] as ScrollToOptions[], lenis: 0 };
+      const nativeScroll = window.scrollTo.bind(window);
+      Object.assign(window, {
+        scrollProof: state,
+        lenis: useLenis
+          ? {
+              scrollTo: () => {
+                state.lenis += 1;
+              },
+            }
+          : undefined,
+        scrollTo: (options: ScrollToOptions) => {
+          state.native.push(options);
+          nativeScroll(options);
+        },
+      });
+    }, withLenis);
+    await page
+      .getByRole("heading", { name: "Timeline", exact: true })
+      .locator("..")
+      .getByText("Upcoming", { exact: true })
+      .click();
+    const proof = await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            scrollProof: { native: ScrollToOptions[]; lenis: number };
+          }
+        ).scrollProof,
+    );
+    expect(proof.native).toContainEqual({ top: expect.any(Number), behavior: "instant" });
+    expect(proof.lenis).toBe(0);
+  });
+}
 
 test("skip link remains the first Tab stop after scroll-to-top appears", async ({
   page,

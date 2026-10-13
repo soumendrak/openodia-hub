@@ -100,6 +100,7 @@ test("marquee controls reflect motion preference and editor reentry restores ind
   await expect(control).toBeVisible();
   await control.click();
   await expect(control).toHaveAccessibleName("Resume scrolling");
+  await expect(control).not.toHaveAttribute("aria-pressed");
   expect(
     await page
       .locator(".animate-marquee")

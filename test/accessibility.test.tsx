@@ -67,10 +67,12 @@ it("allows users to pause automatic marquee scrolling and hides the repeated cop
   const { container } = render(<Marquee items={["Odia"]} />);
   const control = screen.getByRole("button", { name: "Pause scrolling" });
   fireEvent.click(control);
-  expect(control).toHaveAttribute("aria-pressed", "true");
+  expect(control).not.toHaveAttribute("aria-pressed");
+  expect(control).toHaveAccessibleName("Resume scrolling");
   expect(container.querySelector(".animate-marquee")).toHaveStyle({ animationPlayState: "paused" });
   fireEvent.click(screen.getByRole("button", { name: "Resume scrolling" }));
-  expect(control).toHaveAttribute("aria-pressed", "false");
+  expect(control).not.toHaveAttribute("aria-pressed");
+  expect(control).toHaveAccessibleName("Pause scrolling");
   expect(container.querySelector(".animate-marquee")).toHaveStyle({
     animationPlayState: "running",
   });

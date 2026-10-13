@@ -451,7 +451,8 @@ function EventsPage() {
           };
         }
       ).lenis;
-      if (lenis) {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (lenis && !reducedMotion) {
         lenis.scrollTo(el, {
           offset: -112,
           onComplete: () => {
@@ -467,7 +468,7 @@ function EventsPage() {
         const targetY = rect.top + scrollTop - 112;
         window.scrollTo({
           top: targetY,
-          behavior: "smooth",
+          behavior: reducedMotion ? "instant" : "smooth",
         });
       }
     }
@@ -663,7 +664,7 @@ function EventsPage() {
         aria-atomic="true"
         className={isFiltering ? "mt-10 text-sm text-muted-foreground" : "sr-only"}
       >
-        {isFiltering ? `${filtered.length} event${filtered.length !== 1 ? "s" : ""} matched` : ""}
+        {`${filtered.length} event${filtered.length !== 1 ? "s" : ""} ${isFiltering ? "matched" : "shown"}`}
       </p>
       {isSearching ? (
         <div className="mt-4">
