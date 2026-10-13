@@ -72,13 +72,11 @@ describe("event persistence URL deduplication", () => {
 
   it("retains the curated primary organizer when all chapters report a shared URL", async () => {
     const primary = curated.find((event) => event.community !== "GDG Bhubaneswar")!;
-    globalThis.fetch = vi
-      .fn()
-      .mockResolvedValue({
-        ok: true,
-        status: 200,
-        text: () => Promise.resolve(eventPage(primary.url)),
-      } as Response);
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(eventPage(primary.url)),
+    } as Response);
     const writes: unknown[][] = [];
     const db: D1Like = {
       prepare(sql) {
