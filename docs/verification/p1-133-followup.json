@@ -1,0 +1,27 @@
+{
+  "source": "dac84f94552799665e646a499e7f94f2bfd03ac2",
+  "base": "a4403930c9bab811089ffc242a416ee87a33c05b",
+  "tests": 870,
+  "suites": 85,
+  "coverage": {
+    "statements": "5073/5073",
+    "branches": "3432/3432",
+    "functions": "1308/1308",
+    "lines": "4543/4543"
+  },
+  "stagedChangedLines": "265/265",
+  "builtWorker": {
+    "archivedUrls": 114,
+    "requestHeadCount": 0,
+    "scheduledChapterGets": 5,
+    "scheduledHeads": 30,
+    "scheduledRows": 114
+  },
+  "editorBlob": "3921bcb7d4fe0c2be9d159342482343d5f48eae2",
+  "mainChangedLines": {
+    "covered": 1022,
+    "uncovered": 0,
+    "missingFiles": []
+  },
+  "coverageSha256": "603e5fb1cb65b0a55070f38928fb17dca20834e45970c2a63ec173c4b62084b5"
+}
