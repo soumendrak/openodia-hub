@@ -10,8 +10,8 @@ import {
 import { dedupeEventsByResolvedUrl } from "../event-url";
 import { restoreReviewedEvents } from "../event-reviewed-store";
 import { readEventsFromD1 } from "../events-store";
-import { settledValues } from "../fetch-utils";
-import { CHAPTERS, fetchChapterEvents } from "../../routes/api/events";
+import { readEventDestinationAliases, storedEventDestination } from "../event-destination-store";
+import { CHAPTERS, fetchChapterOutcome } from "../../routes/api/events";
 
 /** One reviewed canonical collection across Worker/TanStack API, search and RSS. */
 export async function loadReviewedEventCollection(allowLive = true): Promise<{
@@ -35,18 +35,20 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<{
       console.warn("Event persistence unavailable; using checked-in and live records");
     }
   }
-  const live =
-    source === "d1"
-      ? persisted
-      : !allowLive
-        ? []
-        : settledValues(
-            await Promise.allSettled(
-              CHAPTERS.map((chapter) =>
-                fetchChapterEvents(chapter.organizerId ?? chapter.community, chapter.slug),
-              ),
-            ),
-          ).flat();
+  let live = persisted;
+  if (source !== "d1" && allowLive) {
+    const outcomes = await Promise.allSettled(
+      CHAPTERS.map((chapter) =>
+        fetchChapterOutcome(chapter.organizerId ?? chapter.community, chapter.slug),
+      ),
+    );
+    partial ||= outcomes.some(
+      (outcome) => outcome.status === "rejected" || outcome.value.status.outcome === "failed",
+    );
+    live = outcomes.flatMap((outcome) =>
+      outcome.status === "fulfilled" ? outcome.value.events : [],
+    );
+  }
   let today: string;
   try {
     today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
@@ -64,7 +66,21 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<{
       console.warn("Reviewed event metadata unavailable; retaining checked-in corrections");
     }
   }
-  collection = await dedupeEventsByResolvedUrl(collection, undefined, mergeReviewedEvents, true);
+  let aliases = new Map<string, string>();
+  if (db && databaseReadable) {
+    try {
+      aliases = await readEventDestinationAliases(db);
+    } catch {
+      partial = true;
+      console.warn("Event destination aliases unavailable; retaining source URLs");
+    }
+  }
+  collection = await dedupeEventsByResolvedUrl(
+    collection,
+    async (url) => storedEventDestination(url, aliases),
+    mergeReviewedEvents,
+    true,
+  );
   return {
     source,
     partial,

@@ -1,7 +1,6 @@
 import { applyEventOverrides } from "../../lib/event-lifecycle";
 import { EVENT_OVERRIDES } from "../../data/event-overrides";
 import { createFileRoute } from "@tanstack/react-router";
-import { fetchWithTimeout } from "../../lib/fetch-utils";
 import { dedupeEventsByUrl } from "../../lib/event-url";
 import type { Event, EventType } from "../../data/events/types";
 import { getOrganizerById, resolveOrganizer, type OrganizerId } from "../../data/organizers";
@@ -90,14 +89,19 @@ function formatHumanDate(isoStr: string): string {
   }
 }
 
-export async function fetchChapterEvents(
+async function readChapterEvents(
   organizerIdentity: string,
   slug: string,
+  signal: AbortSignal,
 ): Promise<Event[]> {
   try {
     const organizer = resolveOrganizer(organizerIdentity);
     const community = organizer?.canonicalName ?? organizerIdentity;
-    const response = await fetchWithTimeout(`https://gdg.community.dev/${slug}/`, {
+    const response = await fetch(`https://gdg.community.dev/${slug}/`, {
+      signal,
+      // A configured chapter must return its own data. Do not let implicit
+      // redirect chains consume the scheduled external-request budget.
+      redirect: "manual",
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -105,7 +109,7 @@ export async function fetchChapterEvents(
     });
     if (!response.ok) {
       console.warn(`Failed to fetch Bevy page for slug: ${slug}, Status: ${response.status}`);
-      return [];
+      throw new Error(`Chapter HTTP ${response.status}`);
     }
     const html = await response.text();
     const match = html.match(
@@ -113,16 +117,23 @@ export async function fetchChapterEvents(
     );
     if (!match) {
       console.warn(`No React hydrated state script found for slug: ${slug}`);
-      return [];
+      throw new Error("Missing chapter state");
     }
     const data = JSON.parse(match[1]);
     const pageProps = data?.props?.pageProps;
     if (!pageProps?.prerenderData) {
-      return [];
+      throw new Error("Missing chapter prerender data");
     }
 
-    const upcomingResults: BevyEvent[] = pageProps.prerenderData.upcomingEvents?.results || [];
-    const pastResults: BevyEvent[] = pageProps.prerenderData.pastEvents?.results || [];
+    if (
+      !Array.isArray(pageProps.prerenderData.upcomingEvents?.results) ||
+      !Array.isArray(pageProps.prerenderData.pastEvents?.results)
+    ) {
+      throw new Error("Malformed chapter event collections");
+    }
+
+    const upcomingResults: BevyEvent[] = pageProps.prerenderData.upcomingEvents.results;
+    const pastResults: BevyEvent[] = pageProps.prerenderData.pastEvents.results;
 
     const rawEvents = [...upcomingResults, ...pastResults];
 
@@ -150,8 +161,47 @@ export async function fetchChapterEvents(
     );
   } catch (err) {
     console.error(`Error fetching Bevy events for chapter ${slug}:`, err);
-    return [];
+    throw err;
   }
+}
+
+export type ChapterOutcome = {
+  events: Event[];
+  status: { outcome: "success-empty" | "success-events" | "failed" };
+};
+
+/** Preserve an empty success separately from HTTP, network, parse and body timeouts. */
+export async function fetchChapterOutcome(
+  organizerIdentity: string,
+  slug: string,
+  timeoutMs = 8000,
+): Promise<ChapterOutcome> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const events = await Promise.race([
+      readChapterEvents(organizerIdentity, slug, controller.signal),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(new Error("Chapter response timed out"));
+        }, timeoutMs);
+      }),
+    ]);
+    return { events, status: { outcome: events.length ? "success-events" : "success-empty" } };
+  } catch {
+    return { events: [], status: { outcome: "failed" } };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Compatibility wrapper; collection consumers retain the source outcome. */
+export async function fetchChapterEvents(
+  organizerIdentity: string,
+  slug: string,
+): Promise<Event[]> {
+  return (await fetchChapterOutcome(organizerIdentity, slug)).events;
 }
 
 export const Route = createFileRoute("/api/events")({

@@ -14,7 +14,7 @@ The crawler's known-URL skip is covered as manual-correction behavior. No automa
 - Route tests render cancelled/postponed events in a separate visible section, keep attendance independent, include persisted SSR corrections and structured data, and restore idle pagination after clearing a cached full-corpus search.
 - Legacy/missing-sidecar fallback keeps checked-in corrections. Other persistence errors retain a marked partial fallback and do not retry a broken binding. Invalid persisted payload diagnostics omit private payload details.
 
-Final build, whole-repository coverage, built Worker fixture, and browser evidence are recorded below after execution.
+The original source verification below is historical. Current PR #133 follow-up evidence appears at the end; its normal commit hook and built fixture are rerun on the changed source.
 
 ## Built Worker and manual UX
 
@@ -36,7 +36,7 @@ Local screenshots (T3 artifact paths):
 
 Machine evidence resides in `/tmp/openodia-110-verified/worker-fixture.json` and `worker-events.html`. These are local verification artifacts, not production records.
 
-## Final automated gates
+## Previous automated gates
 
 - Full repository: **82 suites, 856 tests**, all pass.
 - Coverage: **100% statements (4,972/4,972), branches (3,383/3,383), functions (1,276/1,276), lines (4,446/4,446)**. No coverage exclusions were added.
@@ -48,7 +48,7 @@ Coverage JSON and commit-gate log are backed up under `/tmp/openodia-110-verifie
 
 The complete `bun scripts/check-pattachitra.mjs http://127.0.0.1:9110` checklist passes against the built local Worker fixture: responsive pages, loaded art, no console errors, light/dark contrast, keyboard search, community/channel names, hover geometry, animation timing, and reduced motion. The fixture seeds checked-in channel shells for unrelated Tutorials layout checks. An initial attempt encountered two transient external browser network errors; the clean retry passed every check. Final log: `/tmp/110-design-check-final.log`.
 
-## PR review findings closed
+## Earlier PR review findings
 
 All six concrete Codex findings on PR #133 were reproduced and fixed: failed-D1 fallback, alias canonicalization on every surface, active-first pagination, dedicated registration URL, archive-only override persistence, and equal-day independent review fields. No Grok review was present when these findings were read.
 
@@ -57,3 +57,11 @@ Real local D1 tests exercise same-day concurrent writes and preserve whole confl
 The final built Worker fixture uses a direct local outbound service to preserve HTTP redirect semantics; Miniflare's fetchMock adapter auto-followed redirects and hid Location even for manual mode. API, search, RSS, and SSR collapse stale aliases with different dates into one reviewed cancellation. A broken-D1 fixture returns a marked no-store fallback. Active records precede archive rows before pagination.
 
 T3 state checks verified registration destinations and canonical cancellation. Its desktop host subsequently disconnected and explicitly instructed no retries. Playwright finished the same built Worker at 320px and 1280px in both themes: separate registration/evidence destinations, six correctly wrapped cards, no nested anchors or overflow, one cancelled canonical alias, and zero page errors. Screenshots: `/tmp/openodia-110-verified/review-320-light.png`, `review-320-dark.png`, `review-1280-light.png`, `review-1280-dark.png`; machine evidence: `review-browser.json`. Final logs: `/tmp/133-review-final-worker-failure.log`, `/tmp/133-review-final-gate.log`, `/tmp/133-review-final-build.log`, `/tmp/133-review-final-types.log`, `/tmp/133-review-final-lint.log`.
+
+## Current PR #133 follow-up
+
+The three additional findings are request-time redirect fan-out, lost live-source failure state, and the editor Escape latch. `test/p1-lifecycle-regressions.test.ts` and editor tests first reproduced **six failures/two passes** against the prior source (`/tmp/pr133-regressions-red.log`). The final focused gate passes **70 tests in ten files** (`/tmp/pr133-final-focused.log`).
+
+Local D1 fixtures verify 114 live rows in at most eight queries with one bound parameter per write, five chapter GETs plus 30 HEAD attempts, per-hop budgeting/concurrency, rotation, and canonical cancellation/closed-registration persistence after the old alias row and review are removed. Failed chapters do not retire old rows. API/RSS/search failure fixtures remain partial and no-store; a stalled response body is aborted at its deadline. Two fresh module instances serving 114 archive URLs issue zero HEADs. The editor matches the current PR #132 implementation and covers latch consumption, blur/re-entry, and a real Shift-key event before reverse Tab.
+
+The built fixture now applies `0003_event_destination_aliases.sql` twice, seeds the stored redirect and 114 archive URLs, and asserts zero HEAD requests across Worker API/search/RSS/SSR. All bindings are local. The combined release migration order is 0001 (source health), 0002 (reviewed metadata), 0003 (destination aliases); no production migration or deployment runs here. Fresh build/types/lint, normal hook, built API and browser logs use `/tmp/pr133-*` paths. The original 856-test coverage figures above are not current-source claims.

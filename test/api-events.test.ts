@@ -220,7 +220,7 @@ describe("fetchChapterEvents", () => {
                 url: `https://gdg.community.dev/events/details/event-${index}`,
               })),
             },
-            pastEvents: {},
+            pastEvents: { results: [] },
           },
         },
       },

@@ -37,7 +37,8 @@
     // the shortest KV expiry — repos is TTL 30m + 24h stale = 24.5h — and a
     // daily cron left only 30 minutes of margin, so one delayed or failed run
     // dropped the row and handed the next visitor the full 4s fan-out.
-    // The events sync rides along and is simply refreshed 4x a day instead of 1.
-    "crons": ["0 */6 * * *"],
+    // Events use a separate invocation at 00:15/06:15/12:15/18:15 UTC so
+    // catalog fan-out does not consume the event sync's subrequest budget.
+    "crons": ["0 */6 * * *", "15 */6 * * *"],
   },
 }

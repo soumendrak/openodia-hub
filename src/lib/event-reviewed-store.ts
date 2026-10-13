@@ -27,36 +27,57 @@ export async function persistReviewedEvent(
   db: D1Like,
   event: Pick<Event, "url"> & Partial<Event>,
 ): Promise<void> {
-  if (!event.reviewedAt) return;
-  const incoming: EventPatch = {};
-  for (const key of event.reviewedFields ?? REVIEW_FIELDS)
-    if (event[key] !== undefined) Object.assign(incoming, { [key]: event[key] });
-  if (
-    validateOverrides([
-      { url: event.url, evidenceUrl: event.url, reviewedAt: event.reviewedAt, patch: incoming },
-    ]).length
-  )
-    throw new Error("Invalid reviewed event metadata");
-  // The restoration policy operates only on optional reviewed fields here;
-  // required display fields are unnecessary for a metadata-only cache write.
-  const restored = (await restoreReviewedEvents(db, [event as Event]))[0];
-  const patch: EventPatch = {};
-  for (const key of restored.reviewedFields ?? REVIEW_FIELDS)
-    if (restored[key] !== undefined) Object.assign(patch, { [key]: restored[key] });
-  if (
-    (incoming.endDate !== undefined &&
-      restored.startDate !== undefined &&
-      incoming.endDate < restored.startDate) ||
-    validateOverrides([
-      { url: event.url, evidenceUrl: event.url, reviewedAt: restored.reviewedAt!, patch },
-    ]).length
-  )
-    throw new Error("Invalid reviewed event metadata");
-  const reviewedAt = new Date(restored.reviewedAt!).toISOString();
+  await persistReviewedEvents(db, [event]);
+}
+
+/** A whole sync uses one read and one JSON-bound write regardless of review count. */
+export async function persistReviewedEvents(
+  db: D1Like,
+  events: (Pick<Event, "url"> & Partial<Event>)[],
+): Promise<void> {
+  const reviewed = events.filter((event) => event.reviewedAt);
+  if (!reviewed.length) return;
+  const merged = new Map<string, Event>();
+  for (const event of reviewed) {
+    const incoming: EventPatch = {};
+    for (const key of event.reviewedFields ?? REVIEW_FIELDS)
+      if (event[key] !== undefined) Object.assign(incoming, { [key]: event[key] });
+    if (
+      validateOverrides([
+        { url: event.url, evidenceUrl: event.url, reviewedAt: event.reviewedAt!, patch: incoming },
+      ]).length
+    )
+      throw new Error("Invalid reviewed event metadata");
+    const key = eventUrlKey(event.url);
+    const previous = merged.get(key);
+    merged.set(key, previous ? mergeReviewedEvents(previous, event as Event) : (event as Event));
+  }
+  const restored = await restoreReviewedEvents(db, [...merged.values()]);
+  const records = restored.map((event) => {
+    const patch: EventPatch = {};
+    for (const key of event.reviewedFields ?? REVIEW_FIELDS)
+      if (event[key] !== undefined) Object.assign(patch, { [key]: event[key] });
+    const incoming = merged.get(eventUrlKey(event.url))!;
+    if (
+      (incoming.endDate !== undefined &&
+        event.startDate !== undefined &&
+        incoming.endDate < event.startDate) ||
+      validateOverrides([
+        { url: event.url, evidenceUrl: event.url, reviewedAt: event.reviewedAt!, patch },
+      ]).length
+    )
+      throw new Error("Invalid reviewed event metadata");
+    return {
+      event_id: eventUrlKey(event.url),
+      payload_json: JSON.stringify({ patch, reviewedFields: event.reviewedFields }),
+      reviewed_at: new Date(event.reviewedAt!).toISOString(),
+    };
+  });
   await db
     .prepare(
       `INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at)
-    VALUES (?, ?, ?) ON CONFLICT(event_id) DO UPDATE SET payload_json = CASE
+    SELECT json_extract(value, '$.event_id'), json_extract(value, '$.payload_json'), json_extract(value, '$.reviewed_at')
+    FROM json_each(?) WHERE true ON CONFLICT(event_id) DO UPDATE SET payload_json = CASE
       WHEN excluded.reviewed_at = event_reviewed_metadata.reviewed_at THEN
         json_object('patch', (
           SELECT json_group_object(key, CASE WHEN type IN ('object','array') THEN json(value) ELSE value END)
@@ -70,11 +91,7 @@ export async function persistReviewedEvent(
       ELSE excluded.payload_json END,
     reviewed_at = excluded.reviewed_at WHERE excluded.reviewed_at >= event_reviewed_metadata.reviewed_at`,
     )
-    .bind(
-      eventUrlKey(event.url),
-      JSON.stringify({ patch, reviewedFields: restored.reviewedFields }),
-      reviewedAt,
-    )
+    .bind(JSON.stringify(records))
     .run();
 }
 

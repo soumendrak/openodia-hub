@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { persistReviewedEvent } from "../src/lib/event-reviewed-store";
+import { refreshEventDestinationAliases } from "../src/lib/event-destination-store";
 import { withEventDatabase } from "../src/lib/event-request-context";
 import { applyEventOverrides } from "../src/lib/event-lifecycle";
 import { loadReviewedEventCollection } from "../src/lib/sources/events";
@@ -126,7 +127,7 @@ describe("the same persisted review reaches every server surface", () => {
     });
     expect(globalThis.fetch).not.toHaveBeenCalled();
   });
-  it("resolves a stale redirect on every surface even when reviewed replacement dates differ", async () => {
+  it("uses persisted redirect destinations on every surface even when reviewed replacement dates differ", async () => {
     const alias = "https://gdg.community.dev/events/details/old-slug";
     const canonical = "https://gdg.community.dev/events/details/current-slug";
     for (const [url, title, startDate] of [
@@ -159,6 +160,10 @@ describe("the same persisted review reaches every server surface", () => {
             : { status: 200 },
         ),
     );
+    await refreshEventDestinationAliases(db, [{ url: alias }, { url: canonical }]);
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("Request-time redirect resolution is forbidden");
+    });
     try {
       await withEventDatabase(db, async () => {
         const initial = await loadReviewedEventCollection(false);
@@ -179,11 +184,13 @@ describe("the same persisted review reaches every server surface", () => {
         expect(snapshot.documents.find((e) => e.id === `event:${canonical}`)?.summary).toContain(
           "Cancelled",
         );
+        expect(globalThis.fetch).not.toHaveBeenCalled();
       });
     } finally {
       for (const url of [alias, canonical]) {
         await db.prepare("DELETE FROM events WHERE id=?").bind(url).run();
         await db.prepare("DELETE FROM event_reviewed_metadata WHERE event_id=?").bind(url).run();
+        await db.prepare("DELETE FROM event_destination_aliases WHERE alias_url=?").bind(url).run();
       }
     }
   });
@@ -273,7 +280,11 @@ describe("canonical collection fallback boundaries", () => {
         new Response(
           '<script id="__NEXT_DATA__" type="application/json">' +
             JSON.stringify({
-              props: { pageProps: { prerenderData: { upcomingEvents: [], pastEvents: [] } } },
+              props: {
+                pageProps: {
+                  prerenderData: { upcomingEvents: { results: [] }, pastEvents: { results: [] } },
+                },
+              },
             }) +
             "</script>",
         ),

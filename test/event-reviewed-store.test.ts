@@ -4,6 +4,7 @@ import { Miniflare } from "miniflare";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import {
   persistReviewedEvent,
+  persistReviewedEvents,
   restoreReviewedEvents,
   persistReviewedOverride,
 } from "../src/lib/event-reviewed-store";
@@ -167,6 +168,31 @@ describe("real D1 additive reviewed metadata", () => {
     const merged = (await restoreReviewedEvents(db, [racing]))[0];
     expect(merged).toMatchObject({ title: "Concurrent title", registration: { state: "open" } });
   });
+  it("persists a valid override and unions independent reviews in one bulk write", async () => {
+    const base = { ...event, url: "https://example.com/bulk-review" };
+    const cancellation = {
+      url: base.url,
+      evidenceUrl: proof.evidenceUrl,
+      reviewedAt: "2026-10-12",
+      patch: { lifecycle: { state: "cancelled" as const, ...proof } },
+    };
+    await persistReviewedOverride(db, cancellation);
+    await persistReviewedEvents(db, [
+      applyEventOverrides(base, [cancellation]),
+      applyEventOverrides(base, [
+        {
+          url: base.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { registration: { state: "closed", ...proof } },
+        },
+      ]),
+    ]);
+    expect((await restoreReviewedEvents(db, [base]))[0]).toMatchObject({
+      lifecycle: { state: "cancelled" },
+      registration: { state: "closed" },
+    });
+  });
   it("persists archive-only/removed overrides during an empty scrape without creating base event rows", async () => {
     const base = { ...event, url: "https://example.com/archive-only" };
     const override = {
@@ -182,7 +208,11 @@ describe("real D1 additive reviewed metadata", () => {
         new Response(
           '<script id="__NEXT_DATA__" type="application/json">' +
             JSON.stringify({
-              props: { pageProps: { prerenderData: { upcomingEvents: [], pastEvents: [] } } },
+              props: {
+                pageProps: {
+                  prerenderData: { upcomingEvents: { results: [] }, pastEvents: { results: [] } },
+                },
+              },
             }) +
             "</script>",
         ),

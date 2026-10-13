@@ -125,8 +125,13 @@ export function CodeEditor({ value, onChange, rows, disabled, language = "python
       e.currentTarget.dataset.tabNavigation = "true";
       return;
     }
-    if (e.key === "Tab" && e.currentTarget.dataset.tabNavigation === "true") return;
-    if (e.key !== "Tab") delete e.currentTarget.dataset.tabNavigation;
+    if (e.key === "Tab" && e.currentTarget.dataset.tabNavigation === "true") {
+      delete e.currentTarget.dataset.tabNavigation;
+      return;
+    }
+    if (e.key !== "Tab" && !["Shift", "Control", "Alt", "Meta", "AltGraph"].includes(e.key)) {
+      delete e.currentTarget.dataset.tabNavigation;
+    }
 
     if (e.key === "Tab") {
       e.preventDefault();
@@ -217,6 +222,9 @@ export function CodeEditor({ value, onChange, rows, disabled, language = "python
           aria-label={`${language === "python" ? "Python" : "Odialang"} code editor. Press Escape then Tab to leave.`}
           value={value}
           onChange={handleChange}
+          onBlur={(event) => {
+            delete event.currentTarget.dataset.tabNavigation;
+          }}
           onKeyDown={handleKeyDown}
           onScroll={handleScroll}
           spellCheck={false}

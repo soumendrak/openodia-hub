@@ -15,9 +15,34 @@ it("allows Escape then Tab and Shift+Tab to leave the labeled editor without edi
   const editor = screen.getByRole("textbox", { name: /Python code editor/ });
   fireEvent.keyDown(editor, { key: "Escape" });
   expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(true);
+  expect(editor).not.toHaveAttribute("data-tab-navigation");
+  fireEvent.keyDown(editor, { key: "Escape" });
+  fireEvent.keyDown(editor, { key: "Shift", shiftKey: true });
   expect(fireEvent.keyDown(editor, { key: "Tab", shiftKey: true })).toBe(true);
+  expect(editor).not.toHaveAttribute("data-tab-navigation");
   expect(changed).not.toHaveBeenCalled();
-  fireEvent.keyDown(editor, { key: "ArrowRight" });
+  fireEvent.keyDown(editor, { key: "Escape" });
+  fireEvent.blur(editor);
+  fireEvent.focus(editor);
+  expect(editor).not.toHaveAttribute("data-tab-navigation");
+  expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(false);
+  expect(changed).toHaveBeenCalled();
+});
+it("preserves escape through modifier-only events and cancels it on ordinary typing", () => {
+  const changed = vi.fn();
+  render(<CodeEditor value="    print(1)" onChange={changed} />);
+  const editor = screen.getByRole("textbox", { name: /Python code editor/ });
+  for (const key of ["Shift", "Control", "Alt", "Meta", "AltGraph"]) {
+    fireEvent.keyDown(editor, { key: "Escape" });
+    fireEvent.keyDown(editor, { key });
+    expect(editor).toHaveAttribute("data-tab-navigation", "true");
+    expect(fireEvent.keyDown(editor, { key: "Tab", shiftKey: true })).toBe(true);
+    expect(editor).not.toHaveAttribute("data-tab-navigation");
+  }
+  expect(changed).not.toHaveBeenCalled();
+  fireEvent.keyDown(editor, { key: "Escape" });
+  fireEvent.keyDown(editor, { key: "a" });
+  expect(editor).not.toHaveAttribute("data-tab-navigation");
   expect(fireEvent.keyDown(editor, { key: "Tab" })).toBe(false);
   expect(changed).toHaveBeenCalled();
 });

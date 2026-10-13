@@ -1,10 +1,8 @@
-import { applyEventOverrides } from "./event-lifecycle";
+import { applyEventOverrides, mergeReviewedEvents } from "./event-lifecycle";
+import { events as curated } from "../data/events";
+import { refreshEventDestinationAliases, storedEventDestination } from "./event-destination-store";
 import { EVENT_OVERRIDES } from "../data/event-overrides";
-import {
-  persistReviewedEvent,
-  persistReviewedOverride,
-  restoreReviewedEvents,
-} from "./event-reviewed-store";
+import { persistReviewedEvents, restoreReviewedEvents } from "./event-reviewed-store";
 /**
  * D1-backed persistence for Bevy-scraped community events.
  *
@@ -14,9 +12,9 @@ import {
  * back to a live Bevy scrape so the page never goes blank.
  */
 
-import { CHAPTERS, fetchChapterEvents } from "../routes/api/events";
+import { CHAPTERS, fetchChapterOutcome } from "../routes/api/events";
 import { settledValues } from "./fetch-utils";
-import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
+import { dedupeEventsByResolvedUrl, dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
 import { resolveOrganizerId } from "../data/organizers";
 
@@ -42,7 +40,10 @@ type Row = {
 
 const UPSERT_SQL = `
 INSERT INTO events (id, url, title, community, type, start_date, end_date, description, location, source)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'bevy')
+SELECT json_extract(value, '$.id'), json_extract(value, '$.url'), json_extract(value, '$.title'),
+  json_extract(value, '$.community'), json_extract(value, '$.type'), json_extract(value, '$.startDate'),
+  json_extract(value, '$.endDate'), json_extract(value, '$.description'), json_extract(value, '$.location'), 'bevy'
+FROM json_each(?) WHERE true
 ON CONFLICT(id) DO UPDATE SET
   title = excluded.title,
   community = excluded.community,
@@ -67,45 +68,73 @@ ORDER BY start_date DESC
 
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
   const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
+    CHAPTERS.map((c) => fetchChapterOutcome(c.organizerId ?? c.community, c.slug)),
   );
-  const events = dedupeEventsByUrl(settledValues(settled).flat()).map((event) =>
-    applyEventOverrides(event, EVENT_OVERRIDES),
+  let events = dedupeEventsByUrl(settledValues(settled).flatMap((outcome) => outcome.events)).map(
+    (event) => applyEventOverrides(event, EVENT_OVERRIDES),
+  );
+  const previous = await readEventsFromD1(db);
+  const { aliases } = await refreshEventDestinationAliases(db, [
+    ...curated,
+    ...previous,
+    ...events,
+  ]);
+  events = await dedupeEventsByResolvedUrl(
+    events,
+    async (url) => storedEventDestination(url, aliases),
+    mergeReviewedEvents,
+    true,
   );
 
-  // Every checked-in correction is cached, including archive-only and removed URLs.
-  for (const override of EVENT_OVERRIDES) await persistReviewedOverride(db, override);
-  const seenIds: string[] = [];
-  for (const e of events) {
-    await persistReviewedEvent(db, e);
-    if (!e.url || !e.startDate) continue;
-    const id = eventUrlKey(e.url);
-    seenIds.push(id);
-    await db
-      .prepare(UPSERT_SQL)
-      .bind(
-        id,
-        e.url,
-        e.title,
-        e.community,
-        e.type,
-        e.startDate,
-        e.endDate ?? null,
-        e.description ?? null,
-        e.location ?? null,
-      )
-      .run();
-  }
+  // Preserve reviewed alias facts at the canonical identity before the old
+  // base row retires. Only current live rows count as seen upstream.
+  const previousCanonical = await dedupeEventsByResolvedUrl(
+    [...curated.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)), ...previous],
+    async (url) => storedEventDestination(url, aliases),
+    mergeReviewedEvents,
+    true,
+  );
+  const byUrl = new Map(previousCanonical.map((event) => [eventUrlKey(event.url), event]));
+  events = events.map((event) => {
+    const old = byUrl.get(eventUrlKey(event.url));
+    return applyEventOverrides(old ? mergeReviewedEvents(old, event) : event, EVENT_OVERRIDES);
+  });
+  // Every checked-in correction is cached, including archive-only/removed URLs.
+  await persistReviewedEvents(db, [
+    ...events,
+    ...EVENT_OVERRIDES.map((override) => ({
+      url: override.url,
+      ...override.patch,
+      reviewedAt: override.reviewedAt,
+      reviewedFields: Object.keys(override.patch) as NonNullable<Event["reviewedFields"]>,
+    })),
+  ]);
+  const rows = events
+    .filter((event) => event.url && event.startDate)
+    .map((event) => ({
+      ...event,
+      id: eventUrlKey(event.url),
+      endDate: event.endDate ?? null,
+      description: event.description ?? null,
+      location: event.location ?? null,
+    }));
+  const seenIds = rows.map((event) => event.id);
+  // One bound JSON value avoids D1's 100-parameter and 50-query limits.
+  if (rows.length) await db.prepare(UPSERT_SQL).bind(JSON.stringify(rows)).run();
 
   // Deactivate Bevy events no longer present upstream. Static events are not
   // tracked here, so the WHERE clause scopes to source='bevy'.
-  if (seenIds.length > 0) {
-    const placeholders = seenIds.map(() => "?").join(",");
+  if (
+    seenIds.length > 0 &&
+    settled.every(
+      (outcome) => outcome.status === "fulfilled" && outcome.value.status.outcome !== "failed",
+    )
+  ) {
     await db
       .prepare(
-        `UPDATE events SET is_active = 0 WHERE source = 'bevy' AND id NOT IN (${placeholders})`,
+        `UPDATE events SET is_active = 0 WHERE source = 'bevy' AND id NOT IN (SELECT value FROM json_each(?))`,
       )
-      .bind(...seenIds)
+      .bind(JSON.stringify(seenIds))
       .run();
   }
 

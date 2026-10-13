@@ -4,7 +4,7 @@ const TRACKING_QUERY_PARAMS = new Set(["dclid", "fbclid", "gclid", "mc_cid", "mc
 const DESTINATION_CACHE_TTL_MS = 60 * 60 * 1000;
 const destinationCache = new Map<string, { destination: string; expiresAt: number }>();
 
-function isGdgEventUrl(rawUrl: string): boolean {
+export function isGdgEventUrl(rawUrl: string): boolean {
   try {
     const url = new URL(rawUrl);
     return (

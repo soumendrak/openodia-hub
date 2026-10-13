@@ -27,3 +27,9 @@ CREATE TABLE IF NOT EXISTS event_reviewed_metadata (
   payload_json TEXT NOT NULL,
   reviewed_at TEXT NOT NULL
 );
+-- Automatic redirect observations, populated by bounded scheduled refresh.
+CREATE TABLE IF NOT EXISTS event_destination_aliases (
+  alias_url TEXT PRIMARY KEY,
+  destination_url TEXT,
+  checked_at TEXT NOT NULL
+);

@@ -44,6 +44,10 @@ vi.mock("../src/routes/api/events", () => ({
     { community: "Two", slug: "two" },
   ],
   fetchChapterEvents: serverHarness.chapterEvents,
+  fetchChapterOutcome: async (...args: unknown[]) => {
+    const events = await serverHarness.chapterEvents(...args);
+    return { events, status: { outcome: events.length ? "success-events" : "success-empty" } };
+  },
 }));
 
 import server from "../src/server";
@@ -376,20 +380,29 @@ describe("scheduled cache and event refresh", () => {
   it("warms every catalog source and skips an absent D1 binding", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     serverHarness.repos.mockRejectedValueOnce(new Error("GitHub offline"));
-    await server.scheduled({}, { CATALOG_KV: { get: vi.fn(), put: vi.fn() } }, {});
+    await server.scheduled(
+      { cron: "0 */6 * * *" },
+      { CATALOG_KV: { get: vi.fn(), put: vi.fn() } },
+      {},
+    );
     expect(serverHarness.awesome).toHaveBeenCalled();
     expect(serverHarness.datasets).toHaveBeenCalled();
+    expect(serverHarness.syncEvents).not.toHaveBeenCalled();
+    await server.scheduled({ cron: "15 */6 * * *" }, undefined, {});
     expect(warn).toHaveBeenCalledWith("scheduled: EVENTS_DB not bound; skipping events sync");
+    await server.scheduled({ cron: "unknown" }, undefined, {});
   });
 
   it("syncs D1 and reports both success and failure", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const env = { EVENTS_DB: {} };
-    await server.scheduled({}, env, {});
+    await server.scheduled({ cron: "15 */6 * * *" }, env, {});
     expect(log).toHaveBeenCalledWith("events sync: 2 upserted");
+    expect(serverHarness.awesome).not.toHaveBeenCalled();
+    expect(serverHarness.repos).not.toHaveBeenCalled();
     serverHarness.syncEvents.mockRejectedValueOnce(new Error("sync failed"));
-    await server.scheduled({}, env, {});
+    await server.scheduled({ cron: "15 */6 * * *" }, env, {});
     expect(error).toHaveBeenCalledWith("events sync failed", expect.any(Error));
   });
 });

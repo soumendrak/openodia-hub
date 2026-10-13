@@ -1,7 +1,5 @@
 import { withEventDatabase } from "./lib/event-request-context";
 import { loadReviewedEventCollection } from "./lib/sources/events";
-import { applyEventOverrides, mergeReviewedEvents } from "./lib/event-lifecycle";
-import { EVENT_OVERRIDES } from "./data/event-overrides";
 import "./lib/error-capture";
 import { OPENAPI_SPEC } from "./lib/openapi";
 import { handleApiDiscovery } from "./lib/api-discovery";
@@ -10,7 +8,6 @@ import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { estimateTokens, htmlToMarkdown } from "./lib/html-to-markdown";
 import { syncEventsToD1, type D1Like } from "./lib/events-store";
-import { dedupeEventsByResolvedUrl } from "./lib/event-url";
 import { loadAwesome } from "./lib/sources/awesome";
 import { loadRepos } from "./lib/sources/repos";
 import { setCacheStore, setExecutionContext } from "./lib/sources/cache";
@@ -186,14 +183,8 @@ const EVENTS_CORS = {
 
 async function handleEvents(_env: Env | undefined, request: Request): Promise<Response> {
   const collection = await loadReviewedEventCollection();
-  let { events } = collection;
+  const { events } = collection;
   const { source, partial } = collection;
-
-  // Also protects reads from databases populated before canonical URL IDs were
-  // introduced; legacy duplicate rows disappear immediately at the API edge.
-  events = (await dedupeEventsByResolvedUrl(events, undefined, mergeReviewedEvents)).map((event) =>
-    applyEventOverrides(event, EVENT_OVERRIDES),
-  );
 
   const url = new URL(request.url);
   const pageParam = url.searchParams.get("page");
@@ -330,12 +321,25 @@ export default {
     });
   },
 
-  // Cloudflare cron trigger (configured in wrangler.jsonc, every 6h). Warms the
-  // catalog cache and refreshes EVENTS_DB from Bevy so the request path never
-  // has to fan out or scrape.
-  async scheduled(_event: unknown, env: Env | undefined, ctx: unknown): Promise<void> {
+  // Separate six-hour invocations keep catalog warming out of the event
+  // sync's external-request budget. Cron expressions run on UTC time.
+  async scheduled(event: { cron: string }, env: Env | undefined, ctx: unknown): Promise<void> {
     setExecutionContext(ctx);
     setCacheStore(env?.CATALOG_KV);
+    if (event.cron === "15 */6 * * *") {
+      if (!env?.EVENTS_DB) {
+        console.warn("scheduled: EVENTS_DB not bound; skipping events sync");
+        return;
+      }
+      try {
+        const result = await syncEventsToD1(env.EVENTS_DB);
+        console.log(`events sync: ${result.upserted} upserted`);
+      } catch (err) {
+        console.error("events sync failed", err);
+      }
+      return;
+    }
+    if (event.cron !== "0 */6 * * *") return;
     // Refresh the catalog sources into KV. This used to warm `caches.default`,
     // which is per-colo — so it only ever helped the one colo the cron happened
     // to run in, and every other colo still paid the full GitHub + Hugging Face
@@ -355,16 +359,5 @@ export default {
         }
       }),
     );
-
-    if (!env?.EVENTS_DB) {
-      console.warn("scheduled: EVENTS_DB not bound; skipping events sync");
-      return;
-    }
-    try {
-      const result = await syncEventsToD1(env.EVENTS_DB);
-      console.log(`events sync: ${result.upserted} upserted`);
-    } catch (err) {
-      console.error("events sync failed", err);
-    }
   },
 };

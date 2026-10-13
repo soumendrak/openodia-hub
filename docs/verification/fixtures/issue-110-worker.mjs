@@ -7,6 +7,13 @@ import { Miniflare } from "miniflare";
 import { CHANNELS } from "../../../src/data/channels.ts";
 const alias = "https://gdg.community.dev/events/details/old-fixture-slug";
 const canonical = "https://gdg.community.dev/events/details/current-fixture-slug";
+let headRequests = 0;
+let scheduledPhase = false;
+const scheduledGets = [];
+const scheduledUrls = Array.from(
+  { length: 114 },
+  (_, i) => `https://gdg.community.dev/events/details/cron-budget-${i}`,
+);
 const port = Number(process.env.E2E_PORT ?? "9110");
 const mf = new Miniflare({
   modules: true,
@@ -25,9 +32,16 @@ const mf = new Miniflare({
   // Direct outbound service preserves HTTP redirect semantics. The fetchMock
   // adapter auto-follows redirects and masks Location/Response.url behavior.
   outboundService: async (request) => {
+    if (request.method === "HEAD") headRequests++;
     if (request.method === "HEAD" && request.url === alias)
       return new Response(null, { status: 302, headers: { location: canonical } });
     if (request.method === "HEAD") return new Response(null, { status: 200 });
+    if (scheduledPhase) {
+      scheduledGets.push(request.url);
+      return new Response(
+        `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { prerenderData: { upcomingEvents: { results: scheduledUrls.map((url) => ({ url, title: "Cron budget fixture", description: "Local sync", event_type_title: "Workshop", start_date: "2099-01-01" })) }, pastEvents: { results: [] } } } } })}</script>`,
+      );
+    }
     return new Response("upstream unavailable", { status: 503 });
   },
   port,
@@ -38,6 +52,8 @@ try {
     "db/schema.sql",
     "db/migrations/0002_event_reviewed_metadata.sql",
     "db/migrations/0002_event_reviewed_metadata.sql",
+    "db/migrations/0003_event_destination_aliases.sql",
+    "db/migrations/0003_event_destination_aliases.sql",
   ])
     for (const sql of readFileSync(file, "utf8")
       .split(";")
@@ -137,6 +153,29 @@ try {
       "2026-10-12T00:00:00.000Z",
     )
     .run();
+  await db
+    .prepare(
+      "INSERT INTO event_destination_aliases(alias_url,destination_url,checked_at) VALUES(?,?,?)",
+    )
+    .bind(alias, canonical, "2026-10-13")
+    .run();
+  for (let i = 0; i < 114; i++) {
+    const url = `https://gdg.community.dev/events/details/archived-zero-head-${i}`;
+    await db
+      .prepare(
+        "INSERT INTO events(id,url,title,community,type,start_date,description) VALUES(?,?,?,?,?,?,?)",
+      )
+      .bind(
+        url,
+        url,
+        `Archived zero HEAD ${i}`,
+        "GDG Bhubaneswar",
+        "Workshop",
+        "2020-01-10",
+        "Archive budget fixture",
+      )
+      .run();
+  }
   const apiResponse = await mf.dispatchFetch("http://localhost:9110/api/events");
   assert.equal(apiResponse.status, 200);
   const api = await apiResponse.json();
@@ -186,6 +225,14 @@ try {
     ),
   );
   assert(!rss.includes(alias));
+  assert.equal(
+    headRequests,
+    0,
+    "API/search/RSS/SSR must never resolve destinations over the network",
+  );
+  console.log(
+    "PASS 114 archived GDG URLs across built Worker API/search/RSS/SSR: zero HEAD requests",
+  );
   mkdirSync("/tmp/openodia-110-verified", { recursive: true });
   writeFileSync(
     "/tmp/openodia-110-verified/worker-fixture.json",
@@ -211,6 +258,24 @@ try {
       process.once("SIGINT", resolve);
     });
   }
+  scheduledPhase = true;
+  const worker = await mf.getWorker();
+  const cronResult = await worker.scheduled({
+    cron: "15 */6 * * *",
+    scheduledTime: new Date("2026-10-13T06:15:00Z"),
+  });
+  assert.equal(cronResult.outcome, "ok");
+  assert.equal(headRequests, 30);
+  assert.equal(scheduledGets.length, 5);
+  assert(scheduledGets.every((url) => new URL(url).hostname === "gdg.community.dev"));
+  const synced = await db
+    .prepare("SELECT count(*) AS total FROM events WHERE title='Cron budget fixture'")
+    .all();
+  assert.equal(synced.results[0].total, 114);
+  console.log(
+    "PASS actual scheduled Worker 06:15 UTC: five chapter GETs +30 HEADs; no catalog requests;114 persisted rows",
+  );
+  scheduledPhase = false;
   await db.prepare("DROP TABLE events").run();
   const fallback = await mf.dispatchFetch("http://localhost:9110/api/events?page=1&limit=1");
   assert.equal(fallback.status, 200);
