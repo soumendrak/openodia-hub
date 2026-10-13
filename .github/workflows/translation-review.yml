@@ -25,11 +25,20 @@ jobs:
     steps:
       - uses: actions/github-script@v7
         id: discover
+        env:
+          ODIA_NATIVE_REVIEWERS: ${{ vars.ODIA_NATIVE_REVIEWERS }}
         with:
           script: |
             const repo = { owner: context.repo.owner, repo: context.repo.repo };
             const repository = `${repo.owner}/${repo.repo}`.toLowerCase();
             const candidates = new Set();
+            const commentEvent = context.eventName === 'issue_comment';
+            const allowed = new Set((process.env.ODIA_NATIVE_REVIEWERS || '').split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
+            if (commentEvent && (!allowed.has(context.payload.comment?.user?.login?.toLowerCase())
+              || !['created', 'edited', 'deleted'].includes(context.payload.action))) {
+              core.setOutput('prs', '[]');
+              return;
+            }
             let run;
             if (context.eventName === 'workflow_run') {
               // Read the canonical run from this repository. Its outcome, code and artifacts
@@ -87,6 +96,14 @@ jobs:
               if (!Number.isSafeInteger(number) || number <= 0) continue;
               const pr = (await github.rest.pulls.get({ ...repo, pull_number: number })).data;
               if (pr.state !== 'open' || pr.base.repo.full_name.toLowerCase() !== repository) continue;
+              if (commentEvent) {
+                const relevant = body => typeof body === 'string'
+                  && [`odia-review-approved ${pr.head.sha}`, `odia-review-revoke ${pr.head.sha}`].includes(body.trim());
+                // Editing away or deleting an approval must still withdraw it. Use the
+                // configured comment author, including when another maintainer deletes it.
+                if (!relevant(context.payload.comment?.body)
+                  && !(context.payload.action === 'edited' && relevant(context.payload.changes?.body?.from))) continue;
+              }
               // Canonical associations can refresh to a newer head after a run completes;
               // they identify candidates, not immutable evidence of the triggering head.
               if (run) {
@@ -139,25 +156,38 @@ jobs:
             const args = { owner: context.repo.owner, repo: context.repo.repo, pull_number: number };
             const pr = (await github.rest.pulls.get(args)).data;
             if (pr.state !== 'open' || pr.base.repo.full_name.toLowerCase() !== `${args.owner}/${args.repo}`.toLowerCase()) return;
+            const allowed = new Set((process.env.ODIA_NATIVE_REVIEWERS || '').split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
+            if (context.eventName === 'issue_comment') {
+              const relevant = body => typeof body === 'string'
+                && [`odia-review-approved ${pr.head.sha}`, `odia-review-revoke ${pr.head.sha}`].includes(body.trim());
+              if (!allowed.has(context.payload.comment?.user?.login?.toLowerCase())
+                || !['created', 'edited', 'deleted'].includes(context.payload.action)
+                || (!relevant(context.payload.comment?.body)
+                  && !(context.payload.action === 'edited' && relevant(context.payload.changes?.body?.from)))) return;
+            }
             const status = { owner: args.owner, repo: args.repo, sha: pr.head.sha, context: 'native-review',
               target_url: `https://github.com/${args.owner}/${args.repo}/actions/runs/${context.runId}` };
             const scheduled = context.eventName === 'schedule';
+            const manual = context.eventName === 'workflow_dispatch';
             let previousStatus;
             const publish = (state, description) => {
               // Recompute review evidence before comparing. Old statuses never approve a
-              // PR; only unchanged scheduled results from the publisher bot avoid a write.
-              if (scheduled && previousStatus?.creator?.login?.toLowerCase() === 'github-actions[bot]'
+              // PR; only unchanged nonmanual results from the publisher bot avoid a write.
+              if (!manual && previousStatus?.creator?.login?.toLowerCase() === 'github-actions[bot]'
                 && previousStatus.state === state && previousStatus.description === description) return;
               return github.rest.repos.createCommitStatus({ ...status, state, description });
             };
             const currentHead = async () => (await github.rest.pulls.get(args)).data.head.sha === pr.head.sha;
             // A commit status is evaluated on the PR head even when issue_comment or
             // workflow_run's automatic job checks are attached to the default branch.
-            // Cron does not append pending/final pairs every five minutes: GitHub limits
-            // each SHA/context to 1,000 statuses. Event and manual rechecks still do.
-            if (!scheduled) await publish('pending', 'Checking native Odia review of this exact commit');
+            // Only manual refresh appends a pending/final proof pair. Unchanged automatic
+            // signals cannot exhaust GitHub's 1,000 statuses per SHA/context limit.
+            if (manual) {
+              if (!(await currentHead())) return;
+              await publish('pending', 'Checking native Odia review of this exact commit');
+            }
             try {
-              if (scheduled) {
+              if (!manual) {
                 // REST statuses are newest first. Select the latest matching context,
                 // including outsider statuses; never fall back to an older trusted one.
                 const statuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
@@ -172,6 +202,14 @@ jobs:
                 catch (error) { if (error.status !== 404) throw error; }
               };
               const files = await github.paginate(github.rest.pulls.listFiles, args);
+              // Even paginated REST file responses stop at 3,000. A partial or duplicated
+              // inventory cannot prove that protected locale files were unchanged.
+              if (!Number.isSafeInteger(pr.changed_files) || pr.changed_files < 0 || pr.changed_files > 3000
+                || !Array.isArray(files) || files.length !== pr.changed_files
+                || files.some(file => typeof file.filename !== 'string' || !file.filename.length)
+                || new Set(files.map(file => file.filename)).size !== files.length) {
+                throw new Error('Cannot verify complete PR file inventory; split oversized PRs or retry canonical metadata');
+              }
               if (!files.some(file => [file.filename, file.previous_filename].some(path => ['src/locales/en.ts', 'src/locales/or.ts', 'src/locales/review.ts'].includes(path)))) {
                 if (await currentHead()) {
                   await removeReviewLabel();
@@ -184,7 +222,6 @@ jobs:
               } catch (error) {
                 if (error.status !== 422) throw error;
               }
-              const allowed = new Set((process.env.ODIA_NATIVE_REVIEWERS || '').split(',').map(login => login.trim().toLowerCase()).filter(Boolean));
               const reviews = await github.paginate(github.rest.pulls.listReviews, args);
               // submitted_at remains the original submission time after a dismissal. Use
               // the timeline's review_dismissed timestamp, joined by dismissed_review.review_id.

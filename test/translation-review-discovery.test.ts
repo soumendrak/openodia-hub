@@ -38,6 +38,11 @@ async function discover({
   mergeParents = ["base-current", "current"],
   commitError,
   ref = "refs/heads/main",
+  reviewers = "odia-reviewer",
+  comment = { body: "odia-review-approved current", user: { login: "odia-reviewer" } },
+  action = "created",
+  previousBody,
+  sender = "maintainer",
 }: {
   event?: string;
   candidates?: object[];
@@ -50,6 +55,11 @@ async function discover({
   mergeParents?: string[];
   commitError?: object;
   ref?: string;
+  reviewers?: string;
+  comment?: object;
+  action?: string;
+  previousBody?: string;
+  sender?: string;
 } = {}) {
   const run = {
     id: 99,
@@ -103,14 +113,63 @@ async function discover({
       workflow_run: { id: 99, conclusion: "failure", pull_requests: [{ number: 999 }] },
       pull_request: event === "pull_request_target" ? { number: payloadNumber } : undefined,
       issue: { number: payloadNumber },
+      action,
+      comment,
+      changes: previousBody === undefined ? undefined : { body: { from: previousBody } },
+      sender: { login: sender },
     },
   };
   const execute = Object.getPrototypeOf(async function () {}).constructor;
-  await new execute("github", "context", "core", script)(github, context, core);
+  await new execute("github", "context", "core", "process", script)(github, context, core, {
+    env: { ODIA_NATIVE_REVIEWERS: reviewers },
+  });
   return { github, core, associatedApi, listedApi };
 }
 
 describe("trusted review PR discovery", () => {
+  it.each([
+    { comment: { body: "Thanks", user: { login: "odia-reviewer" } } },
+    { comment: { body: "odia-review-approved current", user: { login: "outsider" } } },
+    { comment: { body: "odia-review-revoke old", user: { login: "odia-reviewer" } } },
+    { comment: { body: "odia-review-approved current", user: null } },
+    { reviewers: "" },
+    { action: "unknown" },
+  ])(
+    "filters irrelevant or unauthorized comment events before publisher concurrency (case %#)",
+    async (input) => {
+      const result = await discover({ event: "issue_comment", ...input });
+      expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[]");
+      expect(result.github.rest.actions.getWorkflowRun).not.toHaveBeenCalled();
+    },
+  );
+  it.each([
+    {
+      action: "created",
+      comment: { body: " odia-review-revoke current ", user: { login: "ODIA-REVIEWER" } },
+    },
+    {
+      action: "edited",
+      comment: { body: "Withdrawn", user: { login: "odia-reviewer" } },
+      previousBody: "odia-review-approved current",
+    },
+    {
+      action: "deleted",
+      comment: { body: "odia-review-approved current", user: { login: "odia-reviewer" } },
+    },
+  ])(
+    "discovers relevant configured-reviewer comment changes including withdrawal (case %#)",
+    async (input) => {
+      const result = await discover({
+        event: "issue_comment",
+        sender: "different-maintainer",
+        ...input,
+      });
+      expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[7]");
+      expect(result.github.rest.pulls.get).toHaveBeenCalledWith(
+        expect.objectContaining({ pull_number: 7 }),
+      );
+    },
+  );
   it.each(["pull_request_target", "issue_comment"])(
     "resolves %s against the trusted API",
     async (event) => {

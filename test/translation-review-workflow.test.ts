@@ -13,6 +13,8 @@ const notification = parse(
 );
 async function runGate({
   files = ["src/locales/or.ts"],
+  changedFiles = files.length,
+  omitChangedFiles = false,
   reviewers = "odia-reviewer",
   reviews = [],
   comments = [],
@@ -21,6 +23,10 @@ async function runGate({
   reviewEvent = false,
   scheduled = false,
   event,
+  eventComment,
+  commentAction = "created",
+  previousBody,
+  sender = "maintainer",
   existingStatuses = [],
   statusReadError,
   fork = false,
@@ -33,8 +39,11 @@ async function runGate({
   statusCalls = [],
   createError,
   removeError,
+  removeLabelObserver,
 }: {
   files?: (string | { filename: string; previous_filename?: string })[];
+  changedFiles?: unknown;
+  omitChangedFiles?: boolean;
   reviewers?: string;
   reviews?: object[];
   comments?: object[];
@@ -43,6 +52,10 @@ async function runGate({
   reviewEvent?: boolean;
   scheduled?: boolean;
   event?: string;
+  eventComment?: object;
+  commentAction?: string;
+  previousBody?: string;
+  sender?: string;
   existingStatuses?: object[];
   statusReadError?: object;
   fork?: boolean;
@@ -55,6 +68,7 @@ async function runGate({
   statusCalls?: object[];
   createError?: object;
   removeError?: object;
+  removeLabelObserver?: () => void;
 } = {}) {
   const issues = {
     createLabel: vi.fn(async () => {
@@ -62,6 +76,7 @@ async function runGate({
     }),
     addLabels: vi.fn(),
     removeLabel: vi.fn(async () => {
+      removeLabelObserver?.();
       if (removeError) throw removeError;
     }),
   };
@@ -75,6 +90,7 @@ async function runGate({
     base: { repo: { full_name: baseRepository } },
     head,
     user: { login: "author" },
+    changed_files: omitChangedFiles ? undefined : changedFiles,
   };
   let readCount = 0;
   const filesApi = vi.fn();
@@ -116,21 +132,33 @@ async function runGate({
     }),
   };
   const core = { setFailed: vi.fn() };
+  const eventName =
+    event ??
+    (scheduled
+      ? "schedule"
+      : commentEvent
+        ? "issue_comment"
+        : reviewEvent
+          ? "workflow_run"
+          : "pull_request_target");
   const context = {
     repo: { owner: "owner", repo: "hub" },
     runId: 99,
-    eventName:
-      event ??
-      (scheduled
-        ? "schedule"
-        : commentEvent
-          ? "issue_comment"
-          : reviewEvent
-            ? "workflow_run"
-            : "pull_request_target"),
-    payload: commentEvent
-      ? { issue: { number: 7 } }
-      : { pull_request: { ...pr, head: { sha: payloadSha } } },
+    eventName,
+    payload:
+      eventName === "issue_comment"
+        ? {
+            action: commentAction,
+            issue: { number: 7 },
+            comment: eventComment ??
+              comments.at(-1) ?? {
+                body: `odia-review-approved ${activeSha}`,
+                user: { login: "odia-reviewer" },
+              },
+            changes: previousBody === undefined ? undefined : { body: { from: previousBody } },
+            sender: { login: sender },
+          }
+        : { pull_request: { ...pr, head: { sha: payloadSha } } },
   };
   const execute = Object.getPrototypeOf(async function () {}).constructor;
   await new execute("github", "context", "core", "process", script)(github, context, core, {
@@ -168,6 +196,126 @@ const nativeStatus = (
 ) => ({ state, description, context, creator: { login: creator } });
 
 describe("native Odia review policy", () => {
+  it.each([
+    { changedFiles: 3001, files: Array.from({ length: 3000 }, (_, i) => `other/${i}.ts`) },
+    { changedFiles: 2, files: ["src/routes/tools.tsx"] },
+    { changedFiles: 2, files: ["src/locales/or.ts"] },
+    { changedFiles: 0, files: ["src/routes/tools.tsx"] },
+    { changedFiles: -1 },
+    { changedFiles: 1.5 },
+    { changedFiles: Number.MAX_SAFE_INTEGER + 1 },
+    { changedFiles: null },
+    { changedFiles: "1" },
+    { omitChangedFiles: true },
+    { files: ["same.ts", "same.ts"] },
+    { files: [""] },
+  ])("fails closed on incomplete or invalid PR file inventory (case %#)", async (input) => {
+    const statusCalls: { state: string }[] = [];
+    const removeLabel = vi.fn();
+    // A previous success or visible protected file cannot replace a complete inventory.
+    await expect(
+      runGate({
+        ...input,
+        reviews: [review("APPROVED")],
+        existingStatuses: [nativeStatus("success")],
+        statusCalls,
+        removeLabelObserver: removeLabel,
+      }),
+    ).rejects.toThrow("complete PR file inventory");
+    expect(statusCalls.map((status) => status.state)).toEqual(["error"]);
+    expect(removeLabel).not.toHaveBeenCalled();
+  });
+  it("accepts complete PR file inventory at the 3000-file boundary and at zero", async () => {
+    const boundary = await runGate({
+      files: [...Array.from({ length: 2999 }, (_, i) => `other/${i}.ts`), "src/locales/or.ts"],
+    });
+    expect(boundary.issues.addLabels).toHaveBeenCalled();
+    expect(boundary.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
+    const empty = await runGate({ files: [], changedFiles: 0 });
+    expect(empty.issues.removeLabel).toHaveBeenCalled();
+    expect(empty.statuses.mock.calls.map(([status]) => status.state)).toEqual(["success"]);
+  });
+  it("guards a moved head before publishing an incomplete PR file inventory error", async () => {
+    const statusCalls: object[] = [];
+    const removeLabel = vi.fn();
+    await expect(
+      runGate({
+        changedFiles: 2,
+        changedSha: "newer",
+        statusCalls,
+        removeLabelObserver: removeLabel,
+      }),
+    ).rejects.toThrow("complete PR file inventory");
+    expect(statusCalls).toEqual([]);
+    expect(removeLabel).not.toHaveBeenCalled();
+  });
+  it.each(["created", "edited", "deleted"])(
+    "ignores unrelated or unauthorized comment events before any status/label writes (%s)",
+    async (commentAction) => {
+      for (const eventComment of [
+        { body: "Thanks for the update", user: { login: "odia-reviewer" } },
+        { body: "odia-review-approved current", user: { login: "outsider" } },
+        { body: "odia-review-revoke old", user: { login: "odia-reviewer" } },
+        { body: "odia-review-approved current", user: null },
+      ]) {
+        const result = await runGate({ commentEvent: true, commentAction, eventComment });
+        expect(result.statuses).not.toHaveBeenCalled();
+        expect(result.github.paginate).not.toHaveBeenCalled();
+        expect(result.issues.addLabels).not.toHaveBeenCalled();
+        expect(result.issues.removeLabel).not.toHaveBeenCalled();
+      }
+    },
+  );
+  it.each(["edited", "deleted"])(
+    "reconciles withdrawn reviewer approval after a %s comment event",
+    async (commentAction) => {
+      const result = await runGate({
+        commentEvent: true,
+        commentAction,
+        eventComment: {
+          body: commentAction === "deleted" ? "odia-review-approved current" : "Withdrawn",
+          user: { login: "ODIA-REVIEWER" },
+        },
+        previousBody: commentAction === "edited" ? "odia-review-approved current" : undefined,
+        sender: "different-maintainer",
+        comments:
+          commentAction === "deleted" ? [] : [decisionComment("Withdrawn", "2026-10-12T13:00:00Z")],
+        existingStatuses: [nativeStatus("success")],
+      });
+      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
+      expect(result.issues.addLabels).toHaveBeenCalled();
+      expect(result.issues.removeLabel).not.toHaveBeenCalled();
+    },
+  );
+  it.each(["issue_comment", "workflow_run", "pull_request_target"])(
+    "recomputes review evidence but suppresses equivalent nonmanual status writes on %s",
+    async (event) => {
+      for (let signal = 0; signal < 2; signal++) {
+        const result = await runGate({
+          event,
+          existingStatuses: [nativeStatus("success")],
+          reviews: [review("APPROVED")],
+        });
+        expect(result.statuses).not.toHaveBeenCalled();
+        expect(result.github.paginate).toHaveBeenCalledWith(
+          result.github.rest.pulls.listReviews,
+          expect.objectContaining({ pull_number: 7 }),
+        );
+      }
+      const dismissed = await runGate({
+        event,
+        existingStatuses: [nativeStatus("success")],
+        reviews: [review("DISMISSED")],
+      });
+      expect(dismissed.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
+    },
+  );
+  it("checks the current head before the first manual pending status", async () => {
+    const result = await runGate({ event: "workflow_dispatch", changedSha: "newer" });
+    expect(result.statuses).not.toHaveBeenCalled();
+    expect(result.issues.addLabels).not.toHaveBeenCalled();
+    expect(result.issues.removeLabel).not.toHaveBeenCalled();
+  });
   it("labels draft translations and requires actual configured reviewers", async () => {
     const missing = await runGate({ reviewers: "" });
     expect(missing.issues.addLabels).toHaveBeenCalledWith(
@@ -377,17 +525,11 @@ describe("native Odia review policy", () => {
     });
     expect(approved.core.setFailed).not.toHaveBeenCalled();
     expect(approved.issues.removeLabel).toHaveBeenCalled();
-    expect(approved.statuses.mock.calls.map(([status]) => status.state)).toEqual([
-      "pending",
-      "success",
-    ]);
+    expect(approved.statuses.mock.calls.map(([status]) => status.state)).toEqual(["success"]);
     const pending = await runGate({ fork: true, reviewEvent: true });
     expect(pending.core.setFailed).toHaveBeenCalled();
     expect(pending.issues.addLabels).toHaveBeenCalled();
-    expect(pending.statuses.mock.calls.map(([status]) => status.state)).toEqual([
-      "pending",
-      "failure",
-    ]);
+    expect(pending.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
   });
   it("reconciles a dismissed approval when the contributor suppresses every review notification", async () => {
     expect(workflow.on.schedule).toEqual([{ cron: "2-57/5 * * * *" }]);
@@ -545,21 +687,27 @@ describe("native Odia review policy", () => {
     expect(statusCalls.map((status) => status.state)).toEqual(["error"]);
   });
   it.each(["workflow_dispatch", "issue_comment", "workflow_run", "pull_request_target"])(
-    "preserves fresh pending/final publication on %s even after an equivalent status",
+    "preserves fresh manual proof and suppresses equivalent automatic results on %s",
     async (event) => {
       const result = await runGate({
         event,
         existingStatuses: [nativeStatus("success")],
         reviews: [review("APPROVED")],
       });
-      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual([
-        "pending",
-        "success",
-      ]);
-      expect(result.github.paginate).not.toHaveBeenCalledWith(
-        result.github.rest.repos.listCommitStatusesForRef,
-        expect.anything(),
+      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(
+        event === "workflow_dispatch" ? ["pending", "success"] : [],
       );
+      if (event === "workflow_dispatch") {
+        expect(result.github.paginate).not.toHaveBeenCalledWith(
+          result.github.rest.repos.listCommitStatusesForRef,
+          expect.anything(),
+        );
+      } else {
+        expect(result.github.paginate).toHaveBeenCalledWith(
+          result.github.rest.repos.listCommitStatusesForRef,
+          expect.anything(),
+        );
+      }
     },
   );
   it("keeps expected scheduled missing configuration blocked without failing the cron job", async () => {
@@ -617,13 +765,10 @@ describe("native Odia review policy", () => {
   it("clears reverted locale requirements from the trusted publisher with an unchanged head", async () => {
     const cleanFork = await runGate({ files: [], fork: true, reviewEvent: true });
     expect(cleanFork.issues.removeLabel).toHaveBeenCalled();
-    expect(cleanFork.statuses.mock.calls.map(([status]) => status.state)).toEqual([
-      "pending",
-      "success",
-    ]);
+    expect(cleanFork.statuses.mock.calls.map(([status]) => status.state)).toEqual(["success"]);
     const obsolete = await runGate({ files: [], changedSha: "newer" });
     expect(obsolete.issues.removeLabel).not.toHaveBeenCalled();
-    expect(obsolete.statuses.mock.calls.map(([status]) => status.state)).toEqual(["pending"]);
+    expect(obsolete.statuses.mock.calls.map(([status]) => status.state)).toEqual([]);
     expect(
       (await runGate({ files: [], removeError: { status: 404 } })).core.setFailed,
     ).not.toHaveBeenCalled();
@@ -638,10 +783,7 @@ describe("native Odia review policy", () => {
       payloadSha: "default-branch",
       comments: [decisionComment("odia-review-approved current", "2026-10-12T13:00:00Z", "author")],
     });
-    expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual([
-      "pending",
-      "success",
-    ]);
+    expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(["success"]);
     for (const [status] of result.statuses.mock.calls) {
       expect(status).toMatchObject({
         owner: "owner",
@@ -651,7 +793,7 @@ describe("native Odia review policy", () => {
       });
       expect(status.target_url).toBe("https://github.com/owner/hub/actions/runs/99");
     }
-    expect(result.statuses.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(result.statuses.mock.invocationCallOrder[0]).toBeGreaterThan(
       result.github.paginate.mock.invocationCallOrder[0],
     );
   });
@@ -700,11 +842,8 @@ describe("native Odia review policy", () => {
       // Even a contributor-controlled job named native-review reporting success
       // supplies no allowed-reviewer decision to this trusted commit-status path.
       const result = await runGate({ fork: true, reviewEvent: true });
-      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual([
-        "pending",
-        "failure",
-      ]);
-      expect(result.statuses.mock.calls[1][0]).toMatchObject({
+      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
+      expect(result.statuses.mock.calls[0][0]).toMatchObject({
         context: "native-review",
         sha: "current",
       });
@@ -718,7 +857,7 @@ describe("native Odia review policy", () => {
         changedSha: "newer",
         changeAfterRead: 2,
       });
-      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(["pending"]);
+      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual([]);
     }
   });
   it("leaves an error status after a trusted API failure, but never publishes on a moved head", async () => {
@@ -728,10 +867,7 @@ describe("native Odia review policy", () => {
     const statusCalls: object[] = [];
     const failure = runGate({ createError: { status: 403 }, statusCalls });
     await expect(failure).rejects.toEqual({ status: 403 });
-    expect(statusCalls).toEqual([
-      expect.objectContaining({ state: "pending", sha: "current" }),
-      expect.objectContaining({ state: "error", sha: "current" }),
-    ]);
+    expect(statusCalls).toEqual([expect.objectContaining({ state: "error", sha: "current" })]);
   });
   it("keeps write-capable decisions in trusted code and reserves the native-review status context", () => {
     expect(workflow.on).not.toHaveProperty("pull_request_review");
