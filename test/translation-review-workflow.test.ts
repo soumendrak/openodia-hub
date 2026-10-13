@@ -19,6 +19,7 @@ async function runGate({
   timeline = [],
   commentEvent = false,
   reviewEvent = false,
+  scheduled = false,
   fork = false,
   payloadSha = "current",
   activeSha = "current",
@@ -37,6 +38,7 @@ async function runGate({
   timeline?: object[];
   commentEvent?: boolean;
   reviewEvent?: boolean;
+  scheduled?: boolean;
   fork?: boolean;
   payloadSha?: string;
   activeSha?: string;
@@ -103,11 +105,13 @@ async function runGate({
   const context = {
     repo: { owner: "owner", repo: "hub" },
     runId: 99,
-    eventName: commentEvent
-      ? "issue_comment"
-      : reviewEvent
-        ? "workflow_run"
-        : "pull_request_target",
+    eventName: scheduled
+      ? "schedule"
+      : commentEvent
+        ? "issue_comment"
+        : reviewEvent
+          ? "workflow_run"
+          : "pull_request_target",
     payload: commentEvent
       ? { issue: { number: 7 } }
       : { pull_request: { ...pr, head: { sha: payloadSha } } },
@@ -358,6 +362,62 @@ describe("native Odia review policy", () => {
       "pending",
       "failure",
     ]);
+  });
+  it("reconciles a dismissed approval when the contributor suppresses every review notification", async () => {
+    expect(workflow.on.schedule).toEqual([{ cron: "2-57/5 * * * *" }]);
+    expect(workflow.on.workflow_dispatch).toEqual({});
+    const setOutput = vi.fn();
+    const list = vi.fn();
+    const getWorkflowRun = vi.fn(() => {
+      throw new Error("The contributor removed the notification; no run exists");
+    });
+    const execute = Object.getPrototypeOf(async function () {}).constructor;
+    await new execute("github", "context", "core", discoverScript)(
+      {
+        rest: {
+          actions: { getWorkflowRun },
+          pulls: {
+            list,
+            get: async () => ({
+              data: { number: 7, state: "open", base: { repo: { full_name: "owner/hub" } } },
+            }),
+          },
+        },
+        paginate: async (api: unknown) => {
+          expect(api).toBe(list);
+          return [{ number: 7 }];
+        },
+      },
+      {
+        repo: { owner: "owner", repo: "hub" },
+        eventName: "schedule",
+        ref: "refs/heads/main",
+        payload: { repository: { default_branch: "main" } },
+      },
+      { setOutput },
+    );
+    expect(setOutput).toHaveBeenCalledWith("prs", "[7]");
+    expect(getWorkflowRun).not.toHaveBeenCalled();
+    const dismissed = review("DISMISSED");
+    const statusCalls = [{ sha: "current", context: "native-review", state: "success" }];
+    const result = await runGate({
+      scheduled: true,
+      reviews: [dismissed],
+      timeline: [
+        {
+          event: "review_dismissed",
+          created_at: "2026-10-12T12:00:00Z",
+          dismissed_review: { review_id: dismissed.id },
+        },
+      ],
+      statusCalls,
+    });
+    expect(statusCalls.map((status) => status.state)).toEqual(["success", "pending", "failure"]);
+    expect(result.core.setFailed).toHaveBeenCalled();
+    expect(result.issues.addLabels).toHaveBeenCalledWith(
+      expect.objectContaining({ issue_number: 7, labels: ["needs-native-speaker-review"] }),
+    );
+    expect(result.issues.removeLabel).not.toHaveBeenCalled();
   });
   it("skips unrelated PRs and handles only expected label races", async () => {
     const unchanged = await runGate({ files: ["src/routes/tools.tsx"] });

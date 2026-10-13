@@ -20,3 +20,7 @@ current PR head. A configured reviewer may approve with a formal review or the e
 PR conversation comment `odia-review-approved <current full head SHA>` after reviewing
 the wording. Account ownership or an intention to review does not count as approval.
 The first workflow-installation PR needs manually verified native approval before landing.
+The default-branch schedule also reconciles review changes when the notification is
+missing, but GitHub may delay or drop scheduled runs. If a review signal was missed,
+run **Native Odia review** manually with the default branch selected and verify its
+completed status on the unchanged PR head and current review state before merging.

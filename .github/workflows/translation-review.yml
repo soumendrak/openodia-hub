@@ -7,6 +7,11 @@ on:
   workflow_run:
     workflows: [Native Odia review notification]
     types: [completed]
+  # Review notifications are PR-controlled and can be suppressed. Reconcile all
+  # open PRs from trusted default-branch code independently of that signal.
+  schedule:
+    - cron: "2-57/5 * * * *"
+  workflow_dispatch: {}
 permissions:
   contents: read
   actions: read
@@ -41,8 +46,8 @@ jobs:
                 return;
               }
               for (const pr of run.pull_requests || []) candidates.add(pr.number);
-              // Fork notification runs can have an empty pull_requests array. The REST
-              // run head_sha is the source head, unlike the review job's merge GITHUB_SHA.
+              // Fork notification runs can have an empty pull_requests array. The run
+              // SHA is verified against the current source or test-merge commit below.
               if (!candidates.size) {
                 let associated = [];
                 try {
@@ -64,6 +69,16 @@ jobs:
               }
             } else if (context.eventName === 'pull_request_target' || context.eventName === 'issue_comment') {
               candidates.add(context.payload.pull_request?.number ?? context.payload.issue?.number);
+            } else if (context.eventName === 'schedule' || context.eventName === 'workflow_dispatch') {
+              // Manual reconciliation must select the default branch, as cron does.
+              if (context.ref !== `refs/heads/${context.payload.repository.default_branch}`) {
+                core.setOutput('prs', '[]');
+                return;
+              }
+              const open = await github.paginate(github.rest.pulls.list, {
+                ...repo, state: 'open', per_page: 100
+              });
+              for (const pr of open) candidates.add(pr.number);
             } else {
               throw new Error('Native review must run from a trusted base workflow event');
             }
@@ -72,11 +87,27 @@ jobs:
               if (!Number.isSafeInteger(number) || number <= 0) continue;
               const pr = (await github.rest.pulls.get({ ...repo, pull_number: number })).data;
               if (pr.state !== 'open' || pr.base.repo.full_name.toLowerCase() !== repository) continue;
-              // Associations can reflect a newer head than this run. Ignore stale signals;
-              // the publisher will independently re-fetch the PR before setting any status.
-              if (run && (pr.head.sha !== run.head_sha
-                || pr.head.ref !== run.head_branch
-                || pr.head.repo?.full_name?.toLowerCase() !== run.head_repository?.full_name?.toLowerCase())) continue;
+              // Canonical associations can refresh to a newer head after a run completes;
+              // they identify candidates, not immutable evidence of the triggering head.
+              if (run) {
+                if (pr.head.ref !== run.head_branch
+                  || pr.head.repo?.full_name?.toLowerCase() !== run.head_repository?.full_name?.toLowerCase()) continue;
+                if (pr.head.sha !== run.head_sha) {
+                  if (!pr.merge_commit_sha || pr.merge_commit_sha !== run.head_sha) continue;
+                  let merge;
+                  try {
+                    merge = (await github.rest.repos.getCommit({ ...repo, ref: run.head_sha })).data;
+                  } catch (error) {
+                    if (error.status !== 404) throw error;
+                    continue;
+                  }
+                  // merge_commit_sha can lag while GitHub recomputes mergeability. Read
+                  // canonical commit parents so an older merge cannot signal a new head.
+                  if (merge.sha !== run.head_sha || merge.parents?.length !== 2
+                    || !merge.parents.some(parent => parent.sha === pr.head.sha)
+                    || !merge.parents.some(parent => parent.sha === pr.base.sha)) continue;
+                }
+              }
               prs.push(pr.number);
             }
             core.setOutput('prs', JSON.stringify(prs));

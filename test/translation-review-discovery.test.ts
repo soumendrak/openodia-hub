@@ -14,12 +14,15 @@ function freshPr({
   sha = "current",
   ref = "topic",
   headRepository = "contributor/hub",
+  mergeSha = "merge",
+  baseSha = "base-current",
 } = {}) {
   return {
     number,
     state,
-    base: { repo: { full_name: baseRepository } },
+    base: { sha: baseSha, repo: { full_name: baseRepository } },
     head: { sha, ref, repo: { full_name: headRepository } },
+    merge_commit_sha: mergeSha,
   };
 }
 
@@ -32,6 +35,9 @@ async function discover({
   prs = [freshPr()],
   associationError,
   payloadNumber = 7,
+  mergeParents = ["base-current", "current"],
+  commitError,
+  ref = "refs/heads/main",
 }: {
   event?: string;
   candidates?: object[];
@@ -41,6 +47,9 @@ async function discover({
   prs?: ReturnType<typeof freshPr>[];
   associationError?: object;
   payloadNumber?: number;
+  mergeParents?: string[];
+  commitError?: object;
+  ref?: string;
 } = {}) {
   const run = {
     id: 99,
@@ -61,7 +70,13 @@ async function discover({
   const github = {
     rest: {
       actions: { getWorkflowRun: vi.fn(async () => ({ data: run })) },
-      repos: { listPullRequestsAssociatedWithCommit: associatedApi },
+      repos: {
+        listPullRequestsAssociatedWithCommit: associatedApi,
+        getCommit: vi.fn(async ({ ref: commitRef }: { ref: string }) => {
+          if (commitError) throw commitError;
+          return { data: { sha: commitRef, parents: mergeParents.map((sha) => ({ sha })) } };
+        }),
+      },
       pulls: {
         list: listedApi,
         get: vi.fn(async ({ pull_number }: { pull_number: number }) => ({
@@ -82,7 +97,9 @@ async function discover({
   const context = {
     repo: { owner: "owner", repo: "hub" },
     eventName: event,
+    ref,
     payload: {
+      repository: { default_branch: "main" },
       workflow_run: { id: 99, conclusion: "failure", pull_requests: [{ number: 999 }] },
       pull_request: event === "pull_request_target" ? { number: payloadNumber } : undefined,
       issue: { number: payloadNumber },
@@ -107,7 +124,7 @@ describe("trusted review PR discovery", () => {
       });
     },
   );
-  it("uses canonical run metadata and fresh PR head rather than payload or merge metadata", async () => {
+  it("uses canonical run metadata and fresh source head rather than the event payload", async () => {
     const result = await discover({
       candidates: [{ number: 7, head: { sha: "merge-or-old" } }],
       runOverrides: { conclusion: "failure" },
@@ -118,10 +135,96 @@ describe("trusted review PR discovery", () => {
       run_id: 99,
     });
     expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[7]");
+    expect(result.github.rest.repos.getCommit).not.toHaveBeenCalled();
     expect(result.github.paginate).not.toHaveBeenCalled();
     expect(result.github.rest.pulls.get).not.toHaveBeenCalledWith(
       expect.objectContaining({ pull_number: 999 }),
     );
+  });
+  it("accepts a canonical merge run only when its parents match the current source and base", async () => {
+    const result = await discover({
+      candidates: [{ number: 7, head: { sha: "current" } }],
+      runOverrides: { head_sha: "merge" },
+    });
+    expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[7]");
+    expect(result.github.rest.repos.getCommit).toHaveBeenCalledWith({
+      owner: "owner",
+      repo: "hub",
+      ref: "merge",
+    });
+  });
+  it.each([["base-current", "old"], ["old-base", "current"], ["current"]])(
+    "rejects a stale or invalid merge even if merge_commit_sha has not refreshed: %j",
+    async (...parents) => {
+      const result = await discover({
+        runOverrides: { head_sha: "merge" },
+        mergeParents: parents,
+      });
+      expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[]");
+    },
+  );
+  it("does not treat a refreshed canonical association as proof of an old run's source head", async () => {
+    const result = await discover({
+      candidates: [{ number: 7, head: { sha: "current" } }],
+      runOverrides: { head_sha: "old" },
+    });
+    expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[]");
+    expect(result.github.rest.repos.getCommit).not.toHaveBeenCalled();
+  });
+  it("resolves a merge-SHA fork notification without canonical PR associations", async () => {
+    const result = await discover({
+      candidates: [],
+      runOverrides: { head_sha: "merge" },
+      listed: [{ number: 7 }],
+      associationError: { status: 404 },
+    });
+    expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[7]");
+    expect(result.github.paginate).toHaveBeenCalledWith(result.associatedApi, {
+      owner: "owner",
+      repo: "hub",
+      commit_sha: "merge",
+    });
+  });
+  it.each([undefined, { status: 404 }])(
+    "fails closed when a merge run cannot be verified (%j)",
+    async (commitError) => {
+      const result = await discover({
+        runOverrides: { head_sha: "merge" },
+        mergeParents: [],
+        commitError,
+      });
+      expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[]");
+    },
+  );
+  it("reports unexpected merge-commit API failures", async () => {
+    await expect(
+      discover({ runOverrides: { head_sha: "merge" }, commitError: { status: 403 } }),
+    ).rejects.toEqual({ status: 403 });
+  });
+  it.each(["schedule", "workflow_dispatch"])(
+    "discovers all open PRs from the trusted default branch on %s without a notification",
+    async (event) => {
+      const result = await discover({
+        event,
+        listed: [{ number: 7 }, { number: 8 }, { number: 7 }, { number: 9 }],
+        prs: [freshPr(), freshPr({ number: 8 }), freshPr({ number: 9, state: "closed" })],
+      });
+      expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[7,8]");
+      expect(result.github.paginate).toHaveBeenCalledWith(result.listedApi, {
+        owner: "owner",
+        repo: "hub",
+        state: "open",
+        per_page: 100,
+      });
+      expect(result.github.rest.actions.getWorkflowRun).not.toHaveBeenCalled();
+      expect(result.github.rest.repos.getCommit).not.toHaveBeenCalled();
+    },
+  );
+  it("rejects manual reconciliation on a contributor branch", async () => {
+    const result = await discover({ event: "workflow_dispatch", ref: "refs/heads/topic" });
+    expect(result.core.setOutput).toHaveBeenCalledWith("prs", "[]");
+    expect(result.github.paginate).not.toHaveBeenCalled();
+    expect(result.github.rest.pulls.get).not.toHaveBeenCalled();
   });
   it("resolves a fork's empty PR array using paginated commit associations", async () => {
     const result = await discover({ candidates: [], associated: [{ number: 7 }] });
