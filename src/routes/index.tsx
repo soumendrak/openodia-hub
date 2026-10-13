@@ -282,6 +282,9 @@ function Communities() {
         ))}
       </div>
 
+      <Link to="/communities" className="text-neon hover:underline">
+        Browse all communities and organizers
+      </Link>
       <p className="community-note">
         Discover independent communities through OpenOdia. Each is run by its own organisers — visit
         their channels to join in.

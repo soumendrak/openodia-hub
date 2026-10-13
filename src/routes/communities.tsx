@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { ExternalLink, Search, X } from "lucide-react";
 import { Chip } from "../components/Facets";
@@ -6,11 +6,14 @@ import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
 import { pageHead } from "../lib/seo";
 import { normalizeSearch } from "../lib/search";
+import { events } from "../data/events";
+import { eventUrlKey } from "../lib/event-url";
 import { ORGANIZER_KINDS, type PublishedOrganizer } from "../data/organizers";
 import {
   COLLECTION_LABELS,
   KIND_LABELS,
   MAX_DIRECTORY_QUERY,
+  boundDirectoryQuery,
   filterOrganizers,
   validateDirectorySearch,
   type DirectorySearch,
@@ -33,7 +36,16 @@ function CommunitiesPage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [draftQuery, setDraftQuery] = useState(search.q ?? "");
-  useEffect(() => setDraftQuery(search.q ?? ""), [search.q]);
+  // Follow the URL (links, back/forward), but keep the draft when it already
+  // matches: the URL q is trimmed, and taking it back would drop a trailing
+  // space and move the cursor.
+  useEffect(
+    () =>
+      setDraftQuery((draft) =>
+        boundDirectoryQuery(draft) === search.q ? draft : (search.q ?? ""),
+      ),
+    [search.q],
+  );
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
 
@@ -52,11 +64,11 @@ function CommunitiesPage() {
   };
 
   const organizers = filterOrganizers({ q: draftQuery, kind: search.kind });
-  const hasQuery = normalizeSearch(draftQuery) !== "";
-  const filtered = hasQuery || Boolean(search.kind);
+  // setQuery and the URL validator only ever leave a searchable draft or "".
+  const filtered = draftQuery !== "" || Boolean(search.kind);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24">
+    <div className="mx-auto max-w-6xl min-w-0 px-4 pb-24">
       <JsonLd
         data={breadcrumbSchema([
           { name: "OpenOdia", url: "https://openodia.com" },
@@ -64,8 +76,21 @@ function CommunitiesPage() {
         ])}
       />
 
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: "Communities and organizers",
+          itemListElement: organizers.map((organizer, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            name: organizer.canonicalName,
+            url: `https://openodia.com/communities#${organizer.id}`,
+          })),
+        }}
+      />
       <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
-      <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
+      <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl md:text-7xl">
         Communities & <span className="text-gradient">organizers</span>.
       </h1>
       <p className="mt-4 max-w-2xl text-muted-foreground">
@@ -91,7 +116,7 @@ function CommunitiesPage() {
             onChange={(e) => setQuery(e.target.value)}
             className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
           />
-          {hasQuery && (
+          {draftQuery !== "" && (
             <button
               type="button"
               aria-label="Clear search"
@@ -152,7 +177,7 @@ function OrganizerCard({ organizer }: { organizer: PublishedOrganizer }) {
   return (
     <li
       id={organizer.id}
-      className="scroll-mt-28 rounded-2xl border border-border bg-surface p-5 target:border-neon"
+      className="min-w-0 break-words scroll-mt-28 rounded-2xl border border-border bg-surface p-5 target:border-neon"
     >
       <p className="text-xs uppercase tracking-widest text-muted-foreground">
         {KIND_LABELS[organizer.kind]} · {organizer.region}
@@ -173,6 +198,23 @@ function OrganizerCard({ organizer }: { organizer: PublishedOrganizer }) {
           </li>
         ))}
       </ul>
+      <p className="mt-4 text-xs text-muted-foreground">
+        {
+          new Set(
+            events
+              .filter((event) => event.organizerId === organizer.id)
+              .map((event) => eventUrlKey(event.url)),
+          ).size
+        }{" "}
+        curated events listed
+      </p>
+      <Link
+        to="/events"
+        search={{ community: organizer.id }}
+        className="mt-2 inline-block text-sm text-neon hover:underline"
+      >
+        View events from {organizer.canonicalName}
+      </Link>
       <details className="mt-4 text-xs text-muted-foreground">
         <summary className="cursor-pointer hover:text-foreground">How events are collected</summary>
         <p className="mt-2">{COLLECTION_LABELS[organizer.collectionMode]}</p>
