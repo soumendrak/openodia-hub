@@ -25,25 +25,48 @@ const infiniteHarness = vi.hoisted(() => ({
 }));
 
 const routeHarness = vi.hoisted(() => ({
-  search: {} as { q?: string; year?: string; sort?: "oldest" },
+  search: {} as {
+    q?: string;
+    year?: string;
+    sort?: "oldest";
+    community?: string;
+    type?: Event["type"];
+  },
+  listeners: new Set<() => void>(),
   navigate: vi.fn(),
 }));
 
 const queryHarness = vi.hoisted(() => ({
   data: undefined as { events: Event[] } | undefined,
+  isPending: false,
   isError: false,
   lastOptions: undefined as
     | { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }
     | undefined,
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: (_path: string) => (options: Record<string, unknown>) => ({
-    options,
-    useSearch: () => routeHarness.search,
-    useNavigate: () => routeHarness.navigate,
-  }),
-}));
+vi.mock("@tanstack/react-router", async () => {
+  const React = await import("react");
+  return {
+    Link: ({ to, hash, children, ...rest }: { to: string; hash?: string; children: ReactNode }) => (
+      <a href={`${to}${hash ? "#" + hash : ""}`} {...rest}>
+        {children}
+      </a>
+    ),
+    createFileRoute: (_path: string) => (options: Record<string, unknown>) => ({
+      options,
+      useSearch: () =>
+        React.useSyncExternalStore(
+          (listener) => {
+            routeHarness.listeners.add(listener);
+            return () => routeHarness.listeners.delete(listener);
+          },
+          () => routeHarness.search,
+        ),
+      useNavigate: () => routeHarness.navigate,
+    }),
+  };
+});
 
 vi.mock("@tanstack/react-query", () => ({
   useInfiniteQuery: (options: InfiniteQueryOptions) => {
@@ -52,7 +75,11 @@ vi.mock("@tanstack/react-query", () => ({
   },
   useQuery: (options: { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }) => {
     queryHarness.lastOptions = options;
-    return { data: queryHarness.data, isError: queryHarness.isError };
+    return {
+      data: queryHarness.data,
+      isPending: queryHarness.isPending,
+      isError: queryHarness.isError,
+    };
   },
 }));
 
@@ -121,7 +148,7 @@ const PAST_2020: Event[] = [
     title: "Alpha Talk",
     url: "https://example.com/e1",
     type: "Talk",
-    community: "Comm A",
+    community: "TFUG BBSR",
     description: "Alpha description",
   },
   {
@@ -130,7 +157,7 @@ const PAST_2020: Event[] = [
     title: "Beta Workshop",
     url: "https://example.com/e2",
     type: "Workshop",
-    community: "Comm B",
+    community: "GDG Bhubaneswar",
     description: "Beta description",
   },
   {
@@ -139,7 +166,7 @@ const PAST_2020: Event[] = [
     title: "Gamma Conference",
     url: "https://example.com/e3",
     type: "Conference",
-    community: "Comm A",
+    community: "TFUG BBSR",
     description: "Gamma description",
     startDate: "2020-03-05",
     endDate: "2020-03-05",
@@ -150,7 +177,7 @@ const PAST_2020: Event[] = [
     title: "Delta Hackathon",
     url: "https://example.com/e4",
     type: "Hackathon",
-    community: "Comm C",
+    community: "OdishaAI",
     description: "Delta description",
   },
 ];
@@ -176,7 +203,12 @@ beforeEach(() => {
   infiniteHarness.fetchNextPage.mockClear();
   routeHarness.search = {};
   routeHarness.navigate.mockClear();
+  routeHarness.navigate.mockImplementation(({ search }) => {
+    routeHarness.search = search;
+    routeHarness.listeners.forEach((listener) => listener());
+  });
   queryHarness.data = undefined;
+  queryHarness.isPending = false;
   queryHarness.isError = false;
   queryHarness.lastOptions = undefined;
 });
@@ -254,11 +286,11 @@ describe("events.tsx", () => {
     });
     fireEvent.change(screen.getByLabelText("Event sort"), { target: { value: "newest" } });
     expect(routeHarness.navigate).toHaveBeenLastCalledWith({
-      search: { year: "2020", sort: undefined },
+      search: { year: "2021", sort: undefined },
     });
     fireEvent.click(screen.getByRole("button", { name: /Clear Filters/ }));
     expect(routeHarness.navigate).toHaveBeenLastCalledWith({
-      search: { year: undefined, q: undefined, sort: "oldest" },
+      search: { sort: undefined },
       replace: true,
     });
   });
@@ -269,7 +301,7 @@ describe("events.tsx", () => {
     const Component = EventsRouteAny.options.component;
     render(<Component />);
     expect(screen.getByLabelText("Archive year")).toHaveValue("1999");
-    expect(screen.getByText("No events matched these filters.")).toBeInTheDocument();
+    expect(screen.getByText("No events matched.")).toBeInTheDocument();
     expect(screen.queryByText("Alpha Talk")).not.toBeInTheDocument();
   });
 
@@ -299,7 +331,7 @@ describe("events.tsx", () => {
     ];
     const Component = EventsRouteAny.options.component;
     const { container } = render(<Component />);
-    const titles = [...container.querySelectorAll("a h3")].map((element) => element.textContent);
+    const titles = [...container.querySelectorAll("h3 a")].map((element) => element.textContent);
     expect(titles).toEqual(["Earlier date", "Later date", "Later year"]);
     fireEvent.change(screen.getByLabelText("Event sort"), { target: { value: "oldest" } });
     expect(routeHarness.navigate).toHaveBeenLastCalledWith({ search: { sort: "oldest" } });
@@ -309,6 +341,102 @@ describe("events.tsx", () => {
     });
   });
 
+  it("validates all event filter parameters and preserves honest invalid-ID states", () => {
+    expect(
+      EventsRouteAny.options.validateSearch({
+        q: "kiit",
+        community: "gdgoc-kiit",
+        type: "Workshop",
+      }),
+    ).toEqual({ q: "kiit", community: "gdgoc-kiit", type: "Workshop" });
+    expect(
+      EventsRouteAny.options.validateSearch({ q: 42, community: 42, type: "invalid" }),
+    ).toEqual({});
+    expect(EventsRouteAny.options.validateSearch({ community: "x".repeat(81) })).toEqual({});
+    routeHarness.search = { community: "unknown-id" };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByRole("status")).toHaveTextContent("not a known organizer");
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    expect(screen.getByText("No events matched.")).toBeInTheDocument();
+  });
+  it.each(["organizer", "type"])(
+    "fetches beyond loaded pages for the %s filter and keeps independent links",
+    (filter) => {
+      const hidden = { ...PAST_2020[0], community: "GDGoC KIIT", type: "Workshop" as const };
+      routeHarness.search =
+        filter === "organizer" ? { community: "gdgoc-kiit" } : { type: "Workshop" };
+      queryHarness.data = { events: [hidden] };
+      render(<EventsRouteAny.options.component />);
+      expect(queryHarness.lastOptions?.enabled).toBe(true);
+      const title = screen.getByRole("link", { name: hidden.title });
+      expect(title).toHaveAttribute("href", hidden.url);
+      expect(screen.getByRole("link", { name: "GDGoC KIIT", exact: true })).toHaveAttribute(
+        "href",
+        "/communities#gdgoc-kiit",
+      );
+      expect(document.querySelector("a a")).toBeNull();
+    },
+  );
+  it.each(["pending", "error"])(
+    "labels incomplete result scope when the complete corpus is %s",
+    (state) => {
+      routeHarness.search = { type: "Workshop" };
+      queryHarness.isPending = state === "pending";
+      queryHarness.isError = state === "error";
+      render(<EventsRouteAny.options.component />);
+      expect(screen.getByRole(state === "pending" ? "status" : "alert")).toHaveTextContent(
+        state === "pending" ? "Counts below cover loaded events" : "previously loaded events only",
+      );
+    },
+  );
+  it("searches canonical organizer names and aliases without title matches", () => {
+    dataFixture.events = [{ ...PAST_2020[0], community: "TFUG BBSR" }];
+    routeHarness.search = { q: "Bhubaneswar" };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(PAST_2020[0].title)).toBeInTheDocument();
+  });
+  it("preserves all other URL filters when each control changes", () => {
+    routeHarness.search = { q: "Alpha", community: "gdgoc-kiit", type: "Workshop" };
+    dataFixture.events = [{ ...PAST_2020[0], community: "GDGoC KIIT", type: "Workshop" }];
+    render(<EventsRouteAny.options.component />);
+    fireEvent.change(screen.getByPlaceholderText("Search events… [/]"), {
+      target: { value: "next" },
+    });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { q: "next", community: "gdgoc-kiit", type: "Workshop" },
+      replace: true,
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by organizer" }), {
+      target: { value: "tfug-bbsr" },
+    });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { q: "next", community: "tfug-bbsr", type: "Workshop" },
+      replace: true,
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by event type" }), {
+      target: { value: "Conference" },
+    });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { q: "next", community: "tfug-bbsr", type: "Conference" },
+      replace: true,
+    });
+  });
+  it("returns to loaded-page pagination after clearing a cached full-corpus filter", () => {
+    const loaded = { ...PAST_2020[0], title: "Loaded first page" };
+    const hidden = { ...PAST_2020[1], title: "Hidden second page" };
+    infiniteHarness.data = { pages: [{ events: [loaded], total: 2, nextCursor: "2" }] };
+    infiniteHarness.hasNextPage = true;
+    queryHarness.data = { events: [loaded, hidden] };
+    routeHarness.search = { q: "Hidden" };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(hidden.title)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByText(loaded.title)).toBeInTheDocument();
+    expect(screen.queryByText(hidden.title)).not.toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(1);
+  });
   it("restores a linkable query and searches the complete event corpus", async () => {
     const hiddenEvent: Event = {
       year: "2026",
@@ -470,7 +598,7 @@ describe("events.tsx", () => {
         title: "Has Start",
         url: "https://example.com/has-start",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
         startDate: "2021-01-05",
         endDate: "2021-01-05",
@@ -481,7 +609,7 @@ describe("events.tsx", () => {
         title: "No Start",
         url: "https://example.com/no-start",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
       },
     ];
@@ -499,7 +627,7 @@ describe("events.tsx", () => {
         title: "Malformed Start Dash",
         url: "https://example.com/malformed-1",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
         startDate: "2023",
       },
@@ -509,7 +637,7 @@ describe("events.tsx", () => {
         title: "Malformed Start Month",
         url: "https://example.com/malformed-2",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
         startDate: "2023-13-01",
       },
@@ -549,10 +677,10 @@ describe("events.tsx", () => {
     fireEvent.click(clearQueryButton);
     expect(searchInput).toHaveValue("");
 
-    const communitySelect = screen.getByRole("combobox", { name: "Community" });
-    const typeSelect = screen.getByRole("combobox", { name: "Event type" });
+    const communitySelect = screen.getByRole("combobox", { name: "Filter by organizer" });
+    const typeSelect = screen.getByRole("combobox", { name: "Filter by event type" });
 
-    fireEvent.change(communitySelect, { target: { value: "Comm A" } });
+    fireEvent.change(communitySelect, { target: { value: "tfug-bbsr" } });
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
     expect(screen.queryByText("Delta Hackathon")).not.toBeInTheDocument();
 
@@ -564,7 +692,7 @@ describe("events.tsx", () => {
     fireEvent.change(typeSelect, { target: { value: "" } });
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
 
-    fireEvent.change(communitySelect, { target: { value: "Comm C" } });
+    fireEvent.change(communitySelect, { target: { value: "odishaai" } });
     expect(screen.getByText("Delta Hackathon")).toBeInTheDocument();
     expect(screen.queryByText("Alpha Talk")).not.toBeInTheDocument();
 
@@ -745,7 +873,7 @@ describe("events-feed.ts", () => {
         title: "No Date Event",
         url: "https://example.com/nodate",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
       {
@@ -754,7 +882,7 @@ describe("events-feed.ts", () => {
         title: "Invalid Date Valid Year",
         url: "https://example.com/invalid-valid-year",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
       {
@@ -763,7 +891,7 @@ describe("events-feed.ts", () => {
         title: "Invalid Date Invalid Year",
         url: "https://example.com/invalid-invalid-year",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
       {
@@ -772,7 +900,7 @@ describe("events-feed.ts", () => {
         title: "Invalid Date No Year",
         url: "https://example.com/invalid-no-year",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
     ];

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
@@ -13,6 +13,12 @@ import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 import { normalizeSearch } from "../lib/search";
 import { parseEventArchiveSearch } from "../lib/event-archive";
 import { issueFormUrl } from "../lib/issue-forms";
+import {
+  getOrganizerById,
+  resolveOrganizer,
+  resolveOrganizerId,
+  ORGANIZERS,
+} from "../data/organizers";
 
 export const Route = createFileRoute("/events")({
   validateSearch: parseEventArchiveSearch,
@@ -36,12 +42,12 @@ export const Route = createFileRoute("/events")({
 });
 
 const TYPE_COLORS: Record<Event["type"], string> = {
-  Conference: "border-blue-500/40 text-blue-400",
+  Conference: "border-blue-500/40 text-blue-400 light:text-blue-900",
   Summit: "border-neon/40 text-neon",
-  Workshop: "border-purple-500/40 text-purple-400",
-  Research: "border-amber-500/40 text-amber-400",
-  Hackathon: "border-rose-500/40 text-rose-400",
-  Talk: "border-sky-500/40 text-sky-400",
+  Workshop: "border-purple-500/40 text-purple-400 light:text-purple-900",
+  Research: "border-amber-500/40 text-amber-400 light:text-amber-900",
+  Hackathon: "border-rose-500/40 text-rose-400 light:text-rose-900",
+  Talk: "border-sky-500/40 text-sky-400 light:text-sky-900",
 };
 
 const ATTENDANCE_LABELS: Record<NonNullable<Event["attendance"]>["policy"], string> = {
@@ -55,11 +61,11 @@ const ATTENDANCE_LABELS: Record<NonNullable<Event["attendance"]>["policy"], stri
 function EventCard({ event }: { event: Event }) {
   const isUpcoming = event.status === "upcoming";
   const isLive = event.status === "live";
+  const organizer = event.organizerId
+    ? getOrganizerById(event.organizerId)
+    : resolveOrganizer(event.community);
   return (
-    <a
-      href={event.url}
-      target="_blank"
-      rel="noreferrer"
+    <article
       // min-w-0: grid items default to min-width:auto, so a long unbroken venue
       // or title sets the card's minimum width and pushes the row past 375px.
       className={`anim-in hover-lift group flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
@@ -73,7 +79,7 @@ function EventCard({ event }: { event: Event }) {
       <div className="flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           {isLive && (
-            <span className="flex items-center gap-1.5 rounded-full border border-green-500/50 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-400">
+            <span className="flex items-center gap-1.5 rounded-full border border-green-500/50 bg-green-500/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-green-400 light:text-green-900">
               <span className="relative flex h-1.5 w-1.5">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-500" />
@@ -116,12 +122,42 @@ function EventCard({ event }: { event: Event }) {
         />
       </div>
 
-      <h3 className="font-display text-base font-semibold leading-snug">{event.title}</h3>
+      <h3 className="font-display text-base font-semibold leading-snug">
+        <a
+          href={event.url}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-neon hover:underline"
+        >
+          {event.title}
+        </a>
+      </h3>
 
-      {event.theme && <p className="text-xs italic text-neon/80">&ldquo;{event.theme}&rdquo;</p>}
+      {event.theme && <p className="text-xs italic text-neon">&ldquo;{event.theme}&rdquo;</p>}
 
       <p className="text-sm leading-relaxed text-muted-foreground">{event.description}</p>
-    </a>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 text-sm">
+        <a
+          href={event.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-neon hover:underline"
+        >
+          Event details <ExternalLink size={13} />
+        </a>
+        {organizer ? (
+          <Link
+            to="/communities"
+            hash={organizer.id}
+            className="text-muted-foreground hover:text-neon hover:underline"
+          >
+            {organizer.canonicalName}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">{event.community}</span>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -193,6 +229,9 @@ function EventsPage() {
   useEffect(() => setDraftQuery(routeSearch.q ?? ""), [routeSearch.q]);
   const query = draftQuery;
   const navigate = Route.useNavigate();
+  const setFilters = (next: ReturnType<typeof parseEventArchiveSearch>) => {
+    void navigate({ search: next, replace: true });
+  };
   const setQuery = (next: string) => {
     const bounded = next.slice(0, 80);
     setDraftQuery(bounded);
@@ -200,9 +239,15 @@ function EventsPage() {
   };
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
-  const [activeType, setActiveType] = useState<Event["type"] | null>(null);
-  const [activeCommunity, setActiveCommunity] = useState<string | null>(null);
+  const activeType = routeSearch.type ?? null;
+  const requestedCommunity = routeSearch.community;
+  const activeCommunity =
+    requestedCommunity && getOrganizerById(requestedCommunity) ? requestedCommunity! : null;
+  const unknownCommunity = requestedCommunity && !activeCommunity ? requestedCommunity : null;
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const needle = normalizeSearch(query);
+  const isFiltering = !!needle || !!activeType || !!requestedCommunity || !!routeSearch.year;
+  const needsCompleteCorpus = (isFiltering || !!routeSearch.sort) && !unknownCommunity;
 
   const isProgrammaticScroll = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -247,9 +292,12 @@ function EventsPage() {
 
   // Pagination keeps the idle timeline light, but a search must not silently
   // exclude a live event merely because its page has not been visited yet.
-  const needsCompleteCorpus = Boolean(query.trim() || routeSearch.year || routeSearch.sort);
-  const { data: completeSearchEvents, isError: completeSourceError } = useQuery({
-    queryKey: ["allLiveEventsForSearch"],
+  const {
+    data: completeSearchEvents,
+    isPending: isCompletePending,
+    isError: isCompleteError,
+  } = useQuery({
+    queryKey: ["allLiveEventsForFilter"],
     queryFn: async () => {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
@@ -260,12 +308,15 @@ function EventsPage() {
     retry: 1,
   });
 
-  const fetchedEvents =
-    completeSearchEvents?.events ?? liveData?.pages.flatMap((p) => p.events) ?? [];
+  const loadedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  // Disabled queries keep cached data: clearing filters must restore pagination.
+  const fetchedEvents = needsCompleteCorpus
+    ? (completeSearchEvents?.events ?? loadedEvents)
+    : loadedEvents;
   const partialEvents =
     liveSourceError ||
-    (needsCompleteCorpus && completeSourceError) ||
-    completeSearchEvents?.partial ||
+    (needsCompleteCorpus && isCompleteError) ||
+    (needsCompleteCorpus && completeSearchEvents?.partial) ||
     liveData?.pages.some((page) => page.partial);
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
@@ -283,7 +334,7 @@ function EventsPage() {
           status = undefined; // past event
         }
       }
-      return { ...e, status };
+      return { ...e, organizerId: e.organizerId ?? resolveOrganizerId(e.community), status };
     })
     .sort((a, b) => {
       const yearDiff = Number(b.year) - Number(a.year);
@@ -298,8 +349,6 @@ function EventsPage() {
       return 0;
     });
 
-  const needle = normalizeSearch(query);
-
   const upcomingEvents = mergedEventsList.filter(
     (e) => e.status === "upcoming" || e.status === "live",
   );
@@ -308,11 +357,18 @@ function EventsPage() {
   const applyFilter = (list: Event[]) =>
     list.filter((e) => {
       const matchesType = activeType ? e.type === activeType : true;
-      const matchesCommunity = activeCommunity ? e.community === activeCommunity : true;
+      const matchesCommunity = activeCommunity ? e.organizerId === activeCommunity : true;
       const matchesQuery = needle
         ? normalizeSearch(e.title).includes(needle) ||
           normalizeSearch(e.description).includes(needle) ||
-          normalizeSearch(e.location ?? "").includes(needle)
+          normalizeSearch(e.location ?? "").includes(needle) ||
+          normalizeSearch(
+            [
+              e.community,
+              resolveOrganizer(e.organizerId ?? e.community)?.canonicalName ?? "",
+              ...(resolveOrganizer(e.organizerId ?? e.community)?.aliases ?? []),
+            ].join(" "),
+          ).includes(needle)
         : true;
       return (
         matchesType &&
@@ -322,9 +378,8 @@ function EventsPage() {
       );
     });
 
-  const filtered = applyFilter(mergedEventsList);
+  const filtered = unknownCommunity ? [] : applyFilter(mergedEventsList);
   const isSearching = !!needle;
-  const isFiltering = !!needle || !!activeType || !!activeCommunity || !!routeSearch.year;
 
   // Past events are the ones the status pass left undefined; "past" is not a
   // value Event["status"] can hold.
@@ -337,7 +392,10 @@ function EventsPage() {
     routeSearch.sort === "oldest" ? Number(a) - Number(b) : Number(b) - Number(a),
   );
 
-  const dynamicCommunities = [...new Set(mergedEventsList.map((e) => e.community))].sort();
+  // Registry identities stay selectable even when their first live page has no events.
+  const dynamicCommunities = [...ORGANIZERS].sort((a, b) =>
+    a.canonicalName.localeCompare(b.canonicalName),
+  );
 
   // For each year, gather the active months in the filtered past events
   const activeMonthsByYear = new Map<string, string[]>();
@@ -620,6 +678,10 @@ function EventsPage() {
           >
             GDG Bhubaneswar
           </a>
+          . Browse every source in the{" "}
+          <Link to="/communities" className="text-neon hover:underline">
+            communities directory
+          </Link>
           .
         </p>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
@@ -630,7 +692,16 @@ function EventsPage() {
             rel="noreferrer"
             className="text-neon hover:underline"
           >
-            Submit an event
+            Submit an event <span className="sr-only">(opens in a new tab)</span>
+          </a>
+          . Wrong, postponed, or cancelled?{" "}
+          <a
+            href={issueFormUrl("correction")}
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            Suggest a correction <span className="sr-only">(opens in a new tab)</span>
           </a>
           . Submissions are reviewed before they appear.
         </p>
@@ -648,6 +719,7 @@ function EventsPage() {
               <input
                 ref={searchInputRef}
                 type="search"
+                aria-label="Search events"
                 placeholder="Search events… [/]"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
@@ -655,6 +727,7 @@ function EventsPage() {
               />
               {query && (
                 <button
+                  aria-label="Clear event search"
                   onClick={() => setQuery("")}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
@@ -666,15 +739,22 @@ function EventsPage() {
             {/* Communities Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
-                aria-label="Community"
+                aria-label="Filter by organizer"
                 value={activeCommunity ?? ""}
-                onChange={(e) => setActiveCommunity(e.target.value || null)}
+                onChange={(e) =>
+                  setFilters({
+                    ...routeSearch,
+                    ...(routeSearch.q ? { q: routeSearch.q } : {}),
+                    ...(routeSearch.type ? { type: routeSearch.type } : {}),
+                    community: e.target.value || undefined,
+                  })
+                }
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
               >
                 <option value="">All communities</option>
-                {dynamicCommunities.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                {dynamicCommunities.map((organizer) => (
+                  <option key={organizer.id} value={organizer.id}>
+                    {organizer.canonicalName}
                   </option>
                 ))}
               </select>
@@ -687,10 +767,15 @@ function EventsPage() {
             {/* Event Types Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
-                aria-label="Event type"
+                aria-label="Filter by event type"
                 value={activeType ?? ""}
                 onChange={(e) =>
-                  setActiveType((e.target.value as (typeof ALL_TYPES)[number]) || null)
+                  setFilters({
+                    ...routeSearch,
+                    ...(routeSearch.q ? { q: routeSearch.q } : {}),
+                    ...(routeSearch.community ? { community: routeSearch.community } : {}),
+                    type: (e.target.value as Event["type"]) || undefined,
+                  })
                 }
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
               >
@@ -712,12 +797,7 @@ function EventsPage() {
               <button
                 onClick={() => {
                   setDraftQuery("");
-                  void navigate({
-                    search: { ...routeSearch, q: undefined, year: undefined },
-                    replace: true,
-                  });
-                  setActiveType(null);
-                  setActiveCommunity(null);
+                  setFilters({ sort: routeSearch.sort });
                 }}
                 className="flex items-center gap-1.5 rounded-2xl border border-border px-4 py-3 text-sm text-muted-foreground hover:border-neon/40 hover:text-foreground transition"
               >
@@ -728,13 +808,29 @@ function EventsPage() {
         </Reveal>
       </div>
 
-      {!isSearching && filtered.length === 0 && (
-        <p aria-live="polite" className="mt-6 text-muted-foreground">
-          No events matched these filters.
+      {unknownCommunity && (
+        <p
+          className="mt-4 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200"
+          role="status"
+        >
+          “{unknownCommunity}” is not a known organizer. Choose a listed community or clear the
+          filters.
         </p>
       )}
 
-      {isSearching ? (
+      {needsCompleteCorpus && isCompletePending && (
+        <p role="status" className="mt-4 text-sm text-muted-foreground">
+          Loading the complete event collection… Counts below cover loaded events until this
+          finishes.
+        </p>
+      )}
+      {needsCompleteCorpus && isCompleteError && (
+        <p role="alert" className="mt-4 text-sm text-muted-foreground">
+          The complete live event collection is unavailable. Results and counts cover curated and
+          previously loaded events only.
+        </p>
+      )}
+      {isFiltering ? (
         <div className="mt-10">
           <Reveal>
             <p className="text-sm text-muted-foreground">
@@ -910,7 +1006,7 @@ function EventsPage() {
                   <div key={year} id={`year-${year}`} className="scroll-mt-28 space-y-8">
                     <Reveal>
                       <div className="border-b border-border/40 pb-2">
-                        <h2 className="font-display text-3xl font-bold text-neon/90">{year}</h2>
+                        <h2 className="font-display text-3xl font-bold text-neon">{year}</h2>
                       </div>
                     </Reveal>
                     <div className="space-y-10">
@@ -919,7 +1015,7 @@ function EventsPage() {
                         return (
                           <div key={monthName} id={monthId} className="scroll-mt-28 space-y-4">
                             <Reveal>
-                              <h3 className="text-xs font-bold tracking-widest uppercase text-muted-foreground/80 flex items-center gap-2">
+                              <h3 className="text-xs font-bold tracking-widest uppercase text-muted-foreground flex items-center gap-2">
                                 <span className="w-1.5 h-1.5 rounded-full bg-neon/60" />
                                 {monthName}
                               </h3>
@@ -938,12 +1034,13 @@ function EventsPage() {
               })}
             </div>
 
-            {!isSearching && totalLiveEvents > 0 && (
+            {!isFiltering && totalLiveEvents > 0 && (
               <div className="mt-10 flex flex-col items-center gap-3">
                 <p className="text-xs text-muted-foreground">
-                  Showing {fetchedEvents.length} of {totalLiveEvents} events
+                  Current collection: {mergedEventsList.length} unique curated and loaded live
+                  events.
                 </p>
-                {hasNextPage && !completeSearchEvents && (
+                {hasNextPage && !needsCompleteCorpus && (
                   <button
                     onClick={() => fetchNextPage()}
                     disabled={isFetchingNextPage}

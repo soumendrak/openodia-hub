@@ -1,5 +1,5 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId } from "react";
 import { Menu, X, Sun, Moon, Search, Languages, Sparkles } from "lucide-react";
 import { useTranslation, type TranslationKey } from "../lib/i18n";
 
@@ -31,6 +31,8 @@ export function Nav() {
   const { location } = useRouterState();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
   const { locale, setLocale, t } = useTranslation();
+  const localeLabelId = useId();
+  const localeTargetId = useId();
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -53,7 +55,7 @@ export function Nav() {
   };
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50">
+    <header lang={locale} className="fixed top-0 left-0 right-0 z-50">
       <div className="mx-auto mt-4 max-w-6xl px-4">
         <div className="flex items-center justify-between rounded-2xl border border-border bg-background/60 px-4 py-3 backdrop-blur-xl">
           <Link to="/" className="group flex items-center gap-2">
@@ -121,11 +123,14 @@ export function Nav() {
             <button
               onClick={() => setLocale(locale === "en" ? "or" : "en")}
               className="inline-flex items-center gap-1 rounded-xl border border-border bg-surface/40 px-2 py-2 text-xs text-muted-foreground transition hover:border-neon hover:text-neon cursor-pointer"
-              aria-label={t("nav.locale.aria")}
+              aria-labelledby={`${localeLabelId} ${localeTargetId}`}
               title={t("nav.locale.aria")}
             >
               <Languages size={14} className="hidden sm:block" />
-              <span lang={locale === "en" ? "or" : "en"}>
+              <span id={localeLabelId} className="sr-only" lang={locale}>
+                {t("nav.locale.aria")}
+              </span>
+              <span id={localeTargetId} lang={locale === "en" ? "or" : "en"}>
                 {locale === "en" ? "ଓଡ଼ିଆ" : "English"}
               </span>
             </button>
