@@ -20,3 +20,22 @@ An adversarial boundary check found that an 80-character unbroken unknown organi
 The Codex review identified cached full-corpus data remaining preferred after filters were cleared. The full corpus is now selected only while normalized filters are active. A regression verifies filter→clear→first page→Load more→second page; the browser fixture uses consistent two-page API metadata.
 
 A further Codex review found unknown organizer IDs still triggering an unnecessary complete-corpus request. The query is now disabled for unknown IDs, and the browser harness counts complete requests to verify neither 80-character unknown-ID case triggers one. The invalid-ID route test also asserts that the full query stays disabled. The final commit hook rechecks the complete suite and coverage after this follow-up.
+
+## Refresh after PR #124 merged (2026-10-13)
+
+Merged main at `14a2061e1afddc5917eab4b4d4829e9095b096a1` into this branch.
+Resolved the two event-select accessible-name conflicts using `Filter by organizer`
+and `Filter by event type`, retaining URL-backed filters and all incoming
+accessibility changes. Existing component tests assert those accessible names.
+
+Verification: 823 tests in 79 files passed, with statements 4797/4797,
+branches 3155/3155, functions 1246/1246, and lines 4306/4306 covered.
+Type checking and production build passed; lint has zero errors and 18 existing
+warnings. The normal commit hook passed 97/97 changed executable lines.
+The built-Worker browser run passed 65/66 checks; its events screenshot required
+a baseline refresh because this PR adds the communities-directory link above
+the filters. Both expected and actual images were inspected before refreshing
+that single baseline; the 0.015 comparison tolerance is unchanged.
+The subsequent independent visual run passed all six screenshots, including
+`/events`, without snapshot-update mode. Thus all 66 browser cases have passed
+on the resolved source, with only the intentional events baseline updated.
