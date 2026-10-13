@@ -9,6 +9,7 @@ const harness = vi.hoisted(() => ({
   loading: false,
   failure: false,
   refetch: vi.fn(),
+  resultOverride: undefined as undefined | { summary?: string; href?: string },
   queries: [] as Array<{ queryKey: unknown[]; queryFn: () => Promise<unknown> }>,
 }));
 
@@ -31,6 +32,7 @@ vi.mock("@tanstack/react-query", () => ({
                 href: "/r/model/atlas",
                 source: "catalog",
                 score: 100,
+                ...harness.resultOverride,
               },
             ],
             partial: false,
@@ -69,6 +71,7 @@ describe("command palette dialog", () => {
     harness.navigate.mockClear();
     harness.refetch.mockClear();
     harness.query = undefined;
+    harness.resultOverride = undefined;
     harness.loading = false;
     harness.failure = false;
     harness.queries.length = 0;
@@ -97,6 +100,26 @@ describe("command palette dialog", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/search?q=atlas&limit=50", expect.any(Object));
   });
 
+  it("uses the source label for an empty summary and safely closes a result without a destination", async () => {
+    harness.query = "atlas";
+    harness.resultOverride = { summary: "", href: undefined };
+    const close = vi.fn();
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const { default: CommandPaletteDialog } =
+      await import("../src/components/CommandPaletteDialog");
+    render(<CommandPaletteDialog open onOpenChange={close} />);
+    fireEvent.change(screen.getByPlaceholderText("Search all OpenOdia resources…"), {
+      target: { value: "atlas" },
+    });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /Odia OCR Atlas/ })).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Odia OCR Atlas/ }));
+    expect(screen.getByText("catalog")).toBeInTheDocument();
+    expect(close).toHaveBeenCalledWith(false);
+    expect(harness.navigate).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
   it("does not label loading as no results and offers a retry after failure", async () => {
     harness.loading = true;
     const { default: CommandPaletteDialog } =
@@ -129,6 +152,31 @@ function ShortcutFixture() {
 }
 
 describe("search shortcut", () => {
+  it("handles slash safely before the input ref is attached", () => {
+    function PendingSearchInput() {
+      const ref = useRef<HTMLInputElement>(null);
+      useSearchShortcut(ref);
+      return <p>The search input is still mounting.</p>;
+    }
+    render(<PendingSearchInput />);
+    const key = new KeyboardEvent("keydown", { key: "/", cancelable: true });
+    window.dispatchEvent(key);
+    expect(key.defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(document.body);
+  });
+  it("leaves ordinary keys and Escape in another typing surface alone", () => {
+    render(<ShortcutFixture />);
+    const textarea = screen.getByRole("textbox", { name: "other" });
+    textarea.focus();
+    const ordinaryKey = new KeyboardEvent("keydown", { key: "a", cancelable: true });
+    window.dispatchEvent(ordinaryKey);
+    expect(ordinaryKey.defaultPrevented).toBe(false);
+    expect(textarea).toHaveFocus();
+    const escape = new KeyboardEvent("keydown", { key: "Escape", cancelable: true });
+    window.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(false);
+    expect(textarea).toHaveFocus();
+  });
   it("focuses and selects on slash, ignores typing surfaces, and blurs on Escape", () => {
     render(<ShortcutFixture />);
     const search = screen.getByRole("textbox", { name: "search" }) as HTMLInputElement;
