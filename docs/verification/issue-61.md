@@ -2,7 +2,7 @@
 
 ## Scope
 
-Completes the existing PR #124 smoke foundation against current main: per-route smoke specs, strict WCAG2 A/AA and WCAG2.1 A/AA scans in both themes, native built-Worker API contracts and upstream outages, keyboard/locale/dialog/editor checks, and six screenshot regressions. The minimal accessibility prerequisite is included verbatim from issue #59 so this is independently reviewable against main.
+Completes the existing PR #124 smoke foundation against current main: per-route smoke specs, strict WCAG2 A/AA and WCAG2.1 A/AA scans in both themes, native built-Worker API contracts and upstream outages, keyboard/locale/dialog/editor checks, and six screenshot regressions. The initial accessibility prerequisite came from issue #59 so this is independently reviewable against main; the editor parity follow-up below preserves its later physical-key fix.
 
 ## Running the suite
 
@@ -28,9 +28,9 @@ Recorded browser/API checks are deterministic regression evidence, not an assert
 
 ## Verified results
 
-The final executable head `ca97e4c` passed **66/66 Chromium checks**, including **13/13 native API/clock checks**, MCP tool discovery, real local Odialang execution, search-filter restoration and all six visual regressions at the unchanged 1.5% tolerance. Both-theme route axe scans report no WCAG 2/2.1 A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass. GitHub CI and preview passed for this executable head.
+The previous executable head `ca97e4c` passed **66/66 Chromium checks**, including **13/13 native API/clock checks**, MCP tool discovery, real local Odialang execution, search-filter restoration and all six visual regressions at the unchanged 1.5% tolerance. Both-theme route axe scans report no WCAG 2/2.1 A/AA violations. Lint reports no errors (18 pre-existing warnings); TypeScript and the production build pass. GitHub CI and preview passed for this executable head.
 
-The final full Vitest gate passed **809 tests across 79 files**, with **100% statements (4785/4785), branches (3091/3091), functions (1239/1239), and lines (4293/4293)**. Whole-PR changed executable lines passed **98/98**. The shared baseline fallback/tie tests close the previous branch gaps; no coverage exclusions were added.
+That previous full Vitest gate passed **809 tests across 79 files**, with **100% statements (4785/4785), branches (3091/3091), functions (1239/1239), and lines (4293/4293)**. Whole-PR changed executable lines passed **98/98**. The shared baseline fallback/tie tests close the previous branch gaps; no coverage exclusions were added.
 
 An actual T3 browser session at 320px verified first Tab skip visibility and a 3px focus ring, Enter focus transfer, mobile menu reachability, language attributes, command dialog focus/close and theme toggling without overflow. No new uncaught exceptions were recorded for that session. Native screen-reader speech and remote CI results remain distinct from this local evidence.
 
@@ -41,3 +41,9 @@ Linux Chromium uses separately reviewed home/playground baselines because the pi
 Editor Escape navigation is consumed by one Tab and cleared on blur; keyboard re-entry restores indentation. The marquee control is hidden while reduced motion makes scrolling static. Locale-control names reference separate language-tagged elements, and remaining static Odia fragments/input examples carry `lang=or`; the glyph has an English accessible description. Browser checks exercise these behaviors and compare the Worker and browser clocks, both fixed at 2026-10-12 before production code evaluates.
 
 Smoke checks also reject recoverable React hydration errors. CI cancels superseded runs and checks the current PR head before creating/updating the sticky coverage report; tests exercise head changes before and during comment lookup.
+
+## Independent editor parity — 2026-10-13
+
+The exact issue-59 editor fix is backported so this independent preview also supports physical Escape → Shift+Tab navigation. Modifier-only Shift/Control/Alt/Meta/AltGraph keydowns preserve the one-shot latch; ordinary typing cancels it, and consumed Tab or blur clears it. Two regression cases fail against the old editor; all four focused accessibility unit tests pass after the fix. The existing built-Worker marquee/editor case now emits real Shift+Tab and checks focus exit, unchanged code, and indentation after reentry. No wording, baseline or visual tolerance changes.
+
+Fresh production build and TypeScript checks pass; lint has no errors and the same 18 existing warnings. All **66/66 Chromium checks** pass, including the physical Shift regression and all **six visual regressions at the unchanged 1.5% tolerance**. Logs and the portable embedded browser report are retained under `.lavish/pr124-shift-followup/`. The normal source-gate metrics are recorded in the following documentation annotation after the hook completes.

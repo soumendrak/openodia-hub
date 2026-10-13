@@ -129,7 +129,9 @@ export function CodeEditor({ value, onChange, rows, disabled, language = "python
       delete e.currentTarget.dataset.tabNavigation;
       return;
     }
-    if (e.key !== "Tab") delete e.currentTarget.dataset.tabNavigation;
+    if (e.key !== "Tab" && !["Shift", "Control", "Alt", "Meta", "AltGraph"].includes(e.key)) {
+      delete e.currentTarget.dataset.tabNavigation;
+    }
 
     if (e.key === "Tab") {
       e.preventDefault();
