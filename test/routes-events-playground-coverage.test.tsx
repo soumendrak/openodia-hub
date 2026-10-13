@@ -420,6 +420,28 @@ describe("events.tsx", () => {
     expect(screen.getAllByText(/Odia AI/i).length).toBeGreaterThan(0);
   });
 
+  it("keeps the event-count live region mounted through the first filter and clear", () => {
+    dataFixture.events = PAST_2020;
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    const region = screen.getByRole("status");
+    expect(region).toBeEmptyDOMElement();
+    const [community] = screen.getAllByRole("combobox");
+    fireEvent.change(community, { target: { value: "Comm A" } });
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent("2 events matched");
+    fireEvent.click(screen.getByRole("button", { name: /Clear Filters/i }));
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toBeEmptyDOMElement();
+    const search = screen.getByRole("searchbox", { name: "Search events" });
+    fireEvent.change(search, { target: { value: "Alpha" } });
+    expect(region).toHaveTextContent("1 event matched");
+    fireEvent.change(search, { target: { value: "no-matching-event" } });
+    expect(region).toHaveTextContent("0 events matched");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toHaveAttribute("aria-atomic", "true");
+  });
+
   it("filters by search text, type, and community, and clears active filters", () => {
     dataFixture.events = PAST_2020;
     const Component = EventsRouteAny.options.component;

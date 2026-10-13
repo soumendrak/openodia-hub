@@ -657,18 +657,16 @@ function EventsPage() {
         </Reveal>
       </div>
 
+      <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={isFiltering ? "mt-10 text-sm text-muted-foreground" : "sr-only"}
+      >
+        {isFiltering ? `${filtered.length} event${filtered.length !== 1 ? "s" : ""} matched` : ""}
+      </p>
       {isSearching ? (
-        <div className="mt-10">
-          <Reveal>
-            <p
-              role="status"
-              aria-live="polite"
-              aria-atomic="true"
-              className="text-sm text-muted-foreground"
-            >
-              {filtered.length} event{filtered.length !== 1 ? "s" : ""} matched
-            </p>
-          </Reveal>
+        <div className="mt-4">
           {filtered.length === 0 ? (
             <p className="mt-6 text-muted-foreground">No events matched.</p>
           ) : (

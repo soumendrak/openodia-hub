@@ -29,7 +29,7 @@ Axe and scripted keyboard checks are not a certification or a physical screen-re
 
 ## Verified results
 
-The final executable head `06ec1d5` passes **808 tests across 78 files**, with **100% statements (4786/4786), branches (3093/3093), functions (1239/1239), and lines (4295/4295)**. Whole-PR changed executable coverage is **115/115**, with no uncovered or missing measured files. Shared baseline tests close the previously reported 13 branch gaps through real supported fallback paths. No coverage exclusions were added.
+The previously verified executable head `06ec1d5` passes **808 tests across 78 files**, with **100% statements (4786/4786), branches (3093/3093), functions (1239/1239), and lines (4295/4295)**. Whole-PR changed executable coverage is **115/115**, with no uncovered or missing measured files. Shared baseline tests close the previously reported 13 branch gaps through real supported fallback paths. No coverage exclusions were added.
 
 The standalone built-Worker suite passes **49/49 Chromium checks**: all-route axe scans in both themes, all-route 320/390px overflow checks, native API contracts, responsive keyboard/dialog/locale behavior, reduced motion, editor escape, event-count announcements, minimum clear-button target size and visible-label matching for the locale control. TypeScript, lint and production build pass. GitHub CI and preview passed for this executable head.
 
@@ -42,3 +42,11 @@ Editor Escape navigation is consumed by one Tab and cleared on blur; keyboard re
 ## Modifier-event follow-up — 2026-10-13
 
 Escape’s one-shot Tab latch now survives modifier-only keydown events (Shift, Control, Alt, Meta and AltGraph). Ordinary typing still cancels it; consumed Tab and blur clear it. Regression tests emit Shift keydown before Shift+Tab rather than merely setting `shiftKey`. The actual Chromium suite verifies backward Escape navigation leaves the editor without changing code, then re-entry restores normal indentation. This focus trap was reproduced in the shared PR #134 built-Worker before the fix; the independent accessibility branch now passes all 49 browser checks and its normal full coverage hook. Types, production build and lint pass. Logs are `/tmp/pr132-shift-*.log`; the complete main-diff assessment is `/tmp/pr132-shift-full-diff.json`.
+
+## Dynamic language and live-region follow-up — 2026-10-13
+
+Catalog video headings and channel names now preserve their text in separate Odia-script and English language runs. Thumbnail images have empty alternative text because the adjacent heading already names the video link; this avoids flattening a mixed-language title into one image name. These annotations preserve the English main-landmark boundary and remain correct in both document locales.
+
+The event-filter count region is mounted empty before filtering, outside entrance-animation wrappers, and the same polite, atomic element updates on the first search, type or community filter and subsequent clears. The separate pagination count remains independent. The Worker/browser clock test now blocks all foreign origins before navigation, matching the rest of the deterministic suite.
+
+A real Chromium pass against the previous built Worker reproduced both missing title-language runs and the missing initial filter-count region. A unit regression also failed before the live-region fix. The focused unit suite now passes 34 cases; the rebuilt Worker passes all 50 standalone accessibility browser checks, including the unchanged element across first filter/clear, the actual recorded mixed Odia/English title in both UI locales, deterministic clocks, route/theme axe scans, narrow layouts and keyboard navigation. Types and production build pass. Final normal-hook coverage metrics follow after the source commit is frozen. No physical screen-reader speech claim or native wording approval is made.

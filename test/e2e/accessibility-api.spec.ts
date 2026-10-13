@@ -29,8 +29,13 @@ test("event filter changes announce the resulting count", async ({ page, baseURL
   );
   await page.goto("/events");
   await page.waitForLoadState("networkidle");
+  const region = page.getByRole("status").filter({ hasNotText: /Showing/ });
+  await expect(region).toHaveCount(1);
+  await expect(region).toHaveText("");
+  await region.evaluate((el) => el.setAttribute("data-present-before-filter", "true"));
   await page.getByRole("searchbox", { name: "Search events" }).fill("fixture-no-match-93817");
-  await expect(page.getByRole("status")).toHaveText("0 events matched");
+  await expect(region).toHaveText("0 events matched");
+  await expect(region).toHaveAttribute("data-present-before-filter", "true");
   await expect(page.getByRole("status")).toHaveAttribute("aria-live", "polite");
 });
 
@@ -118,10 +123,45 @@ test("locale toggle includes its visible target-language text in its accessible 
   }
 });
 
-test("Worker and browser share the deterministic fixture clock", async ({ page, request }) => {
+test("Worker and browser share the deterministic fixture clock", async ({
+  page,
+  request,
+  baseURL,
+}) => {
+  await page.route(
+    (url) => url.origin !== new URL(baseURL!).origin,
+    (route) => route.abort(),
+  );
   const clock = await (await request.get("/__fixture-clock")).json();
   await page.goto("/about");
   const browser = await page.evaluate(() => ({ now: Date.now(), iso: new Date().toISOString() }));
   expect(clock).toEqual({ now: 1791763200000, iso: "2026-10-12T00:00:00.000Z" });
   expect(browser).toEqual(clock);
+});
+
+test("mixed Odia video titles retain separate language runs in both UI locales", async ({
+  page,
+  request,
+  baseURL,
+}) => {
+  await page.route(
+    (url) => url.origin !== new URL(baseURL!).origin,
+    (route) => route.abort(),
+  );
+  const payload = await (await request.get("/api/videos")).json();
+  const video = payload.channels
+    .flatMap((channel: { videos: { id: string; title: string }[] }) => channel.videos)
+    .find((item: { id: string }) => item.id === "Au8Q2WQp4_I");
+  expect(video.title).toContain("ଏଆଇ");
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  const link = page.locator('a[href="https://www.youtube.com/watch?v=Au8Q2WQp4_I"]');
+  for (const locale of ["en", "or"]) {
+    await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    await expect(link.locator("h3")).toHaveText(video.title);
+    await expect(link.locator('h3 span[lang="or"]').first()).toHaveText("ଏଆଇ");
+    await expect(link.locator('h3 span[lang="en"]').last()).toContainText("How to make a website");
+    await expect(link.locator("img")).toHaveAttribute("alt", "");
+    if (locale === "en") await page.locator("header button[aria-labelledby]").click();
+  }
 });

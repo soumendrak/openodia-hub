@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { CodeEditor } from "../src/components/CodeEditor";
+import { LanguageRuns } from "../src/components/LanguageRuns";
 import { MagneticButton } from "../src/components/MagneticButton";
 import { Marquee } from "../src/components/Marquee";
 import { ScrollToTop } from "../src/components/ScrollToTop";
@@ -78,3 +79,27 @@ it("allows users to pause automatic marquee scrolling and hides the repeated cop
     "true",
   );
 });
+
+it.each([
+  ["", []],
+  ["English title", [["en", "English title"]]],
+  ["ଓଡ଼ିଆ", [["or", "ଓଡ଼ିଆ"]]],
+  [
+    "ଏଆଇ AI ଓଡ଼ିଆ?",
+    [
+      ["or", "ଏଆଇ"],
+      ["en", " AI "],
+      ["or", "ଓଡ଼ିଆ"],
+      ["en", "?"],
+    ],
+  ],
+])(
+  "preserves catalog text and tags Odia script without labeling English as Odia: %s",
+  (text, expected) => {
+    const { container } = render(<LanguageRuns text={text as string} />);
+    expect(container.textContent).toBe(text);
+    expect(
+      [...container.querySelectorAll("span")].map((span) => [span.lang, span.textContent]),
+    ).toEqual(expected);
+  },
+);
