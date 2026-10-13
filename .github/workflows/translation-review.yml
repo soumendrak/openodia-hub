@@ -141,12 +141,30 @@ jobs:
             if (pr.state !== 'open' || pr.base.repo.full_name.toLowerCase() !== `${args.owner}/${args.repo}`.toLowerCase()) return;
             const status = { owner: args.owner, repo: args.repo, sha: pr.head.sha, context: 'native-review',
               target_url: `https://github.com/${args.owner}/${args.repo}/actions/runs/${context.runId}` };
-            const publish = (state, description) => github.rest.repos.createCommitStatus({ ...status, state, description });
+            const scheduled = context.eventName === 'schedule';
+            let previousStatus;
+            const publish = (state, description) => {
+              // Recompute review evidence before comparing. Old statuses never approve a
+              // PR; only unchanged scheduled results from the publisher bot avoid a write.
+              if (scheduled && previousStatus?.creator?.login?.toLowerCase() === 'github-actions[bot]'
+                && previousStatus.state === state && previousStatus.description === description) return;
+              return github.rest.repos.createCommitStatus({ ...status, state, description });
+            };
             const currentHead = async () => (await github.rest.pulls.get(args)).data.head.sha === pr.head.sha;
             // A commit status is evaluated on the PR head even when issue_comment or
             // workflow_run's automatic job checks are attached to the default branch.
-            await publish('pending', 'Checking native Odia review of this exact commit');
+            // Cron does not append pending/final pairs every five minutes: GitHub limits
+            // each SHA/context to 1,000 statuses. Event and manual rechecks still do.
+            if (!scheduled) await publish('pending', 'Checking native Odia review of this exact commit');
             try {
+              if (scheduled) {
+                // REST statuses are newest first. Select the latest matching context,
+                // including outsider statuses; never fall back to an older trusted one.
+                const statuses = await github.paginate(github.rest.repos.listCommitStatusesForRef, {
+                  owner: args.owner, repo: args.repo, ref: pr.head.sha, per_page: 100
+                });
+                previousStatus = statuses.find(item => item.context?.toLowerCase() === status.context);
+              }
               const label = 'needs-native-speaker-review';
               const issue = { owner: args.owner, repo: args.repo, issue_number: pr.number };
               const removeReviewLabel = async () => {
@@ -225,7 +243,9 @@ jobs:
               } else {
                 await github.rest.issues.addLabels({ ...issue, labels: [label] });
                 if (await currentHead()) await publish('failure', allowed.size ? 'Native Odia approval of this exact commit is required' : 'Configure ODIA_NATIVE_REVIEWERS before native approval');
-                core.setFailed(allowed.size ? 'A configured native Odia reviewer must approve this exact commit. Draft wording requires an explicit native review.' : 'Configure ODIA_NATIVE_REVIEWERS with actual native Odia reviewer logins, then obtain approval of this exact commit.');
+                // Missing approval is a reconciled blocking commit status, not a cron
+                // execution failure that should notify maintainers every five minutes.
+                if (!scheduled) core.setFailed(allowed.size ? 'A configured native Odia reviewer must approve this exact commit. Draft wording requires an explicit native review.' : 'Configure ODIA_NATIVE_REVIEWERS with actual native Odia reviewer logins, then obtain approval of this exact commit.');
               }
             } catch (error) {
               if (await currentHead()) await publish('error', 'Native review evaluation failed; inspect the trusted workflow run');

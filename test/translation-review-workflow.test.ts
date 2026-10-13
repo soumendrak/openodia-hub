@@ -20,6 +20,9 @@ async function runGate({
   commentEvent = false,
   reviewEvent = false,
   scheduled = false,
+  event,
+  existingStatuses = [],
+  statusReadError,
   fork = false,
   payloadSha = "current",
   activeSha = "current",
@@ -39,6 +42,9 @@ async function runGate({
   commentEvent?: boolean;
   reviewEvent?: boolean;
   scheduled?: boolean;
+  event?: string;
+  existingStatuses?: object[];
+  statusReadError?: object;
   fork?: boolean;
   payloadSha?: string;
   activeSha?: string;
@@ -73,6 +79,7 @@ async function runGate({
   let readCount = 0;
   const filesApi = vi.fn();
   const reviewsApi = vi.fn();
+  const statusesApi = vi.fn();
   const github = {
     rest: {
       pulls: {
@@ -89,29 +96,38 @@ async function runGate({
         })),
       },
       issues,
-      repos: { createCommitStatus: vi.fn((status) => statusCalls.push(status)) },
+      repos: {
+        createCommitStatus: vi.fn((status) => statusCalls.push(status)),
+        listCommitStatusesForRef: statusesApi,
+      },
     },
-    paginate: vi.fn(async (api) =>
-      api === filesApi
+    paginate: vi.fn(async (api) => {
+      if (api === statusesApi) {
+        if (statusReadError) throw statusReadError;
+        return existingStatuses;
+      }
+      return api === filesApi
         ? files.map((file) => (typeof file === "string" ? { filename: file } : file))
         : api === commentsApi
           ? comments
           : api === timelineApi
             ? timeline
-            : reviews,
-    ),
+            : reviews;
+    }),
   };
   const core = { setFailed: vi.fn() };
   const context = {
     repo: { owner: "owner", repo: "hub" },
     runId: 99,
-    eventName: scheduled
-      ? "schedule"
-      : commentEvent
-        ? "issue_comment"
-        : reviewEvent
-          ? "workflow_run"
-          : "pull_request_target",
+    eventName:
+      event ??
+      (scheduled
+        ? "schedule"
+        : commentEvent
+          ? "issue_comment"
+          : reviewEvent
+            ? "workflow_run"
+            : "pull_request_target"),
     payload: commentEvent
       ? { issue: { number: 7 } }
       : { pull_request: { ...pr, head: { sha: payloadSha } } },
@@ -140,6 +156,16 @@ const decisionComment = (body: string, at: string, login = "odia-reviewer") => (
   user: { login },
   created_at: at,
 });
+const nativeStatus = (
+  state: string,
+  creator = "github-actions[bot]",
+  context = "native-review",
+  description = state === "success"
+    ? "Configured native reviewer approved this exact commit"
+    : state === "error"
+      ? "Native review evaluation failed; inspect the trusted workflow run"
+      : "Native Odia approval of this exact commit is required",
+) => ({ state, description, context, creator: { login: creator } });
 
 describe("native Odia review policy", () => {
   it("labels draft translations and requires actual configured reviewers", async () => {
@@ -412,12 +438,166 @@ describe("native Odia review policy", () => {
       ],
       statusCalls,
     });
-    expect(statusCalls.map((status) => status.state)).toEqual(["success", "pending", "failure"]);
-    expect(result.core.setFailed).toHaveBeenCalled();
+    expect(statusCalls.map((status) => status.state)).toEqual(["success", "failure"]);
+    expect(result.core.setFailed).not.toHaveBeenCalled();
     expect(result.issues.addLabels).toHaveBeenCalledWith(
       expect.objectContaining({ issue_number: 7, labels: ["needs-native-speaker-review"] }),
     );
     expect(result.issues.removeLabel).not.toHaveBeenCalled();
+  });
+  it.each(["success", "failure"])(
+    "recomputes current evidence while suppressing unchanged scheduled %s statuses",
+    async (state) => {
+      for (let poll = 0; poll < 2; poll++) {
+        const result = await runGate({
+          scheduled: true,
+          reviews: state === "success" ? [review("APPROVED")] : [],
+          existingStatuses: [
+            ...Array.from({ length: 100 }, () => ({ context: "other-check", state: "pending" })),
+            nativeStatus(state, "GitHub-Actions[bot]", "Native-Review"),
+            nativeStatus(state === "success" ? "failure" : "success"),
+          ],
+        });
+        expect(result.statuses).not.toHaveBeenCalled();
+        expect(result.github.paginate).toHaveBeenCalledWith(
+          result.github.rest.repos.listCommitStatusesForRef,
+          { owner: "owner", repo: "hub", ref: "current", per_page: 100 },
+        );
+        expect(result.github.paginate).toHaveBeenCalledWith(
+          result.github.rest.pulls.listReviews,
+          expect.objectContaining({ pull_number: 7 }),
+        );
+        expect(result.core.setFailed).not.toHaveBeenCalled();
+        expect(result.issues.addLabels.mock.calls.length > 0).toBe(state === "failure");
+        expect(result.issues.removeLabel.mock.calls.length > 0).toBe(state === "success");
+      }
+    },
+  );
+  it("replaces a previously successful status once after dismissal without trusting cached approval", async () => {
+    const dismissed = review("DISMISSED");
+    const input = {
+      scheduled: true,
+      reviews: [dismissed],
+      timeline: [
+        {
+          event: "review_dismissed",
+          created_at: "2026-10-12T12:00:00Z",
+          dismissed_review: { review_id: dismissed.id },
+        },
+      ],
+    };
+    const revoked = await runGate({ ...input, existingStatuses: [nativeStatus("success")] });
+    expect(revoked.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
+    const repeated = await runGate({ ...input, existingStatuses: [nativeStatus("failure")] });
+    expect(repeated.statuses).not.toHaveBeenCalled();
+    expect(repeated.issues.addLabels).toHaveBeenCalled();
+    expect(repeated.core.setFailed).not.toHaveBeenCalled();
+  });
+  it("publishes a scheduled API error once, then publishes recovery only after recomputing approval", async () => {
+    const first: { state: string; description: string }[] = [];
+    await expect(
+      runGate({
+        scheduled: true,
+        existingStatuses: [nativeStatus("success")],
+        createError: { status: 403 },
+        statusCalls: first,
+      }),
+    ).rejects.toEqual({ status: 403 });
+    expect(first.map((status) => status.state)).toEqual(["error"]);
+    const repeated: object[] = [];
+    await expect(
+      runGate({
+        scheduled: true,
+        existingStatuses: [nativeStatus("error")],
+        createError: { status: 403 },
+        statusCalls: repeated,
+      }),
+    ).rejects.toEqual({ status: 403 });
+    expect(repeated).toEqual([]);
+    const recovered = await runGate({
+      scheduled: true,
+      existingStatuses: [nativeStatus("error")],
+      reviews: [review("APPROVED")],
+    });
+    expect(recovered.statuses.mock.calls.map(([status]) => status.state)).toEqual(["success"]);
+    const stable = await runGate({
+      scheduled: true,
+      existingStatuses: [nativeStatus("success")],
+      reviews: [review("APPROVED")],
+    });
+    expect(stable.statuses).not.toHaveBeenCalled();
+  });
+  it.each([
+    [nativeStatus("failure", "outsider"), nativeStatus("failure")],
+    [nativeStatus("success"), nativeStatus("failure")],
+    [nativeStatus("pending"), nativeStatus("failure")],
+    [nativeStatus("failure", "github-actions[bot]", "native-review", "Old policy")],
+  ])("never skips the latest mismatched or untrusted scheduled status: %j", async (...history) => {
+    const result = await runGate({ scheduled: true, existingStatuses: history });
+    expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
+    expect(result.core.setFailed).not.toHaveBeenCalled();
+  });
+  it("fails closed with one error status when the scheduled status-history API fails", async () => {
+    const statusCalls: { state: string }[] = [];
+    await expect(
+      runGate({ scheduled: true, statusReadError: { status: 403 }, statusCalls }),
+    ).rejects.toEqual({ status: 403 });
+    expect(statusCalls.map((status) => status.state)).toEqual(["error"]);
+  });
+  it.each(["workflow_dispatch", "issue_comment", "workflow_run", "pull_request_target"])(
+    "preserves fresh pending/final publication on %s even after an equivalent status",
+    async (event) => {
+      const result = await runGate({
+        event,
+        existingStatuses: [nativeStatus("success")],
+        reviews: [review("APPROVED")],
+      });
+      expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual([
+        "pending",
+        "success",
+      ]);
+      expect(result.github.paginate).not.toHaveBeenCalledWith(
+        result.github.rest.repos.listCommitStatusesForRef,
+        expect.anything(),
+      );
+    },
+  );
+  it("keeps expected scheduled missing configuration blocked without failing the cron job", async () => {
+    const result = await runGate({ scheduled: true, reviewers: "" });
+    expect(result.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
+    expect(result.core.setFailed).not.toHaveBeenCalled();
+    expect(result.issues.addLabels).toHaveBeenCalled();
+  });
+  it("does not publish a scheduled decision or error when the head moves", async () => {
+    const result = await runGate({ scheduled: true, changedSha: "newer" });
+    expect(result.statuses).not.toHaveBeenCalled();
+    expect(result.issues.addLabels).not.toHaveBeenCalled();
+    const statusCalls: object[] = [];
+    await expect(
+      runGate({
+        scheduled: true,
+        changedSha: "newer",
+        statusReadError: { status: 403 },
+        statusCalls,
+      }),
+    ).rejects.toEqual({ status: 403 });
+    expect(statusCalls).toEqual([]);
+  });
+  it("publishes a fresh scheduled status on a new head with no prior status history", async () => {
+    const result = await runGate({
+      scheduled: true,
+      activeSha: "new-head",
+      existingStatuses: [],
+      reviews: [review("APPROVED", "new-head")],
+    });
+    expect(result.github.paginate).toHaveBeenCalledWith(
+      result.github.rest.repos.listCommitStatusesForRef,
+      { owner: "owner", repo: "hub", ref: "new-head", per_page: 100 },
+    );
+    expect(result.statuses.mock.calls.map(([status]) => [status.sha, status.state])).toEqual([
+      ["new-head", "success"],
+    ]);
+    expect(result.core.setFailed).not.toHaveBeenCalled();
   });
   it("skips unrelated PRs and handles only expected label races", async () => {
     const unchanged = await runGate({ files: ["src/routes/tools.tsx"] });
