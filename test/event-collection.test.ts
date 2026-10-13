@@ -4,9 +4,16 @@ vi.mock("../src/lib/events-store", () => ({
   readEventsFromD1: harness.read,
   readEventSourceStatuses: harness.statuses,
 }));
-vi.mock("../src/routes/api/events", () => ({
+vi.mock("../src/routes/api/events", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/routes/api/events")>()),
   CHAPTERS: [{ slug: "one" }],
   fetchLiveEventCollection: harness.live,
+}));
+vi.mock("../src/lib/event-url", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/lib/event-url")>()),
+  // This test checks ordering at the actual API edge, independently of remote
+  // alias resolution, which has its own redirect and request-budget tests.
+  dedupeEventsByResolvedUrl: async <T>(events: T[]) => events,
 }));
 import { loadEventCollection, setEventDatabase } from "../src/lib/event-collection";
 import { events as curated } from "../src/data/events";
@@ -41,6 +48,71 @@ afterEach(() => {
   setEventDatabase(undefined);
 });
 describe("canonical retained event collection", () => {
+  it("orders equal-date records deterministically and keeps year-only records chronological", async () => {
+    const dated = { ...known, year: "2099", startDate: "2099-01-01" };
+    harness.read.mockResolvedValue([
+      { ...dated, startDate: undefined, url: "https://example.org/year-only" },
+      { ...dated, url: "https://example.org/z-same-day" },
+      { ...dated, url: "https://example.org/a-same-day" },
+      { ...dated, year: "2020", startDate: undefined, url: "https://example.org/old-year-only" },
+    ]);
+    const result = await loadEventCollection({ prepare: vi.fn() });
+    const urls = result.events.map((event) => event.url);
+    expect(urls.slice(0, 3)).toEqual([
+      "https://example.org/a-same-day",
+      "https://example.org/z-same-day",
+      "https://example.org/year-only",
+    ]);
+    expect(urls.indexOf("https://example.org/old-year-only")).toBeGreaterThan(
+      urls.indexOf(curated[0].url),
+    );
+  });
+  it.each(["d1", "scrape"])(
+    "puts a newly discovered future event before the curated archive for %s consumers",
+    async (source) => {
+      const discovered = {
+        ...known,
+        year: "2099",
+        startDate: "2099-01-01",
+        url: "https://example.org/newly-discovered-future-event",
+      };
+      if (source === "d1") harness.read.mockResolvedValue([discovered]);
+      else {
+        harness.read.mockResolvedValue([]);
+        harness.live.mockResolvedValue({
+          events: [discovered],
+          sources: [healthy],
+          partial: false,
+        });
+      }
+      const result = await loadEventCollection({ prepare: vi.fn() });
+      expect(result.source).toBe(source);
+      expect(result.events[0].url).toBe(discovered.url);
+      expect(result.events).toContainEqual(curated[0]);
+    },
+  );
+  it("orders novel events before the first page of both actual API handlers", async () => {
+    const discovered = {
+      ...known,
+      year: "2099",
+      startDate: "2099-01-01",
+      url: "https://example.org/newly-discovered-future-event",
+    };
+    harness.read.mockResolvedValue([discovered]);
+    const db = { prepare: vi.fn() };
+    setEventDatabase(db);
+    const { Route } = await import("../src/routes/api/events");
+    const request = new Request("https://openodia.com/api/events?page=1&limit=1");
+    const tanstack = await Route.options.server!.handlers!.GET!({ request } as never);
+    expect((await tanstack!.json()).events.map((event: { url: string }) => event.url)).toEqual([
+      discovered.url,
+    ]);
+    const { default: worker } = await import("../src/server");
+    const response = await worker.fetch(request, { EVENTS_DB: db }, {});
+    expect((await response.json()).events.map((event: { url: string }) => event.url)).toEqual([
+      discovered.url,
+    ]);
+  });
   it("merges checked-in and persisted history without fetching unavailable live sources", async () => {
     const result = await loadEventCollection({ prepare: vi.fn() });
     expect(result.source).toBe("d1");

@@ -247,14 +247,15 @@ function EventsPage() {
 
   // Pagination keeps the idle timeline light, but a search must not silently
   // exclude a live event merely because its page has not been visited yet.
-  const { data: completeSearchEvents } = useQuery({
+  const needsCompleteCorpus = Boolean(query.trim() || routeSearch.year || routeSearch.sort);
+  const { data: completeSearchEvents, isError: completeSourceError } = useQuery({
     queryKey: ["allLiveEventsForSearch"],
     queryFn: async () => {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
       return response.json() as Promise<{ events: Event[]; partial?: boolean }>;
     },
-    enabled: Boolean(query.trim() || routeSearch.year || routeSearch.sort),
+    enabled: needsCompleteCorpus,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
@@ -263,6 +264,7 @@ function EventsPage() {
     completeSearchEvents?.events ?? liveData?.pages.flatMap((p) => p.events) ?? [];
   const partialEvents =
     liveSourceError ||
+    (needsCompleteCorpus && completeSourceError) ||
     completeSearchEvents?.partial ||
     liveData?.pages.some((page) => page.partial);
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;

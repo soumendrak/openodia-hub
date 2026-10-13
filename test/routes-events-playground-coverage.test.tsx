@@ -31,6 +31,7 @@ const routeHarness = vi.hoisted(() => ({
 
 const queryHarness = vi.hoisted(() => ({
   data: undefined as { events: Event[] } | undefined,
+  isError: false,
   lastOptions: undefined as
     | { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }
     | undefined,
@@ -51,7 +52,7 @@ vi.mock("@tanstack/react-query", () => ({
   },
   useQuery: (options: { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }) => {
     queryHarness.lastOptions = options;
-    return { data: queryHarness.data };
+    return { data: queryHarness.data, isError: queryHarness.isError };
   },
 }));
 
@@ -176,6 +177,7 @@ beforeEach(() => {
   routeHarness.search = {};
   routeHarness.navigate.mockClear();
   queryHarness.data = undefined;
+  queryHarness.isError = false;
   queryHarness.lastOptions = undefined;
 });
 
@@ -195,6 +197,29 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("events.tsx", () => {
+  it.each([{ year: "2020" }, { sort: "oldest" as const }, { q: "Alpha" }])(
+    "warns when the active full-corpus query fails after paginated data succeeds: %j",
+    (search) => {
+      dataFixture.events = PAST_2020;
+      routeHarness.search = search;
+      infiniteHarness.data = { pages: [{ events: [], total: 0, partial: false }] };
+      queryHarness.isError = true;
+      const Component = EventsRouteAny.options.component;
+      render(<Component />);
+      expect(queryHarness.lastOptions?.enabled).toBe(true);
+      expect(screen.getByRole("status")).toHaveTextContent("Known events remain listed");
+      expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
+    },
+  );
+  it("does not reuse a disabled full-query error after archive filters clear", () => {
+    dataFixture.events = PAST_2020;
+    queryHarness.isError = true;
+    infiniteHarness.data = { pages: [{ events: [], total: 0, partial: false }] };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    expect(screen.queryByText(/Known events remain listed/)).not.toBeInTheDocument();
+  });
   it("shows partial-source warnings while retaining checked-in events", () => {
     dataFixture.events = PAST_2020;
     infiniteHarness.data = { pages: [{ events: [], total: 0, partial: true }] };

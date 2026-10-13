@@ -1,4 +1,4 @@
-import { events as curated } from "../data/events";
+import { events as curated, type Event } from "../data/events";
 import { fetchLiveEventCollection, CHAPTERS, type LiveEventCollection } from "../routes/api/events";
 import { readEventsFromD1, readEventSourceStatuses, type D1Like } from "./events-store";
 import { mergeEventCollectionsByUrl } from "./event-url";
@@ -8,6 +8,15 @@ import { mergeNonEmpty } from "./utils";
 let eventDatabase: D1Like | undefined;
 export function setEventDatabase(db: D1Like | undefined): void {
   eventDatabase = db;
+}
+
+function mergeChronologicalEvents(events: Event[]): Event[] {
+  // Merge insertion order places newly discovered events behind the entire
+  // curated archive. Order this owned result before API pagination or RSS.
+  return mergeEventCollectionsByUrl(curated, events, mergeNonEmpty).sort(
+    (a, b) =>
+      (b.startDate || b.year).localeCompare(a.startDate || a.year) || a.url.localeCompare(b.url),
+  );
 }
 
 /** One canonical history; source health says nothing about attendance eligibility. */
@@ -22,7 +31,7 @@ export async function loadEventCollection(
         const sources = await readEventSourceStatuses(db).catch(() => []);
         const cutoff = Date.now() - 7 * 60 * 60 * 1000;
         return {
-          events: mergeEventCollectionsByUrl(curated, events, mergeNonEmpty),
+          events: mergeChronologicalEvents(events),
           sources,
           source: "d1",
           partial:
@@ -45,6 +54,6 @@ export async function loadEventCollection(
   return {
     ...live,
     source: "scrape",
-    events: mergeEventCollectionsByUrl(curated, live.events, mergeNonEmpty),
+    events: mergeChronologicalEvents(live.events),
   };
 }
