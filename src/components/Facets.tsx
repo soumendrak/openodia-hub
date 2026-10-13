@@ -63,7 +63,7 @@ export function Chip({
  * row doesn't reflow — when 44 becomes 8.
  */
 function Count({ n }: { n: number }) {
-  return <span className="font-mono tabular-nums opacity-70">({n})</span>;
+  return <span className="font-mono tabular-nums">({n})</span>;
 }
 
 /**
@@ -156,7 +156,7 @@ export function FacetGroup({
           aria-label={`Filter by ${title}`}
         >
           <span>{title}</span>
-          <span className="font-mono text-xs tabular-nums opacity-70">
+          <span className="font-mono text-xs tabular-nums">
             {selectedCount > 0 ? `${selectedCount} selected` : `${options.length} options`}
           </span>
           <ChevronDown
@@ -167,6 +167,8 @@ export function FacetGroup({
         </button>
       </PopoverTrigger>
       <PopoverContent
+        aria-label={`Filter by ${title}`}
+        lang="en"
         align="start"
         className="w-[min(22rem,calc(100vw-2rem))] rounded-2xl border-border bg-surface p-3 text-foreground shadow-2xl shadow-black/20"
       >

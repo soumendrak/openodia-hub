@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -16,6 +20,9 @@ jobs:
       - run: bun run lint
 
   test:
+    permissions:
+      contents: read
+      pull-requests: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +34,45 @@ jobs:
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
         run: bun run test:coverage:diff -- --base "$BASE_SHA"
+      - name: Update sticky PR coverage report
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const current = await github.rest.pulls.get({ ...context.repo, pull_number: context.issue.number });
+            if (current.data.head.sha !== context.payload.pull_request.head.sha) {
+              core.info('Skipping stale coverage report because the PR head has changed.');
+              return;
+            }
+            const fs = require('node:fs');
+            const coverage = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));
+            const metrics = { Statements: [], Functions: [], Branches: [], Lines: [] };
+            for (const file of Object.values(coverage)) {
+              metrics.Statements.push(...Object.values(file.s));
+              metrics.Functions.push(...Object.values(file.f));
+              metrics.Branches.push(...Object.values(file.b).flat());
+              const lines = new Map();
+              for (const [id, statement] of Object.entries(file.statementMap)) {
+                const line = statement.start.line;
+                lines.set(line, Math.max(lines.get(line) || 0, file.s[id]));
+              }
+              metrics.Lines.push(...lines.values());
+            }
+            const marker = '<!-- openodia-coverage -->';
+            const body = [marker, `## Coverage at ${context.payload.pull_request.head.sha.slice(0, 7)}`,
+              'Changed executable lines: **100% (required gate passed)**.', '',
+              '| Repository metric | Covered / total | Coverage |', '|---|---:|---:|',
+              ...Object.entries(metrics).map(([name, hits]) => {
+                const count = hits.filter(hit => hit > 0).length;
+                return `| ${name} | ${count} / ${hits.length} | ${((count / hits.length) * 100).toFixed(2)}% |`;
+              })].join('\n');
+            const args = { ...context.repo, issue_number: context.issue.number };
+            const comments = await github.paginate(github.rest.issues.listComments, args);
+            const existing = comments.find(comment => comment.user.type === 'Bot' && comment.body?.includes(marker));
+            const beforeWrite = await github.rest.pulls.get({ ...context.repo, pull_number: context.issue.number });
+            if (beforeWrite.data.head.sha !== context.payload.pull_request.head.sha) return;
+            if (existing) await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });
+            else await github.rest.issues.createComment({ ...args, body });
 
   build:
     runs-on: ubuntu-latest
@@ -35,11 +81,40 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: built-worker
+          path: dist/
+
+  e2e:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: bun install --frozen-lockfile
+      - uses: actions/download-artifact@v4
+        with:
+          name: built-worker
+          path: dist/
+      - run: bunx playwright install --with-deps chromium
+      - name: Test built Worker API, UX, accessibility and visual regression
+        run: bunx playwright test
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
 
   deploy:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    needs: [lint, test, build]
+    needs: [lint, test, build, e2e]
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -54,7 +129,7 @@ jobs:
   preview:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    needs: [lint, test, build]
+    needs: [lint, test, build, e2e]
     permissions:
       contents: read
       pull-requests: write

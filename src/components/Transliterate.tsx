@@ -150,6 +150,7 @@ export function Transliterate({ py, ensureIndic }: Props) {
         {PHRASES.map((p) => (
           <button
             key={p}
+            lang="or"
             onClick={() => setSource(p)}
             className={`rounded-full border px-3 py-1.5 text-xs transition ${
               source === p
@@ -172,6 +173,7 @@ export function Transliterate({ py, ensureIndic }: Props) {
           </label>
           <textarea
             id={inputId}
+            lang="or"
             value={source}
             onChange={(e) => setSource(e.target.value)}
             spellCheck={false}
@@ -246,7 +248,10 @@ export function Transliterate({ py, ensureIndic }: Props) {
             className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[var(--neon)]"
           />
           <span>
-            Fold Odia-only letters <span className="font-medium text-foreground">ଡ଼ ଢ଼ ୟ ୱ</span>
+            Fold Odia-only letters{" "}
+            <span lang="or" className="font-medium text-foreground">
+              ଡ଼ ଢ଼ ୟ ୱ
+            </span>
             <span className="mt-0.5 block text-xs text-muted-foreground">
               No other script has them. Folding writes each as its nearest base letter, which trades
               a little fidelity for output you can actually read.
