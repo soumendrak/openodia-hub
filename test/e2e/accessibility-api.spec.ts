@@ -29,7 +29,9 @@ test("event filter changes announce the resulting count", async ({ page, baseURL
   );
   await page.goto("/events");
   await page.waitForLoadState("networkidle");
-  const region = page.getByRole("status").filter({ hasNotText: /Current collection/ });
+  // The first live page must be merged before the baseline count is read.
+  await expect(page.getByText(/^Current collection:/)).toBeVisible();
+  const region = page.getByRole("status");
   await expect(region).toHaveCount(1);
   await expect(region).toHaveText(/^\d+ events? shown$/);
   const unfilteredCount = await region.textContent();
