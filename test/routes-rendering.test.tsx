@@ -149,6 +149,7 @@ vi.mock("../src/components/Footer", () => ({ Footer: () => <footer>footer</foote
 vi.mock("../src/components/ScrollToTop", () => ({ ScrollToTop: () => null }));
 vi.mock("../src/components/CommandPalette", () => ({ CommandPalette: () => null }));
 vi.mock("../src/lib/i18n", async () => ({
+  T: ({ k }: { k: keyof typeof import("../src/locales/en").en }) => en[k],
   useTranslation: () => ({
     locale: "en",
     t: (key: keyof typeof import("../src/locales/en").en) => en[key],

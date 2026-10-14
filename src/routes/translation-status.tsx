@@ -1,3 +1,4 @@
+import { normalizeSearch } from "../lib/search";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { getLocaleStatus } from "../lib/locale-status";
@@ -21,9 +22,9 @@ function TranslationStatus() {
   const entries = report.entries.filter(
     (entry) =>
       (!pendingOnly || entry.status !== "reviewed") &&
-      `${entry.key} ${entry.english} ${entry.translation}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
+      normalizeSearch(`${entry.key} ${entry.english} ${entry.translation}`).includes(
+        normalizeSearch(query),
+      ),
   );
   const percent = (count: number) =>
     report.total === 0 ? 0 : Math.round((count / report.total) * 100);

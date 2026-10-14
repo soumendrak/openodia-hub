@@ -51,5 +51,5 @@ export const ODIA_REVIEW_QUEUE = [
 /** Populate only after a documented native-speaker review of the exact wording. */
 export const ODIA_REVIEWS: Record<
   string,
-  { translation: string; reviewer: string; reviewedAt: string }
+  { english: string; translation: string; reviewer: string; reviewedAt: string }
 > = {};

@@ -367,6 +367,11 @@ describe("native Odia review policy", () => {
       files: [{ filename: "src/locales/odia.ts", previous_filename: "src/locales/or.ts" }],
     });
     expect(renamed.issues.addLabels).toHaveBeenCalled();
+    for (const files of [["src/locales/or-next.ts"], ["src/lib/i18n.tsx"]])
+      expect((await runGate({ files })).issues.addLabels).toHaveBeenCalled();
+    expect(
+      (await runGate({ files: ["src/lib/other.ts"] })).issues.addLabels,
+    ).not.toHaveBeenCalled();
     const stale = await runGate({ payloadSha: "old", reviews: [review("APPROVED", "old")] });
     expect(stale.core.setFailed).toHaveBeenCalled();
     expect(stale.issues.removeLabel).not.toHaveBeenCalled();

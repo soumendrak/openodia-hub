@@ -32,8 +32,18 @@ describe("translation inventory and truthful native-review progress", () => {
       { a: "ମୂଳପୃଷ୍ଠା", b: "ପରିଚୟ", c: "" },
       ["a", "b", "c"],
       {
-        a: { translation: "ମୂଳପୃଷ୍ଠା", reviewer: "native-reviewer", reviewedAt: "2026-10-12" },
-        b: { translation: "ପୁରୁଣା", reviewer: "native-reviewer", reviewedAt: "2026-10-12" },
+        a: {
+          english: "Home",
+          translation: "ମୂଳପୃଷ୍ଠା",
+          reviewer: "native-reviewer",
+          reviewedAt: "2026-10-12",
+        },
+        b: {
+          english: "About",
+          translation: "ପୁରୁଣା",
+          reviewer: "native-reviewer",
+          reviewedAt: "2026-10-12",
+        },
       },
     );
     expect(result.entries.map((entry) => entry.status)).toEqual([
@@ -44,12 +54,24 @@ describe("translation inventory and truthful native-review progress", () => {
     expect(result.reviewed).toBe(1);
     expect(result.errors).toEqual([]);
   });
+  it("invalidates a review when the English source changes", () => {
+    const review = {
+      english: "Home",
+      translation: "ମୂଳପୃଷ୍ଠା",
+      reviewer: "native-reviewer",
+      reviewedAt: "2026-10-12",
+    };
+    const status = (english: string) =>
+      assessLocale({ a: english }, { a: "ମୂଳପୃଷ୍ଠା" }, ["a"], { a: review }).entries[0].status;
+    expect(status("Home")).toBe("reviewed");
+    expect(status("Homepage settings")).toBe("needs-review");
+  });
   it("rejects unknown and untracked keys, invalid text and mismatched placeholders", () => {
     const report = assessLocale(
       { a: "Hello {name}", b: "About" },
       { a: "ନମସ୍କାର", b: "TODO", extra: "ଅ" },
       ["a", "old"],
-      { absent: { translation: "ଅ", reviewer: "x", reviewedAt: "2026-10-12" } },
+      { absent: { english: "", translation: "ଅ", reviewer: "x", reviewedAt: "2026-10-12" } },
     );
     expect(report.errors).toEqual(
       expect.arrayContaining([
@@ -69,9 +91,9 @@ describe("translation inventory and truthful native-review progress", () => {
     expect(output.error).toHaveBeenCalledTimes(report.errors.length);
   });
   it.each([
-    { translation: "ପରିଚୟ", reviewer: "", reviewedAt: "2026-10-12" },
-    { translation: "ପରିଚୟ", reviewer: "x", reviewedAt: "not-a-date" },
-    { translation: "ପରିଚୟ", reviewer: "x", reviewedAt: "2026-99-99" },
+    { english: "About", translation: "ପରିଚୟ", reviewer: "", reviewedAt: "2026-10-12" },
+    { english: "About", translation: "ପରିଚୟ", reviewer: "x", reviewedAt: "not-a-date" },
+    { english: "About", translation: "ପରିଚୟ", reviewer: "x", reviewedAt: "2026-99-99" },
   ])("does not certify incomplete review evidence %j", (review) => {
     expect(assessLocale({ a: "About" }, { a: "ପରିଚୟ" }, ["a"], { a: review }).reviewed).toBe(0);
   });
@@ -106,6 +128,7 @@ describe("public translation status API and contributor UX", () => {
       ["reviewed", "missing"],
       {
         reviewed: {
+          english: "Home",
           translation: "ମୂଳପୃଷ୍ଠା",
           reviewer: "fixture-native-reviewer",
           reviewedAt: "2026-10-12",

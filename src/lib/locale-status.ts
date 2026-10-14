@@ -2,7 +2,13 @@ import { en } from "../locales/en";
 import { or } from "../locales/or";
 import { ODIA_REVIEW_QUEUE, ODIA_REVIEWS } from "../locales/review";
 
-export type NativeReview = { translation: string; reviewer: string; reviewedAt: string };
+/** A review covers both the English source and the Odia wording it approved. */
+export type NativeReview = {
+  english: string;
+  translation: string;
+  reviewer: string;
+  reviewedAt: string;
+};
 export type LocaleEntry = {
   key: string;
   english: string;
@@ -39,6 +45,7 @@ export function assessLocale(
     const reviewed = Boolean(
       present &&
       review &&
+      review.english === english[key] &&
       review.translation === translation &&
       review.reviewer.trim() &&
       /^\d{4}-\d{2}-\d{2}$/.test(review.reviewedAt) &&

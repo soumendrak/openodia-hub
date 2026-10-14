@@ -210,7 +210,10 @@ jobs:
                 || new Set(files.map(file => file.filename)).size !== files.length) {
                 throw new Error('Cannot verify complete PR file inventory; split oversized PRs or retry canonical metadata');
               }
-              if (!files.some(file => [file.filename, file.previous_filename].some(path => ['src/locales/en.ts', 'src/locales/or.ts', 'src/locales/review.ts'].includes(path)))) {
+              // Protect every dictionary and the runtime wiring that selects one; a
+              // replacement locale module must not bypass review of the old paths.
+              const isProtected = path => typeof path === 'string' && (path.startsWith('src/locales/') || path === 'src/lib/i18n.tsx');
+              if (!files.some(file => [file.filename, file.previous_filename].some(isProtected))) {
                 if (await currentHead()) {
                   await removeReviewLabel();
                   if (await currentHead()) await publish('success', 'No protected translation changes require native review');

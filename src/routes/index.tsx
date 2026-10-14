@@ -13,7 +13,7 @@ import { JsonLd, faqPageSchema, breadcrumbSchema } from "../lib/jsonld";
 import { usePattachitraMotion } from "../hooks/usePattachitraMotion";
 import { COLLECTION, COMMUNITIES, ODIA_PHRASE } from "../lib/pattachitra";
 import { withDeadline } from "../lib/fetch-utils";
-import { useTranslation } from "../lib/i18n";
+import { T, useTranslation } from "../lib/i18n";
 import { pageHead } from "../lib/seo";
 import { loadAwesome } from "../lib/sources/awesome";
 import { loadRepos } from "../lib/sources/repos";
@@ -123,31 +123,37 @@ function Hero() {
           <span className="rosette" aria-hidden="true">
             ✳
           </span>{" "}
-          {t("home.hero.eyebrow")}
+          <T k="home.hero.eyebrow" />
         </p>
         <p className="odia-intro" lang="or">
           {ODIA_PHRASE}
         </p>
         <h1>
-          {t("home.hero.line1")}
+          <T k="home.hero.line1" />
           <br />
-          {t("home.hero.line2")}
+          <T k="home.hero.line2" />
           <br />
-          <em>{t("home.hero.line3")}</em>
+          <em>
+            <T k="home.hero.line3" />
+          </em>
         </h1>
         <div className="tiny-rule" aria-hidden="true">
           <span />✦<span />
         </div>
-        <p className="hero-description">{t("home.hero.description")}</p>
+        <p className="hero-description">
+          <T k="home.hero.description" />
+        </p>
         <div className="hero-actions">
           <Link to="/tools" className="button gold-button">
-            {t("home.hero.explore")} <span aria-hidden="true">↗</span>
+            <T k="home.hero.explore" /> <span aria-hidden="true">↗</span>
           </Link>
           <Link to="/tutorials" className="quiet-link">
-            {t("home.hero.learn")} <span aria-hidden="true">→</span>
+            <T k="home.hero.learn" /> <span aria-hidden="true">→</span>
           </Link>
         </div>
-        <p className="hero-note">{t("home.hero.note")}</p>
+        <p className="hero-note">
+          <T k="home.hero.note" />
+        </p>
       </div>
 
       <div className="hero-art" lang="en">
@@ -181,13 +187,19 @@ function Opening() {
   const { t, locale } = useTranslation();
   return (
     <section className="opening" lang={locale}>
-      <p className="eyebrow">{t("home.opening.eyebrow")}</p>
+      <p className="eyebrow">
+        <T k="home.opening.eyebrow" />
+      </p>
       <h2>
-        {t("home.opening.line1")}
+        <T k="home.opening.line1" />
         <br />
-        <em>{t("home.opening.line2")}</em>
+        <em>
+          <T k="home.opening.line2" />
+        </em>
       </h2>
-      <p>{t("home.opening.description")}</p>
+      <p>
+        <T k="home.opening.description" />
+      </p>
     </section>
   );
 }

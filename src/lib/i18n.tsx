@@ -65,3 +65,10 @@ export function useTranslation() {
   }
   return ctx;
 }
+
+/** Renders a UI string, marking an English fallback inside localized regions as English. */
+export function T({ k }: { k: TranslationKey }) {
+  const { locale, t } = useTranslation();
+  const fallback = locale !== "en" && !STRINGS[locale][k]?.trim();
+  return fallback ? <span lang="en">{t(k)}</span> : <>{t(k)}</>;
+}
