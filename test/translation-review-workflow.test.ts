@@ -367,12 +367,24 @@ describe("native Odia review policy", () => {
     ])
       expect((await runGate({ reviewers: "author", comments })).core.setFailed).toHaveBeenCalled();
   });
+  it("does not protect unrelated workflows", async () => {
+    const statusCalls: { state?: string }[] = [];
+    await runGate({ files: [".github/workflows/ci.yml"], statusCalls });
+    expect(statusCalls).toEqual([expect.objectContaining({ state: "success" })]);
+  });
   it("protects renamed locale paths and ignores obsolete event heads", async () => {
     const renamed = await runGate({
       files: [{ filename: "src/locales/odia.ts", previous_filename: "src/locales/or.ts" }],
     });
     expect(renamed.issues.addLabels).toHaveBeenCalled();
+    // W10: a locale file renamed out of src/locales still needs native review.
+    const movedOut = await runGate({
+      files: [{ filename: "docs/old-or.ts", previous_filename: "src/locales/or.ts" }],
+    });
+    expect(movedOut.issues.addLabels).toHaveBeenCalled();
     for (const files of [
+      [".github/workflows/translation-review.yml"],
+      [".github/workflows/translation-review-notification.yml"],
       ["src/locales/or-next.ts"],
       ["src/lib/i18n.tsx"],
       ["src/routes/__root.tsx"],
@@ -546,7 +558,7 @@ describe("native Odia review policy", () => {
     expect(pending.statuses.mock.calls.map(([status]) => status.state)).toEqual(["failure"]);
   });
   it("reconciles a dismissed approval when the contributor suppresses every review notification", async () => {
-    expect(workflow.on.schedule).toEqual([{ cron: "2-57/5 * * * *" }]);
+    expect(workflow.on.schedule).toEqual([{ cron: "2-59/20 * * * *" }]);
     expect(workflow.on.workflow_dispatch).toEqual({});
     const setOutput = vi.fn();
     const list = vi.fn();

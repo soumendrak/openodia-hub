@@ -11,7 +11,7 @@ on:
   # Review notifications are PR-controlled and can be suppressed. Reconcile all
   # open PRs from trusted default-branch code independently of that signal.
   schedule:
-    - cron: "2-57/5 * * * *"
+    - cron: "2-59/20 * * * *"
   workflow_dispatch: {}
 permissions:
   contents: read
@@ -226,7 +226,9 @@ jobs:
               }
               // Protect every dictionary and the runtime wiring that selects one; a
               // replacement locale module must not bypass review of the old paths.
-              const isProtected = path => typeof path === 'string' && (path.startsWith('src/locales/') || path === 'src/lib/i18n.tsx' || path === 'src/routes/__root.tsx');
+              // The gate's own workflows are protected too, so a PR cannot weaken it unreviewed.
+              const isProtected = path => typeof path === 'string' && (path.startsWith('src/locales/') || path === 'src/lib/i18n.tsx' || path === 'src/routes/__root.tsx'
+                || /^\.github\/workflows\/translation-review[^/]*\.ya?ml$/.test(path));
               if (!files.some(file => [file.filename, file.previous_filename].some(isProtected))) {
                 if (await currentHead()) {
                   await removeReviewLabel();

@@ -25,6 +25,8 @@ type Ctx = {
   locale: Locale;
   setLocale: (l: Locale) => void;
   t: (key: TranslationKey) => string;
+  /** "en" when the key falls back to English in a non-English locale; for attributes. */
+  fallbackLang: (key: TranslationKey) => "en" | undefined;
 };
 
 const I18nContext = createContext<Ctx | null>(null);
@@ -55,7 +57,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     return translation?.trim() ? translation : en[key];
   };
 
-  return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>;
+  const fallbackLang = (key: TranslationKey): "en" | undefined =>
+    locale !== "en" && !STRINGS[locale][key]?.trim() ? "en" : undefined;
+
+  return (
+    <I18nContext.Provider value={{ locale, setLocale, t, fallbackLang }}>
+      {children}
+    </I18nContext.Provider>
+  );
 }
 
 export function useTranslation() {
@@ -67,14 +76,8 @@ export function useTranslation() {
 }
 
 /** Renders a UI string, marking an English fallback inside localized regions as English. */
-/** "en" when the key falls back to English in a non-English locale; for attributes. */
-export function useFallbackLang(k: TranslationKey): "en" | undefined {
-  const { locale } = useTranslation();
-  return locale !== "en" && !STRINGS[locale][k]?.trim() ? "en" : undefined;
-}
-
 export function T({ k }: { k: TranslationKey }) {
-  const { t } = useTranslation();
-  const lang = useFallbackLang(k);
+  const { t, fallbackLang } = useTranslation();
+  const lang = fallbackLang(k);
   return lang ? <span lang={lang}>{t(k)}</span> : <>{t(k)}</>;
 }

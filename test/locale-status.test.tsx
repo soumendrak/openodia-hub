@@ -54,6 +54,15 @@ describe("translation inventory and truthful native-review progress", () => {
     expect(result.reviewed).toBe(1);
     expect(result.errors).toEqual([]);
   });
+  it("rejects impossible review dates that Date.parse would roll over", () => {
+    const status = (reviewedAt: string) =>
+      assessLocale({ a: "Home" }, { a: "ମୂଳପୃଷ୍ଠା" }, ["a"], {
+        a: { english: "Home", translation: "ମୂଳପୃଷ୍ଠା", reviewer: "native-reviewer", reviewedAt },
+      }).entries[0].status;
+    expect(status("2026-02-28")).toBe("reviewed");
+    expect(status("2026-02-30")).toBe("needs-review");
+    expect(status("2026-04-31")).toBe("needs-review");
+  });
   it("invalidates a review when the English source changes", () => {
     const review = {
       english: "Home",

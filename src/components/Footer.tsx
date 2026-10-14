@@ -1,12 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { Heart, Rss } from "lucide-react";
 import { GithubIcon, YoutubeIcon } from "./icons";
-import { T, useFallbackLang, useTranslation } from "../lib/i18n";
+import { T, useTranslation } from "../lib/i18n";
 import { ODIA_PHRASE } from "../lib/pattachitra";
 
 export function Footer() {
-  const { t, locale } = useTranslation();
-  const rssLang = useFallbackLang("footer.rss");
+  const { t, locale, fallbackLang } = useTranslation();
+  const rssLang = fallbackLang("footer.rss");
   return (
     <footer lang={locale} className="border-t border-border mt-32">
       <div className="mx-auto max-w-6xl px-4 py-12">

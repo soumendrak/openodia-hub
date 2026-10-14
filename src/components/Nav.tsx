@@ -1,7 +1,7 @@
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useState, useEffect, useId } from "react";
 import { Menu, X, Sun, Moon, Search, Languages, Sparkles } from "lucide-react";
-import { T, useFallbackLang, useTranslation, type TranslationKey } from "../lib/i18n";
+import { T, useTranslation, type TranslationKey } from "../lib/i18n";
 
 /** `highlight` gives Playground the accent treatment — it's the one tab that
  *  runs something rather than listing something. `menuOnly` keeps a destination
@@ -30,11 +30,11 @@ export function Nav() {
   const [open, setOpen] = useState(false);
   const { location } = useRouterState();
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const { locale, setLocale, t } = useTranslation();
-  const searchLang = useFallbackLang("nav.search.aria");
-  const localeLang = useFallbackLang("nav.locale.aria");
-  const themeLang = useFallbackLang("nav.theme.aria");
-  const menuLang = useFallbackLang("nav.menu.aria");
+  const { locale, setLocale, t, fallbackLang } = useTranslation();
+  const searchLang = fallbackLang("nav.search.aria");
+  const localeLang = fallbackLang("nav.locale.aria");
+  const themeLang = fallbackLang("nav.theme.aria");
+  const menuLang = fallbackLang("nav.menu.aria");
   const localeLabelId = useId();
   const localeTargetId = useId();
   const targetLanguage = locale === "en" ? "ଓଡ଼ିଆ" : "English";

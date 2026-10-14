@@ -5,7 +5,7 @@ vi.mock("../src/locales/or", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/locales/or")>();
   return { or: { ...actual.or, "nav.home": "" } };
 });
-import { I18nProvider, T, useFallbackLang } from "../src/lib/i18n";
+import { I18nProvider, T, useTranslation } from "../src/lib/i18n";
 import { or } from "../src/locales/or";
 
 afterEach(() => {
@@ -35,7 +35,7 @@ it.each([
 );
 
 function Labelled() {
-  return <a aria-label="x" lang={useFallbackLang("nav.home")} data-testid="link" />;
+  return <a aria-label="x" lang={useTranslation().fallbackLang("nav.home")} data-testid="link" />;
 }
 
 it.each([

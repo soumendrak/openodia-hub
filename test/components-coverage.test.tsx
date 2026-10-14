@@ -84,12 +84,12 @@ vi.mock("@tanstack/react-router", async () => {
 });
 
 vi.mock("../src/lib/i18n", () => ({
-  useFallbackLang: () => (componentHarness.fallback ? "en" : undefined),
   T: ({ k }: { k: string }) => (componentHarness.fallback ? <span lang="en">{k}</span> : k),
   useTranslation: () => ({
     locale: componentHarness.locale,
     setLocale: componentHarness.setLocale,
     t: (key: string) => key,
+    fallbackLang: () => (componentHarness.fallback ? "en" : undefined),
   }),
 }));
 
