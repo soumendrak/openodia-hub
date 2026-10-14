@@ -174,7 +174,7 @@ export function applyEventOverrides(event: Event, overrides: EventOverride[]): E
   const retainedFields = (event.reviewedFields ?? []).filter(
     (key) => !(changedDay && override.patch.endDate === undefined && key === "endDate"),
   );
-  return normalizeEventDates(
+  const reviewed = normalizeEventDates(
     mergeReviewedEvents(event, {
       ...event,
       ...override.patch,
@@ -189,6 +189,10 @@ export function applyEventOverrides(event: Event, overrides: EventOverride[]): E
     // Re-reviewing the same start day keeps the existing, still-valid duration.
     !changedDay,
   );
+  // The patch alone cannot see the base start; check the merged range too.
+  if (reviewed.endDate && reviewed.startDate && reviewed.endDate < reviewed.startDate)
+    throw new Error("Invalid reviewed event correction");
+  return reviewed;
 }
 
 /** A reviewed replacement day is current; an old end date is not a new duration. */

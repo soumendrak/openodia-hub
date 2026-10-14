@@ -89,10 +89,27 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
 
   // Preserve reviewed alias facts at the canonical identity before the old
   // base row retires. Only current live rows count as seen upstream.
+  const knownKeys = new Set(
+    [...curated, ...reviewedHistory].map((event) => eventUrlKey(event.url)),
+  );
+  // A checked-in override whose base row is gone still carries reviewed facts
+  // that must follow its alias to the current canonical event.
+  const standaloneOverrides = EVENT_OVERRIDES.filter(
+    (override) => !knownKeys.has(eventUrlKey(override.url)),
+  ).map(
+    (override) =>
+      ({
+        url: override.url,
+        ...override.patch,
+        reviewedAt: override.reviewedAt,
+        reviewedFields: Object.keys(override.patch),
+      }) as Event,
+  );
   const previousCanonical = await dedupeEventsByResolvedUrl(
     [
       ...curated.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)),
       ...reviewedHistory.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)),
+      ...standaloneOverrides,
     ],
     async (url) => storedEventDestination(url, aliases),
     mergeReviewedEvents,
