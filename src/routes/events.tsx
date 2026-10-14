@@ -522,7 +522,8 @@ function EventsPage() {
           };
         }
       ).lenis;
-      if (lenis) {
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (lenis && !reducedMotion) {
         lenis.scrollTo(el, {
           offset: -112,
           onComplete: () => {
@@ -538,7 +539,7 @@ function EventsPage() {
         const targetY = rect.top + scrollTop - 112;
         window.scrollTo({
           top: targetY,
-          behavior: "smooth",
+          behavior: reducedMotion ? "instant" : "smooth",
         });
       }
     }
@@ -772,13 +773,16 @@ function EventsPage() {
           previously loaded events only.
         </p>
       )}
+      <p
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className={isFiltering ? "mt-10 text-sm text-muted-foreground" : "sr-only"}
+      >
+        {`${filtered.length} event${filtered.length !== 1 ? "s" : ""} ${isFiltering ? "matched" : "shown"}`}
+      </p>
       {isFiltering ? (
-        <div className="mt-10">
-          <Reveal>
-            <p className="text-sm text-muted-foreground">
-              {filtered.length} event{filtered.length !== 1 ? "s" : ""} matched
-            </p>
-          </Reveal>
+        <div className="mt-4">
           {filtered.length === 0 ? (
             <p className="mt-6 text-muted-foreground">No events matched.</p>
           ) : (

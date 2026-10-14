@@ -18,7 +18,8 @@
     "test:e2e": "vite build && playwright test",
     "test:watch": "vitest",
     "check:locales": "bun scripts/check-locale-coverage.ts",
-    "test:bilingual": "node test/e2e/bilingual.mjs"
+    "test:bilingual": "node test/e2e/bilingual.mjs",
+    "test:a11y": "vite build && playwright test --config playwright.accessibility.config.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

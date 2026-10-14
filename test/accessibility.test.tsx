@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { CodeEditor } from "../src/components/CodeEditor";
+import { LanguageRuns } from "../src/components/LanguageRuns";
 import { MagneticButton } from "../src/components/MagneticButton";
 import { Marquee } from "../src/components/Marquee";
 import { ScrollToTop } from "../src/components/ScrollToTop";
@@ -66,10 +67,12 @@ it("allows users to pause automatic marquee scrolling and hides the repeated cop
   const { container } = render(<Marquee items={["Odia"]} />);
   const control = screen.getByRole("button", { name: "Pause scrolling" });
   fireEvent.click(control);
-  expect(control).toHaveAttribute("aria-pressed", "true");
+  expect(control).not.toHaveAttribute("aria-pressed");
+  expect(control).toHaveAccessibleName("Resume scrolling");
   expect(container.querySelector(".animate-marquee")).toHaveStyle({ animationPlayState: "paused" });
   fireEvent.click(screen.getByRole("button", { name: "Resume scrolling" }));
-  expect(control).toHaveAttribute("aria-pressed", "false");
+  expect(control).not.toHaveAttribute("aria-pressed");
+  expect(control).toHaveAccessibleName("Pause scrolling");
   expect(container.querySelector(".animate-marquee")).toHaveStyle({
     animationPlayState: "running",
   });
@@ -78,3 +81,28 @@ it("allows users to pause automatic marquee scrolling and hides the repeated cop
     "true",
   );
 });
+
+it.each([
+  ["", []],
+  ["English title", [["en", "English title"]]],
+  ["ଓଡ଼ିଆ", [["or", "ଓଡ଼ିଆ"]]],
+  [
+    "ଏଆଇ AI ଓଡ଼ିଆ?",
+    [
+      ["or", "ଏଆଇ"],
+      ["en", " AI "],
+      ["or", "ଓଡ଼ିଆ"],
+    ],
+  ],
+  ["ଓଡ଼ିଆ ଭାଷା। ", [["or", "ଓଡ଼ିଆ ଭାଷା।"]]],
+  ["କ୍\u200Dଷ", [["or", "କ୍\u200Dଷ"]]],
+])(
+  "preserves catalog text and tags Odia script without labeling English as Odia: %s",
+  (text, expected) => {
+    const { container } = render(<LanguageRuns text={text as string} />);
+    expect(container.textContent).toBe(text);
+    expect(
+      [...container.querySelectorAll("span")].map((span) => [span.lang, span.textContent]),
+    ).toEqual(expected);
+  },
+);

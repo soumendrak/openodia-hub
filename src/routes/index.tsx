@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { Reveal } from "../components/Reveal";
+import { LanguageRuns } from "../components/LanguageRuns";
 import { Marquee } from "../components/Marquee";
 import { OdiaGlyph } from "../components/OdiaGlyph";
 import { FEATURED_VIDEOS } from "../data/videos";
@@ -434,7 +435,7 @@ function CommunityVideos() {
               <div className="relative aspect-video overflow-hidden">
                 <img
                   src={`https://i.ytimg.com/vi/${v.id}/hqdefault.jpg`}
-                  alt={v.title}
+                  alt=""
                   className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   loading="lazy"
                 />
@@ -445,8 +446,12 @@ function CommunityVideos() {
                 </div>
               </div>
               <div className="p-4">
-                <h3 className="font-medium leading-tight">{v.title}</h3>
-                <p className="mt-1 text-xs text-muted-foreground">{v.channelName}</p>
+                <h3 className="font-medium leading-tight">
+                  <LanguageRuns text={v.title} />
+                </h3>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  <LanguageRuns text={v.channelName} />
+                </p>
               </div>
             </a>
           </Reveal>
