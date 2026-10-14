@@ -300,7 +300,7 @@ jobs:
                 await github.rest.issues.addLabels({ ...issue, labels: [label] });
                 if (await currentHead()) await publish('failure', allowed.size ? 'Native Odia approval of this exact commit is required' : 'Configure ODIA_NATIVE_REVIEWERS before native approval');
                 // Missing approval is a reconciled blocking commit status, not a cron
-                // execution failure that should notify maintainers every five minutes.
+                // execution failure that should notify maintainers every 20 minutes.
                 if (!scheduled) core.setFailed(allowed.size ? 'A configured native Odia reviewer must approve this exact commit. Draft wording requires an explicit native review.' : 'Configure ODIA_NATIVE_REVIEWERS with actual native Odia reviewer logins, then obtain approval of this exact commit.');
               }
             } catch (error) {
