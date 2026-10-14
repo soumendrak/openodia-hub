@@ -367,7 +367,11 @@ describe("native Odia review policy", () => {
       files: [{ filename: "src/locales/odia.ts", previous_filename: "src/locales/or.ts" }],
     });
     expect(renamed.issues.addLabels).toHaveBeenCalled();
-    for (const files of [["src/locales/or-next.ts"], ["src/lib/i18n.tsx"], ["src/routes/__root.tsx"]])
+    for (const files of [
+      ["src/locales/or-next.ts"],
+      ["src/lib/i18n.tsx"],
+      ["src/routes/__root.tsx"],
+    ])
       expect((await runGate({ files })).issues.addLabels).toHaveBeenCalled();
     expect(
       (await runGate({ files: ["src/lib/other.ts"] })).issues.addLabels,
