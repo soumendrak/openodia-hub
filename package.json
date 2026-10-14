@@ -15,6 +15,7 @@
     "test:coverage:diff": "bun scripts/check-diff-coverage.mjs",
     "hooks:install": "git config core.hooksPath .githooks",
     "prepare": "bun run hooks:install",
+    "test:e2e": "vite build && playwright test",
     "test:watch": "vitest",
     "check:locales": "bun scripts/check-locale-coverage.ts",
     "test:bilingual": "node test/e2e/bilingual.mjs"
@@ -81,8 +82,10 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^9.32.0",
     "@lovable.dev/vite-tanstack-config": "^1.5.1",
+    "@playwright/test": "1.60.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^22.16.5",
@@ -99,6 +102,7 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "jsdom": "^29.1.1",
+    "miniflare": "4.20260421.0",
     "prettier": "^3.7.3",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.56.1",

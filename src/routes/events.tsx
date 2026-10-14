@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { Link, createFileRoute } from "@tanstack/react-router";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } from "lucide-react";
 import { Reveal } from "../components/Reveal";
@@ -12,10 +12,27 @@ import { pageHead } from "../lib/seo";
 import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 import { normalizeSearch } from "../lib/search";
 import { issueFormUrl } from "../lib/issue-forms";
+import {
+  getOrganizerById,
+  resolveOrganizer,
+  resolveOrganizerId,
+  ORGANIZERS,
+} from "../data/organizers";
 
 export const Route = createFileRoute("/events")({
-  validateSearch: (search: Record<string, unknown>): { q?: string } =>
-    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { q?: string; community?: string; type?: Event["type"] } => ({
+    q: typeof search.q === "string" && search.q.length <= 80 ? search.q : undefined,
+    community:
+      typeof search.community === "string" && search.community.length <= 80
+        ? search.community
+        : undefined,
+    type:
+      typeof search.type === "string" && ALL_TYPES.includes(search.type as Event["type"])
+        ? (search.type as Event["type"])
+        : undefined,
+  }),
   head: () =>
     pageHead({
       path: "events",
@@ -55,11 +72,11 @@ const ATTENDANCE_LABELS: Record<NonNullable<Event["attendance"]>["policy"], stri
 function EventCard({ event }: { event: Event }) {
   const isUpcoming = event.status === "upcoming";
   const isLive = event.status === "live";
+  const organizer = event.organizerId
+    ? getOrganizerById(event.organizerId)
+    : resolveOrganizer(event.community);
   return (
-    <a
-      href={event.url}
-      target="_blank"
-      rel="noreferrer"
+    <article
       // min-w-0: grid items default to min-width:auto, so a long unbroken venue
       // or title sets the card's minimum width and pushes the row past 375px.
       className={`anim-in hover-lift group flex min-w-0 flex-col gap-3 rounded-2xl border bg-surface p-5 transition ${
@@ -116,12 +133,42 @@ function EventCard({ event }: { event: Event }) {
         />
       </div>
 
-      <h3 className="font-display text-base font-semibold leading-snug">{event.title}</h3>
+      <h3 className="font-display text-base font-semibold leading-snug">
+        <a
+          href={event.url}
+          target="_blank"
+          rel="noreferrer"
+          className="hover:text-neon hover:underline"
+        >
+          {event.title}
+        </a>
+      </h3>
 
       {event.theme && <p className="text-xs italic text-neon">&ldquo;{event.theme}&rdquo;</p>}
 
       <p className="text-sm leading-relaxed text-muted-foreground">{event.description}</p>
-    </a>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-3 text-sm">
+        <a
+          href={event.url}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-neon hover:underline"
+        >
+          Event details <ExternalLink size={13} />
+        </a>
+        {organizer ? (
+          <Link
+            to="/communities"
+            hash={organizer.id}
+            className="text-muted-foreground hover:text-neon hover:underline"
+          >
+            {organizer.canonicalName}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">{event.community}</span>
+        )}
+      </div>
+    </article>
   );
 }
 
@@ -193,16 +240,28 @@ function EventsPage() {
   useEffect(() => setDraftQuery(routeSearch.q ?? ""), [routeSearch.q]);
   const query = draftQuery;
   const navigate = Route.useNavigate();
+  const setFilters = (next: { q?: string; community?: string; type?: Event["type"] }) => {
+    void navigate({ search: next, replace: true });
+  };
   const setQuery = (next: string) => {
     const bounded = next.slice(0, 80);
     setDraftQuery(bounded);
-    void navigate({ search: bounded ? { q: bounded } : {}, replace: true });
+    setFilters({
+      ...(bounded ? { q: bounded } : {}),
+      ...(routeSearch.community ? { community: routeSearch.community } : {}),
+      ...(routeSearch.type ? { type: routeSearch.type } : {}),
+    });
   };
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
-  const [activeType, setActiveType] = useState<Event["type"] | null>(null);
-  const [activeCommunity, setActiveCommunity] = useState<string | null>(null);
+  const activeType = routeSearch.type ?? null;
+  const requestedCommunity = routeSearch.community;
+  const activeCommunity =
+    requestedCommunity && getOrganizerById(requestedCommunity) ? requestedCommunity! : null;
+  const unknownCommunity = requestedCommunity && !activeCommunity ? requestedCommunity : null;
   const [activeSection, setActiveSection] = useState<string | null>(null);
+  const needle = normalizeSearch(query);
+  const isFiltering = !!needle || !!activeType || !!requestedCommunity;
 
   const isProgrammaticScroll = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -245,20 +304,25 @@ function EventsPage() {
 
   // Pagination keeps the idle timeline light, but a search must not silently
   // exclude a live event merely because its page has not been visited yet.
-  const { data: completeSearchEvents } = useQuery({
-    queryKey: ["allLiveEventsForSearch", query],
+  const {
+    data: completeSearchEvents,
+    isPending: isCompletePending,
+    isError: isCompleteError,
+  } = useQuery({
+    queryKey: ["allLiveEventsForFilter"],
     queryFn: async () => {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
       return response.json() as Promise<{ events: Event[] }>;
     },
-    enabled: Boolean(query.trim()),
+    enabled: isFiltering && !unknownCommunity,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  const fetchedEvents =
-    completeSearchEvents?.events ?? liveData?.pages.flatMap((p) => p.events) ?? [];
+  const loadedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  // Disabled queries keep cached data: clearing filters must restore pagination.
+  const fetchedEvents = isFiltering ? (completeSearchEvents?.events ?? loadedEvents) : loadedEvents;
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const today = getISTDateString();
@@ -275,7 +339,7 @@ function EventsPage() {
           status = undefined; // past event
         }
       }
-      return { ...e, status };
+      return { ...e, organizerId: e.organizerId ?? resolveOrganizerId(e.community), status };
     })
     .sort((a, b) => {
       const yearDiff = Number(b.year) - Number(a.year);
@@ -288,8 +352,6 @@ function EventsPage() {
       return 0;
     });
 
-  const needle = normalizeSearch(query);
-
   const upcomingEvents = mergedEventsList.filter(
     (e) => e.status === "upcoming" || e.status === "live",
   );
@@ -298,18 +360,24 @@ function EventsPage() {
   const applyFilter = (list: Event[]) =>
     list.filter((e) => {
       const matchesType = activeType ? e.type === activeType : true;
-      const matchesCommunity = activeCommunity ? e.community === activeCommunity : true;
+      const matchesCommunity = activeCommunity ? e.organizerId === activeCommunity : true;
       const matchesQuery = needle
         ? normalizeSearch(e.title).includes(needle) ||
           normalizeSearch(e.description).includes(needle) ||
-          normalizeSearch(e.location ?? "").includes(needle)
+          normalizeSearch(e.location ?? "").includes(needle) ||
+          normalizeSearch(
+            [
+              e.community,
+              resolveOrganizer(e.organizerId ?? e.community)?.canonicalName ?? "",
+              ...(resolveOrganizer(e.organizerId ?? e.community)?.aliases ?? []),
+            ].join(" "),
+          ).includes(needle)
         : true;
       return matchesType && matchesCommunity && matchesQuery;
     });
 
-  const filtered = applyFilter(mergedEventsList);
+  const filtered = unknownCommunity ? [] : applyFilter(mergedEventsList);
   const isSearching = !!needle;
-  const isFiltering = !!needle || !!activeType || !!activeCommunity;
 
   // Past events are the ones the status pass left undefined; "past" is not a
   // value Event["status"] can hold.
@@ -322,7 +390,10 @@ function EventsPage() {
     (a, b) => Number(b) - Number(a),
   );
 
-  const dynamicCommunities = [...new Set(mergedEventsList.map((e) => e.community))].sort();
+  // Registry identities stay selectable even when their first live page has no events.
+  const dynamicCommunities = [...ORGANIZERS].sort((a, b) =>
+    a.canonicalName.localeCompare(b.canonicalName),
+  );
 
   // For each year, gather the active months in the filtered past events
   const activeMonthsByYear = new Map<string, string[]>();
@@ -551,6 +622,10 @@ function EventsPage() {
           >
             GDG Bhubaneswar
           </a>
+          . Browse every source in the{" "}
+          <Link to="/communities" className="text-neon hover:underline">
+            communities directory
+          </Link>
           .
         </p>
         <p className="mt-3 max-w-2xl text-sm text-muted-foreground">
@@ -561,7 +636,16 @@ function EventsPage() {
             rel="noreferrer"
             className="text-neon hover:underline"
           >
-            Submit an event
+            Submit an event <span className="sr-only">(opens in a new tab)</span>
+          </a>
+          . Wrong, postponed, or cancelled?{" "}
+          <a
+            href={issueFormUrl("correction")}
+            target="_blank"
+            rel="noreferrer"
+            className="text-neon hover:underline"
+          >
+            Suggest a correction <span className="sr-only">(opens in a new tab)</span>
           </a>
           . Submissions are reviewed before they appear.
         </p>
@@ -599,15 +683,21 @@ function EventsPage() {
             {/* Communities Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
-                aria-label="Community"
+                aria-label="Filter by organizer"
                 value={activeCommunity ?? ""}
-                onChange={(e) => setActiveCommunity(e.target.value || null)}
+                onChange={(e) =>
+                  setFilters({
+                    ...(routeSearch.q ? { q: routeSearch.q } : {}),
+                    ...(routeSearch.type ? { type: routeSearch.type } : {}),
+                    ...(e.target.value ? { community: e.target.value } : {}),
+                  })
+                }
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
               >
                 <option value="">All communities</option>
-                {dynamicCommunities.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                {dynamicCommunities.map((organizer) => (
+                  <option key={organizer.id} value={organizer.id}>
+                    {organizer.canonicalName}
                   </option>
                 ))}
               </select>
@@ -620,10 +710,14 @@ function EventsPage() {
             {/* Event Types Dropdown */}
             <div className="relative w-full sm:w-[200px]">
               <select
-                aria-label="Event type"
+                aria-label="Filter by event type"
                 value={activeType ?? ""}
                 onChange={(e) =>
-                  setActiveType((e.target.value as (typeof ALL_TYPES)[number]) || null)
+                  setFilters({
+                    ...(routeSearch.q ? { q: routeSearch.q } : {}),
+                    ...(routeSearch.community ? { community: routeSearch.community } : {}),
+                    ...(e.target.value ? { type: e.target.value as Event["type"] } : {}),
+                  })
                 }
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
               >
@@ -644,9 +738,8 @@ function EventsPage() {
             {isFiltering && (
               <button
                 onClick={() => {
-                  setQuery("");
-                  setActiveType(null);
-                  setActiveCommunity(null);
+                  setDraftQuery("");
+                  setFilters({});
                 }}
                 className="flex items-center gap-1.5 rounded-2xl border border-border px-4 py-3 text-sm text-muted-foreground hover:border-neon/40 hover:text-foreground transition"
               >
@@ -657,7 +750,29 @@ function EventsPage() {
         </Reveal>
       </div>
 
-      {isSearching ? (
+      {unknownCommunity && (
+        <p
+          className="mt-4 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200"
+          role="status"
+        >
+          “{unknownCommunity}” is not a known organizer. Choose a listed community or clear the
+          filters.
+        </p>
+      )}
+
+      {isFiltering && !unknownCommunity && isCompletePending && (
+        <p role="status" className="mt-4 text-sm text-muted-foreground">
+          Loading the complete event collection… Counts below cover loaded events until this
+          finishes.
+        </p>
+      )}
+      {isFiltering && !unknownCommunity && isCompleteError && (
+        <p role="alert" className="mt-4 text-sm text-muted-foreground">
+          The complete live event collection is unavailable. Results and counts cover curated and
+          previously loaded events only.
+        </p>
+      )}
+      {isFiltering ? (
         <div className="mt-10">
           <Reveal>
             <p className="text-sm text-muted-foreground">
@@ -861,10 +976,11 @@ function EventsPage() {
               })}
             </div>
 
-            {!isSearching && totalLiveEvents > 0 && (
+            {!isFiltering && totalLiveEvents > 0 && (
               <div className="mt-10 flex flex-col items-center gap-3">
                 <p className="text-xs text-muted-foreground">
-                  Showing {fetchedEvents.length} of {totalLiveEvents} past events
+                  Current collection: {mergedEventsList.length} unique curated and loaded live
+                  events.
                 </p>
                 {hasNextPage && (
                   <button
