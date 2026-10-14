@@ -40,6 +40,7 @@ async function runGate({
   createError,
   removeError,
   removeLabelObserver,
+  associated = [],
 }: {
   files?: (string | { filename: string; previous_filename?: string })[];
   changedFiles?: unknown;
@@ -69,6 +70,7 @@ async function runGate({
   createError?: object;
   removeError?: object;
   removeLabelObserver?: () => void;
+  associated?: object[];
 } = {}) {
   const issues = {
     createLabel: vi.fn(async () => {
@@ -96,11 +98,13 @@ async function runGate({
   const filesApi = vi.fn();
   const reviewsApi = vi.fn();
   const statusesApi = vi.fn();
+  const associatedApi = vi.fn();
   const github = {
     rest: {
       pulls: {
         listFiles: filesApi,
         listReviews: reviewsApi,
+        list: associatedApi,
         get: vi.fn(async () => ({
           data: {
             ...pr,
@@ -118,6 +122,7 @@ async function runGate({
       },
     },
     paginate: vi.fn(async (api) => {
+      if (api === associatedApi) return associated;
       if (api === statusesApi) {
         if (statusReadError) throw statusReadError;
         return existingStatuses;
@@ -877,6 +882,30 @@ describe("native Odia review policy", () => {
     const failure = runGate({ createError: { status: 403 }, statusCalls });
     await expect(failure).rejects.toEqual({ status: 403 });
     expect(statusCalls).toEqual([expect.objectContaining({ state: "error", sha: "current" })]);
+  });
+  it.each([
+    ["a protected", ["src/locales/or.ts"]],
+    ["an unprotected", ["README.md"]],
+  ])("fails closed for %s PR whose head commit another open PR shares", async (_, files) => {
+    const statusCalls: { state?: string; description?: string }[] = [];
+    const { core } = await runGate({
+      files,
+      reviews: [review("APPROVED")],
+      statusCalls,
+      associated: [
+        { number: 7, state: "open", head: { sha: "current" } },
+        { number: 8, state: "open", head: { sha: "current" } },
+        { number: 9, state: "closed", head: { sha: "current" } },
+        { number: 10, state: "open", head: { sha: "older" } },
+      ],
+    });
+    expect(statusCalls).toEqual([
+      expect.objectContaining({
+        state: "failure",
+        description: "Head commit is shared with #8; give each PR a distinct head commit",
+      }),
+    ]);
+    expect(core.setFailed).toHaveBeenCalledWith(expect.stringContaining("#8"));
   });
   it("keeps write-capable decisions in trusted code and reserves the native-review status context", () => {
     expect(workflow.on).not.toHaveProperty("pull_request_review");
