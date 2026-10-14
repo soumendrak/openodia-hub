@@ -24,7 +24,9 @@ for (const theme of ["light", "dark"] as const)
       await expect(page.locator("html")).toHaveAttribute("lang", "or");
       await expect(page.locator("main")).toHaveAttribute("lang", "en");
       await expect(page.locator("header")).toHaveAttribute("lang", "or");
-      const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth);
+      const overflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      );
       expect(overflow).toBe(false);
       const opener = page.getByRole("button", { name: /ସନ୍ଧାନ|search/i });
       await opener.click();
@@ -98,6 +100,7 @@ test("marquee controls reflect motion preference and editor reentry restores ind
   await expect(control).toBeVisible();
   await control.click();
   await expect(control).toHaveAccessibleName("Resume scrolling");
+  await expect(control).not.toHaveAttribute("aria-pressed");
   expect(
     await page
       .locator(".animate-marquee")

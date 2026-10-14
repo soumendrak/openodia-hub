@@ -40,6 +40,6 @@ scratch/
 .playwright-mcp/
 .lavish/
 
-# Playwright smoke tests
+# Playwright smoke tests and accessibility browser evidence
 /test-results/
 /playwright-report/

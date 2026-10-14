@@ -526,3 +526,9 @@ li a {
   text-decoration: underline;
   text-underline-offset: 3px;
 }
+
+/* Icon-only clear/close controls (named by aria-label) need a usable pointer target too. */
+button[aria-label] {
+  min-width: 24px;
+  min-height: 24px;
+}
