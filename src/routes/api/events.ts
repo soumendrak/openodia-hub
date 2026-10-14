@@ -104,6 +104,11 @@ function isCompleteList(list: BevyEventList, results: unknown[]): boolean {
   );
 }
 
+/** Bevy descriptions are untyped; only non-empty strings may reach search indexing. */
+function firstString(...values: unknown[]): string {
+  return values.find((value): value is string => typeof value === "string" && !!value) ?? "";
+}
+
 /** Reads a chapter page, rejecting when it cannot be read or has an unexpected shape. */
 export async function fetchChapterSnapshot(
   organizerIdentity: string,
@@ -166,7 +171,9 @@ export async function fetchChapterSnapshot(
     );
   }
 
-  const rawEvents = collections.flat();
+  // Records without a URL have no identity; drop them before URL dedup. Their
+  // list is already marked incomplete above, so no deactivation follows.
+  const rawEvents = collections.flat().filter((item) => !!item.url);
 
   const events = dedupeEventsByUrl(
     rawEvents.map((item) => {
@@ -186,7 +193,7 @@ export async function fetchChapterSnapshot(
         ...(organizer ? { organizerId: organizer.id } : {}),
         startDate: startStr,
         endDate: startStr,
-        description: item.description_short || item.description || "",
+        description: firstString(item.description_short, item.description),
       };
     }),
   );

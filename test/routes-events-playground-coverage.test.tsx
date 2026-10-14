@@ -389,6 +389,21 @@ describe("events.tsx", () => {
       );
     },
   );
+  it.each([false, true])(
+    "keeps pagination reachable when the complete corpus fails (fetching: %s)",
+    (fetching) => {
+      routeHarness.search = { sort: "oldest" };
+      queryHarness.isError = true;
+      infiniteHarness.hasNextPage = true;
+      infiniteHarness.isFetchingNextPage = fetching;
+      render(<EventsRouteAny.options.component />);
+      const button = screen.getByRole("button", {
+        name: fetching ? "Loading…" : "Load more events",
+      });
+      fireEvent.click(button);
+      expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(fetching ? 0 : 1);
+    },
+  );
   it("searches canonical organizer names and aliases without title matches", () => {
     dataFixture.events = [{ ...PAST_2020[0], community: "TFUG BBSR" }];
     routeHarness.search = { q: "Bhubaneswar" };

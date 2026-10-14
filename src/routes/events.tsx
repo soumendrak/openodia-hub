@@ -828,6 +828,15 @@ function EventsPage() {
         <p role="alert" className="mt-4 text-sm text-muted-foreground">
           The complete live event collection is unavailable. Results and counts cover curated and
           previously loaded events only.
+          {hasNextPage && (
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="ml-2 font-medium text-neon underline underline-offset-2 disabled:opacity-50"
+            >
+              {isFetchingNextPage ? "Loading…" : "Load more events"}
+            </button>
+          )}
         </p>
       )}
       {isFiltering ? (

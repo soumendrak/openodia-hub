@@ -224,6 +224,57 @@ describe("fetchChapterEvents", () => {
     );
   });
 
+  it("drops URL-less records and coerces non-string descriptions without failing the source", async () => {
+    const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: {
+              count: 2,
+              results: [
+                { title: "No URL", event_type_title: "Talk", start_date: "2026-01-02T00:00:00Z" },
+                {
+                  title: "Valid sibling",
+                  description_short: { html: "x" },
+                  description: 42,
+                  event_type_title: "Talk",
+                  start_date: "2026-01-02T00:00:00Z",
+                  url: "https://gdg.community.dev/events/details/valid-sibling",
+                },
+              ],
+            },
+            pastEvents: {
+              count: 1,
+              results: [
+                {
+                  title: "Fallback description",
+                  description_short: 7,
+                  description: "Plain text",
+                  event_type_title: "Talk",
+                  start_date: "2025-01-02T00:00:00Z",
+                  url: "https://gdg.community.dev/events/details/fallback",
+                },
+              ],
+            },
+          },
+        },
+      },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => mockHtml,
+    } as Response);
+    const snapshot = await fetchChapterSnapshot("Community", "chapter");
+    expect(snapshot.events.map((event) => [event.title, event.description])).toEqual([
+      ["Valid sibling", ""],
+      ["Fallback description", "Plain text"],
+    ]);
+    // The URL-less record still marks its list incomplete, so nothing is deactivated.
+    expect(snapshot.upcomingComplete).toBe(false);
+    expect(snapshot.pastComplete).toBe(true);
+  });
+
   it("maps all Bevy type labels and missing dates", async () => {
     const labels = ["Conference", "AI Summit", "Study Jam", "Speaker session", "Research", "Other"];
     const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
