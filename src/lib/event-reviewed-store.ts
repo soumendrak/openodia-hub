@@ -78,12 +78,13 @@ export async function persistReviewedEvents(
       reviewed_at: new Date(event.reviewedAt!).toISOString(),
     };
   });
+  // Every conflict merges field by field on per-field review times (ties keep
+  // the stored value), so concurrent writers never replace each other's fields.
   await db
     .prepare(
       `INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at)
     SELECT json_extract(value, '$.event_id'), json_extract(value, '$.payload_json'), json_extract(value, '$.reviewed_at')
-    FROM json_each(?) WHERE true ON CONFLICT(event_id) DO UPDATE SET payload_json = CASE
-      WHEN excluded.reviewed_at = event_reviewed_metadata.reviewed_at THEN
+    FROM json_each(?) WHERE true ON CONFLICT(event_id) DO UPDATE SET payload_json =
         json_object('patch', (
           SELECT json_group_object(key, CASE WHEN type IN ('object','array') THEN json(value) ELSE value END)
           FROM (
@@ -105,15 +106,19 @@ export async function persistReviewedEvents(
               SELECT key, value FROM json_each(excluded.payload_json, '$.reviewedTimes')
             ) GROUP BY key
           )
-        ))
-      ELSE excluded.payload_json END,
-    reviewed_at = excluded.reviewed_at WHERE excluded.reviewed_at >= event_reviewed_metadata.reviewed_at`,
+        )),
+    reviewed_at = max(excluded.reviewed_at, event_reviewed_metadata.reviewed_at)`,
     )
     .bind(JSON.stringify(records))
     .run();
 }
 
-export async function restoreReviewedEvents(db: D1Like, events: Event[]): Promise<Event[]> {
+export async function restoreReviewedEvents(
+  db: D1Like,
+  events: Event[],
+  /** Called for each matching row that is ignored as invalid; callers mark results partial. */
+  onInvalid: () => void = () => {},
+): Promise<Event[]> {
   const result = await db
     .prepare("SELECT event_id, payload_json, reviewed_at FROM event_reviewed_metadata")
     .all<{ event_id: string; payload_json: string; reviewed_at: string }>();
@@ -143,23 +148,27 @@ export async function restoreReviewedEvents(db: D1Like, events: Event[]): Promis
           payload.patch.lifecycle.replacementDate !== event.lifecycle?.replacementDate) ||
         (payload.patch.startDate !== undefined && payload.patch.startDate !== event.startDate);
       // Re-derive fields from the admitted patch, never trust unknown persisted field names.
-      byUrl.set(
-        row.event_id,
-        normalizeEventDates(
-          mergeReviewedEvents(event, {
-            ...event,
-            ...payload.patch,
-            reviewedAt: row.reviewed_at,
-            reviewedFields: Object.keys(payload.patch) as (typeof REVIEW_FIELDS)[number][],
-            reviewedTimes:
-              payload.reviewedTimes && typeof payload.reviewedTimes === "object"
-                ? payload.reviewedTimes
-                : undefined,
-          }),
-          !changedDay,
-        ),
+      const restored = normalizeEventDates(
+        mergeReviewedEvents(event, {
+          ...event,
+          ...payload.patch,
+          reviewedAt: row.reviewed_at,
+          reviewedFields: Object.keys(payload.patch) as (typeof REVIEW_FIELDS)[number][],
+          reviewedTimes:
+            payload.reviewedTimes && typeof payload.reviewedTimes === "object"
+              ? payload.reviewedTimes
+              : undefined,
+        }),
+        !changedDay,
       );
+      // A reviewed end the (possibly moved) base start has overtaken is not a
+      // valid range; drop it rather than the row's other reviewed facts.
+      if (restored.endDate && restored.startDate && restored.endDate < restored.startDate)
+        restored.endDate =
+          event.endDate && event.endDate >= restored.startDate ? event.endDate : undefined;
+      byUrl.set(row.event_id, restored);
     } catch {
+      onInvalid();
       console.warn("Invalid reviewed event metadata ignored");
     }
   }

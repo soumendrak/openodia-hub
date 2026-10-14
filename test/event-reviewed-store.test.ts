@@ -164,6 +164,60 @@ describe("real D1 additive reviewed metadata", () => {
     ]);
     expect(next.lifecycle?.state).toBe("cancelled");
   });
+  it("keeps both fields when concurrent writers persist at different timestamps", async () => {
+    const racing = { ...event, url: "https://example.com/concurrent-unequal" };
+    const write = (
+      reviewedAt: string,
+      patch: Parameters<typeof applyEventOverrides>[1][0]["patch"],
+    ) =>
+      persistReviewedEvent(
+        db,
+        applyEventOverrides(racing, [
+          { url: racing.url, evidenceUrl: proof.evidenceUrl, reviewedAt, patch },
+        ]),
+      );
+    await Promise.all([
+      write("2026-10-12T01:00:00.000Z", { lifecycle: { state: "cancelled", ...proof } }),
+      write("2026-10-12T02:00:00.000Z", { registration: { state: "closed", ...proof } }),
+    ]);
+    const merged = (await restoreReviewedEvents(db, [racing]))[0];
+    expect(merged).toMatchObject({
+      lifecycle: { state: "cancelled" },
+      registration: { state: "closed" },
+    });
+  });
+  it("drops a restored reviewed end date that the moved base start has overtaken", async () => {
+    const base = { ...event, url: "https://example.com/moved-start" };
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(base, [
+        {
+          url: base.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { endDate: "2027-01-12", lifecycle: { state: "cancelled", ...proof } },
+        },
+      ]),
+    );
+    const [restored] = await restoreReviewedEvents(db, [
+      { ...base, startDate: "2027-02-01", date: "2027-02-01" },
+    ]);
+    expect(restored.endDate).toBeUndefined();
+    expect(restored.lifecycle?.state).toBe("cancelled");
+  });
+  it("reports each ignored corrupt reviewed row to the caller", async () => {
+    const base = { ...event, url: "https://example.com/corrupt-row" };
+    await db
+      .prepare(
+        "INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at) VALUES (?, ?, ?)",
+      )
+      .bind(base.url, "{not json", "2026-10-12T00:00:00.000Z")
+      .run();
+    const onInvalid = vi.fn();
+    const [restored] = await restoreReviewedEvents(db, [base], onInvalid);
+    expect(restored).toEqual(base);
+    expect(onInvalid).toHaveBeenCalledTimes(1);
+  });
   it("atomically keeps nonconflicting same-day corrections and preserves whole-field ties", async () => {
     const base = { ...event, url: "https://example.com/same-day" };
     const initial = applyEventOverrides(base, [

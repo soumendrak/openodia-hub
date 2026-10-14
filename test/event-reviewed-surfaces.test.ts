@@ -208,6 +208,20 @@ describe("the same persisted review reaches every server surface", () => {
     const data = await withEventDatabase(db, loadReviewedEventCollection);
     expect(data.events.find((row) => row.url === reviewed.url)?.lifecycle?.state).toBe("postponed");
   });
+  it("marks the collection partial when a matching reviewed row is corrupt", async () => {
+    fixture.events = [{ ...event, url: "https://example.org/corrupt-surface", title: "Curated" }];
+    const clean = await withEventDatabase(db, () => loadReviewedEventCollection(false));
+    expect(clean.partial).toBe(false);
+    await db
+      .prepare(
+        "INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at) VALUES (?, ?, ?)",
+      )
+      .bind(fixture.events[0].url, "{not json", "2026-10-12T00:00:00.000Z")
+      .run();
+    const data = await withEventDatabase(db, () => loadReviewedEventCollection(false));
+    expect(data.partial).toBe(true);
+    expect(data.events.find((row) => row.url === fixture.events[0].url)?.title).toBe("Curated");
+  });
   it("does not reuse a memoized snapshot across request databases", async () => {
     const load = createSearchSnapshotLoader(emptyLoaders, "test-reviewed-request-database");
     const snapshot = await withEventDatabase(db, load);

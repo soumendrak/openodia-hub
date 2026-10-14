@@ -58,8 +58,8 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<{
   let collection = mergeReviewedCollections(curated, live, EVENT_OVERRIDES, today);
   if (db && databaseReadable) {
     try {
-      collection = (await restoreReviewedEvents(db, collection)).map((event) =>
-        applyEventOverrides(event, EVENT_OVERRIDES),
+      collection = (await restoreReviewedEvents(db, collection, () => (partial = true))).map(
+        (event) => applyEventOverrides(event, EVENT_OVERRIDES),
       );
     } catch {
       partial = true;
@@ -83,8 +83,8 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<{
   );
   if (db && databaseReadable) {
     try {
-      collection = (await restoreReviewedEvents(db, collection)).map((event) =>
-        applyEventOverrides(event, EVENT_OVERRIDES),
+      collection = (await restoreReviewedEvents(db, collection, () => (partial = true))).map(
+        (event) => applyEventOverrides(event, EVENT_OVERRIDES),
       );
     } catch {
       partial = true;
