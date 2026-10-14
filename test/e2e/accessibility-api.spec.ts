@@ -215,7 +215,9 @@ test("mixed Odia video titles retain separate language runs in both UI locales",
   for (const locale of ["en", "or"]) {
     await expect(page.locator("html")).toHaveAttribute("lang", locale);
     await expect(link.locator("h3")).toHaveText(video.title);
-    await expect(link.locator('h3 span[lang="or"]').first()).toHaveText("ଏଆଇ");
+    await expect(link.locator('h3 span[lang="or"]').first()).toHaveText(
+      "ଏଆଇ ଦ୍ୱାରା କିଭଳି ଚମତ୍କାର ୱେବସାଇଟ ନିର୍ମାଣ କରିବେ",
+    );
     await expect(link.locator('h3 span[lang="en"]').last()).toContainText("How to make a website");
     await expect(link.locator("img")).toHaveAttribute("alt", "");
     if (locale === "en") await page.locator("header button[aria-labelledby]").click();

@@ -982,12 +982,7 @@ function EventsPage() {
 
             {!isFiltering && totalLiveEvents > 0 && (
               <div className="mt-10 flex flex-col items-center gap-3">
-                <p
-                  role="status"
-                  aria-live="polite"
-                  aria-atomic="true"
-                  className="text-xs text-muted-foreground"
-                >
+                <p className="text-xs text-muted-foreground">
                   Current collection: {mergedEventsList.length} unique curated and loaded live
                   events.
                 </p>

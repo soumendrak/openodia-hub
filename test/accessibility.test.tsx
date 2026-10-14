@@ -92,9 +92,10 @@ it.each([
       ["or", "ଏଆଇ"],
       ["en", " AI "],
       ["or", "ଓଡ଼ିଆ"],
-      ["en", "?"],
     ],
   ],
+  ["ଓଡ଼ିଆ ଭାଷା। ", [["or", "ଓଡ଼ିଆ ଭାଷା।"]]],
+  ["କ୍\u200Dଷ", [["or", "କ୍\u200Dଷ"]]],
 ])(
   "preserves catalog text and tags Odia script without labeling English as Odia: %s",
   (text, expected) => {
