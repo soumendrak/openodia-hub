@@ -597,10 +597,7 @@ function EventsPage() {
       />
       {schemaEvents.length > 0 && <JsonLd data={eventListSchema(schemaEvents)} />}
       {partialEvents && (
-        <p
-          role="status"
-          className="mb-6 rounded-xl border border-amber-500/40 bg-surface p-4 text-sm text-muted-foreground"
-        >
+        <p className="mb-6 rounded-xl border border-amber-500/40 bg-surface p-4 text-sm text-muted-foreground">
           Some event sources are incomplete or unavailable. Known events remain listed. A successful
           source check does not confirm registration or complete organizer coverage.
         </p>
@@ -836,23 +833,20 @@ function EventsPage() {
       </div>
 
       {unknownCommunity && (
-        <p
-          className="mt-4 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200"
-          role="status"
-        >
+        <p className="mt-4 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
           “{unknownCommunity}” is not a known organizer. Choose a listed community or clear the
           filters.
         </p>
       )}
 
       {needsCompleteCorpus && isCompletePending && (
-        <p role="status" className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-sm text-muted-foreground">
           Loading the complete event collection… Counts below cover loaded events until this
           finishes.
         </p>
       )}
       {needsCompleteCorpus && isCompleteError && (
-        <p role="alert" className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-sm text-muted-foreground">
           The complete live event collection is unavailable. Results and counts cover curated and
           previously loaded events only.
           {hasNextPage && (
@@ -866,6 +860,9 @@ function EventsPage() {
           )}
         </p>
       )}
+      {/* The one announcement per filter change. Source, scope and organizer
+          warnings are persistent visible context, not live regions, so a
+          keystroke is never announced twice. */}
       <p
         role="status"
         aria-live="polite"

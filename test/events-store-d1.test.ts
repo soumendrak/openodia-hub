@@ -324,6 +324,46 @@ describe("syncEventsToD1 against a real D1", () => {
     expect(await activeBySlug()).toEqual({ "bbsr-kept": 1 });
   });
 
+  it("rolls back every deactivation when a statement inside the batch fails", async () => {
+    serve({ [BBSR]: lists() });
+    await seed([["bbsr-batch", "GDG Bhubaneswar"]]);
+    await db
+      .prepare("INSERT INTO event_source_memberships VALUES (?, 'gdg-bhubaneswar', 1)")
+      .bind(eventUrlKey(url("bbsr-batch")))
+      .run();
+    // The membership deactivation runs first; the injected last statement fails
+    // inside the same D1 batch, so the transaction must undo the earlier ones.
+    const failingLast: D1 = {
+      prepare: db.prepare.bind(db),
+      batch: (statements) =>
+        db.batch!([...statements, db.prepare("UPDATE missing_table SET x = 1")]),
+    };
+    await expect(syncEventsToD1(failingLast)).rejects.toThrow(/missing_table/);
+    const membership = await db
+      .prepare("SELECT is_active FROM event_source_memberships WHERE source_id = 'gdg-bhubaneswar'")
+      .first<{ is_active: number }>();
+    expect(membership?.is_active).toBe(1);
+    expect(await activeBySlug()).toEqual({ "bbsr-batch": 1 });
+  });
+
+  it("does not restart the grace window of an already-retired event", async () => {
+    await seed([["long-retired", "GDG Bhubaneswar"]]);
+    const id = eventUrlKey(url("long-retired"));
+    await db
+      .prepare(
+        "UPDATE events SET is_active = 0, last_seen = datetime('now', '-60 days') WHERE id = ?",
+      )
+      .bind(id)
+      .run();
+    await db
+      .prepare("INSERT INTO event_source_memberships VALUES (?, 'gdg-bhubaneswar', 0)")
+      .bind(id)
+      .run();
+    serve({});
+    await syncEventsToD1(db);
+    expect((await readEventsFromD1(db)).map((event) => event.title)).not.toContain("long-retired");
+  });
+
   it("protects rows stored under an organizer alias", async () => {
     serve({
       [BBSR]: lists(list([ev("bbsr-next", "2099-01-01")]), list([], { count: 87 })),

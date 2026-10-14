@@ -247,7 +247,8 @@ describe("events.tsx", () => {
       const Component = EventsRouteAny.options.component;
       render(<Component />);
       expect(queryHarness.lastOptions?.enabled).toBe(true);
-      expect(screen.getByRole("status")).toHaveTextContent("Known events remain listed");
+      expect(screen.getByText(/Known events remain listed/)).not.toHaveAttribute("role");
+      expect(screen.getAllByRole("status")).toHaveLength(1);
       expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
     },
   );
@@ -265,8 +266,9 @@ describe("events.tsx", () => {
     infiniteHarness.data = { pages: [{ events: [], total: 0, partial: true }] };
     const Component = EventsRouteAny.options.component;
     render(<Component />);
-    expect(screen.getByRole("status")).toHaveTextContent("Known events remain listed");
-    expect(screen.getByRole("status")).toHaveTextContent("does not confirm registration");
+    const warning = screen.getByText(/Known events remain listed/);
+    expect(warning).toHaveTextContent("does not confirm registration");
+    expect(warning).not.toHaveAttribute("role");
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
   });
 
@@ -363,7 +365,8 @@ describe("events.tsx", () => {
     expect(EventsRouteAny.options.validateSearch({ community: "x".repeat(81) })).toEqual({});
     routeHarness.search = { community: "unknown-id" };
     render(<EventsRouteAny.options.component />);
-    expect(screen.getByText(/not a known organizer/)).toHaveAttribute("role", "status");
+    expect(screen.getByText(/not a known organizer/)).not.toHaveAttribute("role");
+    expect(screen.getAllByRole("status")).toHaveLength(1);
     expect(queryHarness.lastOptions?.enabled).toBe(false);
     expect(screen.getByText("No events matched.")).toBeInTheDocument();
   });
@@ -398,7 +401,10 @@ describe("events.tsx", () => {
             ? /Counts below cover loaded events/
             : /previously loaded events only/,
         ),
-      ).toHaveAttribute("role", state === "pending" ? "status" : "alert");
+      ).not.toHaveAttribute("role");
+      // Only the count region announces; the scope caveat is static context.
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(screen.queryByRole("alert")).toBeNull();
     },
   );
   it.each([
