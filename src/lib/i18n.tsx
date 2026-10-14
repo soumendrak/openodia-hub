@@ -67,8 +67,14 @@ export function useTranslation() {
 }
 
 /** Renders a UI string, marking an English fallback inside localized regions as English. */
+/** "en" when the key falls back to English in a non-English locale; for attributes. */
+export function useFallbackLang(k: TranslationKey): "en" | undefined {
+  const { locale } = useTranslation();
+  return locale !== "en" && !STRINGS[locale][k]?.trim() ? "en" : undefined;
+}
+
 export function T({ k }: { k: TranslationKey }) {
-  const { locale, t } = useTranslation();
-  const fallback = locale !== "en" && !STRINGS[locale][k]?.trim();
-  return fallback ? <span lang="en">{t(k)}</span> : <>{t(k)}</>;
+  const { t } = useTranslation();
+  const lang = useFallbackLang(k);
+  return lang ? <span lang={lang}>{t(k)}</span> : <>{t(k)}</>;
 }

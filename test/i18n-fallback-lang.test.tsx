@@ -5,7 +5,7 @@ vi.mock("../src/locales/or", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/locales/or")>();
   return { or: { ...actual.or, "nav.home": "" } };
 });
-import { I18nProvider, T } from "../src/lib/i18n";
+import { I18nProvider, T, useFallbackLang } from "../src/lib/i18n";
 import { or } from "../src/locales/or";
 
 afterEach(() => {
@@ -33,3 +33,21 @@ it.each([
     expect(span?.getAttribute("lang") ?? null).toBe(lang);
   },
 );
+
+function Labelled() {
+  return <a aria-label="x" lang={useFallbackLang("nav.home")} data-testid="link" />;
+}
+
+it.each([
+  ["or", "en"],
+  ["en", null],
+] as const)("marks a fallback accessible name as English in %s", async (locale, lang) => {
+  localStorage.setItem("locale", locale);
+  render(
+    <I18nProvider>
+      <Labelled />
+    </I18nProvider>,
+  );
+  await screen.findByTestId("link");
+  await vi.waitFor(() => expect(screen.getByTestId("link").getAttribute("lang")).toBe(lang));
+});
