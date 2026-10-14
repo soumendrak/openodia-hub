@@ -152,7 +152,13 @@ export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
     }
   });
 
-  return [...winners.values()].map(({ item }) => item);
+  // A redirected row standing in for a reference record carries obsolete
+  // metadata; the reference (e.g. curated archive) owns the destination's facts.
+  const referenceByKey = new Map(references.map((ref) => [eventUrlKey(ref.url), ref]));
+  return [...winners.values()].map(({ item, isDirectDestination }) => {
+    const reference = isDirectDestination ? undefined : referenceByKey.get(eventUrlKey(item.url));
+    return reference ? ({ ...item, ...reference, url: item.url } as T) : item;
+  });
 }
 
 /**

@@ -160,6 +160,15 @@ describe("canonical retained event collection", () => {
     expect(result.events).toContainEqual(curated[0]);
     expect(harness.live).not.toHaveBeenCalled();
   });
+  it("re-scrapes an empty D1 when a current chapter has no measured status", async () => {
+    harness.read.mockResolvedValue([]);
+    harness.statuses.mockResolvedValue([
+      { ...healthy, sourceId: "removed-or-unsynced", outcome: "success-empty", eventCount: 0 },
+    ]);
+    const result = await loadEventCollection({ prepare: vi.fn() });
+    expect(result.source).toBe("scrape");
+    expect(harness.live).toHaveBeenCalled();
+  });
   it("uses the current Worker binding for search and RSS default loaders", async () => {
     setEventDatabase({ prepare: vi.fn() });
     const { loadLiveSearchEvents } = await import("../src/lib/sources/search");

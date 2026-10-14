@@ -38,8 +38,10 @@ export async function loadEventCollection(
       const sources = await readEventSourceStatuses(db).catch(() => []);
       // A measured empty snapshot (no source reported events) is authoritative:
       // serve the curated archive with it instead of re-scraping every source.
+      // Every current chapter must have a status; an aborted first sync is not.
       const measuredEmpty =
-        sources.length > 0 && sources.every((status) => status.outcome !== "success-events");
+        CHAPTERS.every((chapter) => sources.some((status) => status.sourceId === chapter.slug)) &&
+        sources.every((status) => status.outcome !== "success-events");
       if (events.length || measuredEmpty) {
         const cutoff = Date.now() - 7 * 60 * 60 * 1000;
         return {

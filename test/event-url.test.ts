@@ -82,6 +82,24 @@ describe("redirect-aware event deduplication", () => {
     expect(resolve).toHaveBeenCalledTimes(1);
   });
 
+  it("lets the reference own metadata of a lone redirected legacy row", async () => {
+    const legacy = {
+      url: "https://gdg.community.dev/events/details/learn-with-communities",
+      startDate: "2025-03-01",
+      title: "Learn with Communities",
+      type: "Workshop",
+    };
+    const curatedDest = {
+      url: "https://gdg.community.dev/events/details/code-for-communities-20",
+      startDate: "2025-03-01",
+      title: "Code for Communities 2.0",
+      type: "Hackathon",
+    };
+    await expect(
+      dedupeEventsByResolvedUrl([legacy], async () => curatedDest.url, [curatedDest]),
+    ).resolves.toEqual([curatedDest]);
+  });
+
   it("caps concurrent redirect lookups", async () => {
     let inFlight = 0;
     let peak = 0;
