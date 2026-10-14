@@ -23,6 +23,18 @@ Open `http://localhost:9090` — you're in business.
 - **Data:** GitHub, Hugging Face, YouTube, research indexes, and curated lists are upstream sources. Handle failures without presenting unavailable data as an authoritative empty catalog.
 - **Reference:** [Architecture and data](docs/architecture.md), [design provenance](public/pattachitra/PROVENANCE.md), and the [public contribution page](https://openodia.com/contribute).
 
+## Running the suite
+
+Bun 1.3+, Node 22+ and Playwright Chromium are required. Run `bun install --frozen-lockfile`, `bunx playwright install chromium`, then `bun run test:e2e`. This builds the production Cloudflare Worker and runs it in Miniflare. CI runs the same built artifact in a dedicated `e2e` job, and deployment/preview depend on it. `bun run preview` remains the real Wrangler preview command for interactive use; the tests use Miniflare to enforce outbound-network isolation.
+
+The Worker has local ephemeral KV/D1 bindings. Recorded catalog values exercise production cache paths. Synthetic Bevy HTML and PyPI JSON exercise production adapters. All other external Worker requests receive explicit 503 fixture responses; browser fonts, analytics, images and external runtimes are aborted. No Cloudflare credentials or live upstream availability are required. A second cold Worker demonstrates upstream failure handling rather than a cached success.
+
+Fixtures are sampled records (trimmed to 2–3 items), not a completeness statement about today's catalogs. Screenshots and event rendering use the same fixed 2026-10-12 Worker/browser JavaScript time, pinned OFL production font families, reduced motion and a 1.5% pixel tolerance. Pinned test-only fonts remove the large Mac/Linux fallback-font difference.
+
+### Updating screenshots
+
+Screenshot baselines are checked in and must be reviewed when deliberately updated. After an intended visual change, run `bun run test:e2e -- --update-snapshots`, inspect every changed image, and commit the updated baselines with the change that caused them.
+
 ## Before opening a PR
 
 1. Run `bun run lint`, `bun run test`, `bun x tsc --noEmit`, and `bun run build`.
