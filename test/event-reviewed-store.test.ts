@@ -7,6 +7,7 @@ import {
   persistReviewedEvents,
   restoreReviewedEvents,
   persistReviewedOverride,
+  REVIEWED_UPSERT_SQL,
 } from "../src/lib/event-reviewed-store";
 import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
 import { applyEventOverrides } from "../src/lib/event-lifecycle";
@@ -228,6 +229,53 @@ describe("real D1 additive reviewed metadata", () => {
     );
     const [restored] = await restoreReviewedEvents(db, [base]);
     expect(restored.lifecycle?.state).toBe("cancelled");
+  });
+  it("repairs a structurally invalid stored sidecar with a valid review", async () => {
+    const base = { ...event, url: "https://example.com/structural-repair" };
+    await db
+      .prepare(
+        "INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at) VALUES (?, ?, ?)",
+      )
+      .bind(base.url, '{"patch":"oops","reviewedTimes":7}', "2026-10-01T00:00:00.000Z")
+      .run();
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(base, [
+        {
+          url: base.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { lifecycle: { state: "cancelled", ...proof } },
+        },
+      ]),
+    );
+    const onInvalid = vi.fn();
+    const [restored] = await restoreReviewedEvents(db, [base], onInvalid);
+    expect(restored.lifecycle?.state).toBe("cancelled");
+    expect(onInvalid).not.toHaveBeenCalled();
+  });
+  it("stamps untimed keys with their own row time when untimed payloads merge", async () => {
+    const base = { ...event, url: "https://example.com/untimed-merge" };
+    const write = (patch: object, reviewed_at: string) =>
+      db
+        .prepare(REVIEWED_UPSERT_SQL)
+        .bind(
+          JSON.stringify([
+            { event_id: base.url, payload_json: JSON.stringify({ patch }), reviewed_at },
+          ]),
+        )
+        .run();
+    // Two untimed payloads (as from racing persistReviewedOverride calls) at T1 and T3.
+    await write({ lifecycle: { state: "postponed", ...proof } }, "2026-10-01T00:00:00.000Z");
+    await write({ registration: { state: "closed", ...proof } }, "2026-10-03T00:00:00.000Z");
+    const stored = await db
+      .prepare("SELECT payload_json FROM event_reviewed_metadata WHERE event_id = ?")
+      .bind(base.url)
+      .first<{ payload_json: string }>();
+    expect(JSON.parse(stored!.payload_json).reviewedTimes).toEqual({
+      lifecycle: "2026-10-01T00:00:00.000Z",
+      registration: "2026-10-03T00:00:00.000Z",
+    });
   });
   it("reports each ignored corrupt reviewed row to the caller", async () => {
     const base = { ...event, url: "https://example.com/corrupt-row" };

@@ -30,6 +30,46 @@ export async function persistReviewedEvent(
   await persistReviewedEvents(db, [event]);
 }
 
+// The stored sidecar, or '{}' when it is malformed or structurally invalid, so a
+// valid review repairs it instead of aborting the write. Nested CASE: json_type
+// must never see invalid JSON.
+const STORED = `(CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN CASE
+  WHEN json_type(event_reviewed_metadata.payload_json, '$.patch') = 'object'
+   AND COALESCE(json_type(event_reviewed_metadata.payload_json, '$.reviewedTimes'), 'object') = 'object'
+  THEN event_reviewed_metadata.payload_json ELSE '{}' END ELSE '{}' END)`;
+
+// Every conflict merges field by field on per-field review times (an untimed key
+// takes its own row's reviewed_at; ties keep the stored value), so concurrent
+// writers never replace each other's fields.
+export const REVIEWED_UPSERT_SQL = `INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at)
+    SELECT json_extract(value, '$.event_id'), json_extract(value, '$.payload_json'), json_extract(value, '$.reviewed_at')
+    FROM json_each(?) WHERE true ON CONFLICT(event_id) DO UPDATE SET payload_json =
+        json_object('patch', (
+          SELECT json_group_object(key, CASE WHEN type IN ('object','array') THEN json(value) ELSE value END)
+          FROM (
+            SELECT existing.key, existing.value, existing.type FROM json_each(${STORED}, '$.patch') existing
+            WHERE NOT EXISTS (SELECT 1 FROM json_each(excluded.payload_json, '$.patch') incoming WHERE incoming.key = existing.key
+              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
+                > COALESCE(json_extract(${STORED}, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
+            UNION ALL
+            SELECT incoming.key, incoming.value, incoming.type FROM json_each(excluded.payload_json, '$.patch') incoming
+            WHERE NOT EXISTS (SELECT 1 FROM json_each(${STORED}, '$.patch') existing WHERE existing.key = incoming.key
+              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
+                <= COALESCE(json_extract(${STORED}, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
+          )
+        ), 'reviewedTimes', (
+          SELECT json_group_object(key, at) FROM (
+            SELECT key, max(at) AS at FROM (
+              SELECT existing.key, COALESCE(json_extract(${STORED}, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at) AS at
+              FROM json_each(${STORED}, '$.patch') existing
+              UNION ALL
+              SELECT incoming.key, COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at) AS at
+              FROM json_each(excluded.payload_json, '$.patch') incoming
+            ) GROUP BY key
+          )
+        )),
+    reviewed_at = max(excluded.reviewed_at, event_reviewed_metadata.reviewed_at)`;
+
 /** A whole sync uses one read and one JSON-bound write regardless of review count. */
 export async function persistReviewedEvents(
   db: D1Like,
@@ -81,37 +121,7 @@ export async function persistReviewedEvents(
   // A malformed stored payload is treated as empty so a valid review repairs it.
   // Every conflict merges field by field on per-field review times (ties keep
   // the stored value), so concurrent writers never replace each other's fields.
-  await db
-    .prepare(
-      `INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at)
-    SELECT json_extract(value, '$.event_id'), json_extract(value, '$.payload_json'), json_extract(value, '$.reviewed_at')
-    FROM json_each(?) WHERE true ON CONFLICT(event_id) DO UPDATE SET payload_json =
-        json_object('patch', (
-          SELECT json_group_object(key, CASE WHEN type IN ('object','array') THEN json(value) ELSE value END)
-          FROM (
-            SELECT existing.key, existing.value, existing.type FROM json_each((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.patch') existing
-            WHERE NOT EXISTS (SELECT 1 FROM json_each(excluded.payload_json, '$.patch') incoming WHERE incoming.key = existing.key
-              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
-                > COALESCE(json_extract((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
-            UNION ALL
-            SELECT incoming.key, incoming.value, incoming.type FROM json_each(excluded.payload_json, '$.patch') incoming
-            WHERE NOT EXISTS (SELECT 1 FROM json_each((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.patch') existing WHERE existing.key = incoming.key
-              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
-                <= COALESCE(json_extract((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
-          )
-        ), 'reviewedTimes', (
-          SELECT json_group_object(key, at) FROM (
-            SELECT key, max(value) AS at FROM (
-              SELECT key, value FROM json_each((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.reviewedTimes')
-              UNION ALL
-              SELECT key, value FROM json_each(excluded.payload_json, '$.reviewedTimes')
-            ) GROUP BY key
-          )
-        )),
-    reviewed_at = max(excluded.reviewed_at, event_reviewed_metadata.reviewed_at)`,
-    )
-    .bind(JSON.stringify(records))
-    .run();
+  await db.prepare(REVIEWED_UPSERT_SQL).bind(JSON.stringify(records)).run();
 }
 
 export async function restoreReviewedEvents(
