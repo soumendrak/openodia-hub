@@ -9,7 +9,6 @@ export function Marquee({ items }: Props) {
     <div className="relative overflow-hidden border-y border-border bg-surface/40 py-6">
       <button
         type="button"
-        aria-pressed={paused}
         onClick={() => setPaused((value) => !value)}
         className="marquee-control relative z-10 mb-3 rounded border border-border bg-background px-3 py-1 text-sm"
       >

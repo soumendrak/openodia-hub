@@ -16,7 +16,8 @@
     "hooks:install": "git config core.hooksPath .githooks",
     "prepare": "bun run hooks:install",
     "test:e2e": "vite build && playwright test",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:a11y": "vite build && playwright test --config playwright.accessibility.config.ts"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.25.5",

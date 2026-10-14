@@ -33,6 +33,7 @@ export function Nav() {
   const { locale, setLocale, t } = useTranslation();
   const localeLabelId = useId();
   const localeTargetId = useId();
+  const targetLanguage = locale === "en" ? "ଓଡ଼ିଆ" : "English";
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -131,7 +132,7 @@ export function Nav() {
                 {t("nav.locale.aria")}
               </span>
               <span id={localeTargetId} lang={locale === "en" ? "or" : "en"}>
-                {locale === "en" ? "ଓଡ଼ିଆ" : "English"}
+                {targetLanguage}
               </span>
             </button>
 
