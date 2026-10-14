@@ -247,6 +247,29 @@ describe("syncEventsToD1 against a real D1", () => {
     ]);
   });
 
+  it("retires rows owned only by a removed chapter's orphaned membership", async () => {
+    await seed([
+      ["orphan-only", "Removed Chapter"],
+      ["orphan-and-live", "Removed Chapter"],
+    ]);
+    const id = (slug: string) => eventUrlKey(url(slug));
+    for (const [slug, source] of [
+      ["orphan-only", "removed-chapter"],
+      ["orphan-and-live", "removed-chapter"],
+      ["orphan-and-live", "gdg-bhubaneswar"],
+    ]) {
+      await db
+        .prepare(
+          "INSERT INTO event_source_memberships (event_id, source_id, is_active) VALUES (?, ?, 1)",
+        )
+        .bind(id(slug), source)
+        .run();
+    }
+    serve({ [BBSR]: lists(list(), list([ev("orphan-and-live")])) });
+    await syncEventsToD1(db);
+    expect(await activeBySlug()).toMatchObject({ "orphan-only": 0, "orphan-and-live": 1 });
+  });
+
   it("protects rows stored under an organizer alias", async () => {
     serve({
       [BBSR]: lists(list([ev("bbsr-next", "2099-01-01")]), list([], { count: 87 })),

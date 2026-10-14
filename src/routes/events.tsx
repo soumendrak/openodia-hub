@@ -271,6 +271,7 @@ function EventsPage() {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
   } = useInfiniteQuery({
     queryKey: ["liveEvents"],
     initialPageParam: 1,
@@ -320,8 +321,19 @@ function EventsPage() {
       events.some((bundled) => eventUrlKey(bundled.url) === eventUrlKey(event.url)),
     );
   useEffect(() => {
-    if (duplicateOnlyPage && hasNextPage && !isFetchingNextPage) void fetchNextPage();
-  }, [duplicateOnlyPage, hasNextPage, isFetchingNextPage, fetchNextPage, lastPage]);
+    // A failed automatic request leaves the same duplicate page last; retrying
+    // here would loop, so the user resumes with Load More instead.
+    if (duplicateOnlyPage && hasNextPage && !isFetchingNextPage && !isFetchNextPageError) {
+      void fetchNextPage();
+    }
+  }, [
+    duplicateOnlyPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+    lastPage,
+  ]);
   // Disabled queries keep cached data: clearing filters must restore pagination.
   const fetchedEvents = needsCompleteCorpus
     ? (completeSearchEvents?.events ?? loadedEvents)

@@ -157,6 +157,16 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       )
       .run();
   }
+  // A removed or renamed chapter is never visited again, so its memberships
+  // would protect rows forever. Renamed chapters re-adopt rows via the alias
+  // migration above before this runs; unowned legacy rows have no membership.
+  await db
+    .prepare(
+      `UPDATE event_source_memberships SET is_active = 0
+    WHERE source_id NOT IN (SELECT value FROM json_each(?))`,
+    )
+    .bind(JSON.stringify(CHAPTERS.map((chapter) => chapter.slug)))
+    .run();
   await db.prepare(RETIRE_SQL).run();
   return { upserted: seenIds.size };
 }

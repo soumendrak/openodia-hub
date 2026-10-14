@@ -27,6 +27,7 @@ const infiniteHarness = vi.hoisted(() => ({
   fetchNextPage: vi.fn(),
   hasNextPage: false,
   isFetchingNextPage: false,
+  isFetchNextPageError: false,
   lastOptions: undefined as InfiniteQueryOptions | undefined,
 }));
 
@@ -205,6 +206,7 @@ beforeEach(() => {
   infiniteHarness.data = undefined;
   infiniteHarness.hasNextPage = false;
   infiniteHarness.isFetchingNextPage = false;
+  infiniteHarness.isFetchNextPageError = false;
   infiniteHarness.lastOptions = undefined;
   infiniteHarness.fetchNextPage.mockClear();
   routeHarness.search = {};
@@ -396,11 +398,13 @@ describe("events.tsx", () => {
     },
   );
   it.each([
-    ["skips", PAST_2020, 1],
-    ["does not skip", [], 0],
-  ])("%s a Load More page that only repeats bundled events", (_, page2, calls) => {
+    ["skips", PAST_2020, 1, false],
+    ["does not skip", [], 0, false],
+    ["does not retry after a failed automatic request for", PAST_2020, 0, true],
+  ])("%s a Load More page that only repeats bundled events", (_, page2, calls, failed) => {
     dataFixture.events = PAST_2020;
     infiniteHarness.hasNextPage = true;
+    infiniteHarness.isFetchNextPageError = failed;
     infiniteHarness.data = {
       pages: [
         { events: [], total: 40, nextCursor: "2" },
