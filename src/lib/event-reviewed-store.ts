@@ -30,10 +30,12 @@ export async function persistReviewedEvent(
   await persistReviewedEvents(db, [event]);
 }
 
-// The stored sidecar, or '{}' when it is malformed or structurally invalid, so a
-// valid review repairs it instead of aborting the write. Nested CASE: json_type
-// must never see invalid JSON.
-const STORED = `(CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN CASE
+// The stored sidecar, or '{}' when it is malformed, structurally invalid, or one
+// flagged by the writer (`replaceStored`) after failing restore's semantic validation, so a
+// valid review repairs it instead of keeping unreadable fields. Nested CASE:
+// json_type must never see invalid JSON.
+const STORED = `(CASE WHEN json_extract(excluded.payload_json, '$.replaceStored') THEN '{}'
+  WHEN json_valid(event_reviewed_metadata.payload_json) THEN CASE
   WHEN json_type(event_reviewed_metadata.payload_json, '$.patch') = 'object'
    AND COALESCE(json_type(event_reviewed_metadata.payload_json, '$.reviewedTimes'), 'object') = 'object'
   THEN event_reviewed_metadata.payload_json ELSE '{}' END ELSE '{}' END)`;
@@ -92,7 +94,10 @@ export async function persistReviewedEvents(
     const previous = merged.get(key);
     merged.set(key, previous ? mergeReviewedEvents(previous, event as Event) : (event as Event));
   }
-  const restored = await restoreReviewedEvents(db, [...merged.values()]);
+  const invalidStored: string[] = [];
+  const restored = await restoreReviewedEvents(db, [...merged.values()], (eventId) =>
+    invalidStored.push(eventId),
+  );
   const records = restored.map((event) => {
     const patch: EventPatch = {};
     for (const key of event.reviewedFields ?? REVIEW_FIELDS)
@@ -114,6 +119,7 @@ export async function persistReviewedEvents(
         patch,
         reviewedFields: event.reviewedFields,
         reviewedTimes: event.reviewedTimes,
+        ...(invalidStored.includes(eventUrlKey(event.url)) ? { replaceStored: true } : {}),
       }),
       reviewed_at: new Date(event.reviewedAt!).toISOString(),
     };
@@ -128,7 +134,7 @@ export async function restoreReviewedEvents(
   db: D1Like,
   events: Event[],
   /** Called for each matching row that is ignored as invalid; callers mark results partial. */
-  onInvalid: () => void = () => {},
+  onInvalid: (eventId: string) => void = () => {},
 ): Promise<Event[]> {
   const result = await db
     .prepare("SELECT event_id, payload_json, reviewed_at FROM event_reviewed_metadata")
@@ -186,7 +192,7 @@ export async function restoreReviewedEvents(
       }
       byUrl.set(row.event_id, restored);
     } catch {
-      onInvalid();
+      onInvalid(row.event_id);
       console.warn("Invalid reviewed event metadata ignored");
     }
   }

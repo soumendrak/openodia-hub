@@ -277,6 +277,31 @@ describe("real D1 additive reviewed metadata", () => {
       registration: "2026-10-03T00:00:00.000Z",
     });
   });
+  it("discards a semantically invalid stored patch before merging a valid review", async () => {
+    const base = { ...event, url: "https://example.com/semantic-repair" };
+    await db
+      .prepare(
+        "INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at) VALUES (?, ?, ?)",
+      )
+      .bind(base.url, '{"patch":{"title":7,"bogus":1}}', "2026-10-01T00:00:00.000Z")
+      .run();
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(base, [
+        {
+          url: base.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { lifecycle: { state: "cancelled", ...proof } },
+        },
+      ]),
+    );
+    const onInvalid = vi.fn();
+    const [restored] = await restoreReviewedEvents(db, [base], onInvalid);
+    expect(onInvalid).not.toHaveBeenCalled();
+    expect(restored.lifecycle?.state).toBe("cancelled");
+    expect(restored.title).toBe(base.title);
+  });
   it("reports each ignored corrupt reviewed row to the caller", async () => {
     const base = { ...event, url: "https://example.com/corrupt-row" };
     await db
