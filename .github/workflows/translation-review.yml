@@ -212,7 +212,7 @@ jobs:
               }
               // Protect every dictionary and the runtime wiring that selects one; a
               // replacement locale module must not bypass review of the old paths.
-              const isProtected = path => typeof path === 'string' && (path.startsWith('src/locales/') || path === 'src/lib/i18n.tsx');
+              const isProtected = path => typeof path === 'string' && (path.startsWith('src/locales/') || path === 'src/lib/i18n.tsx' || path === 'src/routes/__root.tsx');
               if (!files.some(file => [file.filename, file.previous_filename].some(isProtected))) {
                 if (await currentHead()) {
                   await removeReviewLabel();
