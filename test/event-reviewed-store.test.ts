@@ -302,6 +302,59 @@ describe("real D1 additive reviewed metadata", () => {
     expect(restored.lifecycle?.state).toBe("cancelled");
     expect(restored.title).toBe(base.title);
   });
+  it("replaces an invalid stored review timestamp when repairing the sidecar", async () => {
+    const base = { ...event, url: "https://example.com/bad-timestamp" };
+    await db
+      .prepare(
+        "INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at) VALUES (?, ?, ?)",
+      )
+      .bind(base.url, '{"patch":{"title":"Old"}}', "not-a-date")
+      .run();
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(base, [
+        {
+          url: base.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { lifecycle: { state: "cancelled", ...proof } },
+        },
+      ]),
+    );
+    const onInvalid = vi.fn();
+    const [restored] = await restoreReviewedEvents(db, [base], onInvalid);
+    expect(onInvalid).not.toHaveBeenCalled();
+    expect(restored.lifecycle?.state).toBe("cancelled");
+  });
+  it("keeps a concurrent writer's repair instead of replacing it again", async () => {
+    const base = { ...event, url: "https://example.com/concurrent-repair" };
+    const observed = { payload: "{broken", reviewedAt: "2026-10-01T00:00:00.000Z" };
+    await db
+      .prepare(
+        "INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at) VALUES (?, ?, ?)",
+      )
+      .bind(base.url, observed.payload, observed.reviewedAt)
+      .run();
+    // Both writers read the same invalid row before either wrote.
+    const write = (patch: object, reviewed_at: string) =>
+      db
+        .prepare(REVIEWED_UPSERT_SQL)
+        .bind(
+          JSON.stringify([
+            {
+              event_id: base.url,
+              payload_json: JSON.stringify({ patch, replaceStored: observed }),
+              reviewed_at,
+            },
+          ]),
+        )
+        .run();
+    await write({ lifecycle: { state: "cancelled", ...proof } }, "2026-10-12T00:00:00.000Z");
+    await write({ registration: { state: "closed", ...proof } }, "2026-10-13T00:00:00.000Z");
+    const [restored] = await restoreReviewedEvents(db, [base]);
+    expect(restored.lifecycle?.state).toBe("cancelled");
+    expect(restored.registration?.state).toBe("closed");
+  });
   it("reports each ignored corrupt reviewed row to the caller", async () => {
     const base = { ...event, url: "https://example.com/corrupt-row" };
     await db
