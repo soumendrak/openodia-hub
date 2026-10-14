@@ -35,9 +35,15 @@ type Row = {
   location: string | null;
 };
 
+// One statement per chapter regardless of event count: D1 Free allows 50
+// queries per invocation and counts every batched statement (#138).
+// Bound value: JSON array of [id, url, title, community, type, start, end, description, location].
 export const UPSERT_SQL = `
 INSERT INTO events (id, url, title, community, type, start_date, end_date, description, location, source)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'bevy')
+SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'),
+  json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'),
+  json_extract(value, '$[6]'), json_extract(value, '$[7]'), json_extract(value, '$[8]'), 'bevy'
+FROM json_each(?) WHERE true
 ON CONFLICT(id) DO UPDATE SET
   title = excluded.title,
   community = excluded.community,
@@ -48,6 +54,12 @@ ON CONFLICT(id) DO UPDATE SET
   location = excluded.location,
   last_seen = datetime('now'),
   is_active = 1
+`;
+
+export const MEMBERSHIP_SQL = `
+INSERT INTO event_source_memberships (event_id, source_id, is_active)
+SELECT value, ?, 1 FROM json_each(?) WHERE true
+ON CONFLICT(event_id, source_id) DO UPDATE SET is_active = 1
 `;
 
 // A row can belong to several chapter feeds. Retirement needs every known
@@ -98,6 +110,7 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       .bind(chapter.slug, JSON.stringify(names))
       .run();
     const chapterIds: string[] = [];
+    const rows: unknown[][] = [];
     for (const event of events) {
       if (!event.url || !event.startDate) continue;
       const id = eventUrlKey(event.url);
@@ -105,29 +118,22 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       if (!seenIds.has(id)) {
         seenIds.add(id);
         const primary = curatedEvents.find((curated) => eventUrlKey(curated.url) === id);
-        await db
-          .prepare(UPSERT_SQL)
-          .bind(
-            id,
-            event.url,
-            event.title,
-            primary?.community ?? event.community,
-            event.type,
-            event.startDate,
-            event.endDate ?? null,
-            event.description ?? null,
-            event.location ?? null,
-          )
-          .run();
+        rows.push([
+          id,
+          event.url,
+          event.title,
+          primary?.community ?? event.community,
+          event.type,
+          event.startDate,
+          event.endDate ?? null,
+          event.description ?? null,
+          event.location ?? null,
+        ]);
       }
-      await db
-        .prepare(
-          `INSERT INTO event_source_memberships (event_id, source_id, is_active)
-        VALUES (?, ?, 1) ON CONFLICT(event_id, source_id) DO UPDATE SET is_active=1`,
-        )
-        .bind(id, chapter.slug)
-        .run();
     }
+    if (rows.length) await db.prepare(UPSERT_SQL).bind(JSON.stringify(rows)).run();
+    if (chapterIds.length)
+      await db.prepare(MEMBERSHIP_SQL).bind(chapter.slug, JSON.stringify(chapterIds)).run();
     if (
       status.outcome !== "failed" &&
       upcomingComplete &&

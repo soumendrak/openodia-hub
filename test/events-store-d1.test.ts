@@ -324,6 +324,32 @@ describe("syncEventsToD1 against a real D1", () => {
     expect(await activeBySlug()).toEqual({ "bbsr-kept": 1 });
   });
 
+  it("stays within D1 Free's 50 queries per invocation for a 90-event sync", async () => {
+    const many = (prefix: string) =>
+      list(Array.from({ length: 30 }, (_, index) => ev(`${prefix}-${index}`)));
+    serve({ [BBSR]: lists(many("bbsr")), [KIIT]: lists(many("kiit")), [CVR]: lists(many("cvr")) });
+    let queries = 0;
+    const counted = (statement: ReturnType<D1["prepare"]>): ReturnType<D1["prepare"]> =>
+      new Proxy(statement, {
+        get(target, key) {
+          if (key === "bind") return (...values: unknown[]) => counted(target.bind(...values));
+          if (key === "run" || key === "all" || key === "first") queries += 1;
+          const value = Reflect.get(target, key);
+          return typeof value === "function" ? value.bind(target) : value;
+        },
+      });
+    const counting: D1 = {
+      prepare: (sql: string) => counted(db.prepare(sql)),
+      batch: (statements) => {
+        queries += statements.length; // D1 counts every batched statement.
+        return db.batch!(statements);
+      },
+    };
+    await expect(syncEventsToD1(counting)).resolves.toEqual({ upserted: 90 });
+    expect(queries).toBeLessThanOrEqual(50);
+    expect(Object.keys(await activeBySlug())).toHaveLength(90);
+  });
+
   it("rolls back every deactivation when a statement inside the batch fails", async () => {
     serve({ [BBSR]: lists() });
     await seed([["bbsr-batch", "GDG Bhubaneswar"]]);

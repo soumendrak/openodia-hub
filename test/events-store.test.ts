@@ -5,6 +5,7 @@ import {
   RETIRE_SQL,
   syncEventsToD1,
   UPSERT_SQL,
+  MEMBERSHIP_SQL,
   type D1Like,
 } from "../src/lib/events-store";
 
@@ -65,9 +66,10 @@ describe("event persistence URL deduplication", () => {
 
     await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 1 });
     expect(calls.filter((call) => call.sql === UPSERT_SQL)).toHaveLength(1);
-    expect(calls.filter((call) => call.sql.includes("VALUES (?, ?, 1)"))).toHaveLength(5);
+    expect(calls.filter((call) => call.sql === MEMBERSHIP_SQL)).toHaveLength(5);
     const insert = calls.find((call) => call.sql.includes("INSERT INTO events"));
-    expect(insert?.values[0]).toBe(base);
+    expect(JSON.parse(insert!.values[0] as string)).toHaveLength(1);
+    expect(JSON.parse(insert!.values[0] as string)[0][0]).toBe(base);
   });
 
   it("retains the curated primary organizer when all chapters report a shared URL", async () => {
@@ -82,7 +84,7 @@ describe("event persistence URL deduplication", () => {
       prepare(sql) {
         const statement = {
           bind(...values: unknown[]) {
-            if (sql === UPSERT_SQL) writes.push(values);
+            if (sql === UPSERT_SQL) writes.push(...JSON.parse(values[0] as string));
             return statement;
           },
           run: async () => ({}),
@@ -269,11 +271,12 @@ describe("event persistence URL deduplication", () => {
 
     await expect(syncWithMockedSource(db)).resolves.toEqual({ upserted: 1 });
     expect(calls.filter((call) => call.sql === UPSERT_SQL)).toHaveLength(1);
-    expect(calls.filter((call) => call.sql.includes("VALUES (?, ?, 1)"))).toHaveLength(5);
+    expect(calls.filter((call) => call.sql === MEMBERSHIP_SQL)).toHaveLength(5);
     const insert = calls.find((call) => call.sql.includes("INSERT INTO events"));
     // bind order: id, url, title, community, type, startDate, endDate, description, location
-    expect(insert?.values[6]).toBeNull();
-    expect(insert?.values[7]).toBeNull();
+    const [row] = JSON.parse(insert!.values[0] as string);
+    expect(row[6]).toBeNull();
+    expect(row[7]).toBeNull();
 
     vi.doUnmock("../src/routes/api/events");
     vi.resetModules();
@@ -330,7 +333,8 @@ describe("event persistence bound parameters", () => {
     };
 
     await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 150 });
-    expect(bound.get(UPSERT_SQL)).toBe(9);
+    // The whole snapshot travels as one JSON value, not 9 binds per event.
+    expect(bound.get(UPSERT_SQL)).toBe(1);
     expect(bound.get(RETIRE_SQL) ?? 0).toBeLessThanOrEqual(100);
   });
 });
