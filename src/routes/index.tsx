@@ -115,7 +115,7 @@ function Home() {
 }
 
 function Hero() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   return (
     <section className="hero" lang={locale}>
       <div className="hero-copy">
@@ -184,7 +184,7 @@ function Hero() {
 }
 
 function Opening() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   return (
     <section className="opening" lang={locale}>
       <p className="eyebrow">
@@ -325,22 +325,27 @@ function LearningBanner() {
 }
 
 function Stats() {
-  const { t, locale } = useTranslation();
+  const { locale } = useTranslation();
   const { projects, models, datasets } = Route.useLoaderData();
 
   // Counts come from the same sources the directories render, so the hero can't
   // contradict the pages it links to. A source that's down drops its tile
   // rather than showing a stale claim.
   const tiles = [
-    { label: t("home.stats.projects"), value: projects, approx: false, href: "/tools" },
-    { label: t("home.stats.models"), value: models.value, approx: models.approx, href: "/models" },
+    { label: "home.stats.projects" as const, value: projects, approx: false, href: "/tools" },
     {
-      label: t("home.stats.datasets"),
+      label: "home.stats.models" as const,
+      value: models.value,
+      approx: models.approx,
+      href: "/models",
+    },
+    {
+      label: "home.stats.datasets" as const,
       value: datasets.value,
       approx: datasets.approx,
       href: "/datasets",
     },
-    { label: t("home.stats.channels"), value: 5, approx: false, href: "/tutorials" },
+    { label: "home.stats.channels" as const, value: 5, approx: false, href: "/tutorials" },
   ] as const;
   // ponytail: "Community channels" is a hardcoded tile, so `shown` can never
   // be empty — no empty-state branch needed here.
@@ -356,7 +361,9 @@ function Stats() {
                 {s.value}
                 {s.approx ? "+" : ""}
               </div>
-              <div className="mt-1 text-sm text-muted-foreground">{s.label}</div>
+              <div className="mt-1 text-sm text-muted-foreground">
+                <T k={s.label} />
+              </div>
             </Link>
           </Reveal>
         ))}
