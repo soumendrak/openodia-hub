@@ -37,13 +37,22 @@ function isKind(value: unknown): value is OrganizerKind {
  * (blank, or only punctuation such as "!!!") is dropped, using the same
  * normalisation the filter matches with. The router JSON-parses values such
  * as `?q=2024`, `?q=null` or `?q=[2026]`, so anything that is not a string is
- * read back as its JSON text.
+ * read back as its JSON text. A value nested too deeply to stringify (RangeError)
+ * is dropped.
  */
 export function boundDirectoryQuery(value: unknown): string | undefined {
-  const text = typeof value === "string" ? value : JSON.stringify(value);
+  const text = typeof value === "string" ? value : jsonText(value);
   if (text === undefined) return undefined;
   const q = text.trim().slice(0, MAX_DIRECTORY_QUERY);
   return normalizeSearch(q) !== "" ? q : undefined;
+}
+
+function jsonText(value: unknown): string | undefined {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return undefined;
+  }
 }
 
 /**
