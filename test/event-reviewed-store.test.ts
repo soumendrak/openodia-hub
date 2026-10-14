@@ -204,6 +204,30 @@ describe("real D1 additive reviewed metadata", () => {
     ]);
     expect(restored.endDate).toBeUndefined();
     expect(restored.lifecycle?.state).toBe("cancelled");
+    expect(restored.reviewedFields).not.toContain("endDate");
+    expect(restored.reviewedTimes).not.toHaveProperty("endDate");
+  });
+  it("repairs a malformed stored sidecar with a valid review", async () => {
+    const base = { ...event, url: "https://example.com/malformed-repair" };
+    await db
+      .prepare(
+        "INSERT INTO event_reviewed_metadata (event_id, payload_json, reviewed_at) VALUES (?, ?, ?)",
+      )
+      .bind(base.url, "{broken", "2026-10-01T00:00:00.000Z")
+      .run();
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(base, [
+        {
+          url: base.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { lifecycle: { state: "cancelled", ...proof } },
+        },
+      ]),
+    );
+    const [restored] = await restoreReviewedEvents(db, [base]);
+    expect(restored.lifecycle?.state).toBe("cancelled");
   });
   it("reports each ignored corrupt reviewed row to the caller", async () => {
     const base = { ...event, url: "https://example.com/corrupt-row" };

@@ -78,6 +78,7 @@ export async function persistReviewedEvents(
       reviewed_at: new Date(event.reviewedAt!).toISOString(),
     };
   });
+  // A malformed stored payload is treated as empty so a valid review repairs it.
   // Every conflict merges field by field on per-field review times (ties keep
   // the stored value), so concurrent writers never replace each other's fields.
   await db
@@ -88,20 +89,20 @@ export async function persistReviewedEvents(
         json_object('patch', (
           SELECT json_group_object(key, CASE WHEN type IN ('object','array') THEN json(value) ELSE value END)
           FROM (
-            SELECT existing.key, existing.value, existing.type FROM json_each(event_reviewed_metadata.payload_json, '$.patch') existing
+            SELECT existing.key, existing.value, existing.type FROM json_each((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.patch') existing
             WHERE NOT EXISTS (SELECT 1 FROM json_each(excluded.payload_json, '$.patch') incoming WHERE incoming.key = existing.key
               AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
-                > COALESCE(json_extract(event_reviewed_metadata.payload_json, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
+                > COALESCE(json_extract((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
             UNION ALL
             SELECT incoming.key, incoming.value, incoming.type FROM json_each(excluded.payload_json, '$.patch') incoming
-            WHERE NOT EXISTS (SELECT 1 FROM json_each(event_reviewed_metadata.payload_json, '$.patch') existing WHERE existing.key = incoming.key
+            WHERE NOT EXISTS (SELECT 1 FROM json_each((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.patch') existing WHERE existing.key = incoming.key
               AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
-                <= COALESCE(json_extract(event_reviewed_metadata.payload_json, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
+                <= COALESCE(json_extract((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
           )
         ), 'reviewedTimes', (
           SELECT json_group_object(key, at) FROM (
             SELECT key, max(value) AS at FROM (
-              SELECT key, value FROM json_each(event_reviewed_metadata.payload_json, '$.reviewedTimes')
+              SELECT key, value FROM json_each((CASE WHEN json_valid(event_reviewed_metadata.payload_json) THEN event_reviewed_metadata.payload_json ELSE '{}' END), '$.reviewedTimes')
               UNION ALL
               SELECT key, value FROM json_each(excluded.payload_json, '$.reviewedTimes')
             ) GROUP BY key
@@ -163,9 +164,16 @@ export async function restoreReviewedEvents(
       );
       // A reviewed end the (possibly moved) base start has overtaken is not a
       // valid range; drop it rather than the row's other reviewed facts.
-      if (restored.endDate && restored.startDate && restored.endDate < restored.startDate)
+      if (restored.endDate && restored.startDate && restored.endDate < restored.startDate) {
         restored.endDate =
           event.endDate && event.endDate >= restored.startDate ? event.endDate : undefined;
+        // The fallback is not a reviewed fact; never protect it as one.
+        restored.reviewedFields = restored.reviewedFields?.filter((key) => key !== "endDate");
+        if (restored.reviewedTimes) {
+          const { endDate: _discarded, ...times } = restored.reviewedTimes;
+          restored.reviewedTimes = times;
+        }
+      }
       byUrl.set(row.event_id, restored);
     } catch {
       onInvalid();
