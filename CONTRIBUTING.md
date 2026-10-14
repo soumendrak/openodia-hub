@@ -23,6 +23,18 @@ Open `http://localhost:9090` — you're in business.
 - **Data:** GitHub, Hugging Face, YouTube, research indexes, and curated lists are upstream sources. Handle failures without presenting unavailable data as an authoritative empty catalog.
 - **Reference:** [Architecture and data](docs/architecture.md), [design provenance](public/pattachitra/PROVENANCE.md), and the [public contribution page](https://openodia.com/contribute).
 
+## Running the suite
+
+Bun 1.3+, Node 22+ and Playwright Chromium are required. Run `bun install --frozen-lockfile`, `bunx playwright install --with-deps chromium` (`--with-deps` installs the browser's system libraries on Linux, as CI does), then `bun run test:e2e`. This builds the production Cloudflare Worker and runs it in Miniflare. CI runs the same built artifact in a dedicated `e2e` job, and deployment/preview depend on it. `bun run preview` remains the real Wrangler preview command for interactive use; the tests use Miniflare to enforce outbound-network isolation.
+
+The Worker has local ephemeral KV/D1 bindings. Recorded catalog values exercise production cache paths. Synthetic Bevy HTML and PyPI JSON exercise production adapters. All other external Worker requests receive explicit 503 fixture responses. Most browser specs (`test/e2e/smoke.ts`, the accessibility and flow specs) also abort browser requests for external fonts, analytics, images and runtimes; one exception is the `/about` page load in `test/e2e/api-contracts.spec.ts`, which does not install that route, so the browser may still request Google Fonts and analytics there. No Cloudflare credentials or live upstream data are required, but run the full suite with outbound network available if that page load stalls offline or behind a firewall. A second cold Worker demonstrates upstream failure handling rather than a cached success.
+
+Fixtures are sampled records (trimmed to 2–3 items), not a completeness statement about today's catalogs. Screenshots and event rendering use the same fixed 2026-10-12 Worker/browser JavaScript time, pinned OFL production font families, reduced motion and a 1.5% pixel tolerance. Pinned test-only fonts remove the large Mac/Linux fallback-font difference.
+
+### Updating screenshots
+
+Screenshot baselines are checked in and must be reviewed when deliberately updated. After an intended visual change, run `bun run test:e2e -- --update-snapshots`, inspect every changed image, and commit the updated baselines with the change that caused them. `/` and `/playground` have separate Linux baselines (`linux-home.png`, `linux-playground.png`, selected in `test/e2e/visual.spec.ts`), and CI runs on Linux, so a change to those pages must update both the unprefixed and the `linux-` images; on macOS or Windows, regenerate the Linux ones on a Linux machine or container.
+
 ## Before opening a PR
 
 1. Run `bun run lint`, `bun run test`, `bun x tsc --noEmit`, and `bun run build`.
