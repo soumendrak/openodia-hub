@@ -25,7 +25,7 @@ Open `http://localhost:9090` — you're in business.
 
 ## Running the suite
 
-Bun 1.3+, Node 22+ and Playwright Chromium are required. Run `bun install --frozen-lockfile`, `bunx playwright install chromium`, then `bun run test:e2e`. This builds the production Cloudflare Worker and runs it in Miniflare. CI runs the same built artifact in a dedicated `e2e` job, and deployment/preview depend on it. `bun run preview` remains the real Wrangler preview command for interactive use; the tests use Miniflare to enforce outbound-network isolation.
+Bun 1.3+, Node 22+ and Playwright Chromium are required. Run `bun install --frozen-lockfile`, `bunx playwright install --with-deps chromium` (`--with-deps` installs the browser's system libraries on Linux, as CI does), then `bun run test:e2e`. This builds the production Cloudflare Worker and runs it in Miniflare. CI runs the same built artifact in a dedicated `e2e` job, and deployment/preview depend on it. `bun run preview` remains the real Wrangler preview command for interactive use; the tests use Miniflare to enforce outbound-network isolation.
 
 The Worker has local ephemeral KV/D1 bindings. Recorded catalog values exercise production cache paths. Synthetic Bevy HTML and PyPI JSON exercise production adapters. All other external Worker requests receive explicit 503 fixture responses; browser fonts, analytics, images and external runtimes are aborted. No Cloudflare credentials or live upstream availability are required. A second cold Worker demonstrates upstream failure handling rather than a cached success.
 
@@ -33,7 +33,7 @@ Fixtures are sampled records (trimmed to 2–3 items), not a completeness statem
 
 ### Updating screenshots
 
-Screenshot baselines are checked in and must be reviewed when deliberately updated. After an intended visual change, run `bun run test:e2e -- --update-snapshots`, inspect every changed image, and commit the updated baselines with the change that caused them.
+Screenshot baselines are checked in and must be reviewed when deliberately updated. After an intended visual change, run `bun run test:e2e -- --update-snapshots`, inspect every changed image, and commit the updated baselines with the change that caused them. `/` and `/playground` have separate Linux baselines (`linux-home.png`, `linux-playground.png`, selected in `test/e2e/visual.spec.ts`), and CI runs on Linux, so a change to those pages must update both the unprefixed and the `linux-` images; on macOS or Windows, regenerate the Linux ones on a Linux machine or container.
 
 ## Before opening a PR
 
