@@ -283,6 +283,27 @@ describe("real D1 additive reviewed metadata", () => {
     expect(restored.startDate).toBe("2027-02-01");
     expect(restored.registration?.state).toBe("sold-out");
   });
+  it("restores a same-day start review without shortening the base duration", async () => {
+    const fixture = {
+      ...event,
+      url: "https://example.com/same-day-restore",
+      endDate: "2027-01-12",
+    };
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(fixture, [
+        {
+          url: fixture.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { startDate: fixture.startDate },
+        },
+      ]),
+    );
+    const [restored] = await restoreReviewedEvents(db, [fixture]);
+    expect(restored.startDate).toBe(fixture.startDate);
+    expect(restored.endDate).toBe("2027-01-12");
+  });
   it("accepts old reviewed records without a field list and tolerates absent optional fields", async () => {
     const fixture = {
       ...event,

@@ -120,6 +120,11 @@ export async function restoreReviewedEvents(db: D1Like, events: Event[]): Promis
         patch: payload.patch,
       };
       if (validateOverrides([testOverride]).length) throw new Error("Invalid review timestamp");
+      // Same rule as applyEventOverrides: an unchanged day keeps the base duration.
+      const changedDay =
+        (payload.patch.lifecycle?.replacementDate !== undefined &&
+          payload.patch.lifecycle.replacementDate !== event.lifecycle?.replacementDate) ||
+        (payload.patch.startDate !== undefined && payload.patch.startDate !== event.startDate);
       // Re-derive fields from the admitted patch, never trust unknown persisted field names.
       byUrl.set(
         row.event_id,
@@ -130,6 +135,7 @@ export async function restoreReviewedEvents(db: D1Like, events: Event[]): Promis
             reviewedAt: row.reviewed_at,
             reviewedFields: Object.keys(payload.patch) as (typeof REVIEW_FIELDS)[number][],
           }),
+          !changedDay,
         ),
       );
     } catch {
