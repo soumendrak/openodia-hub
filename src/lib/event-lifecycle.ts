@@ -194,6 +194,16 @@ export function applyEventOverrides(event: Event, overrides: EventOverride[]): E
       ...event,
       ...override.patch,
       reviewedAt: override.reviewedAt,
+      // Patched fields carry the override's time; never the base row's older one.
+      reviewedTimes: {
+        ...event.reviewedTimes,
+        ...Object.fromEntries(
+          Object.keys(override.patch).map((key) => [
+            key,
+            new Date(override.reviewedAt).toISOString(),
+          ]),
+        ),
+      },
       reviewedFields: [
         ...new Set([
           ...retainedFields,

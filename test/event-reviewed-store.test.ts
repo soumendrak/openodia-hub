@@ -92,6 +92,7 @@ describe("real D1 additive reviewed metadata", () => {
     const older = {
       ...cancelled,
       reviewedAt: "2026-10-01",
+      reviewedTimes: undefined,
       lifecycle: { state: "scheduled" as const, ...proof },
     };
     await persistReviewedEvent(db, older);
@@ -111,6 +112,57 @@ describe("real D1 additive reviewed metadata", () => {
     expect(restored.lifecycle?.state).toBe("cancelled");
     expect(restored.registration?.state).toBe("sold-out");
     expect(restored.reviewedFields).toEqual(expect.arrayContaining(["lifecycle", "registration"]));
+  });
+  it("admits an out-of-order newer field correction on a global timestamp tie", async () => {
+    const base = { ...event, url: "https://example.com/per-field-tie" };
+    const at = (state: "postponed" | "cancelled", reviewedAt: string) => ({
+      url: base.url,
+      evidenceUrl: proof.evidenceUrl,
+      reviewedAt,
+      patch: { lifecycle: { state, ...proof } },
+    });
+    const registration = {
+      url: base.url,
+      evidenceUrl: proof.evidenceUrl,
+      reviewedAt: "2026-10-12T03:00:00.000Z",
+      patch: { registration: { state: "closed" as const, ...proof } },
+    };
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(base, [at("postponed", "2026-10-12T01:00:00.000Z")]),
+    );
+    const stored = (await restoreReviewedEvents(db, [base]))[0];
+    await persistReviewedEvent(db, applyEventOverrides(stored, [registration]));
+    // Built from the T1 base, as a lagging writer would: lifecycle at T2, global T3.
+    const lagging = applyEventOverrides(
+      applyEventOverrides(base, [at("postponed", "2026-10-12T01:00:00.000Z")]),
+      [registration],
+    );
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(lagging, [at("cancelled", "2026-10-12T02:00:00.000Z")]),
+    );
+    const restored = (await restoreReviewedEvents(db, [base]))[0];
+    expect(restored.lifecycle?.state).toBe("cancelled");
+    expect(restored.registration?.state).toBe("closed");
+  });
+  it("stamps patched fields with the override time over a stored field time", () => {
+    const stored = {
+      ...event,
+      lifecycle: { state: "postponed" as const, ...proof },
+      reviewedAt: "2026-10-12T01:00:00.000Z",
+      reviewedFields: ["lifecycle" as const],
+      reviewedTimes: { lifecycle: "2026-10-12T01:00:00.000Z" },
+    };
+    const next = applyEventOverrides(stored, [
+      {
+        url: event.url,
+        evidenceUrl: proof.evidenceUrl,
+        reviewedAt: "2026-10-13T00:00:00.000Z",
+        patch: { lifecycle: { state: "cancelled", ...proof } },
+      },
+    ]);
+    expect(next.lifecycle?.state).toBe("cancelled");
   });
   it("atomically keeps nonconflicting same-day corrections and preserves whole-field ties", async () => {
     const base = { ...event, url: "https://example.com/same-day" };

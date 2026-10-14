@@ -87,10 +87,23 @@ export async function persistReviewedEvents(
         json_object('patch', (
           SELECT json_group_object(key, CASE WHEN type IN ('object','array') THEN json(value) ELSE value END)
           FROM (
-            SELECT key, value, type FROM json_each(event_reviewed_metadata.payload_json, '$.patch')
+            SELECT existing.key, existing.value, existing.type FROM json_each(event_reviewed_metadata.payload_json, '$.patch') existing
+            WHERE NOT EXISTS (SELECT 1 FROM json_each(excluded.payload_json, '$.patch') incoming WHERE incoming.key = existing.key
+              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
+                > COALESCE(json_extract(event_reviewed_metadata.payload_json, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
             UNION ALL
             SELECT incoming.key, incoming.value, incoming.type FROM json_each(excluded.payload_json, '$.patch') incoming
-            WHERE NOT EXISTS (SELECT 1 FROM json_each(event_reviewed_metadata.payload_json, '$.patch') existing WHERE existing.key = incoming.key)
+            WHERE NOT EXISTS (SELECT 1 FROM json_each(event_reviewed_metadata.payload_json, '$.patch') existing WHERE existing.key = incoming.key
+              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
+                <= COALESCE(json_extract(event_reviewed_metadata.payload_json, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
+          )
+        ), 'reviewedTimes', (
+          SELECT json_group_object(key, at) FROM (
+            SELECT key, max(value) AS at FROM (
+              SELECT key, value FROM json_each(event_reviewed_metadata.payload_json, '$.reviewedTimes')
+              UNION ALL
+              SELECT key, value FROM json_each(excluded.payload_json, '$.reviewedTimes')
+            ) GROUP BY key
           )
         ))
       ELSE excluded.payload_json END,
