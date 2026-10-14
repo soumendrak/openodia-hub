@@ -186,11 +186,13 @@ export function applyEventOverrides(event: Event, overrides: EventOverride[]): E
         ]),
       ],
     }),
+    // Re-reviewing the same start day keeps the existing, still-valid duration.
+    !changedDay,
   );
 }
 
 /** A reviewed replacement day is current; an old end date is not a new duration. */
-export function normalizeEventDates(event: Event): Event {
+export function normalizeEventDates(event: Event, sameDay = false): Event {
   const replacement =
     event.lifecycle?.state === "postponed" ? event.lifecycle.replacementDate : undefined;
   const currentStart =
@@ -202,7 +204,9 @@ export function normalizeEventDates(event: Event): Event {
     date: currentStart,
     year: currentStart.slice(0, 4),
     endDate:
-      event.reviewedFields?.includes("endDate") && event.endDate && event.endDate >= currentStart
+      (sameDay || event.reviewedFields?.includes("endDate")) &&
+      event.endDate &&
+      event.endDate >= currentStart
         ? event.endDate
         : undefined,
   };

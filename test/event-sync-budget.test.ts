@@ -157,6 +157,22 @@ it("does not retire old rows when a chapter fails", async () => {
   ).toBe(1);
 });
 
+it("does not seed an empty database from a partial run", async () => {
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input, init) =>
+      init?.method === "HEAD"
+        ? new Response(null)
+        : String(input).includes("gdg-bhubaneswar/")
+          ? new Response("offline", { status: 503 })
+          : new Response(page([canonical])),
+    ),
+  );
+  await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 0 });
+  const { results } = await db.prepare("SELECT COUNT(*) AS n FROM events").all<{ n: number }>();
+  expect(results[0].n).toBe(0);
+});
+
 it.each(["absent", "expired"])(
   "caches reviewed curated alias facts without fabricating rows when its old base is %s",
   async (oldBase) => {

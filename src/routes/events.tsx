@@ -307,6 +307,7 @@ function EventsPage() {
         events: Event[];
         nextCursor?: string;
         total: number;
+        partial?: boolean;
       }>;
     },
     getNextPageParam: (lastPage, allPages) =>
@@ -326,7 +327,7 @@ function EventsPage() {
     queryFn: async () => {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
-      return response.json() as Promise<{ events: Event[] }>;
+      return response.json() as Promise<{ events: Event[]; partial?: boolean }>;
     },
     enabled: isFiltering && !unknownCommunity,
     staleTime: 5 * 60 * 1000,
@@ -337,6 +338,9 @@ function EventsPage() {
   // Disabled queries keep cached data: clearing filters must restore pagination.
   const fetchedEvents = isFiltering ? (completeSearchEvents?.events ?? loadedEvents) : loadedEvents;
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
+  const partialEvents =
+    liveData?.pages.some((page) => page.partial) ||
+    (isFiltering && !!completeSearchEvents?.partial);
 
   const today = getISTDateString();
   const mergedEventsList = mergeReviewedCollections(
@@ -776,6 +780,12 @@ function EventsPage() {
         <p role="status" className="mt-4 text-sm text-muted-foreground">
           Loading the complete event collection… Counts below cover loaded events until this
           finishes.
+        </p>
+      )}
+      {partialEvents && (
+        <p className="mt-4 text-sm text-muted-foreground">
+          Some event sources are unavailable or incomplete. Known events remain listed; results and
+          counts may be missing recent live events.
         </p>
       )}
       {isFiltering && !unknownCommunity && isCompleteError && (

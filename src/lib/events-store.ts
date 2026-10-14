@@ -124,17 +124,18 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       location: event.location ?? null,
     }));
   const seenIds = rows.map((event) => event.id);
+  const complete = settled.every(
+    (outcome) => outcome.status === "fulfilled" && outcome.value.status.outcome !== "failed",
+  );
+  // Readers treat any non-empty D1 as the authoritative snapshot, so a partial
+  // run must not seed an empty database; the live fallback stays in charge.
+  if (!complete && previous.length === 0) return { upserted: 0 };
   // One bound JSON value avoids D1's 100-parameter and 50-query limits.
   if (rows.length) await db.prepare(UPSERT_SQL).bind(JSON.stringify(rows)).run();
 
   // Deactivate Bevy events no longer present upstream. Static events are not
   // tracked here, so the WHERE clause scopes to source='bevy'.
-  if (
-    seenIds.length > 0 &&
-    settled.every(
-      (outcome) => outcome.status === "fulfilled" && outcome.value.status.outcome !== "failed",
-    )
-  ) {
+  if (seenIds.length > 0 && complete) {
     await db
       .prepare(
         `UPDATE events SET is_active = 0 WHERE source = 'bevy' AND id NOT IN (SELECT value FROM json_each(?))`,

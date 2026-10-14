@@ -24,6 +24,7 @@ function searchResponse(results: unknown[], partial = false) {
         ? [
             { source: "catalog", status: "ready", count: results.length },
             { source: "videos", status: "unavailable", count: 0 },
+            { source: "events", status: "partial", count: 3 },
           ]
         : [{ source: "fixture", status: "ready", count: results.length }],
     }),
@@ -85,7 +86,9 @@ describe("real command palette primitives", () => {
     const input = screen.getByPlaceholderText("Search all OpenOdia resources…");
     fireEvent.change(input, { target: { value: "atlas" } });
     await screen.findByText("Odia OCR Atlas");
-    expect(screen.getByRole("status", { name: "" })).toHaveTextContent(/Partial results/);
+    expect(screen.getByRole("status", { name: "" })).toHaveTextContent(
+      "Partial results: videos unavailable; events incomplete.",
+    );
 
     const exact = screen.getByText("Odia OCR Atlas");
     const lowerRanked = screen.getByText("Atlas examples");

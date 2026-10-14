@@ -254,6 +254,35 @@ describe("real D1 additive reviewed metadata", () => {
     ).rejects.toThrow("Invalid reviewed event metadata");
     expect((await restoreReviewedEvents(db, [fixture]))[0].startDate).toBe("2027-02-01");
   });
+  it("persists an independent review despite a stale unreviewed end date before a reviewed start", async () => {
+    const fixture = {
+      ...event,
+      url: "https://example.com/stale-end",
+      endDate: "2027-01-11",
+    };
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(fixture, [
+        {
+          url: fixture.url,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { startDate: "2027-02-01" },
+        },
+      ]),
+    );
+    await expect(
+      persistReviewedEvent(db, {
+        ...fixture,
+        reviewedAt: "2026-10-13",
+        reviewedFields: ["registration"],
+        registration: { state: "sold-out", ...proof },
+      }),
+    ).resolves.not.toThrow();
+    const [restored] = await restoreReviewedEvents(db, [fixture]);
+    expect(restored.startDate).toBe("2027-02-01");
+    expect(restored.registration?.state).toBe("sold-out");
+  });
   it("accepts old reviewed records without a field list and tolerates absent optional fields", async () => {
     const fixture = {
       ...event,

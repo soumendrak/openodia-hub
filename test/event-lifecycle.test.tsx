@@ -54,6 +54,15 @@ describe("event lifecycle remains separate from dates, registration and eligibil
   ] as const)("scheduled on %s yields %s", (today, expected) => {
     expect(resolveEventStatus(event, today)).toBe(expected);
   });
+  it("keeps an existing end date when the reviewed start day is unchanged", () => {
+    const multiDay = { ...event, endDate: "2027-01-11" };
+    expect(
+      applyEventOverrides(multiDay, [correction({ startDate: multiDay.startDate })]).endDate,
+    ).toBe("2027-01-11");
+    expect(
+      applyEventOverrides(multiDay, [correction({ startDate: "2027-02-01" })]).endDate,
+    ).toBeUndefined();
+  });
   it("keeps known-event refresh manual while a reviewed correction survives the next crawl", () => {
     const checked = applyEventOverrides(event, [
       correction({ lifecycle: { state: "cancelled", ...proof } }),

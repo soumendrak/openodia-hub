@@ -59,7 +59,8 @@ export async function persistReviewedEvents(
       if (event[key] !== undefined) Object.assign(patch, { [key]: event[key] });
     const incoming = merged.get(eventUrlKey(event.url))!;
     if (
-      (incoming.endDate !== undefined &&
+      ((incoming.reviewedFields ?? REVIEW_FIELDS).includes("endDate") &&
+        incoming.endDate !== undefined &&
         event.startDate !== undefined &&
         incoming.endDate < event.startDate) ||
       validateOverrides([

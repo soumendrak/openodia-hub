@@ -419,6 +419,18 @@ describe("events.tsx", () => {
     fireEvent.click(screen.getByRole("button", { name: "Load more" }));
     expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(1);
   });
+  it.each([
+    ["a partial page", { pages: [{ events: [], total: 0, partial: true }] }, {}, undefined],
+    ["a partial complete corpus", undefined, { q: "x" }, { events: [], partial: true }],
+  ])("warns when the events API returns %s", (_, pages, search, complete) => {
+    infiniteHarness.data = pages as never;
+    routeHarness.search = search;
+    queryHarness.data = complete as never;
+    render(<EventsRouteAny.options.component />);
+    expect(
+      screen.getByText(/Some event sources are unavailable or incomplete/),
+    ).toBeInTheDocument();
+  });
   it("restores a linkable query and searches the complete event corpus", async () => {
     const hiddenEvent: Event = {
       year: "2026",
