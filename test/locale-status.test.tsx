@@ -190,6 +190,11 @@ describe("public translation status API and contributor UX", () => {
       screen.getByRole("link", { name: "Edit Odia translation for home.hero.learn" }),
     ).toHaveAttribute("href", expect.stringContaining("/edit/main/src/locales/or.ts"));
     expect(screen.getByText("ଶିଖିବା ଆରମ୍ଭ କରନ୍ତୁ")).toHaveAttribute("lang", "or");
+    // U+0B5C is canonically equivalent to the checked-in U+0B21 U+0B3C sequence.
+    fireEvent.change(screen.getByRole("searchbox"), { target: { value: "ଯୋ\u0B5Cନ୍ତୁ" } });
+    expect(
+      screen.getByRole("link", { name: "Edit Odia translation for nav.contribute" }),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "no-such-translation" } });
     expect(screen.getByText(/No matching strings/)).toBeInTheDocument();
   });
