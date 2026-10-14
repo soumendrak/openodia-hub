@@ -137,6 +137,8 @@ export function validateOverrides(overrides: EventOverride[]): string[] {
 }
 
 /** New upstream data fills ordinary fields; explicit reviewed fields require newer review evidence. */
+type ReviewField = (typeof REVIEW_FIELDS)[number];
+
 export function mergeReviewedEvents(previous: Event, next: Event): Event {
   const merged = mergeNonEmpty(previous, next);
   const previousTime = timestamp(previous.reviewedAt) ? Date.parse(previous.reviewedAt) : -Infinity;
@@ -151,14 +153,27 @@ export function mergeReviewedEvents(previous: Event, next: Event): Event {
     const previousFields = (previous.reviewedFields ?? REVIEW_FIELDS).filter(
       (key) => !(key === "endDate" && changedDay && !nextFields.includes("endDate")),
     );
-    for (const key of previousFields)
-      if (previous[key] !== undefined && (previousTime >= nextTime || !nextFields.includes(key)))
+    const fieldTime = (event: Event, key: ReviewField, fallback: number) => {
+      const at = event.reviewedTimes?.[key];
+      return at && timestamp(at) ? Date.parse(at) : fallback;
+    };
+    const times: NonNullable<Event["reviewedTimes"]> = {};
+    for (const key of previousFields) {
+      const previousAt = fieldTime(previous, key, previousTime);
+      const nextAt = nextFields.includes(key) ? fieldTime(next, key, nextTime) : -Infinity;
+      if (previous[key] !== undefined && previousAt >= nextAt)
         Object.assign(merged, { [key]: previous[key] });
+      times[key] = new Date(Math.max(previousAt, nextAt)).toISOString();
+    }
     merged.reviewedAt = previousTime >= nextTime ? previous.reviewedAt : next.reviewedAt;
     merged.reviewedFields =
       nextTime === -Infinity
         ? previous.reviewedFields
         : [...new Set([...previousFields, ...nextFields])];
+    if (nextTime !== -Infinity)
+      for (const key of nextFields)
+        times[key] ??= new Date(fieldTime(next, key, nextTime)).toISOString();
+    merged.reviewedTimes = times;
   }
   return merged;
 }

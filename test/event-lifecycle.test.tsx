@@ -511,3 +511,39 @@ describe("event update UX", () => {
     expect(screen.getByText("Cancelled")).toBeInTheDocument();
   });
 });
+
+describe("per-field review timestamps", () => {
+  const base = { url: "https://example.org/e", title: "t", startDate: "2099-01-01" } as Event;
+  const cancelled = (state: "cancelled" | "postponed", at: string) =>
+    ({
+      ...base,
+      lifecycle: { state, evidenceUrl: "https://example.org/p", verifiedAt: at.slice(0, 10) },
+      reviewedAt: at,
+      reviewedFields: ["lifecycle"],
+    }) as Event;
+  it("does not promote a retained lifecycle to an unrelated newer registration review", () => {
+    const registration = {
+      ...base,
+      registration: { url: "https://example.org/r" },
+      reviewedAt: "2026-10-03T00:00:00Z",
+      reviewedFields: ["registration"],
+    } as unknown as Event;
+    const merged = mergeReviewedEvents(
+      mergeReviewedEvents(cancelled("postponed", "2026-10-01T00:00:00Z"), registration),
+      cancelled("cancelled", "2026-10-02T00:00:00Z"),
+    );
+    expect(merged.lifecycle?.state).toBe("cancelled");
+    expect(merged.registration).toEqual({ url: "https://example.org/r" });
+    expect(merged.reviewedTimes).toEqual({
+      lifecycle: "2026-10-02T00:00:00.000Z",
+      registration: "2026-10-03T00:00:00.000Z",
+    });
+  });
+  it("keeps a newer retained lifecycle over an older one", () => {
+    const merged = mergeReviewedEvents(
+      cancelled("cancelled", "2026-10-02T00:00:00Z"),
+      cancelled("postponed", "2026-10-01T00:00:00Z"),
+    );
+    expect(merged.lifecycle?.state).toBe("cancelled");
+  });
+});

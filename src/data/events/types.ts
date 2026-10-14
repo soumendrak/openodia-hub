@@ -81,6 +81,8 @@ export type Event = {
   notices?: EventNotice[];
   /** Timestamp of a reviewed correction; never inferred from scrape time. */
   reviewedAt?: string;
+  /** Per-field review timestamps, so retained fields keep their own review time. */
+  reviewedTimes?: Partial<Record<NonNullable<Event["reviewedFields"]>[number], string>>;
   /** Only explicitly corrected fields are protected from unreviewed upstream writes. */
   reviewedFields?: (
     | "title"

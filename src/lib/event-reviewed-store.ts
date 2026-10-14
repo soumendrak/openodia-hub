@@ -70,7 +70,11 @@ export async function persistReviewedEvents(
       throw new Error("Invalid reviewed event metadata");
     return {
       event_id: eventUrlKey(event.url),
-      payload_json: JSON.stringify({ patch, reviewedFields: event.reviewedFields }),
+      payload_json: JSON.stringify({
+        patch,
+        reviewedFields: event.reviewedFields,
+        reviewedTimes: event.reviewedTimes,
+      }),
       reviewed_at: new Date(event.reviewedAt!).toISOString(),
     };
   });
@@ -134,6 +138,10 @@ export async function restoreReviewedEvents(db: D1Like, events: Event[]): Promis
             ...payload.patch,
             reviewedAt: row.reviewed_at,
             reviewedFields: Object.keys(payload.patch) as (typeof REVIEW_FIELDS)[number][],
+            reviewedTimes:
+              payload.reviewedTimes && typeof payload.reviewedTimes === "object"
+                ? payload.reviewedTimes
+                : undefined,
           }),
           !changedDay,
         ),
