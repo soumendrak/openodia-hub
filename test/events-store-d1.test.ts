@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
+import { readEventsFromD1, syncEventsToD1, UPSERT_SQL, type D1Like } from "../src/lib/events-store";
 import { eventUrlKey } from "../src/lib/event-url";
 
 type D1 = D1Like & { prepare: (sql: string) => ReturnType<D1Like["prepare"]> };
@@ -348,6 +348,46 @@ describe("syncEventsToD1 against a real D1", () => {
     await expect(syncEventsToD1(counting)).resolves.toEqual({ upserted: 90 });
     expect(queries).toBeLessThanOrEqual(50);
     expect(Object.keys(await activeBySlug())).toHaveLength(90);
+  });
+
+  it("writes and updates all nine event columns through UPSERT_SQL", async () => {
+    const columns = "id, url, title, community, type, start_date, end_date, description, location";
+    const roundTrip = async (row: (string | null)[]) => {
+      await db
+        .prepare(UPSERT_SQL)
+        .bind(JSON.stringify([row]))
+        .run();
+      const stored = await db
+        .prepare(`SELECT ${columns} FROM events WHERE id = ?`)
+        .bind(row[0])
+        .first<Record<string, string | null>>();
+      return columns.split(", ").map((column) => stored?.[column] ?? null);
+    };
+    const id = "https://gdg.community.dev/events/details/all-columns";
+    const inserted = [
+      id,
+      `${id}/`,
+      "Title A",
+      "Community A",
+      "Talk",
+      "2026-01-01",
+      "2026-01-02",
+      "Description A",
+      "Location A",
+    ];
+    expect(await roundTrip(inserted)).toEqual(inserted);
+    const updated = [
+      id,
+      `${id}/`,
+      "Title B",
+      "Community B",
+      "Workshop",
+      "2026-02-01",
+      "2026-02-03",
+      "Description B",
+      "Location B",
+    ];
+    expect(await roundTrip(updated)).toEqual(updated);
   });
 
   it("rolls back every deactivation when a statement inside the batch fails", async () => {
