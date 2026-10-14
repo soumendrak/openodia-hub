@@ -222,12 +222,15 @@ afterEach(() => {
 // src/routes/events.tsx
 // ---------------------------------------------------------------------------
 
-// Every element a screen reader treats as a polite/assertive live region by
-// role=status or an explicit aria-live, de-duplicated. aria-live="off" is not live.
+// Every element a screen reader treats as a live region, de-duplicated: the
+// implicitly live roles (status, alert, log, marquee, timer) and any explicit
+// aria-live other than "off".
 function liveRegions(root: ParentNode = document) {
   return Array.from(
     new Set([
-      ...root.querySelectorAll('[role="status"]'),
+      ...root.querySelectorAll(
+        '[role="status"], [role="alert"], [role="log"], [role="marquee"], [role="timer"]',
+      ),
       ...root.querySelectorAll('[aria-live]:not([aria-live="off"])'),
     ]),
   );
@@ -281,9 +284,8 @@ describe("events.tsx", () => {
       const notice = screen.getByText(
         state === "pending" ? /Counts below cover loaded events/ : /previously loaded events only/,
       );
-      // Pending/error scope copy is static context; the count region is the one live status.
-      if (state === "pending") expect(notice).not.toHaveAttribute("role");
-      else expect(notice).toHaveAttribute("role", "alert");
+      // Pending/error scope copy is static context; the count region is the one live region.
+      expect(notice).not.toHaveAttribute("role");
       const live = liveRegions();
       expect(live).toHaveLength(1);
       expect(live[0]).toHaveAttribute("aria-live", "polite");

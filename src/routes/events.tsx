@@ -765,7 +765,7 @@ function EventsPage() {
         </p>
       )}
       {isFiltering && !unknownCommunity && isCompleteError && (
-        <p role="alert" className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-sm text-muted-foreground">
           The complete live event collection is unavailable. Results and counts cover curated and
           previously loaded events only.
         </p>
