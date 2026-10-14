@@ -55,7 +55,6 @@ expose partial results when sources are unavailable, truncated, unmeasured or st
 Fetch success does not establish registration availability or editorial verification.
 Apply `db/migrations/0001_event_source_outcomes.sql` to existing event databases before
 the new sync runs; legacy persisted reads remain available with unknown health.
-See [source semantics and verification](verification/issue-112.md).
 
 Paper task labels come from keyword matching, not author-provided classifications.
 Upstream metadata may omit licenses or sizes. A missing preview or temporarily

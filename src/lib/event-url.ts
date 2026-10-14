@@ -93,6 +93,8 @@ async function cachedDestinationUrl(rawUrl: string): Promise<string> {
   return destination;
 }
 
+export const RESOLVE_CONCURRENCY = 4;
+
 type DatedEventUrl = Pick<Event, "url"> & Partial<Pick<Event, "startDate" | "date">>;
 
 /**
@@ -120,13 +122,18 @@ export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
     }
   }
 
-  const destinations = await Promise.all(
-    items.map((item) => {
-      const date = item.startDate || item.date || "";
-      // Counted from this same `items` list above, so every date has an entry.
-      return dateCounts.get(date)! > 1 ? resolveDestination(item.url) : Promise.resolve(item.url);
-    }),
-  );
+  // Bounded worker pool: at most RESOLVE_CONCURRENCY redirect lookups in flight.
+  const destinations = items.map((item) => item.url);
+  const pending = items
+    .map((item, index) => ({ item, index }))
+    // Counted from this same `items` list above, so every date has an entry.
+    .filter(({ item }) => dateCounts.get(item.startDate || item.date || "")! > 1);
+  const worker = async () => {
+    for (let next = pending.shift(); next; next = pending.shift()) {
+      destinations[next.index] = await resolveDestination(next.item.url);
+    }
+  };
+  await Promise.all(Array.from({ length: RESOLVE_CONCURRENCY }, worker));
 
   const winners = new Map<string, { item: T; isDirectDestination: boolean }>();
   items.forEach((item, index) => {

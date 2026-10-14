@@ -5,6 +5,7 @@ import {
   eventUrlKey,
   mergeEventCollectionsByUrl,
   resolveEventDestinationUrl,
+  RESOLVE_CONCURRENCY,
 } from "../src/lib/event-url";
 
 describe("eventUrlKey", () => {
@@ -79,6 +80,25 @@ describe("redirect-aware event deduplication", () => {
       ]),
     ).resolves.toEqual([{ ...legacy, url: curatedDest.url }]);
     expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it("caps concurrent redirect lookups", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const resolve = vi.fn(async (url: string) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((done) => setTimeout(done, 1));
+      inFlight -= 1;
+      return url;
+    });
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      url: `https://example.com/same-day-${index}`,
+      startDate: "2026-05-28",
+    }));
+    await expect(dedupeEventsByResolvedUrl(rows, resolve)).resolves.toEqual(rows);
+    expect(resolve).toHaveBeenCalledTimes(12);
+    expect(peak).toBe(RESOLVE_CONCURRENCY);
   });
 
   it("does not resolve rows against references already present in the items", async () => {

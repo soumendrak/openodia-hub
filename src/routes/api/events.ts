@@ -168,13 +168,13 @@ export async function fetchChapterSnapshot(
     collections.push(list.results);
     complete.push(
       isCompleteList(list, list.results) &&
-        list.results.every((item) => item.url && item.start_date),
+        list.results.every((item) => item.url?.trim() && item.start_date),
     );
   }
 
   // Records without a URL have no identity; drop them before URL dedup. Their
   // list is already marked incomplete above, so no deactivation follows.
-  const rawEvents = collections.flat().filter((item) => !!item.url);
+  const rawEvents = collections.flat().filter((item) => !!item.url?.trim());
 
   const events = dedupeEventsByUrl(
     rawEvents.map((item) => {

@@ -4,7 +4,7 @@
 import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
-import { syncEventsToD1, type D1Like } from "../src/lib/events-store";
+import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
 import { eventUrlKey } from "../src/lib/event-url";
 
 type D1 = D1Like & { prepare: (sql: string) => ReturnType<D1Like["prepare"]> };
@@ -184,6 +184,67 @@ describe("syncEventsToD1 against a real D1", () => {
     await syncEventsToD1(db);
     const active = await activeBySlug();
     expect({ past: active["kiit-past"], upcoming: active["kiit-upcoming"] }).toEqual(expected);
+  });
+
+  it("reactivates an event and its membership when it is listed again", async () => {
+    const state = async () => ({
+      event: (await activeBySlug())["bbsr-back"],
+      membership: (
+        await db
+          .prepare("SELECT is_active FROM event_source_memberships WHERE source_id = ?")
+          .bind("gdg-bhubaneswar")
+          .first<{ is_active: number }>()
+      )?.is_active,
+    });
+    serve({ [BBSR]: lists(list(), list([ev("bbsr-back")])) });
+    await syncEventsToD1(db);
+    expect(await state()).toEqual({ event: 1, membership: 1 });
+    serve({ [BBSR]: lists() });
+    await syncEventsToD1(db);
+    expect(await state()).toEqual({ event: 0, membership: 0 });
+    serve({ [BBSR]: lists(list(), list([ev("bbsr-back")])) });
+    await syncEventsToD1(db);
+    expect(await state()).toEqual({ event: 1, membership: 1 });
+  });
+
+  it("keeps inactive rows visible for the 30-day grace window only", async () => {
+    await seed([
+      ["active", "GDG Bhubaneswar"],
+      ["inactive-recent", "GDG Bhubaneswar"],
+      ["inactive-expired", "GDG Bhubaneswar"],
+    ]);
+    for (const [slug, age] of [
+      ["inactive-recent", "-29 days"],
+      ["inactive-expired", "-31 days"],
+    ]) {
+      await db
+        .prepare("UPDATE events SET is_active = 0, last_seen = datetime('now', ?) WHERE title = ?")
+        .bind(age, slug)
+        .run();
+    }
+    const titles = (await readEventsFromD1(db)).map((event) => event.title).sort();
+    expect(titles).toEqual(["active", "inactive-recent"]);
+  });
+
+  it("migrates legacy rows to memberships by exact registry alias only", async () => {
+    serve({ [BBSR]: 503 });
+    await seed([
+      ["legacy-alias", "Google Developer Group Bhubaneswar"],
+      ["legacy-canonical", "GDG Bhubaneswar"],
+      ["legacy-unknown", "Some Other Group"],
+    ]);
+    await db.prepare("UPDATE events SET is_active = 0 WHERE title = 'legacy-canonical'").run();
+    await syncEventsToD1(db);
+    const { results } = await db
+      .prepare(
+        `SELECT e.title, m.source_id, m.is_active FROM event_source_memberships m
+         JOIN events e ON e.id = m.event_id ORDER BY e.title`,
+      )
+      .all<{ title: string; source_id: string; is_active: number }>();
+    expect(results).toEqual([
+      { title: "legacy-alias", source_id: "gdg-bhubaneswar", is_active: 1 },
+      { title: "legacy-canonical", source_id: "gdg-bhubaneswar", is_active: 0 },
+    ]);
   });
 
   it("protects rows stored under an organizer alias", async () => {

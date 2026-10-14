@@ -230,9 +230,15 @@ describe("fetchChapterEvents", () => {
         pageProps: {
           prerenderData: {
             upcomingEvents: {
-              count: 2,
+              count: 3,
               results: [
                 { title: "No URL", event_type_title: "Talk", start_date: "2026-01-02T00:00:00Z" },
+                {
+                  title: "Blank URL",
+                  url: "   ",
+                  event_type_title: "Talk",
+                  start_date: "2026-01-02T00:00:00Z",
+                },
                 {
                   title: "Valid sibling",
                   description_short: { html: "x" },

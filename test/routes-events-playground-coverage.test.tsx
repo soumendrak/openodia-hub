@@ -410,6 +410,19 @@ describe("events.tsx", () => {
     render(<EventsRouteAny.options.component />);
     expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(calls);
   });
+  it.each([
+    ["2026-10-14T18:29:59Z", 1],
+    ["2026-10-14T18:30:00Z", 0],
+  ])("ends a same-day event at IST midnight (now %s)", (now, live) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now));
+    dataFixture.events = [
+      { ...PAST_2020[0], year: "2026", startDate: "2026-10-14", endDate: "2026-10-14" },
+    ];
+    render(<EventsRouteAny.options.component />);
+    expect(screen.queryAllByText("Live")).toHaveLength(live);
+    vi.useRealTimers();
+  });
   it("offers archive years from the whole corpus before their pages are loaded", () => {
     infiniteHarness.data = { pages: [{ events: [], total: 40, nextCursor: "2", years: ["2017"] }] };
     render(<EventsRouteAny.options.component />);
