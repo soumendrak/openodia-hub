@@ -246,6 +246,25 @@ describe("event persistence URL deduplication", () => {
               startDate: "2026-07-01",
               // endDate and description intentionally omitted.
             },
+            // A producer that does not filter like fetchChapterSnapshot: the
+            // sync must still skip records it cannot identify or place.
+            {
+              year: "2026",
+              date: "",
+              title: "No url",
+              url: "",
+              type: "Talk",
+              community: "GDG Bhubaneswar",
+              startDate: "2026-07-02",
+            },
+            {
+              year: "2026",
+              date: "",
+              title: "No start date",
+              url: "https://gdg.community.dev/events/details/no-start",
+              type: "Talk",
+              community: "GDG Bhubaneswar",
+            },
           ],
         })),
       };
