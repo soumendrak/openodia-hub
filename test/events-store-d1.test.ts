@@ -270,6 +270,43 @@ describe("syncEventsToD1 against a real D1", () => {
     expect(await activeBySlug()).toMatchObject({ "orphan-only": 0, "orphan-and-live": 1 });
   });
 
+  it("keeps an event dated today (IST) when the past list is truncated", async () => {
+    const todayIst = new Date(Date.now() + 330 * 60 * 1000).toISOString().slice(0, 10);
+    serve({ [BBSR]: lists(list([ev("bbsr-next", "2099-01-01")]), list([], { count: 87 })) });
+    await seed([
+      ["bbsr-next", "GDG Bhubaneswar", "2099-01-01"],
+      ["bbsr-today", "GDG Bhubaneswar", todayIst],
+      ["bbsr-tomorrow-gone", "GDG Bhubaneswar", "2099-03-01"],
+    ]);
+    await syncEventsToD1(db);
+    expect(await activeBySlug()).toEqual({
+      "bbsr-next": 1,
+      "bbsr-today": 1,
+      "bbsr-tomorrow-gone": 0,
+    });
+  });
+
+  it("commits no deactivation when a later write in the same sync fails", async () => {
+    serve({ [BBSR]: lists() });
+    await seed([["bbsr-kept", "GDG Bhubaneswar"]]);
+    await syncEventsToD1(db);
+    const flaky: D1 = {
+      prepare: (sql: string) => {
+        if (sql.includes("event_source_status")) throw new Error("status write failed");
+        return db.prepare(sql);
+      },
+      batch: db.batch!.bind(db),
+    };
+    await db.prepare("UPDATE event_source_memberships SET is_active = 1").run();
+    await db.prepare("UPDATE events SET is_active = 1").run();
+    await expect(syncEventsToD1(flaky)).rejects.toThrow("status write failed");
+    const membership = await db
+      .prepare("SELECT is_active FROM event_source_memberships")
+      .first<{ is_active: number }>();
+    expect(membership?.is_active).toBe(1);
+    expect(await activeBySlug()).toEqual({ "bbsr-kept": 1 });
+  });
+
   it("protects rows stored under an organizer alias", async () => {
     serve({
       [BBSR]: lists(list([ev("bbsr-next", "2099-01-01")]), list([], { count: 87 })),

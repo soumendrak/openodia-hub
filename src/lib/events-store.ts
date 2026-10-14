@@ -20,6 +20,8 @@ type D1PreparedStatement = {
 };
 export type D1Like = {
   prepare: (query: string) => D1PreparedStatement;
+  /** D1 runs a batch as one transaction; deactivations rely on that atomicity. */
+  batch?: (statements: D1PreparedStatement[]) => Promise<unknown>;
 };
 
 type Row = {
@@ -74,6 +76,9 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     ),
   );
   const seenIds = new Set<string>();
+  // Deactivations are deferred and committed together with retirement, so an
+  // aborted sync can never leave half-applied inactive memberships behind.
+  const deactivations: D1PreparedStatement[] = [];
   for (const [index, chapter] of CHAPTERS.entries()) {
     const { events, status, upcomingComplete, pastComplete } = outcomes[index];
     const names = [
@@ -126,14 +131,17 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       upcomingComplete &&
       events.every((event) => event.url && event.startDate)
     ) {
-      await db
-        .prepare(
-          `UPDATE event_source_memberships SET is_active=0 WHERE source_id=?
+      // With a truncated past list only rows dated after today (IST) may retire:
+      // an event that ended today can drop off "upcoming" before "past" lists it.
+      deactivations.push(
+        db
+          .prepare(
+            `UPDATE event_source_memberships SET is_active=0 WHERE source_id=?
         AND event_id NOT IN (SELECT value FROM json_each(?))
-        AND (?=1 OR event_id IN (SELECT id FROM events WHERE start_date >= date('now', '+5 hours', '+30 minutes')))`,
-        )
-        .bind(chapter.slug, JSON.stringify(chapterIds), Number(pastComplete))
-        .run();
+        AND (?=1 OR event_id IN (SELECT id FROM events WHERE start_date > date('now', '+5 hours', '+30 minutes')))`,
+          )
+          .bind(chapter.slug, JSON.stringify(chapterIds), Number(pastComplete)),
+      );
     }
     await db
       .prepare(
@@ -160,14 +168,17 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   // A removed or renamed chapter is never visited again, so its memberships
   // would protect rows forever. Renamed chapters re-adopt rows via the alias
   // migration above before this runs; unowned legacy rows have no membership.
-  await db
-    .prepare(
-      `UPDATE event_source_memberships SET is_active = 0
+  deactivations.push(
+    db
+      .prepare(
+        `UPDATE event_source_memberships SET is_active = 0
     WHERE source_id NOT IN (SELECT value FROM json_each(?))`,
-    )
-    .bind(JSON.stringify(CHAPTERS.map((chapter) => chapter.slug)))
-    .run();
-  await db.prepare(RETIRE_SQL).run();
+      )
+      .bind(JSON.stringify(CHAPTERS.map((chapter) => chapter.slug))),
+    db.prepare(RETIRE_SQL),
+  );
+  if (db.batch) await db.batch(deactivations);
+  else for (const statement of deactivations) await statement.run();
   return { upserted: seenIds.size };
 }
 

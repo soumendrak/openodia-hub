@@ -224,6 +224,33 @@ describe("fetchChapterEvents", () => {
     );
   });
 
+  it.each(["2026-02-30T10:00:00Z", "Feb 3 2026", "2026-02-03junk"])(
+    "rejects a non-ISO or impossible start date (%s) as a parse failure",
+    async (start_date) => {
+      const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            prerenderData: {
+              upcomingEvents: {
+                count: 1,
+                results: [{ title: "Bad date", url: "https://example.com/bad", start_date }],
+              },
+              pastEvents: { count: 0, results: [] },
+            },
+          },
+        },
+      })}</script>`;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => html,
+      } as Response);
+      await expect(fetchChapterSnapshot("Community", "chapter")).rejects.toThrow(
+        "Unexpected event record shape",
+      );
+    },
+  );
+
   it("drops URL-less records and coerces non-string descriptions without failing the source", async () => {
     const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {

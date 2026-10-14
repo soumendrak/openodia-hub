@@ -105,6 +105,17 @@ function isCompleteList(list: BevyEventList, results: unknown[]): boolean {
   );
 }
 
+/** Accepts only `YYYY-MM-DD…` starts whose calendar date really exists. */
+function isIsoStart(value: string): boolean {
+  const day = Date.parse(`${value.slice(0, 10)}T00:00:00Z`);
+  return (
+    /^\d{4}-\d{2}-\d{2}(T|$)/.test(value) &&
+    Number.isFinite(Date.parse(value)) &&
+    Number.isFinite(day) &&
+    new Date(day).toISOString().slice(0, 10) === value.slice(0, 10)
+  );
+}
+
 /** Bevy descriptions are untyped; only non-empty strings may reach search indexing. */
 function firstString(...values: unknown[]): string {
   return values.find((value): value is string => typeof value === "string" && !!value) ?? "";
@@ -160,7 +171,7 @@ export async function fetchChapterSnapshot(
           (item.url !== undefined && typeof item.url !== "string") ||
           (item.start_date !== undefined && typeof item.start_date !== "string") ||
           (item.event_type_title !== undefined && typeof item.event_type_title !== "string") ||
-          (item.start_date && !Number.isFinite(Date.parse(item.start_date))),
+          (item.start_date && !isIsoStart(item.start_date)),
       )
     ) {
       throw new Error("Unexpected event record shape");
