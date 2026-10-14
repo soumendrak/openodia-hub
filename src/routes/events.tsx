@@ -282,6 +282,7 @@ function EventsPage() {
         nextCursor?: string;
         total: number;
         partial?: boolean;
+        years?: string[];
       }>;
     },
     getNextPageParam: (lastPage, allPages) =>
@@ -594,6 +595,7 @@ function EventsPage() {
             {[
               ...new Set([
                 ...mergedEventsList.map((event) => event.year),
+                ...(liveData?.pages[0]?.years ?? []),
                 ...(routeSearch.year ? [routeSearch.year] : []),
               ]),
             ]

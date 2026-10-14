@@ -29,7 +29,11 @@ export async function loadEventCollection(
 ): Promise<LiveEventCollection & { source: "d1" | "scrape" }> {
   if (db) {
     try {
-      const events = await dedupeEventsByResolvedUrl(await readEventsFromD1(db));
+      const events = await dedupeEventsByResolvedUrl(
+        await readEventsFromD1(db),
+        undefined,
+        curated,
+      );
       if (events.length) {
         // An older database can serve known records without pretending measured health exists.
         const sources = await readEventSourceStatuses(db).catch(() => []);

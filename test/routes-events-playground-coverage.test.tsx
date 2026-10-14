@@ -8,7 +8,13 @@ import type { Event } from "../src/data/events/types";
 // Shared mock state
 // ---------------------------------------------------------------------------
 
-type LiveEventsPage = { events: Event[]; total: number; nextCursor?: string; partial?: boolean };
+type LiveEventsPage = {
+  events: Event[];
+  total: number;
+  nextCursor?: string;
+  partial?: boolean;
+  years?: string[];
+};
 type InfiniteQueryOptions = {
   queryFn: (args: { pageParam: number }) => Promise<LiveEventsPage>;
   getNextPageParam: (lastPage: LiveEventsPage, allPages: unknown[]) => number | undefined;
@@ -389,6 +395,11 @@ describe("events.tsx", () => {
       );
     },
   );
+  it("offers archive years from the whole corpus before their pages are loaded", () => {
+    infiniteHarness.data = { pages: [{ events: [], total: 40, nextCursor: "2", years: ["2017"] }] };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByRole("option", { name: "2017" })).toBeInTheDocument();
+  });
   it.each([false, true])(
     "keeps pagination reachable when the complete corpus fails (fetching: %s)",
     (fetching) => {

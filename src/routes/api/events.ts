@@ -92,14 +92,15 @@ export type ChapterSnapshot = {
 };
 
 // Bevy pages a list (e.g. 4 of 87 past events with `links.next` set). Only a
-// list whose `count` is covered and that has no next page is complete, so an
+// list whose `count` exactly matches its results and that has no next page is complete, so an
 // empty list is a real zero only when its count is 0.
 function isCompleteList(list: BevyEventList, results: unknown[]): boolean {
   return (
     typeof list.count === "number" &&
     Number.isInteger(list.count) &&
     list.count >= 0 &&
-    results.length >= list.count &&
+    // A count below results.length is a malformed contract, not a snapshot.
+    results.length === list.count &&
     !list.links?.next
   );
 }
@@ -328,6 +329,8 @@ export const Route = createFileRoute("/api/events")({
               ...collection,
               events: paginated ? collection.events.slice(start, start + limit) : collection.events,
               total: collection.events.length,
+              // Year facets cover the whole corpus so unvisited pages stay selectable.
+              years: [...new Set(collection.events.map((event) => event.year))],
               nextCursor:
                 paginated && start + limit < collection.events.length
                   ? String(page + 1)

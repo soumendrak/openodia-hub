@@ -138,6 +138,7 @@ describe("syncEventsToD1 against a real D1", () => {
 
   it.each([
     ["count exceeds the results", { count: 87 }],
+    ["count under-reports the results", { count: 0 }],
     ["a next page is linked", { next: "http://testserver/api/event_slim/?page=2" }],
   ])("retires only upcoming rows when the past list is truncated (%s)", async (_, extra) => {
     serve({

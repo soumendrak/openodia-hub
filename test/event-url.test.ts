@@ -64,6 +64,30 @@ describe("redirect-aware event deduplication", () => {
     await expect(dedupeEventsByResolvedUrl([stale, latest], resolve)).resolves.toEqual([latest]);
   });
 
+  it("resolves a lone legacy row whose date matches an absent reference record", async () => {
+    const legacy = { url: "https://gdg.community.dev/events/details/old", startDate: "2025-03-01" };
+    const curatedDest = {
+      url: "https://gdg.community.dev/events/details/new",
+      startDate: "2025-03-01",
+    };
+    const resolve = vi.fn(async () => curatedDest.url);
+    await expect(
+      dedupeEventsByResolvedUrl([legacy], resolve, [
+        curatedDest,
+        { url: legacy.url, startDate: "2025-04-01" },
+        { url: "https://example.com/undated" },
+      ]),
+    ).resolves.toEqual([{ ...legacy, url: curatedDest.url }]);
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not resolve rows against references already present in the items", async () => {
+    const row = { url: "https://gdg.community.dev/events/details/same", startDate: "2025-03-01" };
+    const resolve = vi.fn(async (url: string) => url);
+    await expect(dedupeEventsByResolvedUrl([row], resolve, [row])).resolves.toEqual([row]);
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
   it("retains distinct same-date destinations and skips lookups for unique dates", async () => {
     const resolve = vi.fn(async (url: string) => url);
     const collision = [

@@ -350,6 +350,7 @@ describe("fetchChapterEvents", () => {
       events: expect.any(Array),
       nextCursor: "2",
       total: dedupeEventsByUrl(curated).length + 3,
+      years: expect.arrayContaining([...new Set(curated.map((event) => event.year))]),
     });
     const defaulted = await get({
       request: new Request("https://openodia.com/api/events?page=nope&limit=500"),
