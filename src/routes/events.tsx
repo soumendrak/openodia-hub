@@ -752,17 +752,14 @@ function EventsPage() {
       </div>
 
       {unknownCommunity && (
-        <p
-          className="mt-4 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200"
-          role="status"
-        >
+        <p className="mt-4 break-words rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-700 dark:text-amber-200">
           “{unknownCommunity}” is not a known organizer. Choose a listed community or clear the
           filters.
         </p>
       )}
 
       {isFiltering && !unknownCommunity && isCompletePending && (
-        <p role="status" className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-sm text-muted-foreground">
           Loading the complete event collection… Counts below cover loaded events until this
           finishes.
         </p>
@@ -773,6 +770,9 @@ function EventsPage() {
           previously loaded events only.
         </p>
       )}
+      {/* The one announcement per filter change. Source, scope and organizer
+          warnings are persistent visible context, not live regions, so a
+          keystroke is never announced twice. */}
       <p
         role="status"
         aria-live="polite"
