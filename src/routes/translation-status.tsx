@@ -96,7 +96,7 @@ function TranslationStatus() {
             </div>
             <p className="mt-3">{entry.english}</p>
             <p lang="or" className="mt-2">
-              {entry.translation || "ଅନୁବାଦ ଆବଶ୍ୟକ"}
+              {entry.translation.trim() || "ଅନୁବାଦ ଆବଶ୍ୟକ"}
             </p>
             <a
               className="mt-3 inline-block text-sm text-neon underline underline-offset-4"

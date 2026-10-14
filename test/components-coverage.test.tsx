@@ -6,6 +6,7 @@ const componentHarness = vi.hoisted(() => ({
   query: {} as Record<string, unknown>,
   setLocale: vi.fn(),
   locale: "en" as "en" | "or",
+  fallback: false,
 }));
 
 // `Nav`'s SSR guards (`typeof window !== "undefined"`) can only be observed
@@ -83,8 +84,8 @@ vi.mock("@tanstack/react-router", async () => {
 });
 
 vi.mock("../src/lib/i18n", () => ({
-  useFallbackLang: () => undefined,
-  T: ({ k }: { k: string }) => k,
+  useFallbackLang: () => (componentHarness.fallback ? "en" : undefined),
+  T: ({ k }: { k: string }) => (componentHarness.fallback ? <span lang="en">{k}</span> : k),
   useTranslation: () => ({
     locale: componentHarness.locale,
     setLocale: componentHarness.setLocale,
@@ -227,6 +228,25 @@ describe("shared presentational components", () => {
     expect(screen.getAllByText("nav.contribute").length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByText("nav.contribute")[0]);
     window.removeEventListener("openCommandPalette", palette);
+  });
+
+  it("marks English fallback labels and accessible names inside the Odia header", async () => {
+    componentHarness.fallback = true;
+    const { Nav } = await import("../src/components/Nav");
+    render(<Nav />);
+    for (const name of ["nav.search.aria", "nav.theme.aria", "nav.menu.aria"])
+      expect(screen.getByRole("button", { name })).toHaveAttribute("lang", "en");
+    fireEvent.click(screen.getByRole("button", { name: "nav.menu.aria" }));
+    expect(screen.getAllByText("nav.contribute")[0]).toHaveAttribute("lang", "en");
+    expect(
+      document.getElementById(
+        screen
+          .getByRole("button", { name: /^nav\.locale\.aria/ })
+          .getAttribute("aria-labelledby")!
+          .split(" ")[0],
+      ),
+    ).toHaveAttribute("lang", "en");
+    componentHarness.fallback = false;
   });
 
   it("seeds theme state from an existing light class on mount", async () => {

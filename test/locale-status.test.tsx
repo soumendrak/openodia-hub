@@ -124,7 +124,7 @@ describe("public translation status API and contributor UX", () => {
     const locale = await import("../src/lib/locale-status");
     const report = assessLocale(
       { reviewed: "Home", missing: "About" },
-      { reviewed: "ମୂଳପୃଷ୍ଠା", missing: "" },
+      { reviewed: "ମୂଳପୃଷ୍ଠା", missing: "  " },
       ["reviewed", "missing"],
       {
         reviewed: {

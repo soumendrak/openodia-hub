@@ -880,6 +880,7 @@ describe("native Odia review policy", () => {
   });
   it("keeps write-capable decisions in trusted code and reserves the native-review status context", () => {
     expect(workflow.on).not.toHaveProperty("pull_request_review");
+    expect(workflow.on.pull_request_target.types).toContain("edited");
     expect(workflow.on.workflow_run).toEqual({
       workflows: ["Native Odia review notification"],
       types: ["completed"],
