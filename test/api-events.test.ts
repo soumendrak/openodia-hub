@@ -251,14 +251,20 @@ describe("fetchChapterEvents", () => {
     },
   );
 
-  it("drops URL-less records and coerces non-string descriptions without failing the source", async () => {
+  it("drops URL-less and date-less records and coerces non-string descriptions without failing the source", async () => {
     const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
         pageProps: {
           prerenderData: {
             upcomingEvents: {
-              count: 3,
+              count: 4,
               results: [
+                {
+                  title: "No date",
+                  event_type_title: "Talk",
+                  start_date: "",
+                  url: "https://gdg.community.dev/events/details/no-date",
+                },
                 { title: "No URL", event_type_title: "Talk", start_date: "2026-01-02T00:00:00Z" },
                 {
                   title: "Blank URL",
@@ -308,7 +314,7 @@ describe("fetchChapterEvents", () => {
     expect(snapshot.pastComplete).toBe(true);
   });
 
-  it("maps all Bevy type labels and missing dates", async () => {
+  it("maps all Bevy type labels", async () => {
     const labels = ["Conference", "AI Summit", "Study Jam", "Speaker session", "Research", "Other"];
     const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
@@ -319,7 +325,7 @@ describe("fetchChapterEvents", () => {
                 title: `Event ${index}`,
                 description: "",
                 event_type_title,
-                start_date: index === 5 ? "" : "2026-01-02T00:00:00Z",
+                start_date: "2026-01-02T00:00:00Z",
                 url: `https://gdg.community.dev/events/details/event-${index}`,
               })),
             },
@@ -342,7 +348,6 @@ describe("fetchChapterEvents", () => {
       "Research",
       "Talk",
     ]);
-    expect(events[5]?.date).toBe("");
   });
 
   it("serves complete and paginated live event payloads", async () => {

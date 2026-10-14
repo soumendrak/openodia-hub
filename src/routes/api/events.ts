@@ -183,15 +183,17 @@ export async function fetchChapterSnapshot(
     );
   }
 
-  // Records without a URL have no identity; drop them before URL dedup. Their
-  // list is already marked incomplete above, so no deactivation follows.
-  const rawEvents = collections.flat().filter((item) => !!item.url?.trim());
+  // Records without a URL have no identity and records without a start date
+  // cannot be placed or persisted; drop both before URL dedup. Their list is
+  // already marked incomplete above, so no deactivation follows.
+  const rawEvents = collections.flat().filter((item) => !!item.url?.trim() && !!item.start_date);
 
   const events = dedupeEventsByUrl(
     rawEvents.map((item) => {
-      const startStr = item.start_date ? item.start_date.split("T")[0] : "";
-      const year = startStr ? startStr.split("-")[0] : new Date().getFullYear().toString();
-      const date = item.start_date ? formatHumanDate(item.start_date) : "";
+      const startDate = item.start_date as string;
+      const startStr = startDate.split("T")[0];
+      const year = startStr.split("-")[0];
+      const date = formatHumanDate(startDate);
 
       return {
         year,
