@@ -83,7 +83,7 @@
   --accent-foreground: #241a11;
 
   --destructive: #ff8790;
-  --destructive-foreground: oklch(0.98 0 0);
+  --destructive-foreground: #241a11;
 
   --border: rgb(211 171 102 / 18%);
   --input: rgb(211 171 102 / 24%);
@@ -148,7 +148,7 @@
   --accent-foreground: #fff2d3;
 
   --destructive: #9c1226;
-  --destructive-foreground: #241a11;
+  --destructive-foreground: oklch(0.98 0.01 90);
 
   --border: rgb(122 88 44 / 32%);
   --input: rgb(122 88 44 / 22%);
@@ -403,6 +403,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .marquee-control {
+    display: none;
+  }
   *,
   *::before,
   *::after {

@@ -39,3 +39,7 @@ package-lock.json
 scratch/
 .playwright-mcp/
 .lavish/
+
+# Playwright smoke tests
+/test-results/
+/playwright-report/
