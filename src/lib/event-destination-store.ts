@@ -52,7 +52,10 @@ export async function refreshEventDestinationAliases(
   db: D1Like,
   events: readonly Pick<Event, "url">[],
   fetcher: typeof fetch = fetch,
+  /** URLs that exist nowhere else (standalone overrides) are checked first. */
+  priority: readonly string[] = [],
 ): Promise<{ aliases: Map<string, string>; requests: number; checked: number }> {
+  const first = new Set(priority.map(eventUrlKey));
   const rows = (await db.prepare(SELECT_ALIASES).all<AliasRow>()).results;
   const aliases = admittedAliases(rows);
   const attempts = new Map(rows.map((row) => [row.alias_url, Date.parse(row.checked_at) || 0]));
@@ -65,6 +68,7 @@ export async function refreshEventDestinationAliases(
     .sort(
       ([a], [b]) =>
         (attempts.has(a) ? 1 : 0) - (attempts.has(b) ? 1 : 0) ||
+        (first.has(a) ? 0 : 1) - (first.has(b) ? 0 : 1) ||
         (attempts.get(a) ?? 0) - (attempts.get(b) ?? 0) ||
         a.localeCompare(b),
     )

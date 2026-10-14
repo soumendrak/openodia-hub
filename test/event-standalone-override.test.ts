@@ -78,3 +78,41 @@ it("carries a standalone override from a vanished alias to its live canonical ev
   expect(current).toMatchObject({ title: "Current title", lifecycle: { state: "cancelled" } });
   vi.unstubAllGlobals();
 });
+
+it("discovers a standalone override's redirect when no alias was stored yet", async () => {
+  for (const table of ["event_destination_aliases", "event_reviewed_metadata", "events"])
+    await db.prepare(`DELETE FROM ${table}`).run();
+  const page = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+    props: {
+      pageProps: {
+        prerenderData: {
+          upcomingEvents: {
+            results: [
+              {
+                url: canonical,
+                title: "Current title",
+                description: "d",
+                event_type_title: "Workshop",
+                start_date: "2099-02-01",
+              },
+            ],
+          },
+          pastEvents: { results: [] },
+        },
+      },
+    },
+  })}</script>`;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input, init) => {
+      if (init?.method !== "HEAD") return new Response(page);
+      return String(input).startsWith(alias)
+        ? new Response(null, { status: 301, headers: { location: canonical } })
+        : new Response(null, { status: 200 });
+    }),
+  );
+  await syncEventsToD1(db);
+  const current = (await readEventsFromD1(db)).find((event) => event.url === canonical);
+  expect(current).toMatchObject({ lifecycle: { state: "cancelled" } });
+  vi.unstubAllGlobals();
+});

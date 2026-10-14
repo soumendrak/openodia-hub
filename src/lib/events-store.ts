@@ -75,11 +75,14 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   );
   const previous = await readEventRecords(db);
   const reviewedHistory = await restoreReviewedEvents(db, [...curated, ...previous]);
-  const { aliases } = await refreshEventDestinationAliases(db, [
-    ...curated,
-    ...previous,
-    ...events,
-  ]);
+  // A standalone override's old URL may exist nowhere else; resolve it first.
+  const overrideUrls = EVENT_OVERRIDES.map((override) => override.url);
+  const { aliases } = await refreshEventDestinationAliases(
+    db,
+    [...curated, ...previous, ...events, ...overrideUrls.map((url) => ({ url }))],
+    fetch,
+    overrideUrls,
+  );
   events = await dedupeEventsByResolvedUrl(
     events,
     async (url) => storedEventDestination(url, aliases),
