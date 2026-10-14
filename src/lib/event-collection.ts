@@ -34,9 +34,13 @@ export async function loadEventCollection(
         undefined,
         curated,
       );
-      if (events.length) {
-        // An older database can serve known records without pretending measured health exists.
-        const sources = await readEventSourceStatuses(db).catch(() => []);
+      // An older database can serve known records without pretending measured health exists.
+      const sources = await readEventSourceStatuses(db).catch(() => []);
+      // A measured empty snapshot (no source reported events) is authoritative:
+      // serve the curated archive with it instead of re-scraping every source.
+      const measuredEmpty =
+        sources.length > 0 && sources.every((status) => status.outcome !== "success-events");
+      if (events.length || measuredEmpty) {
         const cutoff = Date.now() - 7 * 60 * 60 * 1000;
         return {
           events: mergeChronologicalEvents(events),

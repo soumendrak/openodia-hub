@@ -211,6 +211,8 @@ async function handleEvents(env: Env | undefined, request: Request): Promise<Res
       events: pageItems,
       nextCursor,
       total: events.length,
+      // Year facets cover the whole corpus so unvisited pages stay selectable.
+      years: [...new Set(events.map((event) => event.year))],
       source,
       sources,
       partial,

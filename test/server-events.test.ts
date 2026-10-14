@@ -106,7 +106,11 @@ describe("production events endpoint", () => {
       {},
     );
     expect(response.status).toBe(200);
-    expect((await response.json()).events).toHaveLength(1);
+    const body = await response.json();
+    expect(body.events).toHaveLength(1);
+    expect(body.years).toEqual(
+      expect.arrayContaining([...new Set(curated.map((event) => event.year))]),
+    );
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

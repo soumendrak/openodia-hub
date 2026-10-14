@@ -5,7 +5,7 @@ import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } 
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { mergeNonEmpty } from "../lib/utils";
-import { mergeEventCollectionsByUrl } from "../lib/event-url";
+import { eventUrlKey, mergeEventCollectionsByUrl } from "../lib/event-url";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
 import { pageHead } from "../lib/seo";
@@ -310,6 +310,18 @@ function EventsPage() {
   });
 
   const loadedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  // API pages include the bundled curated archive. A Load More page holding only
+  // bundled events adds nothing visible, so continue to the next page for the user.
+  const lastPage = liveData?.pages.at(-1);
+  const duplicateOnlyPage =
+    !!lastPage &&
+    liveData!.pages.length > 1 &&
+    lastPage.events.every((event) =>
+      events.some((bundled) => eventUrlKey(bundled.url) === eventUrlKey(event.url)),
+    );
+  useEffect(() => {
+    if (duplicateOnlyPage && hasNextPage && !isFetchingNextPage) void fetchNextPage();
+  }, [duplicateOnlyPage, hasNextPage, isFetchingNextPage, fetchNextPage, lastPage]);
   // Disabled queries keep cached data: clearing filters must restore pagination.
   const fetchedEvents = needsCompleteCorpus
     ? (completeSearchEvents?.events ?? loadedEvents)

@@ -395,6 +395,21 @@ describe("events.tsx", () => {
       );
     },
   );
+  it.each([
+    ["skips", PAST_2020, 1],
+    ["does not skip", [], 0],
+  ])("%s a Load More page that only repeats bundled events", (_, page2, calls) => {
+    dataFixture.events = PAST_2020;
+    infiniteHarness.hasNextPage = true;
+    infiniteHarness.data = {
+      pages: [
+        { events: [], total: 40, nextCursor: "2" },
+        { events: page2.length ? page2 : [FAR_FUTURE], total: 40, nextCursor: "3" },
+      ],
+    };
+    render(<EventsRouteAny.options.component />);
+    expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(calls);
+  });
   it("offers archive years from the whole corpus before their pages are loaded", () => {
     infiniteHarness.data = { pages: [{ events: [], total: 40, nextCursor: "2", years: ["2017"] }] };
     render(<EventsRouteAny.options.component />);
