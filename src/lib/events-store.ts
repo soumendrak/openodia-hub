@@ -52,9 +52,11 @@ ON CONFLICT(id) DO UPDATE SET
 
 // A row can belong to several chapter feeds. Retirement needs every known
 // owner to have authoritatively removed it; an unavailable cohost protects it.
+// last_seen restarts at retirement so the 30-day grace window runs from now,
+// even when an unavailable owner kept the row active past 30 days.
 export const RETIRE_SQL = `
-UPDATE events SET is_active = 0
-WHERE source = 'bevy'
+UPDATE events SET is_active = 0, last_seen = datetime('now')
+WHERE source = 'bevy' AND is_active = 1
  AND EXISTS (SELECT 1 FROM event_source_memberships m WHERE m.event_id = events.id)
  AND NOT EXISTS (SELECT 1 FROM event_source_memberships m WHERE m.event_id = events.id AND m.is_active = 1)
 `;

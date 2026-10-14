@@ -270,6 +270,23 @@ describe("syncEventsToD1 against a real D1", () => {
     expect(await activeBySlug()).toMatchObject({ "orphan-only": 0, "orphan-and-live": 1 });
   });
 
+  it("starts the grace window when a long-protected event finally retires", async () => {
+    await seed([["stale-owned", "GDG Bhubaneswar"]]);
+    const id = eventUrlKey(url("stale-owned"));
+    await db
+      .prepare("UPDATE events SET last_seen = datetime('now', '-60 days') WHERE id = ?")
+      .bind(id)
+      .run();
+    await db
+      .prepare("INSERT INTO event_source_memberships VALUES (?, 'gdg-bhubaneswar', 1)")
+      .bind(id)
+      .run();
+    serve({});
+    await syncEventsToD1(db);
+    expect(await activeBySlug()).toMatchObject({ "stale-owned": 0 });
+    expect((await readEventsFromD1(db)).map((event) => event.title)).toContain("stale-owned");
+  });
+
   it("keeps an event dated today (IST) when the past list is truncated", async () => {
     const todayIst = new Date(Date.now() + 330 * 60 * 1000).toISOString().slice(0, 10);
     serve({ [BBSR]: lists(list([ev("bbsr-next", "2099-01-01")]), list([], { count: 87 })) });
