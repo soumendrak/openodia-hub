@@ -363,7 +363,7 @@ describe("events.tsx", () => {
     expect(EventsRouteAny.options.validateSearch({ community: "x".repeat(81) })).toEqual({});
     routeHarness.search = { community: "unknown-id" };
     render(<EventsRouteAny.options.component />);
-    expect(screen.getByRole("status")).toHaveTextContent("not a known organizer");
+    expect(screen.getByText(/not a known organizer/)).toHaveAttribute("role", "status");
     expect(queryHarness.lastOptions?.enabled).toBe(false);
     expect(screen.getByText("No events matched.")).toBeInTheDocument();
   });
@@ -392,9 +392,13 @@ describe("events.tsx", () => {
       queryHarness.isPending = state === "pending";
       queryHarness.isError = state === "error";
       render(<EventsRouteAny.options.component />);
-      expect(screen.getByRole(state === "pending" ? "status" : "alert")).toHaveTextContent(
-        state === "pending" ? "Counts below cover loaded events" : "previously loaded events only",
-      );
+      expect(
+        screen.getByText(
+          state === "pending"
+            ? /Counts below cover loaded events/
+            : /previously loaded events only/,
+        ),
+      ).toHaveAttribute("role", state === "pending" ? "status" : "alert");
     },
   );
   it.each([
@@ -720,6 +724,28 @@ describe("events.tsx", () => {
     expect(screen.getAllByText(/Odia AI/i).length).toBeGreaterThan(0);
   });
 
+  it("keeps the event-count live region mounted through the first filter and clear", () => {
+    dataFixture.events = PAST_2020;
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
+    const community = screen.getByRole("combobox", { name: "Filter by organizer" });
+    fireEvent.change(community, { target: { value: "tfug-bbsr" } });
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent("2 events matched");
+    fireEvent.click(screen.getByRole("button", { name: /Clear Filters/i }));
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
+    const search = screen.getByRole("searchbox", { name: "Search events" });
+    fireEvent.change(search, { target: { value: "Alpha" } });
+    expect(region).toHaveTextContent("1 event matched");
+    fireEvent.change(search, { target: { value: "no-matching-event" } });
+    expect(region).toHaveTextContent("0 events matched");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toHaveAttribute("aria-atomic", "true");
+  });
+
   it("filters by search text, type, and community, and clears active filters", () => {
     dataFixture.events = PAST_2020;
     const Component = EventsRouteAny.options.component;
@@ -820,6 +846,25 @@ describe("events.tsx", () => {
 
     expect(document.getElementById("year-2020")).not.toBeNull();
   });
+
+  it.each([false, true])(
+    "bypasses animated timeline scrolling under reduced motion with Lenis=%s",
+    (withLenis) => {
+      dataFixture.events = PAST_2020;
+      infiniteHarness.data = { pages: [{ events: [FAR_FUTURE], total: 1 }] };
+      vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+      const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+      const lenisScrollTo = vi.fn();
+      if (withLenis) {
+        (window as unknown as { lenis?: unknown }).lenis = { scrollTo: lenisScrollTo };
+      }
+      const Component = EventsRouteAny.options.component;
+      render(<Component />);
+      clickTimelineNode("Upcoming");
+      expect(scrollTo).toHaveBeenCalledWith({ top: expect.any(Number), behavior: "instant" });
+      expect(lenisScrollTo).not.toHaveBeenCalled();
+    },
+  );
 
   it("navigates the timeline via lenis smooth-scroll, the native fallback, and releases the scroll lock on unmount", () => {
     dataFixture.events = PAST_2020;
