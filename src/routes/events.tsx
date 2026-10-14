@@ -778,7 +778,7 @@ function EventsPage() {
       )}
 
       {isFiltering && !unknownCommunity && isCompletePending && (
-        <p role="status" className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-sm text-muted-foreground">
           Loading the complete event collection… Counts below cover loaded events until this
           finishes.
         </p>

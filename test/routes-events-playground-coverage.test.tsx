@@ -366,13 +366,13 @@ describe("events.tsx", () => {
       queryHarness.isPending = state === "pending";
       queryHarness.isError = state === "error";
       render(<EventsRouteAny.options.component />);
-      expect(
-        screen.getByText(
-          state === "pending"
-            ? /Counts below cover loaded events/
-            : /previously loaded events only/,
-        ),
-      ).toHaveAttribute("role", state === "pending" ? "status" : "alert");
+      const notice = screen.getByText(
+        state === "pending" ? /Counts below cover loaded events/ : /previously loaded events only/,
+      );
+      // The pending notice is static text; the count region is the one live status.
+      if (state === "pending") expect(notice).not.toHaveAttribute("role");
+      else expect(notice).toHaveAttribute("role", "alert");
+      expect(screen.getAllByRole("status")).toHaveLength(1);
     },
   );
   it("searches canonical organizer names and aliases without title matches", () => {
