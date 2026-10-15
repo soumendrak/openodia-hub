@@ -149,7 +149,7 @@ export function itemListSchema(
  * (not-open, waitlist, closed, sold-out, unknown, and any later non-open
  * state) is suppressed. Unreviewed registration still allows an offer.
  */
-const OFFER_UNAVAILABLE_REGISTRATION = new Set(
+const OFFER_UNAVAILABLE_REGISTRATION = new Set<NonNullable<Event["registration"]>["state"]>(
   REGISTRATION_STATES.filter((state) => state !== "open"),
 );
 
@@ -238,7 +238,7 @@ export function eventListSchema(
                 "@type": "Offer",
                 price: 0,
                 priceCurrency: "INR",
-                url: e.url,
+                url: e.registration?.url ?? e.url,
                 availability: "https://schema.org/InStock",
               },
             }

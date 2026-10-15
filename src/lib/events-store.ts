@@ -1,4 +1,8 @@
-import { applyEventOverrides, mergeReviewedEvents } from "./event-lifecycle";
+import {
+  applyArchivedOrganizer,
+  applyEventOverrides,
+  mergeAliasReviewedEvents,
+} from "./event-lifecycle";
 import { events as curated } from "../data/events";
 import {
   refreshEventDestinationAliases,
@@ -185,12 +189,15 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     { rows: storedAliases, deferWrite: true },
   );
   if (aliasWrite) await aliasWrite.run();
-  const canonicalKey = (url: string) => eventUrlKey(storedEventDestination(url, aliases));
+  const destination = (url: string) => storedEventDestination(url, aliases);
+  const canonicalKey = (url: string) => eventUrlKey(destination(url));
+  const mergeOwned = (previous: Event, next: Event) =>
+    mergeAliasReviewedEvents(previous, next, curated, destination);
   let canonical = await dedupeEventsByResolvedUrl(
     live,
-    async (url) => storedEventDestination(url, aliases),
+    async (url) => destination(url),
     [],
-    mergeReviewedEvents,
+    mergeOwned,
     true,
   );
 
@@ -218,15 +225,18 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       ...reviewedHistory.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)),
       ...standaloneOverrides,
     ],
-    async (url) => storedEventDestination(url, aliases),
+    async (url) => destination(url),
     [],
-    mergeReviewedEvents,
+    mergeOwned,
     true,
   );
   const byUrl = new Map(previousCanonical.map((event) => [eventUrlKey(event.url), event]));
   canonical = canonical.map((event) => {
     const old = byUrl.get(eventUrlKey(event.url));
-    return applyEventOverrides(old ? mergeReviewedEvents(old, event) : event, EVENT_OVERRIDES);
+    const merged = old
+      ? mergeOwned(old, event)
+      : applyArchivedOrganizer(event, curated, destination);
+    return applyEventOverrides(merged, EVENT_OVERRIDES);
   });
   // Every checked-in correction is cached, including archive-only/removed URLs.
   // Reuses the snapshot's reviewed rows: no second read of the sidecar table.

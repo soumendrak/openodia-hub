@@ -4,7 +4,7 @@ import {
   applyEventOverrides,
   mergeReviewedCollections,
   resolveEventStatus,
-  mergeReviewedEvents,
+  mergeAliasReviewedEvents,
   sortEventCollection,
 } from "../event-lifecycle";
 import { dedupeEventsByResolvedUrl } from "../event-url";
@@ -46,11 +46,12 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<Eve
       console.warn("Event destination aliases unavailable; retaining source URLs");
     }
   }
+  const destination = (url: string) => storedEventDestination(url, aliases);
   collection = await dedupeEventsByResolvedUrl(
     collection,
-    async (url) => storedEventDestination(url, aliases),
+    async (url) => destination(url),
     [],
-    mergeReviewedEvents,
+    (previous, next) => mergeAliasReviewedEvents(previous, next, curated, destination),
     true,
   );
   if (db && databaseReadable) {

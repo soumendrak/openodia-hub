@@ -178,6 +178,29 @@ export function mergeReviewedEvents(previous: Event, next: Event): Event {
   return merged;
 }
 
+function copyOrganizer(owner: Pick<Event, "community" | "organizerId">, event: Event): Event {
+  return { ...event, community: owner.community, organizerId: owner.organizerId };
+}
+
+export function applyArchivedOrganizer(
+  event: Event,
+  archived: readonly Event[],
+  destination: (url: string) => string,
+): Event {
+  const key = eventUrlKey(destination(event.url));
+  const owner = archived.find((item) => eventUrlKey(destination(item.url)) === key);
+  return owner ? copyOrganizer(owner, event) : event;
+}
+
+export function mergeAliasReviewedEvents(
+  previous: Event,
+  next: Event,
+  archived: readonly Event[],
+  destination: (url: string) => string = (url) => url,
+): Event {
+  return applyArchivedOrganizer(mergeReviewedEvents(previous, next), archived, destination);
+}
+
 export function applyEventOverrides(event: Event, overrides: EventOverride[]): Event {
   const override = overrides.find((item) => eventUrlKey(item.url) === eventUrlKey(event.url));
   if (!override) return normalizeEventDates(event);
@@ -280,7 +303,9 @@ export function mergeReviewedCollections(
   overrides: EventOverride[],
   today: string,
 ): Event[] {
-  return mergeEventCollectionsByUrl(archived, live, mergeReviewedEvents).map((event) => {
+  return mergeEventCollectionsByUrl(archived, live, (previous, next) =>
+    copyOrganizer(previous, mergeReviewedEvents(previous, next)),
+  ).map((event) => {
     const reviewed = applyEventOverrides(event, overrides);
     return { ...reviewed, status: resolveEventStatus(reviewed, today) };
   });

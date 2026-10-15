@@ -95,7 +95,18 @@ describe("eventListSchema offers gating (lifecycle and registration)", () => {
   it("emits an InStock offer for a scheduled free future event", () => {
     expect(item({})).toHaveProperty("offers.availability", "https://schema.org/InStock");
     expect(item({ lifecycle: { state: "scheduled", ...evidence } })).toHaveProperty("offers");
-    expect(item({ registration: { state: "open" } })).toHaveProperty("offers");
+    expect(item({ registration: { state: "open" } })).toMatchObject({
+      offers: { url: base.url, availability: "https://schema.org/InStock" },
+    });
+  });
+
+  it("points an open free offer at the reviewed registration URL", () => {
+    const registrationUrl = "https://example.org/register";
+    expect(
+      item({ registration: { state: "open", url: registrationUrl, ...evidence } }),
+    ).toMatchObject({
+      offers: { url: registrationUrl, price: 0, availability: "https://schema.org/InStock" },
+    });
   });
 
   it.each(["cancelled", "postponed"] as const)(

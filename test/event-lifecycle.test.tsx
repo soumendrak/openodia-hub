@@ -8,9 +8,11 @@ import { dedupeEventsByResolvedUrl } from "../src/lib/event-url";
 import { eventListSchema } from "../src/lib/jsonld";
 import { filterNewEventsByUrl } from "../scripts/crawl-events.mjs";
 import {
+  applyArchivedOrganizer,
   applyEventOverrides,
   eventSchemaStatus,
   lifecycleLabel,
+  mergeAliasReviewedEvents,
   mergeReviewedCollections,
   mergeReviewedEvents,
   normalizeEventDates,
@@ -67,6 +69,80 @@ describe("event lifecycle remains separate from dates, registration and eligibil
     expect(
       applyEventOverrides(multiDay, [correction({ startDate: "2027-02-01" })]).endDate,
     ).toBeUndefined();
+  });
+  it("keeps the archived organizer when a live row repeats the checked-in URL", () => {
+    const archived = { ...event, organizerId: "gdg-bhubaneswar" as const };
+    const live = {
+      ...archived,
+      url: `${archived.url}?utm_source=cohost`,
+      community: "GDGoC KIIT",
+      organizerId: "gdgoc-kiit" as const,
+      title: "Cohost title",
+    };
+    const [merged] = mergeReviewedCollections([archived], [live], [], "2027-01-01");
+    expect(merged).toMatchObject({
+      title: "Cohost title",
+      community: archived.community,
+      organizerId: "gdg-bhubaneswar",
+    });
+    const unowned = { ...event, organizerId: undefined };
+    const claimed = mergeReviewedCollections(
+      [unowned],
+      [{ ...live, url: unowned.url }],
+      [],
+      "2027-01-01",
+    )[0];
+    expect(claimed.community).toBe(unowned.community);
+    expect(claimed.organizerId).toBeUndefined();
+  });
+  it("keeps curated ownership when an alias resolves a cohost row onto a checked-in event", async () => {
+    const archived = {
+      ...event,
+      url: "https://gdg.community.dev/events/details/checked-in-owner/",
+      organizerId: "gdg-bhubaneswar" as const,
+    };
+    const canonical = "https://gdg.community.dev/events/details/canonical-owner/";
+    const incoming = {
+      ...archived,
+      url: canonical,
+      community: "GDGoC KIIT",
+      organizerId: "gdgoc-kiit" as const,
+      title: "Canonical title",
+    };
+    const destination = (url: string) => (url === archived.url ? canonical : url);
+    for (const rows of [
+      [archived, incoming],
+      [incoming, archived],
+    ]) {
+      const merged = await dedupeEventsByResolvedUrl(
+        rows,
+        async (url) => destination(url),
+        [],
+        (previous, next) => mergeAliasReviewedEvents(previous, next, [archived], destination),
+        true,
+      );
+      expect(merged).toHaveLength(1);
+      expect(merged[0]).toMatchObject({
+        url: canonical,
+        title: "Canonical title",
+        community: archived.community,
+        organizerId: "gdg-bhubaneswar",
+      });
+    }
+    const untouched = mergeAliasReviewedEvents(
+      { ...incoming, title: "Previous title" },
+      incoming,
+      [],
+    );
+    expect(untouched).toMatchObject({
+      community: "GDGoC KIIT",
+      organizerId: "gdgoc-kiit",
+    });
+    expect(applyArchivedOrganizer(incoming, [archived], destination)).toMatchObject({
+      community: archived.community,
+      organizerId: "gdg-bhubaneswar",
+    });
+    expect(applyArchivedOrganizer(incoming, [], (url) => url)).toBe(incoming);
   });
   it("keeps known-event refresh manual while a reviewed correction survives the next crawl", () => {
     const checked = applyEventOverrides(event, [

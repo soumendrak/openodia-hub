@@ -97,7 +97,10 @@ group, or organisation; individuals are not listed as organizers.
   identity review in [docs/organizers.md](docs/organizers.md).
 - **Correction:** the event URL shown on OpenOdia, `Postponed or rescheduled`, fields `Dates`,
   "OpenOdia shows 2026-11-21; the page now says 2026-12-05", and the page that states the change.
-  A cancelled or duplicate listing is removed, because a listing has no cancelled status.
+  A cancellation stays in the archive with a reviewed `lifecycle` of `cancelled`; it is not
+  deleted. A duplicate listing is removed in favor of the canonical event URL. Maintainers record
+  lifecycle and registration corrections as overrides; see
+  [Reviewed lifecycle and registration corrections](#reviewed-lifecycle-and-registration-corrections).
 
 **How form answers become a record**
 
@@ -112,12 +115,18 @@ group, or organisation; individuals are not listed as organizers.
   (from the start date and its precision), and `status` (computed from the dates). For organizers:
   `id`, `collectionMode`, and each official link's `verificationNote`; your check date becomes
   `verifiedOn`.
-- **Registration URL, status, and fee** are not stored as `Event` fields. They inform the
-  attendance policy and its note, and keep a registration link from becoming the event URL.
+- **Registration and fee** stay separate from attendance. `registration` stores the reviewed
+  state (`unknown`, `not-open`, `open`, `closed`, `sold-out`, or `waitlist`). When the source
+  gives a registration page that is not the event page, that page is `registration.url`, never
+  `url`. Every state other than `unknown` also needs `evidenceUrl` and `verifiedAt` from the
+  organizer's page. Do not fold the registration URL or status into `attendance`. Set `free: true`
+  only when the source states there is no fee; otherwise omit `free`. Silence stays unknown, and
+  a listing still does not mean registration is open. Corrections to an existing event use the
+  override workflow below rather than editing these fields into the attendance note.
 
 **Identity and aliases.** The canonical event URL is the event's identity, and listings are
 deduplicated by it. A registration form, cohost alias, or tracking link is not the identity; put
-it in the separate registration URL field. An organizer's other names (abbreviations, earlier
+the registration form in `registration.url`. An organizer's other names (abbreviations, earlier
 names, "GDG on Campus ..." spellings) go in "Other names" and become reviewed `aliases`, never a
 second organizer.
 
@@ -145,8 +154,21 @@ _Example Event:_
     startDate: "2026-05-23",
     location: "Bhubaneswar, Odisha",
     description: "A community talk on building large language models for local languages.",
+    attendance: { policy: "public", note: "The source invites everyone to attend." },
+    registration: {
+      state: "open",
+      url: "https://example.com/register",
+      evidenceUrl: "https://example.com/event",
+      verifiedAt: "2026-05-01",
+    },
   }
 ```
+
+Omit `registration` when the source does not state it. `attendance` answers who may attend; it
+does not say whether registration is open or where to register. A cancellation, postponement, or
+registration correction for an event that is already listed belongs in `src/data/event-overrides.ts`,
+not in a second copy of the row. See
+[Reviewed lifecycle and registration corrections](#reviewed-lifecycle-and-registration-corrections).
 
 ### 2. How to add a brand new Community
 

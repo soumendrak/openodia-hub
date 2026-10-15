@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { persistReviewedEvent } from "../src/lib/event-reviewed-store";
+import { eventUrlKey } from "../src/lib/event-url";
 import { refreshEventDestinationAliases } from "../src/lib/event-destination-store";
 import { withEventDatabase } from "../src/lib/event-request-context";
 import { applyEventOverrides } from "../src/lib/event-lifecycle";
@@ -231,6 +232,71 @@ describe("the same persisted review reaches every server surface", () => {
     const data = await withEventDatabase(db, () => loadReviewedEventCollection(false));
     expect(data.partial).toBe(true);
     expect(data.events.find((row) => row.url === fixture.events[0].url)?.title).toBe("Curated");
+  });
+  it("keeps the curated organizer when a live row repeats the URL or an alias resolves onto it", async () => {
+    const repeated = "https://gdg.community.dev/events/details/repeated-owner/";
+    const alias = "https://gdg.community.dev/events/details/alias-owner-old/";
+    const canonical = "https://gdg.community.dev/events/details/alias-owner-new/";
+    const curatedRepeated: Event = {
+      ...event,
+      url: repeated,
+      title: "Repeated",
+      community: "GDG Bhubaneswar",
+      organizerId: "gdg-bhubaneswar",
+    };
+    const curatedAlias: Event = {
+      ...curatedRepeated,
+      url: alias,
+      title: "Alias source",
+    };
+    fixture.events = [curatedRepeated, curatedAlias];
+    await db
+      .prepare(
+        "INSERT INTO events(id,url,title,community,type,start_date,description) VALUES(?,?,?,?,?,?,?)",
+      )
+      .bind(repeated, repeated, "Live repeated", "GDGoC KIIT", event.type, event.startDate, "Live")
+      .run();
+    await db
+      .prepare(
+        "INSERT INTO events(id,url,title,community,type,start_date,description) VALUES(?,?,?,?,?,?,?)",
+      )
+      .bind(
+        canonical,
+        canonical,
+        "Live canonical",
+        "GDGoC KIIT",
+        event.type,
+        event.startDate,
+        "Live",
+      )
+      .run();
+    await db
+      .prepare("INSERT INTO event_destination_aliases VALUES(?,?,?)")
+      .bind(eventUrlKey(alias), canonical, "2026-10-12T00:00:00Z")
+      .run();
+    try {
+      const result = await withEventDatabase(db, () => loadReviewedEventCollection(false));
+      expect(result.events.find((row) => row.url === repeated)).toMatchObject({
+        title: "Live repeated",
+        community: "GDG Bhubaneswar",
+        organizerId: "gdg-bhubaneswar",
+      });
+      const canonicalRows = result.events.filter(
+        (row) => eventUrlKey(row.url) === eventUrlKey(canonical),
+      );
+      expect(canonicalRows).toHaveLength(1);
+      expect(canonicalRows[0]).toMatchObject({
+        community: "GDG Bhubaneswar",
+        organizerId: "gdg-bhubaneswar",
+      });
+      expect(result.events.some((row) => eventUrlKey(row.url) === eventUrlKey(alias))).toBe(false);
+    } finally {
+      await db.prepare("DELETE FROM events WHERE id IN (?, ?)").bind(repeated, canonical).run();
+      await db
+        .prepare("DELETE FROM event_destination_aliases WHERE alias_url = ?")
+        .bind(eventUrlKey(alias))
+        .run();
+    }
   });
   it("does not reuse a memoized snapshot across request databases", async () => {
     const load = createSearchSnapshotLoader(emptyLoaders, "test-reviewed-request-database");
