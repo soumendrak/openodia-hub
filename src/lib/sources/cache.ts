@@ -104,6 +104,31 @@ async function writeStore<T>(key: string, entry: Entry<T>, ttlMs: number): Promi
 }
 
 /**
+ * KV write budget. The free tier allows ~1,000 writes/day per account, and
+ * every isolate in every colo used to write its own refresh of every key it
+ * served past the TTL — unconditionally, even when the value had not changed
+ * and even when another isolate had already refreshed it. With ~350 keys
+ * (incl. per-resource / per-preview pages) that hit the cap daily.
+ *
+ * Now a refresh (a) adopts a fresh copy another isolate already stored,
+ * without loading or writing, and (b) only writes when the value changed and
+ * the stored copy is at least MIN_WRITE_INTERVAL_MS old, or when an unchanged
+ * copy needs re-writing before its KV expiry. Sub-hour TTLs still refresh the
+ * in-isolate memo on schedule; only the KV write is rate-limited.
+ */
+export const MIN_WRITE_INTERVAL_MS = 60 * 60 * 1000;
+/** Must stay below STALE_WINDOW_MS so an unchanged copy never expires. */
+export const REWRITE_UNCHANGED_MS = 20 * 60 * 60 * 1000;
+
+function shouldWrite<T>(stored: Entry<T> | undefined, value: T, now: number): boolean {
+  if (!stored) return true;
+  const age = now - stored.at;
+  // Values are JSON by construction — writeStore serializes them the same way.
+  if (JSON.stringify(stored.value) === JSON.stringify(value)) return age >= REWRITE_UNCHANGED_MS;
+  return age >= MIN_WRITE_INTERVAL_MS;
+}
+
+/**
  * Runs `load` at most once per key at a time and publishes the result to both
  * layers. A failing loader is deliberately not cached — see loadRepos, which
  * throws rather than let "GitHub throttled us" be stored as "there are no
@@ -114,9 +139,18 @@ function refresh<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise
   if (existing) return existing as Promise<T>;
 
   const run = (async () => {
+    // Another isolate may already have refreshed this key: adopt its copy
+    // instead of re-running the fan-out and writing a duplicate.
+    const stored = store ? await readStore<T>(key) : undefined;
+    if (stored && Date.now() - stored.at < ttlMs) {
+      memo.set(key, stored);
+      return stored.value;
+    }
     const value = await load();
-    const entry: Entry<T> = { at: Date.now(), value };
+    const now = Date.now();
+    const entry: Entry<T> = { at: now, value };
     memo.set(key, entry);
+    if (!store || !shouldWrite(stored, value, now)) return value;
     // The caller is already waiting on the fan-out; don't make it wait on the
     // write too. waitUntil keeps it alive past the response where there is a
     // ctx to hang it on, and the cron path has none, so it awaits.

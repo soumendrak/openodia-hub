@@ -7,6 +7,8 @@ async function freshCache() {
 }
 
 const TTL = 1000;
+const MIN_WRITE_INTERVAL_MS = 60 * 60 * 1000;
+const REWRITE_UNCHANGED_MS = 20 * 60 * 60 * 1000;
 
 describe("cachedJson", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -81,6 +83,7 @@ describe("cachedJson", () => {
       const mod = await freshCache();
       const waitUntil = vi.fn((p: Promise<unknown>) => p);
       mod.setExecutionContext({ waitUntil });
+      mod.setCacheStore({ get: async () => null, put: async () => {} });
 
       const load = vi.fn(async () => "v1");
       expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
@@ -162,7 +165,7 @@ describe("cachedJson", () => {
       mod.setCacheStore(kv);
 
       await mod.cachedJson("k", TTL, async () => "v1");
-      vi.advanceTimersByTime(TTL + 1);
+      vi.advanceTimersByTime(MIN_WRITE_INTERVAL_MS + 1);
       await mod.cachedJson("k", TTL, async () => "v2"); // stale -> refresh behind
       await vi.waitFor(() => expect(kv.put).toHaveBeenCalledTimes(2));
 
@@ -206,6 +209,62 @@ describe("cachedJson", () => {
       expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
       expect(load).toHaveBeenCalledTimes(1);
       expect(mod.lastCacheLayer()).toBe("MISS");
+    });
+
+    describe("write budget", () => {
+      it("adopts a copy another isolate refreshed instead of loading and writing", async () => {
+        const kv = fakeKv();
+        const a = await freshCache();
+        a.setCacheStore(kv);
+        await a.cachedJson("k", TTL, async () => "v1");
+        vi.advanceTimersByTime(TTL + 1);
+        // Another isolate refreshes the key in the shared store.
+        kv.data.set("cache:v3:k", JSON.stringify({ at: Date.now(), value: "v2" }));
+        const load = vi.fn(async () => "v3");
+        await a.cachedJson("k", TTL, load); // stale memo -> refresh
+        await vi.runAllTimersAsync();
+        expect(load).not.toHaveBeenCalled();
+        expect(kv.put).toHaveBeenCalledTimes(1);
+        expect(await a.cachedJson("k", TTL, load)).toBe("v2");
+      });
+
+      it("does not rewrite an unchanged value until it nears expiry", async () => {
+        const kv = fakeKv();
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        const load = vi.fn(async () => "same");
+        await mod.cachedJson("k", TTL, load);
+        for (let i = 0; i < 10; i++) {
+          vi.advanceTimersByTime(MIN_WRITE_INTERVAL_MS + 1);
+          await mod.cachedJson("k", TTL, load);
+          await vi.runAllTimersAsync();
+        }
+        expect(load).toHaveBeenCalledTimes(11);
+        expect(kv.put).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(REWRITE_UNCHANGED_MS);
+        await mod.cachedJson("k", TTL, load);
+        await vi.runAllTimersAsync();
+        expect(kv.put).toHaveBeenCalledTimes(2);
+      });
+
+      it("writes a changed value at most once per interval", async () => {
+        const kv = fakeKv();
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        let n = 0;
+        const load = async () => `v${++n}`;
+        await mod.cachedJson("k", TTL, load);
+        for (let i = 0; i < 5; i++) {
+          vi.advanceTimersByTime(TTL + 1);
+          await mod.cachedJson("k", TTL, load);
+          await vi.runAllTimersAsync();
+        }
+        expect(kv.put).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(MIN_WRITE_INTERVAL_MS);
+        await mod.cachedJson("k", TTL, load);
+        await vi.runAllTimersAsync();
+        expect(kv.put).toHaveBeenCalledTimes(2);
+      });
     });
   });
 });
