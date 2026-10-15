@@ -112,6 +112,83 @@ describe("persisted event destinations", () => {
     expect(ordered[0]).toBe(alias);
   });
 
+  it("rechecks self-destinations for a later rename and skips aliases that already point elsewhere", async () => {
+    const renamed = "https://gdg.community.dev/events/details/later-renamed";
+    const canonical = "https://gdg.community.dev/events/details/renamed-canonical";
+    const older = "https://gdg.community.dev/events/details/older-self";
+    const newer = "https://gdg.community.dev/events/details/newer-self";
+    const moved = "https://gdg.community.dev/events/details/already-moved";
+    const movedTo = "https://gdg.community.dev/events/details/already-moved-to";
+    const unseen = "https://gdg.community.dev/events/details/unseen-name";
+    const insert = db.prepare("INSERT INTO event_destination_aliases VALUES(?,?,?)");
+    await insert.bind(older, older, "2026-01-01T00:00:00.000Z").run();
+    await insert.bind(newer, newer, "2026-06-01T00:00:00.000Z").run();
+    await insert.bind(moved, movedTo, "2020-01-01T00:00:00.000Z").run();
+    await insert.bind(renamed, renamed, "2026-03-01T00:00:00.000Z").run();
+    const requested: string[] = [];
+    const fetcher = vi.fn(async (input: string) => {
+      requested.push(String(input));
+      return String(input) === renamed
+        ? new Response(null, { status: 302, headers: { location: canonical } })
+        : new Response(null, { status: 200 });
+    });
+    const events = [
+      { url: unseen },
+      { url: older },
+      { url: newer },
+      { url: moved },
+      { url: renamed },
+    ];
+    const unseenPass = await refreshEventDestinationAliases(
+      db,
+      events,
+      fetcher as typeof fetch,
+      [],
+      {
+        skipConfirmed: true,
+        requestBudget: 1,
+      },
+    );
+    expect(unseenPass.requests).toBe(1);
+    expect(requested).toEqual([unseen]);
+
+    requested.length = 0;
+    const oldest = await refreshEventDestinationAliases(
+      db,
+      events.filter((event) => event.url !== unseen),
+      fetcher as typeof fetch,
+      [],
+      { skipConfirmed: true, requestBudget: 1 },
+    );
+    expect(oldest.requests).toBe(1);
+    expect(requested).toEqual([older]);
+    expect((await readEventDestinationAliases(db)).get(moved)).toBe(movedTo);
+
+    requested.length = 0;
+    const discovered = await refreshEventDestinationAliases(
+      db,
+      [{ url: renamed }, { url: moved }],
+      fetcher as typeof fetch,
+      [],
+      { skipConfirmed: true, requestBudget: 2 },
+    );
+    expect(discovered).toMatchObject({ requests: 2, checked: 1 });
+    expect(requested).toEqual([renamed, canonical]);
+    expect((await readEventDestinationAliases(db)).get(renamed)).toBe(canonical);
+    expect((await readEventDestinationAliases(db)).get(moved)).toBe(movedTo);
+
+    requested.length = 0;
+    const settled = await refreshEventDestinationAliases(
+      db,
+      [{ url: renamed }, { url: moved }],
+      fetcher as typeof fetch,
+      [],
+      { skipConfirmed: true, requestBudget: 2 },
+    );
+    expect(settled).toMatchObject({ requests: 0, checked: 0 });
+    expect(requested).toEqual([]);
+  });
+
   it("follows recorded chains without networking, rejects cycles and ignores unsafe persisted destinations", async () => {
     const a = "https://gdg.community.dev/events/details/a";
     const b = "https://gdg.community.dev/events/details/b";

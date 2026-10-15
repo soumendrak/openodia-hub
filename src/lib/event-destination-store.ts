@@ -23,6 +23,12 @@ function admittedAliases(rows: readonly AliasRow[]): Map<string, string> {
   );
 }
 
+function pointsElsewhere(aliases: ReadonlyMap<string, string>, url: string): boolean {
+  const key = eventUrlKey(url);
+  const destination = aliases.get(key);
+  return destination !== undefined && eventUrlKey(destination) !== key;
+}
+
 /** A persisted HTTP observation is an alias, never a human-reviewed lifecycle fact. */
 export async function readEventDestinationAliases(db: D1Like): Promise<Map<string, string>> {
   return admittedAliases((await db.prepare(SELECT_ALIASES).all<AliasRow>()).results);
@@ -74,7 +80,7 @@ export async function refreshEventDestinationAliases(
   const urls = new Map(
     events
       .filter((event) => isGdgEventUrl(event.url))
-      .filter((event) => !options.skipConfirmed || !aliases.has(eventUrlKey(event.url)))
+      .filter((event) => !options.skipConfirmed || !pointsElsewhere(aliases, event.url))
       .map((event) => [eventUrlKey(event.url), event.url]),
   );
   const selected = [...urls]
