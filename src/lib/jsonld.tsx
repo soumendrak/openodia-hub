@@ -1,5 +1,5 @@
 import { eventSchemaStatus } from "./event-lifecycle";
-import type { Event } from "../data/events/types";
+import { REGISTRATION_STATES, type Event } from "../data/events/types";
 import React from "react";
 
 /**
@@ -143,14 +143,27 @@ export function itemListSchema(
   };
 }
 
-/** Offers require a scheduled lifecycle and registration that is not closed or sold out. */
+/**
+ * Reviewed registration states that must not advertise tickets as InStock.
+ * Only `open` is effectively available. Every other REGISTRATION_STATES value
+ * (not-open, waitlist, closed, sold-out, unknown, and any later non-open
+ * state) is suppressed. Unreviewed registration still allows an offer.
+ */
+const OFFER_UNAVAILABLE_REGISTRATION = new Set(
+  REGISTRATION_STATES.filter((state) => state !== "open"),
+);
+
+/** Free InStock offers require a scheduled lifecycle and open (or unreviewed) registration. */
 export function offerAvailable(e: {
   lifecycle?: Event["lifecycle"];
   registration?: Event["registration"];
 }): boolean {
   const lifecycle = e.lifecycle?.state ?? "scheduled";
   const registration = e.registration?.state;
-  return lifecycle === "scheduled" && registration !== "closed" && registration !== "sold-out";
+  return (
+    lifecycle === "scheduled" &&
+    (registration === undefined || !OFFER_UNAVAILABLE_REGISTRATION.has(registration))
+  );
 }
 
 /**
@@ -169,7 +182,7 @@ export function eventListSchema(
     organizer?: string;
     lifecycle?: Event["lifecycle"];
     previousStartDate?: string;
-    /** Reviewed registration state; closed or sold-out suppresses offers. */
+    /** Reviewed registration state; only `open` (or omitted) may emit an InStock offer. */
     registration?: Event["registration"];
     /** Organizer's reviewed official site. Omitted when the registry has none. */
     organizerUrl?: string;
@@ -216,10 +229,9 @@ export function eventListSchema(
             }
           : {}),
         ...(e.free === undefined ? {} : { isAccessibleForFree: e.free }),
-        // A free offer is only meaningful while admission can still be had;
-        // an ended event must not advertise tickets as InStock.
-        // Postponed/cancelled events and closed/sold-out registration never
-        // advertise an InStock offer either.
+        // A free InStock offer is emitted only while the event is still
+        // upcoming or in progress, its lifecycle is scheduled, and
+        // registration is unreviewed or open.
         ...(e.free && (e.endDate ?? e.startDate) >= today && offerAvailable(e)
           ? {
               offers: {

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { REGISTRATION_STATES } from "../src/data/events/types";
 import { eventListSchema, serializeJsonLd } from "../src/lib/jsonld";
 
 describe("serializeJsonLd", () => {
@@ -106,7 +107,12 @@ describe("eventListSchema offers gating (lifecycle and registration)", () => {
     },
   );
 
-  it.each(["closed", "sold-out"] as const)("omits offers when registration is %s", (state) => {
-    expect(item({ registration: { state } })).not.toHaveProperty("offers");
-  });
+  it.each(REGISTRATION_STATES.filter((state) => state !== "open"))(
+    "omits offers when registration is %s",
+    (state) => {
+      const out = item({ registration: { state } });
+      expect(out).not.toHaveProperty("offers");
+      expect(out.isAccessibleForFree).toBe(true);
+    },
+  );
 });
