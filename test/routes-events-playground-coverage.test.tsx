@@ -236,6 +236,20 @@ afterEach(() => {
 // src/routes/events.tsx
 // ---------------------------------------------------------------------------
 
+// Every element a screen reader treats as a live region, de-duplicated: the
+// implicitly live roles (status, alert, log, marquee, timer) and any explicit
+// aria-live other than "off".
+function liveRegions(root: ParentNode = document) {
+  return Array.from(
+    new Set([
+      ...root.querySelectorAll(
+        '[role="status"], [role="alert"], [role="log"], [role="marquee"], [role="timer"]',
+      ),
+      ...root.querySelectorAll('[aria-live]:not([aria-live="off"])'),
+    ]),
+  );
+}
+
 describe("events.tsx", () => {
   it.each([{ year: "2020" }, { sort: "oldest" as const }, { q: "Alpha" }])(
     "warns when the active full-corpus query fails after paginated data succeeds: %j",
@@ -248,7 +262,7 @@ describe("events.tsx", () => {
       render(<Component />);
       expect(queryHarness.lastOptions?.enabled).toBe(true);
       expect(screen.getByText(/Known events remain listed/)).not.toHaveAttribute("role");
-      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(liveRegions()).toHaveLength(1);
       expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
     },
   );
@@ -269,6 +283,7 @@ describe("events.tsx", () => {
     const warning = screen.getByText(/Known events remain listed/);
     expect(warning).toHaveTextContent("does not confirm registration");
     expect(warning).not.toHaveAttribute("role");
+    expect(liveRegions()).toHaveLength(1);
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
   });
 
@@ -366,7 +381,7 @@ describe("events.tsx", () => {
     routeHarness.search = { community: "unknown-id" };
     render(<EventsRouteAny.options.component />);
     expect(screen.getByText(/not a known organizer/)).not.toHaveAttribute("role");
-    expect(screen.getAllByRole("status")).toHaveLength(1);
+    expect(liveRegions()).toHaveLength(1);
     expect(queryHarness.lastOptions?.enabled).toBe(false);
     expect(screen.getByText("No events matched.")).toBeInTheDocument();
   });
@@ -395,16 +410,14 @@ describe("events.tsx", () => {
       queryHarness.isPending = state === "pending";
       queryHarness.isError = state === "error";
       render(<EventsRouteAny.options.component />);
-      expect(
-        screen.getByText(
-          state === "pending"
-            ? /Counts below cover loaded events/
-            : /previously loaded events only/,
-        ),
-      ).not.toHaveAttribute("role");
-      // Only the count region announces; the scope caveat is static context.
-      expect(screen.getAllByRole("status")).toHaveLength(1);
-      expect(screen.queryByRole("alert")).toBeNull();
+      const notice = screen.getByText(
+        state === "pending" ? /Counts below cover loaded events/ : /previously loaded events only/,
+      );
+      // Pending/error scope copy is static context; the count region is the one live region.
+      expect(notice).not.toHaveAttribute("role");
+      const live = liveRegions();
+      expect(live).toHaveLength(1);
+      expect(live[0]).toHaveAttribute("aria-live", "polite");
     },
   );
   it.each([
@@ -734,13 +747,16 @@ describe("events.tsx", () => {
     dataFixture.events = PAST_2020;
     const Component = EventsRouteAny.options.component;
     render(<Component />);
+    expect(liveRegions()).toHaveLength(1);
     const region = screen.getByRole("status");
     expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
     const community = screen.getByRole("combobox", { name: "Filter by organizer" });
     fireEvent.change(community, { target: { value: "tfug-bbsr" } });
+    expect(liveRegions()).toHaveLength(1);
     expect(screen.getByRole("status")).toBe(region);
     expect(region).toHaveTextContent("2 events matched");
     fireEvent.click(screen.getByRole("button", { name: /Clear Filters/i }));
+    expect(liveRegions()).toHaveLength(1);
     expect(screen.getByRole("status")).toBe(region);
     expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
     const search = screen.getByRole("searchbox", { name: "Search events" });
@@ -750,6 +766,7 @@ describe("events.tsx", () => {
     expect(region).toHaveTextContent("0 events matched");
     expect(region).toHaveAttribute("aria-live", "polite");
     expect(region).toHaveAttribute("aria-atomic", "true");
+    expect(liveRegions()).toEqual([region]);
   });
 
   it("filters by search text, type, and community, and clears active filters", () => {
