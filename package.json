@@ -17,6 +17,8 @@
     "prepare": "bun run hooks:install",
     "test:e2e": "vite build && playwright test",
     "test:watch": "vitest",
+    "check:locales": "bun scripts/check-locale-coverage.ts",
+    "test:bilingual": "node test/e2e/bilingual.mjs",
     "test:a11y": "vite build && playwright test --config playwright.accessibility.config.ts"
   },
   "dependencies": {
@@ -93,6 +95,7 @@
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.0.4",
     "@vitest/coverage-v8": "4.1.5",
+    "axe-core": "4.13.0",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",

@@ -8,7 +8,13 @@ import type { Event } from "../src/data/events/types";
 // Shared mock state
 // ---------------------------------------------------------------------------
 
-type LiveEventsPage = { events: Event[]; total: number; nextCursor?: string };
+type LiveEventsPage = {
+  events: Event[];
+  total: number;
+  nextCursor?: string;
+  partial?: boolean;
+  years?: string[];
+};
 type InfiniteQueryOptions = {
   queryFn: (args: { pageParam: number }) => Promise<LiveEventsPage>;
   getNextPageParam: (lastPage: LiveEventsPage, allPages: unknown[]) => number | undefined;
@@ -21,11 +27,18 @@ const infiniteHarness = vi.hoisted(() => ({
   fetchNextPage: vi.fn(),
   hasNextPage: false,
   isFetchingNextPage: false,
+  isFetchNextPageError: false,
   lastOptions: undefined as InfiniteQueryOptions | undefined,
 }));
 
 const routeHarness = vi.hoisted(() => ({
-  search: {} as { q?: string; community?: string; type?: Event["type"] },
+  search: {} as {
+    q?: string;
+    year?: string;
+    sort?: "oldest";
+    community?: string;
+    type?: Event["type"];
+  },
   listeners: new Set<() => void>(),
   navigate: vi.fn(),
 }));
@@ -193,6 +206,7 @@ beforeEach(() => {
   infiniteHarness.data = undefined;
   infiniteHarness.hasNextPage = false;
   infiniteHarness.isFetchingNextPage = false;
+  infiniteHarness.isFetchNextPageError = false;
   infiniteHarness.lastOptions = undefined;
   infiniteHarness.fetchNextPage.mockClear();
   routeHarness.search = {};
@@ -223,6 +237,120 @@ afterEach(() => {
 // ---------------------------------------------------------------------------
 
 describe("events.tsx", () => {
+  it.each([{ year: "2020" }, { sort: "oldest" as const }, { q: "Alpha" }])(
+    "warns when the active full-corpus query fails after paginated data succeeds: %j",
+    (search) => {
+      dataFixture.events = PAST_2020;
+      routeHarness.search = search;
+      infiniteHarness.data = { pages: [{ events: [], total: 0, partial: false }] };
+      queryHarness.isError = true;
+      const Component = EventsRouteAny.options.component;
+      render(<Component />);
+      expect(queryHarness.lastOptions?.enabled).toBe(true);
+      expect(screen.getByText(/Known events remain listed/)).not.toHaveAttribute("role");
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
+    },
+  );
+  it("does not reuse a disabled full-query error after archive filters clear", () => {
+    dataFixture.events = PAST_2020;
+    queryHarness.isError = true;
+    infiniteHarness.data = { pages: [{ events: [], total: 0, partial: false }] };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    expect(screen.queryByText(/Known events remain listed/)).not.toBeInTheDocument();
+  });
+  it("shows partial-source warnings while retaining checked-in events", () => {
+    dataFixture.events = PAST_2020;
+    infiniteHarness.data = { pages: [{ events: [], total: 0, partial: true }] };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    const warning = screen.getByText(/Known events remain listed/);
+    expect(warning).toHaveTextContent("does not confirm registration");
+    expect(warning).not.toHaveAttribute("role");
+    expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
+  });
+
+  it("restores canonical year/sort filters, searches all pages, and clears year state", () => {
+    dataFixture.events = [
+      ...PAST_2020,
+      {
+        ...PAST_2020[0],
+        year: "2021",
+        title: "Newer event",
+        url: "https://example.com/newer",
+        startDate: "2021-01-01",
+      },
+    ];
+    routeHarness.search = { year: "2020", sort: "oldest" };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByLabelText("Archive year")).toHaveValue("2020");
+    expect(screen.getByLabelText("Event sort")).toHaveValue("oldest");
+    expect(screen.queryByText("Newer event")).not.toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Archive year"), { target: { value: "2021" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { year: "2021", sort: "oldest" },
+    });
+    fireEvent.change(screen.getByLabelText("Event sort"), { target: { value: "newest" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { year: "2021", sort: undefined },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Clear Filters/ }));
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { sort: undefined },
+      replace: true,
+    });
+  });
+
+  it("keeps an empty archive-year selection visible and explains the result", () => {
+    routeHarness.search = { year: "1999" };
+    dataFixture.events = PAST_2020;
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByLabelText("Archive year")).toHaveValue("1999");
+    expect(screen.getByText("No events matched.")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha Talk")).not.toBeInTheDocument();
+  });
+
+  it("sorts the canonical archive chronologically across years and dates", () => {
+    routeHarness.search = { sort: "oldest" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        year: "2021",
+        date: "1 Jan 2021",
+        startDate: "2021-01-01",
+        title: "Later year",
+        url: "https://example.com/later-year",
+      },
+      {
+        ...PAST_2020[0],
+        startDate: "2020-12-01",
+        title: "Later date",
+        url: "https://example.com/later-date",
+      },
+      {
+        ...PAST_2020[0],
+        startDate: "2020-01-01",
+        title: "Earlier date",
+        url: "https://example.com/earlier-date",
+      },
+    ];
+    const Component = EventsRouteAny.options.component;
+    const { container } = render(<Component />);
+    const titles = [...container.querySelectorAll("h3 a")].map((element) => element.textContent);
+    expect(titles).toEqual(["Earlier date", "Later date", "Later year"]);
+    fireEvent.change(screen.getByLabelText("Event sort"), { target: { value: "oldest" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({ search: { sort: "oldest" } });
+    fireEvent.change(screen.getByLabelText("Archive year"), { target: { value: "" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { sort: "oldest", year: undefined },
+    });
+  });
+
   it("validates all event filter parameters and preserves honest invalid-ID states", () => {
     expect(
       EventsRouteAny.options.validateSearch({
@@ -237,7 +365,8 @@ describe("events.tsx", () => {
     expect(EventsRouteAny.options.validateSearch({ community: "x".repeat(81) })).toEqual({});
     routeHarness.search = { community: "unknown-id" };
     render(<EventsRouteAny.options.component />);
-    expect(screen.getByText(/not a known organizer/)).toHaveAttribute("role", "status");
+    expect(screen.getByText(/not a known organizer/)).not.toHaveAttribute("role");
+    expect(screen.getAllByRole("status")).toHaveLength(1);
     expect(queryHarness.lastOptions?.enabled).toBe(false);
     expect(screen.getByText("No events matched.")).toBeInTheDocument();
   });
@@ -272,7 +401,60 @@ describe("events.tsx", () => {
             ? /Counts below cover loaded events/
             : /previously loaded events only/,
         ),
-      ).toHaveAttribute("role", state === "pending" ? "status" : "alert");
+      ).not.toHaveAttribute("role");
+      // Only the count region announces; the scope caveat is static context.
+      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(screen.queryByRole("alert")).toBeNull();
+    },
+  );
+  it.each([
+    ["skips", PAST_2020, 1, false],
+    ["does not skip", [], 0, false],
+    ["does not retry after a failed automatic request for", PAST_2020, 0, true],
+  ])("%s a Load More page that only repeats bundled events", (_, page2, calls, failed) => {
+    dataFixture.events = PAST_2020;
+    infiniteHarness.hasNextPage = true;
+    infiniteHarness.isFetchNextPageError = failed;
+    infiniteHarness.data = {
+      pages: [
+        { events: [], total: 40, nextCursor: "2" },
+        { events: page2.length ? page2 : [FAR_FUTURE], total: 40, nextCursor: "3" },
+      ],
+    };
+    render(<EventsRouteAny.options.component />);
+    expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(calls);
+  });
+  it.each([
+    ["2026-10-14T18:29:59Z", 1],
+    ["2026-10-14T18:30:00Z", 0],
+  ])("ends a same-day event at IST midnight (now %s)", (now, live) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now));
+    dataFixture.events = [
+      { ...PAST_2020[0], year: "2026", startDate: "2026-10-14", endDate: "2026-10-14" },
+    ];
+    render(<EventsRouteAny.options.component />);
+    expect(screen.queryAllByText("Live")).toHaveLength(live);
+    vi.useRealTimers();
+  });
+  it("offers archive years from the whole corpus before their pages are loaded", () => {
+    infiniteHarness.data = { pages: [{ events: [], total: 40, nextCursor: "2", years: ["2017"] }] };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByRole("option", { name: "2017" })).toBeInTheDocument();
+  });
+  it.each([false, true])(
+    "keeps pagination reachable when the complete corpus fails (fetching: %s)",
+    (fetching) => {
+      routeHarness.search = { sort: "oldest" };
+      queryHarness.isError = true;
+      infiniteHarness.hasNextPage = true;
+      infiniteHarness.isFetchingNextPage = fetching;
+      render(<EventsRouteAny.options.component />);
+      const button = screen.getByRole("button", {
+        name: fetching ? "Loading…" : "Load more events",
+      });
+      fireEvent.click(button);
+      expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(fetching ? 0 : 1);
     },
   );
   it("searches canonical organizer names and aliases without title matches", () => {
@@ -585,7 +767,8 @@ describe("events.tsx", () => {
     fireEvent.click(clearQueryButton);
     expect(searchInput).toHaveValue("");
 
-    const [communitySelect, typeSelect] = screen.getAllByRole("combobox");
+    const communitySelect = screen.getByRole("combobox", { name: "Filter by organizer" });
+    const typeSelect = screen.getByRole("combobox", { name: "Filter by event type" });
 
     fireEvent.change(communitySelect, { target: { value: "tfug-bbsr" } });
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
@@ -902,6 +1085,7 @@ describe("events-feed.ts", () => {
   });
 
   it("falls back to the UTC date string when Intl formatting throws while computing today's date", async () => {
+    dataFixture.events = PAST_2020;
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
     const intlSpy = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(() => {
       throw new Error("Intl not available");
@@ -930,20 +1114,7 @@ describe("events-feed.ts", () => {
 // ---------------------------------------------------------------------------
 
 describe("api/events.ts", () => {
-  it("returns an empty date string when Date construction throws", async () => {
-    const RealDate = globalThis.Date;
-    class ThrowingDate extends RealDate {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      constructor(...args: any[]) {
-        if (args.length === 1 && args[0] === "BOOMDATE") {
-          throw new RangeError("simulated invalid date");
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        super(...(args as any));
-      }
-    }
-    vi.stubGlobal("Date", ThrowingDate);
-
+  it("rejects an invalid source date instead of inventing calendar metadata", async () => {
     const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
         pageProps: {
@@ -969,10 +1140,7 @@ describe("api/events.ts", () => {
       .mockResolvedValue({ ok: true, status: 200, text: async () => html } as Response);
 
     const events = await fetchChapterEvents("Community", "chapter");
-    expect(events).toHaveLength(1);
-    expect(events[0]?.date).toBe("");
-
-    vi.unstubAllGlobals();
+    expect(events).toEqual([]);
   });
 
   it("returns no events when prerenderData is missing from a hydrated page", async () => {
@@ -987,6 +1155,39 @@ describe("api/events.ts", () => {
     expect(events).toEqual([]);
   });
 
+  it("keeps RSS retryable on total failure without retained events, while successful-empty stays available", async () => {
+    dataFixture.events = [];
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
+    const failed = await eventsFeedGet();
+    expect(failed.status).toBe(503);
+    expect(failed.headers.get("X-OpenOdia-Partial")).toBe("true");
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { prerenderData: { upcomingEvents: { results: [], count: 0 }, pastEvents: { results: [], count: 0 } } } } })}</script>`,
+    } as Response);
+    const empty = await eventsFeedGet();
+    expect(empty.status).toBe(200);
+    expect(empty.headers.get("X-OpenOdia-Partial")).toBe("false");
+    const api = await apiEventsGet(new Request("https://openodia.com/api/events"));
+    expect(api.status).toBe(200);
+    expect((await api.json()).partial).toBe(false);
+  });
+
+  it("returns a retryable unavailable response on total failure without retained events", async () => {
+    dataFixture.events = [];
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
+    const response = await apiEventsGet(new Request("https://openodia.com/api/events"));
+    expect(response.status).toBe(503);
+    const data = await response.json();
+    expect(data.events).toEqual([]);
+    expect(data.partial).toBe(true);
+    expect(data.sources.every((source: { outcome: string }) => source.outcome === "failed")).toBe(
+      true,
+    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("returns 500 when dedupe throws during live event ingestion", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -996,15 +1197,16 @@ describe("api/events.ts", () => {
 
     const response = await apiEventsGet(new Request("https://openodia.com/api/events"));
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ events: [] });
-    expect(consoleErrorSpy).toHaveBeenCalledWith("Live events ingestion error:", expect.any(Error));
+    expect(await response.json()).toEqual({ events: [], partial: true, sources: [] });
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Live events ingestion error");
   });
 
-  it("falls back to empty upcoming results and a default event type when Bevy data omits them", async () => {
+  it("falls back to a default event type when Bevy data omits it", async () => {
     const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
         pageProps: {
           prerenderData: {
+            upcomingEvents: { results: [] },
             pastEvents: {
               results: [
                 {
