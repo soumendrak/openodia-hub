@@ -113,10 +113,18 @@ async function writeStore<T>(key: string, entry: Entry<T>, ttlMs: number): Promi
  * Now a refresh (a) adopts a fresh copy another isolate already stored,
  * without loading or writing, and (b) only writes when the value changed and
  * the stored copy is at least MIN_WRITE_INTERVAL_MS old, or when an unchanged
- * copy needs re-writing before its KV expiry. Sub-hour TTLs still refresh the
+ * copy needs re-writing before its KV expiry. Short TTLs still refresh the
  * in-isolate memo on schedule; only the KV write is rate-limited.
+ *
+ * Per-item keys (resource:*, preview:*) are unbounded in number, so they stay
+ * memo-only: a cold isolate pays one upstream call for them, not a fan-out. That leaves ~11 persisted keys, so
+ * even a cross-colo race that lets every refreshing isolate write stays
+ * bounded at keys x isolates x 4/day rather than scaling with page count.
  */
-export const MIN_WRITE_INTERVAL_MS = 60 * 60 * 1000;
+export const MIN_WRITE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+/** Key prefixes kept out of KV; see above. */
+const MEMO_ONLY_PREFIXES = ["resource:", "preview:"];
+
 /** Must stay below STALE_WINDOW_MS so an unchanged copy never expires. */
 export const REWRITE_UNCHANGED_MS = 20 * 60 * 60 * 1000;
 
@@ -134,14 +142,19 @@ function shouldWrite<T>(stored: Entry<T> | undefined, value: T, now: number): bo
  * throws rather than let "GitHub throttled us" be stored as "there are no
  * repos".
  */
-function refresh<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise<T> {
+function refresh<T>(
+  key: string,
+  ttlMs: number,
+  load: () => Promise<T>,
+  persist: boolean,
+): Promise<T> {
   const existing = inflight.get(key);
   if (existing) return existing as Promise<T>;
 
   const run = (async () => {
     // Another isolate may already have refreshed this key: adopt its copy
     // instead of re-running the fan-out and writing a duplicate.
-    const stored = store ? await readStore<T>(key) : undefined;
+    const stored = store && persist ? await readStore<T>(key) : undefined;
     if (stored && Date.now() - stored.at < ttlMs) {
       memo.set(key, stored);
       return stored.value;
@@ -150,7 +163,7 @@ function refresh<T>(key: string, ttlMs: number, load: () => Promise<T>): Promise
     const now = Date.now();
     const entry: Entry<T> = { at: now, value };
     memo.set(key, entry);
-    if (!store || !shouldWrite(stored, value, now)) return value;
+    if (!store || !persist || !shouldWrite(stored, value, now)) return value;
     // The caller is already waiting on the fan-out; don't make it wait on the
     // write too. waitUntil keeps it alive past the response where there is a
     // ctx to hang it on, and the cron path has none, so it awaits.
@@ -171,10 +184,11 @@ export async function cachedJson<T>(
   ttlMs: number,
   load: () => Promise<T>,
 ): Promise<T> {
+  const persist = !MEMO_ONLY_PREFIXES.some((p) => key.startsWith(p));
   let entry = memo.get(key) as Entry<T> | undefined;
   let layer: CacheLayer = "MEMO";
 
-  if (!entry) {
+  if (!entry && persist) {
     entry = await readStore<T>(key);
     if (entry) {
       memo.set(key, entry);
@@ -191,7 +205,7 @@ export async function cachedJson<T>(
     if (age < ttlMs + STALE_WINDOW_MS) {
       // Serve now, refresh behind the response. A refresh that fails leaves
       // the stale value in place for the next reader to try again.
-      const pending = refresh(key, ttlMs, load).catch((err) => {
+      const pending = refresh(key, ttlMs, load, persist).catch((err) => {
         console.warn(`cache refresh ${key}:`, err);
       });
       executionCtx?.waitUntil(pending);
@@ -201,7 +215,7 @@ export async function cachedJson<T>(
   }
 
   lastLayer = "MISS";
-  return refresh(key, ttlMs, load);
+  return refresh(key, ttlMs, load, persist);
 }
 
 /** Thrown when every upstream call failed — distinct from "upstream has nothing". */

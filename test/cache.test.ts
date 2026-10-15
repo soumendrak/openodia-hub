@@ -7,7 +7,7 @@ async function freshCache() {
 }
 
 const TTL = 1000;
-const MIN_WRITE_INTERVAL_MS = 60 * 60 * 1000;
+const MIN_WRITE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const REWRITE_UNCHANGED_MS = 20 * 60 * 60 * 1000;
 
 describe("cachedJson", () => {
@@ -235,7 +235,7 @@ describe("cachedJson", () => {
         const load = vi.fn(async () => "same");
         await mod.cachedJson("k", TTL, load);
         for (let i = 0; i < 10; i++) {
-          vi.advanceTimersByTime(MIN_WRITE_INTERVAL_MS + 1);
+          vi.advanceTimersByTime(TTL + 1);
           await mod.cachedJson("k", TTL, load);
           await vi.runAllTimersAsync();
         }
@@ -264,6 +264,20 @@ describe("cachedJson", () => {
         await mod.cachedJson("k", TTL, load);
         await vi.runAllTimersAsync();
         expect(kv.put).toHaveBeenCalledTimes(2);
+      });
+
+      it("keeps unbounded per-item keys memo-only", async () => {
+        const kv = fakeKv();
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        const load = vi.fn(async () => "v1");
+        expect(await mod.cachedJson("resource:x", TTL, load)).toBe("v1");
+        vi.advanceTimersByTime(MIN_WRITE_INTERVAL_MS + 1);
+        await mod.cachedJson("resource:x", TTL, load);
+        await vi.runAllTimersAsync();
+        expect(kv.get).not.toHaveBeenCalled();
+        expect(kv.put).not.toHaveBeenCalled();
+        expect(load).toHaveBeenCalledTimes(2);
       });
     });
   });
