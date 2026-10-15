@@ -29,6 +29,11 @@ const PAGES = [
   { label: "Papers", path: "/papers" },
   { label: "Treebank search", path: "/treebank" },
   { label: "Add your project", path: "/contribute" },
+  {
+    label: "Help translate OpenOdia",
+    path: "/translation-status",
+    keywords: "translation Odia contributor native review",
+  },
   { label: "API", path: "/api" },
   { label: "About", path: "/about" },
 ];
@@ -93,7 +98,9 @@ export default function CommandPaletteDialog({
   const pages = useMemo(
     () =>
       PAGES.filter(
-        (page) => !normalizedNeedle || normalizeSearch(page.label).includes(normalizedNeedle),
+        (page) =>
+          !normalizedNeedle ||
+          normalizeSearch(`${page.label} ${page.keywords ?? ""}`).includes(normalizedNeedle),
       ),
     [normalizedNeedle],
   );

@@ -1,0 +1,15 @@
+# This PR-controlled workflow is only a wake-up signal for the default-branch
+# publisher. Its code, conclusion, outputs and artifacts cannot approve review.
+name: Native Odia review notification
+on:
+  pull_request_review:
+    types: [submitted, edited, dismissed]
+permissions: {}
+jobs:
+  notify-review-change:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            core.info('A review changed; the trusted publisher will re-read GitHub review metadata.');

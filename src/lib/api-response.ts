@@ -2,7 +2,8 @@
  * Shared response shape for the public `/api/*` handlers.
  *
  * `X-Cache` reports which layer answered (see lib/sources/cache), so a cold
- * fan-out is distinguishable from a cached hit without reading logs.
+ * fan-out is distinguishable from a cached hit without reading logs. Static
+ * handlers can retain HTTP caching while omitting source-cache metadata.
  */
 import { lastCacheLayer } from "./sources/cache";
 
@@ -12,14 +13,24 @@ const CORS = {
   "Access-Control-Allow-Headers": "Content-Type, User-Agent",
 };
 
-export function apiJson(body: unknown, status = 200, maxAgeSeconds?: number): Response {
+type ApiJsonOptions = {
+  /** Only source-backed handlers should report the last cachedJson layer. */
+  reportSourceCache?: boolean;
+};
+
+export function apiJson(
+  body: unknown,
+  status = 200,
+  maxAgeSeconds?: number,
+  options: ApiJsonOptions = {},
+): Response {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...CORS,
   };
   if (maxAgeSeconds) {
     headers["Cache-Control"] = `public, s-maxage=${maxAgeSeconds}, stale-while-revalidate=86400`;
-    headers["X-Cache"] = lastCacheLayer();
+    if (options.reportSourceCache !== false) headers["X-Cache"] = lastCacheLayer();
   }
   return new Response(JSON.stringify(body), { status, headers });
 }

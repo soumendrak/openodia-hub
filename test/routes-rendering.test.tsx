@@ -1,3 +1,4 @@
+import { en } from "../src/locales/en";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -147,7 +148,13 @@ vi.mock("../src/components/Nav", () => ({ Nav: () => <nav>nav</nav> }));
 vi.mock("../src/components/Footer", () => ({ Footer: () => <footer>footer</footer> }));
 vi.mock("../src/components/ScrollToTop", () => ({ ScrollToTop: () => null }));
 vi.mock("../src/components/CommandPalette", () => ({ CommandPalette: () => null }));
-vi.mock("../src/lib/i18n", () => ({
+vi.mock("../src/lib/i18n", async () => ({
+  T: ({ k }: { k: keyof typeof import("../src/locales/en").en }) => en[k],
+  useTranslation: () => ({
+    locale: "en",
+    t: (key: keyof typeof import("../src/locales/en").en) => en[key],
+    fallbackLang: () => undefined,
+  }),
   I18nProvider: ({ children }: { children?: React.ReactNode }) => children,
 }));
 vi.mock("../src/lib/jsonld", () => ({
