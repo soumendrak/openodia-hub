@@ -43,7 +43,7 @@ function formatRfc822Date(dateStr?: string, year?: string): string {
   return new Date().toUTCString();
 }
 
-function generateRssFeed(events: Event[], baseUrl: string): string {
+export function generateRssFeed(events: Event[], baseUrl: string): string {
   const lastBuildDate = new Date().toUTCString();
 
   const items = events
@@ -98,6 +98,18 @@ ${items}
 </rss>`;
 }
 
+/** Feed chronology uses a copy so API/SSR active-first order stays intact. */
+export function chronologicalFeedEvents(events: Event[]): Event[] {
+  return [...events].sort((a, b) => {
+    const yearDiff = Number(b.year) - Number(a.year);
+    if (yearDiff !== 0) return yearDiff;
+    if (a.startDate && b.startDate) return b.startDate.localeCompare(a.startDate);
+    if (a.startDate) return -1;
+    if (b.startDate) return 1;
+    return 0;
+  });
+}
+
 export const Route = createFileRoute("/events-feed")({
   server: {
     handlers: {
@@ -105,22 +117,19 @@ export const Route = createFileRoute("/events-feed")({
         try {
           // Fetch dynamic events
           const { loadReviewedEventCollection } = await import("../lib/sources/events");
-          const { events: fetchedEvents, partial } = await loadReviewedEventCollection();
+          const { events: fetchedEvents, partial, sources } = await loadReviewedEventCollection();
 
           // The shared loader supplies the complete canonical corpus.
-          // Feed chronology uses a copy so API/SSR active-first order stays intact.
-          const chronologicalEvents = [...fetchedEvents].sort((a, b) => {
-            const yearDiff = Number(b.year) - Number(a.year);
-            if (yearDiff !== 0) return yearDiff;
-            if (a.startDate && b.startDate) return b.startDate.localeCompare(a.startDate);
-            if (a.startDate) return -1;
-            if (b.startDate) return 1;
-            return 0;
-          });
-          const xml = generateRssFeed(chronologicalEvents, "https://openodia.com");
+          const xml = generateRssFeed(
+            chronologicalFeedEvents(fetchedEvents),
+            "https://openodia.com",
+          );
 
           return new Response(xml, {
-            status: 200,
+            status:
+              fetchedEvents.length === 0 && sources.every((source) => source.outcome === "failed")
+                ? 503
+                : 200,
             headers: {
               "Content-Type": "application/rss+xml; charset=utf-8",
               "Cache-Control": partial

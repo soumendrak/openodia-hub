@@ -17,6 +17,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      - run: bun run check:locales
       - run: bun run lint
 
   test:
@@ -101,6 +102,13 @@ jobs:
           name: built-worker
           path: dist/
       - run: bunx playwright install --with-deps chromium
+      - name: Verify bilingual UX and translation API on the built Worker
+        run: bun run test:bilingual
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bilingual-browser-evidence
+          path: /tmp/openodia-bilingual-browser
       - name: Test built Worker API, UX, accessibility and visual regression
         run: bunx playwright test
       - uses: actions/upload-artifact@v4

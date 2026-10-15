@@ -39,6 +39,23 @@ afterEach(() => {
 });
 
 describe("real command palette primitives", () => {
+  it.each(["translate", "translation", "Odia contributor"])(
+    "finds the translation contributor page locally for %s before remote search responds",
+    (query) => {
+      const close = vi.fn();
+      const fetchMock = vi.fn();
+      vi.stubGlobal("fetch", fetchMock);
+      render(<CommandPaletteDialog open onOpenChange={close} />, { wrapper });
+
+      const input = screen.getByPlaceholderText("Search all OpenOdia resources…");
+      fireEvent.change(input, { target: { value: query } });
+      expect(fetchMock).not.toHaveBeenCalled();
+      fireEvent.click(screen.getByRole("option", { name: "Help translate OpenOdia" }));
+      expect(close).toHaveBeenCalledWith(false);
+      expect(routerHarness.navigate).toHaveBeenCalledWith({ to: "/translation-status" });
+    },
+  );
+
   it("does not call the search API for a one-character query", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

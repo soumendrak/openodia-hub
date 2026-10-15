@@ -36,6 +36,11 @@ const PAGES: SearchDocument[] = [
   ["Papers", "/papers", "Odia NLP research papers"],
   ["Treebank search", "/treebank", "Search the Odia Universal Dependencies treebank"],
   ["Add your project", "/contribute", "Contribute an Odia open-source project"],
+  [
+    "Help translate OpenOdia",
+    "/translation-status",
+    "Odia contributor guide: translate UI strings and track translation status and native reviews",
+  ],
   ["API", "/api", "OpenOdia public API reference"],
   ["About", "/about", "About the OpenOdia ecosystem"],
 ].map(([title, href, summary]) => ({
@@ -184,12 +189,11 @@ export async function buildSearchSnapshot(
   documents.push(...eventRecords);
   sources.push({
     source: "events",
+    // Checked-in history stays searchable, so a rejected loader is partial too.
     status:
-      live.status === "rejected"
-        ? "unavailable"
-        : !Array.isArray(live.value) && live.value.partial
-          ? "partial"
-          : "ready",
+      live.status === "rejected" || (!Array.isArray(live.value) && live.value.partial)
+        ? "partial"
+        : "ready",
     count: eventRecords.length,
   });
 
@@ -198,7 +202,7 @@ export async function buildSearchSnapshot(
 
 export function createSearchSnapshotLoader(
   loaders: SearchLoaders = DEFAULT_LOADERS,
-  cacheKey = "search-snapshot:v2-reviewed-events",
+  cacheKey = "search-snapshot:v3-reviewed-events-outcomes",
 ): () => Promise<SearchSnapshot> {
   return async () => {
     const { getEventDatabase } = await import("../event-request-context");

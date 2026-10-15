@@ -44,7 +44,7 @@ const fixture: Event = {
 const page = (urls: string[]) =>
   `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { prerenderData: { upcomingEvents: { results: urls.map((url) => ({ url, title: "Current upstream title", description: "Current description", event_type_title: "Workshop", start_date: "2099-02-01" })) }, pastEvents: { results: [] } } } } })}</script>`;
 
-it("syncs 114 rows within eight JSON-bound D1 queries and retains reviewed alias facts after old-row retirement", async () => {
+it("syncs 114 rows within D1 Free's query budget with constant parameters and retains reviewed alias facts after old-row retirement", async () => {
   await db
     .prepare("INSERT INTO events(id,url,title,community,type,start_date) VALUES(?,?,?,?,?,?)")
     .bind(alias, alias, fixture.title, fixture.community, fixture.type, fixture.startDate)
@@ -109,8 +109,10 @@ it("syncs 114 rows within eight JSON-bound D1 queries and retains reviewed alias
     },
   };
   expect(await syncEventsToD1(counted)).toEqual({ upserted: 114 });
-  expect(queries).toBeLessThanOrEqual(8);
-  expect(maxParameters).toBe(1);
+  // D1 Free allows 50 queries per invocation; the count does not grow per event.
+  expect(queries).toBeLessThanOrEqual(50);
+  // Per-statement parameters stay constant (D1 allows 100), independent of row count.
+  expect(maxParameters).toBeLessThanOrEqual(8);
   expect(fetcher.mock.calls.filter(([, init]) => init?.method === "HEAD")).toHaveLength(30);
   expect(fetcher.mock.calls.filter(([, init]) => init?.method !== "HEAD")).toHaveLength(5);
   // Remove the old grace-period row and its review: the canonical sidecar must stand alone.

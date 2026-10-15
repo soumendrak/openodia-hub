@@ -39,11 +39,10 @@ vi.mock("react", async (importOriginal) => {
 });
 
 // `or.ts` currently translates every key `en.ts` declares, so no real key can
-// exercise the `STRINGS[locale][key] ?? en[key]` fallback in `t()`. Trim the
-// Odia locale down to a single key here so a real, meaningful fallback (the
+// exercise the missing and blank string fallback in `t()`. Keep a translated key and blank placeholders here so a real, meaningful fallback (the
 // behavior `i18n.tsx`'s own header comment documents) is observable.
 vi.mock("../src/locales/or", () => ({
-  or: { "nav.home": "ମୂଳପୃଷ୍ଠା" },
+  or: { "nav.home": "ମୂଳପୃଷ୍ଠା", "nav.models": "", "nav.datasets": "   " },
 }));
 
 import { act, render, renderHook, screen } from "@testing-library/react";
@@ -424,6 +423,8 @@ describe("i18n scaffold", () => {
         <>
           <span data-testid="translated">{t("nav.home")}</span>
           <span data-testid="fallback">{t("nav.events")}</span>
+          <span data-testid="placeholder">{t("nav.models")}</span>
+          <span data-testid="whitespace-placeholder">{t("nav.datasets")}</span>
         </>
       );
     };
@@ -432,12 +433,14 @@ describe("i18n scaffold", () => {
         <Consumer />
       </I18nProvider>,
     );
-    // "nav.home" is the one key our mocked `or` locale keeps — it takes the
+    // "nav.home" is the translated key our mocked `or` locale keeps — it takes the
     // non-fallback branch.
     expect(screen.getByTestId("translated")).toHaveTextContent("ମୂଳପୃଷ୍ଠା");
-    // "nav.events" is absent from the mocked `or` locale — `??` falls
+    // "nav.events" is absent from the mocked `or` locale and falls
     // through to the English string.
     expect(screen.getByTestId("fallback")).toHaveTextContent("Events");
+    expect(screen.getByTestId("placeholder")).toHaveTextContent("Models");
+    expect(screen.getByTestId("whitespace-placeholder")).toHaveTextContent("Datasets");
   });
 
   it("skips localStorage and documentElement when window is undefined during setLocale", () => {

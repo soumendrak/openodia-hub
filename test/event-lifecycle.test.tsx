@@ -326,6 +326,7 @@ describe("event lifecycle remains separate from dates, registration and eligibil
       const merged = await dedupeEventsByResolvedUrl(
         rows,
         async () => current.url,
+        [],
         mergeReviewedEvents,
       );
       expect(merged).toHaveLength(1);

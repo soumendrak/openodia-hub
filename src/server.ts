@@ -184,28 +184,42 @@ const EVENTS_CORS = {
 async function handleEvents(_env: Env | undefined, request: Request): Promise<Response> {
   const collection = await loadReviewedEventCollection();
   const { events } = collection;
-  const { source, partial } = collection;
+  const { source, sources, partial } = collection;
+  const status =
+    events.length === 0 && sources.every((source) => source.outcome === "failed") ? 503 : 200;
 
   const url = new URL(request.url);
   const pageParam = url.searchParams.get("page");
 
   if (pageParam === null) {
-    return new Response(JSON.stringify({ events, source, partial }), {
-      status: 200,
+    return new Response(JSON.stringify({ events, source, sources, partial }), {
+      status,
       headers: { ...EVENTS_CORS, ...(partial ? { "Cache-Control": "no-store" } : {}) },
     });
   }
 
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50);
-  const pageNum = parseInt(pageParam || "1", 10) || 1;
+  const limit = Math.max(
+    1,
+    Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50),
+  );
+  const pageNum = Math.max(1, parseInt(pageParam || "1", 10) || 1);
   const start = (pageNum - 1) * limit;
   const pageItems = events.slice(start, start + limit);
   const nextCursor = start + limit < events.length ? String(pageNum + 1) : undefined;
 
   return new Response(
-    JSON.stringify({ events: pageItems, nextCursor, total: events.length, source, partial }),
+    JSON.stringify({
+      events: pageItems,
+      nextCursor,
+      total: events.length,
+      // Year facets cover the whole corpus so unvisited pages stay selectable.
+      years: [...new Set(events.map((event) => event.year))],
+      source,
+      sources,
+      partial,
+    }),
     {
-      status: 200,
+      status,
       headers: { ...EVENTS_CORS, ...(partial ? { "Cache-Control": "no-store" } : {}) },
     },
   );
@@ -243,6 +257,26 @@ export default {
         // Falls back to live Bevy scrape if the DB is unavailable or empty.
         if (originalPath === "/api/events") {
           return await handleEvents(env, request);
+        }
+
+        if (originalPath === "/events-feed") {
+          const { generateRssFeed, chronologicalFeedEvents } = await import("./routes/events-feed");
+          const collection = await loadReviewedEventCollection();
+          return new Response(
+            generateRssFeed(chronologicalFeedEvents(collection.events), "https://openodia.com"),
+            {
+              status:
+                collection.events.length === 0 &&
+                collection.sources.every((source) => source.outcome === "failed")
+                  ? 503
+                  : 200,
+              headers: {
+                "Content-Type": "application/rss+xml; charset=utf-8",
+                "X-OpenOdia-Partial": String(collection.partial),
+                "Cache-Control": collection.partial ? "no-store" : "public, s-maxage=3600",
+              },
+            },
+          );
         }
 
         // /projects merged into /tools — preserve link equity with a 301.

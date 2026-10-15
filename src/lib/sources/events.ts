@@ -9,46 +9,17 @@ import {
 } from "../event-lifecycle";
 import { dedupeEventsByResolvedUrl } from "../event-url";
 import { restoreReviewedEvents } from "../event-reviewed-store";
-import { readEventsFromD1 } from "../events-store";
+import { loadEventSnapshot, type EventSnapshot } from "../event-collection";
 import { readEventDestinationAliases, storedEventDestination } from "../event-destination-store";
-import { CHAPTERS, fetchChapterOutcome } from "../../routes/api/events";
 
 /** One reviewed canonical collection across Worker/TanStack API, search and RSS. */
-export async function loadReviewedEventCollection(allowLive = true): Promise<{
-  events: Event[];
-  source: "d1" | "scrape";
-  partial: boolean;
-}> {
+export async function loadReviewedEventCollection(allowLive = true): Promise<EventSnapshot> {
   const { getEventDatabase } = await import("../event-request-context");
   const db = getEventDatabase();
-  let persisted: Event[] = [];
-  let source: "d1" | "scrape" = "scrape";
-  let partial = false;
-  let databaseReadable = true;
-  if (db) {
-    try {
-      persisted = await readEventsFromD1(db);
-      if (persisted.length) source = "d1";
-    } catch {
-      databaseReadable = false;
-      partial = true;
-      console.warn("Event persistence unavailable; using checked-in and live records");
-    }
-  }
-  let live = persisted;
-  if (source !== "d1" && allowLive) {
-    const outcomes = await Promise.allSettled(
-      CHAPTERS.map((chapter) =>
-        fetchChapterOutcome(chapter.organizerId ?? chapter.community, chapter.slug),
-      ),
-    );
-    partial ||= outcomes.some(
-      (outcome) => outcome.status === "rejected" || outcome.value.status.outcome === "failed",
-    );
-    live = outcomes.flatMap((outcome) =>
-      outcome.status === "fulfilled" ? outcome.value.events : [],
-    );
-  }
+  const snapshot = await loadEventSnapshot(db, allowLive);
+  const { source, sources, databaseReadable } = snapshot;
+  let { partial } = snapshot;
+  const live = snapshot.events;
   let today: string;
   try {
     today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
@@ -78,6 +49,7 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<{
   collection = await dedupeEventsByResolvedUrl(
     collection,
     async (url) => storedEventDestination(url, aliases),
+    [],
     mergeReviewedEvents,
     true,
   );
@@ -93,6 +65,7 @@ export async function loadReviewedEventCollection(allowLive = true): Promise<{
   }
   return {
     source,
+    sources,
     partial,
     events: sortEventCollection(
       collection.map((event) => {

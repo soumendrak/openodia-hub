@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { I18nProvider } from "../src/lib/i18n";
 import type { ComponentType } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -154,7 +155,11 @@ describe("API docs route: Scalar bundle script reuse", () => {
     const destroy = vi.fn();
     const updateConfiguration = vi.fn();
     const createApiReference = vi.fn(() => ({ destroy, updateConfiguration }));
-    const first = render(<Component />);
+    const first = render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     const bundle = document.getElementById("scalar-bundle")!;
     Object.defineProperty(window, "Scalar", { configurable: true, value: { createApiReference } });
     fireEvent.load(bundle);
@@ -210,7 +215,11 @@ describe("API docs route: Scalar bundle script reuse", () => {
     first.unmount();
     expect(document.body).not.toHaveAttribute("data-openodia-api-docs");
     expect(destroy).toHaveBeenCalledTimes(1);
-    const second = render(<Component />);
+    const second = render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(createApiReference).toHaveBeenCalledTimes(2);
     second.unmount();
     expect(destroy).toHaveBeenCalledTimes(2);
@@ -221,7 +230,11 @@ describe("API docs route: Scalar bundle script reuse", () => {
     const mod = (await import("../src/routes/api/index")) as unknown as RouteModule;
     const Component = mod.Route.options.component as ComponentType;
 
-    const first = render(<Component />);
+    const first = render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(document.getElementById("scalar-bundle")).not.toBeNull();
     const container = document.querySelector("[data-api-reference]");
     expect(container).not.toHaveClass("bg-surface");
@@ -229,7 +242,11 @@ describe("API docs route: Scalar bundle script reuse", () => {
 
     // A second mount finds the bundle script already on the page and skips
     // appending a duplicate.
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(document.querySelectorAll("#scalar-bundle")).toHaveLength(1);
   });
 });
@@ -246,7 +263,11 @@ describe("home route: community videos and FAQ schema", () => {
     };
     queryHarness.data = undefined;
 
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(
       screen.getByText(/Tutorial: GenAI and LLM Overview by Dr\. Shantipriya Parida/),
     ).toBeInTheDocument();
@@ -286,7 +307,11 @@ describe("home route: community videos and FAQ schema", () => {
         },
       ],
     };
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(screen.getByText("T1")).toBeInTheDocument();
     expect(screen.getByText("T3")).toBeInTheDocument();
 
@@ -305,7 +330,11 @@ describe("home route: community videos and FAQ schema", () => {
         },
       ],
     };
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(
       screen.getByText(/Tutorial: GenAI and LLM Overview by Dr\. Shantipriya Parida/),
     ).toBeInTheDocument();
@@ -323,7 +352,11 @@ describe("contribute route: copy-to-clipboard success and failure", () => {
       configurable: true,
     });
 
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     const copyButton = screen.getByRole("button", { name: "Copy" });
 
     vi.useFakeTimers();

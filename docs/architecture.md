@@ -47,6 +47,15 @@ flowchart LR
 | Contributor sources                            | Contributor grid and leaderboard                        | Daily GitHub sync into CONTRIBUTORS_KV                    |
 | PyPI                                           | `openodia` package metadata                             | `/api/pypi` proxy                                         |
 
+Event adapters return measured per-source outcomes, including successful-empty and
+sanitized failure categories. The Worker persists attempts and successes separately,
+and source memberships prevent one failing organizer feed from retiring another's
+known events. Events API, search and RSS retain the merged canonical archive and
+expose partial results when sources are unavailable, truncated, unmeasured or stale.
+Fetch success does not establish registration availability or editorial verification.
+Apply `db/migrations/0001_event_source_outcomes.sql` to existing event databases before
+the new sync runs; legacy persisted reads remain available with unknown health.
+
 Paper task labels come from keyword matching, not author-provided classifications.
 Upstream metadata may omit licenses or sizes. A missing preview or temporarily
 unavailable feed must not be presented as proof that a resource/channel has no content.

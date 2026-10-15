@@ -210,6 +210,16 @@ describe("the same persisted review reaches every server surface", () => {
   });
   it("marks the collection partial when a matching reviewed row is corrupt", async () => {
     fixture.events = [{ ...event, url: "https://example.org/corrupt-surface", title: "Curated" }];
+    // Every source measured complete and fresh, so only the corrupt row can mark it partial.
+    const { CHAPTERS } = await import("../src/routes/api/events");
+    const now = new Date().toISOString();
+    for (const chapter of CHAPTERS)
+      await db
+        .prepare(
+          "INSERT OR REPLACE INTO event_source_status VALUES (?, 'success-events', 1, ?, ?, NULL, 1, 1)",
+        )
+        .bind(chapter.slug, now, now)
+        .run();
     const clean = await withEventDatabase(db, () => loadReviewedEventCollection(false));
     expect(clean.partial).toBe(false);
     await db

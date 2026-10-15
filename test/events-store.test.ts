@@ -1,5 +1,13 @@
+import { events as curated } from "../src/data/events";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
+import {
+  readEventsFromD1,
+  RETIRE_SQL,
+  syncEventsToD1,
+  UPSERT_SQL,
+  MEMBERSHIP_SQL,
+  type D1Like,
+} from "../src/lib/events-store";
 
 function eventPage(baseUrl: string): string {
   return `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
@@ -57,8 +65,37 @@ describe("event persistence URL deduplication", () => {
     };
 
     await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 1 });
+    expect(calls.filter((call) => call.sql === UPSERT_SQL)).toHaveLength(1);
+    expect(calls.filter((call) => call.sql === MEMBERSHIP_SQL)).toHaveLength(5);
     const insert = calls.find((call) => call.sql.includes("INSERT INTO events"));
-    expect(JSON.parse(insert!.values[0] as string)[0].id).toBe(base);
+    expect(JSON.parse(insert!.values[0] as string)).toHaveLength(1);
+    expect(JSON.parse(insert!.values[0] as string)[0][0]).toBe(base);
+  });
+
+  it("retains the curated primary organizer when all chapters report a shared URL", async () => {
+    const primary = curated.find((event) => event.community !== "GDG Bhubaneswar")!;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: () => Promise.resolve(eventPage(primary.url)),
+    } as Response);
+    const writes: unknown[][] = [];
+    const db: D1Like = {
+      prepare(sql) {
+        const statement = {
+          bind(...values: unknown[]) {
+            if (sql === UPSERT_SQL) writes.push(...JSON.parse(values[0] as string));
+            return statement;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({ results: [] as T[] }),
+        };
+        return statement;
+      },
+    };
+    await syncEventsToD1(db);
+    expect(writes).toHaveLength(1);
+    expect(writes[0][3]).toBe(primary.community);
   });
 
   it("hides legacy duplicate rows immediately when reading D1", async () => {
@@ -176,7 +213,7 @@ describe("event persistence URL deduplication", () => {
   });
 
   it("binds null for endDate and description when an upstream event omits them", async () => {
-    // syncEventsToD1 only ever sees events produced by fetchChapterEvents, and
+    // syncEventsToD1 only ever sees events produced by fetchChapterSnapshot, and
     // that mapper always sets endDate = startDate and description = "" — so
     // the `?? null` fallbacks can never fire through a real Bevy scrape.
     // Mocking the module boundary simulates a different/future event producer
@@ -187,7 +224,17 @@ describe("event persistence URL deduplication", () => {
       return {
         ...actual,
         fetchChapterOutcome: vi.fn(async () => ({
-          status: { outcome: "success-events" },
+          status: {
+            sourceId: "fixture",
+            outcome: "success-events",
+            eventCount: 1,
+            lastAttemptAt: "2026-10-12T00:00:00Z",
+            lastSuccessAt: "2026-10-12T00:00:00Z",
+            upcomingComplete: true,
+            pastComplete: true,
+          },
+          upcomingComplete: true,
+          pastComplete: true,
           events: [
             {
               year: "2026",
@@ -198,6 +245,25 @@ describe("event persistence URL deduplication", () => {
               community: "GDG Bhubaneswar",
               startDate: "2026-07-01",
               // endDate and description intentionally omitted.
+            },
+            // A producer that does not filter like fetchChapterSnapshot: the
+            // sync must still skip records it cannot identify or place.
+            {
+              year: "2026",
+              date: "",
+              title: "No url",
+              url: "",
+              type: "Talk",
+              community: "GDG Bhubaneswar",
+              startDate: "2026-07-02",
+            },
+            {
+              year: "2026",
+              date: "",
+              title: "No start date",
+              url: "https://gdg.community.dev/events/details/no-start",
+              type: "Talk",
+              community: "GDG Bhubaneswar",
             },
           ],
         })),
@@ -224,13 +290,71 @@ describe("event persistence URL deduplication", () => {
     };
 
     await expect(syncWithMockedSource(db)).resolves.toEqual({ upserted: 1 });
+    expect(calls.filter((call) => call.sql === UPSERT_SQL)).toHaveLength(1);
+    expect(calls.filter((call) => call.sql === MEMBERSHIP_SQL)).toHaveLength(5);
     const insert = calls.find((call) => call.sql.includes("INSERT INTO events"));
     // bind order: id, url, title, community, type, startDate, endDate, description, location
-    const row = JSON.parse(insert!.values[0] as string)[0];
-    expect(row.endDate).toBeNull();
-    expect(row.description).toBeNull();
+    const [row] = JSON.parse(insert!.values[0] as string);
+    expect(row[6]).toBeNull();
+    expect(row[7]).toBeNull();
 
     vi.doUnmock("../src/routes/api/events");
     vi.resetModules();
+  });
+});
+
+// Semantics of the retirement SQL are tested against a real D1 in
+// events-store-d1.test.ts; this fake only records how many values each
+// statement binds, which miniflare does not limit.
+describe("event persistence bound parameters", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  it("keeps every statement within D1's 100-bound-parameter limit for large syncs", async () => {
+    const urls = Array.from(
+      { length: 150 },
+      (_, i) => `https://gdg.community.dev/events/details/bulk-${i}`,
+    );
+    const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: { results: [], count: 0 },
+            pastEvents: {
+              results: urls.map((url) => ({ title: url, start_date: "2025-07-15T18:00:00Z", url })),
+              count: 150,
+            },
+          },
+        },
+      },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => html,
+    } as Response);
+
+    const bound = new Map<string, number>();
+    const db: D1Like = {
+      prepare(sql) {
+        const statement = {
+          bind(...values: unknown[]) {
+            bound.set(sql, Math.max(bound.get(sql) ?? 0, values.length));
+            return statement;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({ results: [] as T[] }),
+        };
+        return statement;
+      },
+    };
+
+    await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 150 });
+    // The whole snapshot travels as one JSON value, not 9 binds per event.
+    expect(bound.get(UPSERT_SQL)).toBe(1);
+    expect(bound.get(RETIRE_SQL) ?? 0).toBeLessThanOrEqual(100);
   });
 });

@@ -66,9 +66,9 @@ describe("legacy chapter adapter compatibility", () => {
       },
     };
     await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 1 });
-    const inserted = JSON.parse(
-      calls.find((call) => call.sql.includes("INSERT INTO events"))!.values[0] as string,
-    );
-    expect(inserted[0]).toMatchObject({ community: "TFUG Bhubaneswar", url: canonicalUrl });
+    const insert = calls.find((call) => call.sql.includes("INSERT INTO events"));
+    const [row] = JSON.parse(insert!.values[0] as string);
+    expect(row).toContain("TFUG Bhubaneswar");
+    expect(row).toContain(canonicalUrl);
   });
 });
