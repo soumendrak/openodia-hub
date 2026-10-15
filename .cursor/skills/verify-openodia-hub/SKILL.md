@@ -53,7 +53,7 @@ node $S/drive.mjs <path> [step ...]
 ```
 
 Steps: `fill:<placeholder>=<value>`, `click:<button accessible name, substring match>`, `link:<link name, substring match>`, `press:<key>`, `expect:<visible text>`, `goto:<path>`.
-It blocks every non-local request, freezes the page clock, screenshots after load and after every step as `<run>-NN-<step>.png`, logs every same-origin response and page error, writes `<run>-drive.json` (`<run>` is a ms timestamp, so runs never overwrite each other), records every navigation status in `navigations`, and exits 1 on any page error, failed step or 4xx/5xx navigation. A failing step still writes the JSON (with `failed`) and a `failed` screenshot. Values may contain `=` and `:`; only the first separator splits. Check intended error pages with curl instead.
+It blocks every non-local request, freezes the page clock, screenshots after load and after every step as `<run>-NN-<step>.png`, logs every same-origin response, page error and hydration/React console error or warning (the same filter as `test/e2e/bilingual.mjs`), saves every same-origin fetch/XHR response (including `/_serverFn/*`) as `<run>-api-NN-<path>.json` (method, status, headers, request body) plus `.body`, writes `<run>-drive.json` (`<run>` is a ms timestamp, so runs never overwrite each other), records every navigation status in `navigations`, and exits 1 on any page error, hydration error, failed step or 4xx/5xx navigation. A failing step still writes the JSON (with `failed`) and a `failed` screenshot. Values may contain `=` and `:`; only the first separator splits. Check intended error pages with curl instead.
 Example that was run on main:
 
 ```bash

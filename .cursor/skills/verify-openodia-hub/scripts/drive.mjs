@@ -15,6 +15,24 @@ const browser = await chromium.launch();
 const log = [];
 const navigations = [];
 let failed = null;
+const saves = [];
+let saved = 0;
+const saveResponse = async (r) => {
+  saved += 1;
+  const u = new URL(r.url());
+  const base = `${out}/${run}-api-${String(saved).padStart(2, "0")}-${u.pathname.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "root"}`;
+  const meta = {
+    url: u.pathname + u.search,
+    method: r.request().method(),
+    status: r.status(),
+    headers: await r.allHeaders(),
+    requestBody: r.request().postData(),
+  };
+  const body = await r.body().catch((e) => Buffer.from(`body unavailable: ${e?.message ?? e}`));
+  await writeFile(`${base}.json`, JSON.stringify(meta, null, 2));
+  await writeFile(`${base}.body`, body);
+  log.push(`saved ${meta.method} ${meta.url} -> ${base}.body`);
+};
 let page;
 try {
   page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
@@ -23,11 +41,21 @@ try {
     (route) => route.abort(),
   );
   page.on("pageerror", (e) => log.push(`pageerror ${e.message}`));
+  page.on("console", (m) => {
+    if (
+      ["error", "warning"].includes(m.type()) &&
+      /hydrat|react error|server rendered|did not match/i.test(m.text())
+    )
+      log.push(`hydration ${m.text()}`);
+  });
   page.on("response", (r) => {
     if (r.request().isNavigationRequest() && r.request().frame() === page.mainFrame())
       navigations.push({ path: new URL(r.url()).pathname, status: r.status() });
     if (new URL(r.url()).origin === origin)
       log.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
+    const kind = r.request().resourceType();
+    if (new URL(r.url()).origin === origin && (kind === "fetch" || kind === "xhr"))
+      saves.push(saveResponse(r));
   });
   await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
   const visit = async (p) => {
@@ -70,6 +98,7 @@ try {
 } catch (e) {
   failed = failed ?? { step: "launch", error: String(e?.message ?? e) };
 } finally {
+  await Promise.allSettled(saves);
   const last = navigations.at(-1);
   const summary = {
     url: page?.url() ?? null,
@@ -91,7 +120,7 @@ try {
   await browser.close();
   const bad =
     failed !== null ||
-    log.some((l) => l.startsWith("pageerror")) ||
+    log.some((l) => l.startsWith("pageerror") || l.startsWith("hydration")) ||
     navigations.some((v) => v.status === null || v.status >= 400);
   process.exitCode = bad ? 1 : 0;
 }
