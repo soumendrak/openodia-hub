@@ -2,13 +2,10 @@ import { events as curated, type Event } from "../data/events";
 import { fetchLiveEventCollection, CHAPTERS, type LiveEventCollection } from "../routes/api/events";
 import { readEventsFromD1, readEventSourceStatuses, type D1Like } from "./events-store";
 import { dedupeEventsByResolvedUrl, mergeEventCollectionsByUrl } from "./event-url";
+import { getEventDatabase } from "./event-request-context";
 import { mergeNonEmpty } from "./utils";
 
-// Worker requests initialize this isolate's binding, like the shared catalog cache.
-let eventDatabase: D1Like | undefined;
-export function setEventDatabase(db: D1Like | undefined): void {
-  eventDatabase = db;
-}
+export type EventSnapshot = LiveEventCollection & { source: "d1" | "scrape" };
 
 function mergeChronologicalEvents(events: Event[]): Event[] {
   // Merge insertion order places newly discovered events behind the entire
@@ -23,17 +20,19 @@ function mergeChronologicalEvents(events: Event[]): Event[] {
   );
 }
 
-/** One canonical history; source health says nothing about attendance eligibility. */
-export async function loadEventCollection(
-  db: D1Like | undefined = eventDatabase,
-): Promise<LiveEventCollection & { source: "d1" | "scrape" }> {
+/**
+ * Persisted (or, when D1 is absent, empty or unreadable, live) records with
+ * measured source health. Records are not merged with the curated archive.
+ * `allowLive: false` never scrapes; it returns no records instead.
+ */
+export async function loadEventSnapshot(
+  db: D1Like | undefined = getEventDatabase(),
+  allowLive = true,
+): Promise<EventSnapshot & { databaseReadable: boolean }> {
+  let databaseReadable = true;
   if (db) {
     try {
-      const events = await dedupeEventsByResolvedUrl(
-        await readEventsFromD1(db),
-        undefined,
-        curated,
-      );
+      const events = await readEventsFromD1(db);
       // An older database can serve known records without pretending measured health exists.
       const sources = await readEventSourceStatuses(db).catch(() => []);
       // A measured empty snapshot (no source reported events) is authoritative:
@@ -45,9 +44,10 @@ export async function loadEventCollection(
       if (events.length || measuredEmpty) {
         const cutoff = Date.now() - 7 * 60 * 60 * 1000;
         return {
-          events: mergeChronologicalEvents(events),
+          events,
           sources,
           source: "d1",
+          databaseReadable,
           partial:
             sources.length !== CHAPTERS.length ||
             sources.some(
@@ -62,12 +62,34 @@ export async function loadEventCollection(
       }
     } catch {
       // Persistence unavailable: preserve checked-in history and measured live outcomes.
+      databaseReadable = false;
+      console.warn("Event persistence unavailable; using checked-in and live records");
     }
+  }
+  if (!allowLive) {
+    return {
+      events: [],
+      sources: [],
+      partial: !databaseReadable,
+      source: "scrape",
+      databaseReadable,
+    };
   }
   const live = await fetchLiveEventCollection();
   return {
     ...live,
+    partial: live.partial || !databaseReadable,
     source: "scrape",
-    events: mergeChronologicalEvents(live.events),
+    databaseReadable,
   };
+}
+
+/** One canonical history; source health says nothing about attendance eligibility. */
+export async function loadEventCollection(
+  db: D1Like | undefined = getEventDatabase(),
+): Promise<EventSnapshot> {
+  const { events, sources, partial, source } = await loadEventSnapshot(db);
+  const deduped =
+    source === "d1" ? await dedupeEventsByResolvedUrl(events, undefined, curated) : events;
+  return { events: mergeChronologicalEvents(deduped), sources, partial, source };
 }

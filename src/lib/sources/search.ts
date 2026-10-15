@@ -1,3 +1,5 @@
+import { mergeReviewedCollections, lifecycleLabel, REGISTRATION_LABELS } from "../event-lifecycle";
+import { EVENT_OVERRIDES } from "../../data/event-overrides";
 import { events, type Event } from "../../data/events";
 import { dedupeEventsByUrl } from "../event-url";
 import { type SearchDocument, type SearchKind, type SearchSourceStatus } from "../search";
@@ -5,7 +7,7 @@ import { cachedJson } from "./cache";
 import { loadCatalog } from "./catalog";
 import { loadPapers } from "./papers";
 import { loadVideos } from "./videos";
-import { CHAPTERS, fetchChapterEvents, type LiveEventCollection } from "../../routes/api/events";
+import { CHAPTERS, fetchChapterEvents } from "../../routes/api/events";
 
 export type SearchSnapshot = {
   documents: SearchDocument[];
@@ -63,7 +65,12 @@ function eventDocument(event: Event): SearchDocument {
     id: `event:${event.url}`,
     kind: "event",
     title: event.title,
-    summary: event.description,
+    summary: [
+      event.description,
+      ...(event.lifecycle ? [lifecycleLabel(event)] : []),
+      ...(event.registration ? [REGISTRATION_LABELS[event.registration.state]] : []),
+      ...(event.notices ?? []).map((notice) => notice.text),
+    ].join(" · "),
     keywords: [event.community, event.type, event.location ?? "", event.date, event.year],
     href,
     externalHref: event.url,
@@ -74,10 +81,10 @@ function eventDocument(event: Event): SearchDocument {
 export async function loadLiveSearchEvents(
   fetcher?: typeof fetchChapterEvents,
   chapters: typeof CHAPTERS = CHAPTERS,
-): Promise<Event[] | LiveEventCollection> {
+): Promise<Event[] | Awaited<ReturnType<typeof import("./events").loadReviewedEventCollection>>> {
   if (!fetcher) {
-    const { loadEventCollection } = await import("../event-collection");
-    return loadEventCollection();
+    const { loadReviewedEventCollection } = await import("./events");
+    return loadReviewedEventCollection();
   }
   const settled = await Promise.allSettled(
     chapters.map((chapter) => fetcher(chapter.organizerId ?? chapter.community, chapter.slug)),
@@ -167,16 +174,26 @@ export async function buildSearchSnapshot(
     sources.push({ source: "videos", status: "ready", count: records.length });
   } else sources.push({ source: "videos", status: "unavailable", count: 0 });
 
-  const liveEvents =
-    live.status === "fulfilled" ? (Array.isArray(live.value) ? live.value : live.value.events) : [];
-  const eventPartial =
-    live.status === "rejected" || (!Array.isArray(live.value) && live.value.partial);
-  const known = [...events, ...liveEvents];
+  // A collection result already includes curated history and stored aliases.
+  // Raw injected arrays retain their historical merge contract.
+  const known =
+    live.status === "fulfilled" && !Array.isArray(live.value)
+      ? live.value.events
+      : mergeReviewedCollections(
+          events,
+          live.status === "fulfilled" ? (live.value as Event[]) : [],
+          EVENT_OVERRIDES,
+          new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
+        );
   const eventRecords = dedupeEventsByUrl(known).map(eventDocument);
   documents.push(...eventRecords);
   sources.push({
     source: "events",
-    status: eventPartial ? "partial" : "ready",
+    // Checked-in history stays searchable, so a rejected loader is partial too.
+    status:
+      live.status === "rejected" || (!Array.isArray(live.value) && live.value.partial)
+        ? "partial"
+        : "ready",
     count: eventRecords.length,
   });
 
@@ -185,9 +202,20 @@ export async function buildSearchSnapshot(
 
 export function createSearchSnapshotLoader(
   loaders: SearchLoaders = DEFAULT_LOADERS,
-  cacheKey = "search-snapshot:v2-events-outcomes",
+  cacheKey = "search-snapshot:v3-reviewed-events-outcomes",
 ): () => Promise<SearchSnapshot> {
-  return () => cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+  const byDatabase = new WeakMap<object, { at: number; snapshot: Promise<SearchSnapshot> }>();
+  return async () => {
+    const { getEventDatabase } = await import("../event-request-context");
+    const db = getEventDatabase();
+    if (!db)
+      return cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+    const hit = byDatabase.get(db);
+    if (hit && Date.now() - hit.at < SEARCH_SNAPSHOT_TTL_MS) return hit.snapshot;
+    const snapshot = buildSearchSnapshot(loaders);
+    byDatabase.set(db, { at: Date.now(), snapshot });
+    return snapshot;
+  };
 }
 
 const loadDefaultSearchSnapshot = createSearchSnapshotLoader();

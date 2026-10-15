@@ -15,7 +15,8 @@ vi.mock("../src/lib/event-url", async (importOriginal) => ({
   // alias resolution, which has its own redirect and request-budget tests.
   dedupeEventsByResolvedUrl: async <T>(events: T[]) => events,
 }));
-import { loadEventCollection, setEventDatabase } from "../src/lib/event-collection";
+import { loadEventCollection } from "../src/lib/event-collection";
+import { withEventDatabase } from "../src/lib/event-request-context";
 import { events as curated } from "../src/data/events";
 const known = {
   ...curated[0],
@@ -45,7 +46,6 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   vi.resetAllMocks();
-  setEventDatabase(undefined);
 });
 describe("canonical retained event collection", () => {
   it("orders equal-date records deterministically and keeps year-only records chronological", async () => {
@@ -91,7 +91,7 @@ describe("canonical retained event collection", () => {
       expect(result.events).toContainEqual(curated[0]);
     },
   );
-  it("orders novel events before the first page of both actual API handlers", async () => {
+  it("orders novel future events before the archive on the first page of both API handlers", async () => {
     const discovered = {
       ...known,
       year: "2099",
@@ -100,18 +100,39 @@ describe("canonical retained event collection", () => {
     };
     harness.read.mockResolvedValue([discovered]);
     const db = { prepare: vi.fn() };
-    setEventDatabase(db);
+    // Active opportunities come first (soonest first), then the archive.
+    const activeCount = curated.filter(
+      (event) => (event.endDate ?? event.startDate ?? "") >= "2026-10-12",
+    ).length;
+    const request = new Request(
+      `https://openodia.com/api/events?page=1&limit=${Math.min(activeCount + 1, 50)}`,
+    );
+    const firstPage = (events: { url: string; status?: string }[]) => {
+      const index = events.findIndex((event) => event.url === discovered.url);
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(events.slice(0, index).every((event) => event.status)).toBe(true);
+    };
     const { Route } = await import("../src/routes/api/events");
-    const request = new Request("https://openodia.com/api/events?page=1&limit=1");
-    const tanstack = await Route.options.server!.handlers!.GET!({ request } as never);
-    expect((await tanstack!.json()).events.map((event: { url: string }) => event.url)).toEqual([
-      discovered.url,
-    ]);
+    const tanstack = await withEventDatabase(db, () =>
+      Route.options.server!.handlers!.GET!({ request } as never),
+    );
+    firstPage((await tanstack!.json()).events);
     const { default: worker } = await import("../src/server");
     const response = await worker.fetch(request, { EVENTS_DB: db }, {});
-    expect((await response.json()).events.map((event: { url: string }) => event.url)).toEqual([
-      discovered.url,
+    firstPage((await response.json()).events);
+  });
+  it("keeps the curated organizer when a persisted row repeats a checked-in URL", async () => {
+    harness.read.mockResolvedValue([
+      { ...curated[0], community: "Other chapter", organizerId: undefined, title: "Live title" },
     ]);
+    const result = await loadEventCollection({ prepare: vi.fn() });
+    const merged = result.events.filter((event) => event.url === curated[0].url);
+    expect(merged).toHaveLength(1);
+    expect(merged[0]).toMatchObject({
+      title: "Live title",
+      community: curated[0].community,
+      organizerId: curated[0].organizerId,
+    });
   });
   it("merges checked-in and persisted history without fetching unavailable live sources", async () => {
     const result = await loadEventCollection({ prepare: vi.fn() });
@@ -170,10 +191,9 @@ describe("canonical retained event collection", () => {
     expect(harness.live).toHaveBeenCalled();
   });
   it("uses the current Worker binding for search and RSS default loaders", async () => {
-    setEventDatabase({ prepare: vi.fn() });
     const { loadLiveSearchEvents } = await import("../src/lib/sources/search");
-    const result = await loadLiveSearchEvents();
-    expect(result).toMatchObject({ source: "d1", partial: false });
+    const result = await withEventDatabase({ prepare: vi.fn() }, () => loadLiveSearchEvents());
+    expect(result).toMatchObject({ source: "d1" });
     expect(harness.read).toHaveBeenCalled();
   });
   it("has no fabricated success timestamp when persistence is absent", async () => {

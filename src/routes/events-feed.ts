@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { events as staticEvents } from "../data/events";
-import { loadEventCollection } from "../lib/event-collection";
-import { mergeNonEmpty } from "../lib/utils";
-import { mergeEventCollectionsByUrl } from "../lib/event-url";
+import { lifecycleLabel, REGISTRATION_LABELS } from "../lib/event-lifecycle";
+
 import type { Event } from "../data/events/types";
 
 const XML_ESCAPES: Record<string, string> = {
@@ -19,20 +17,6 @@ function escapeXml(unsafe: string): string {
 
 function safeCdata(content: string): string {
   return `<![CDATA[${content.replace(/]]>/g, "]]&gt;")}]]>`;
-}
-
-function getISTDateString(): string {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    return formatter.format(new Date());
-  } catch {
-    return new Date().toISOString().split("T")[0];
-  }
 }
 
 function formatRfc822Date(dateStr?: string, year?: string): string {
@@ -64,7 +48,9 @@ export function generateRssFeed(events: Event[], baseUrl: string): string {
 
   const items = events
     .map((e) => {
-      const title = escapeXml(e.title || "Untitled Event");
+      const state =
+        e.lifecycle && e.lifecycle.state !== "scheduled" ? `[${lifecycleLabel(e)}] ` : "";
+      const title = escapeXml(state + (e.title || "Untitled Event"));
       const link = escapeXml(e.url || baseUrl + "/events");
       const guid = escapeXml(e.url || `${baseUrl}/events#${e.title}-${e.startDate}`);
       const pubDate = formatRfc822Date(e.startDate || e.date, e.year);
@@ -77,6 +63,12 @@ export function generateRssFeed(events: Event[], baseUrl: string): string {
         e.date ? `<p><strong>Date:</strong> ${e.date}</p>` : "",
         e.theme ? `<p><strong>Theme:</strong> <em>&ldquo;${e.theme}&rdquo;</em></p>` : "",
         `<p><strong>Organized by:</strong> ${community}</p>`,
+        e.lifecycle ? `<p><strong>Lifecycle:</strong> ${escapeXml(lifecycleLabel(e))}</p>` : "",
+        e.registration ? `<p>${escapeXml(REGISTRATION_LABELS[e.registration.state])}</p>` : "",
+        ...(e.notices ?? []).map(
+          (notice) =>
+            `<p>${escapeXml(notice.text)} — checked ${escapeXml(notice.verifiedAt)}; evidence: ${escapeXml(notice.evidenceUrl)}</p>`,
+        ),
       ]
         .filter(Boolean)
         .join("\n");
@@ -106,62 +98,44 @@ ${items}
 </rss>`;
 }
 
+/** Feed chronology uses a copy so API/SSR active-first order stays intact. */
+export function chronologicalFeedEvents(events: Event[]): Event[] {
+  return [...events].sort((a, b) => {
+    const yearDiff = Number(b.year) - Number(a.year);
+    if (yearDiff !== 0) return yearDiff;
+    if (a.startDate && b.startDate) return b.startDate.localeCompare(a.startDate);
+    if (a.startDate) return -1;
+    if (b.startDate) return 1;
+    return 0;
+  });
+}
+
 export const Route = createFileRoute("/events-feed")({
   server: {
     handlers: {
       GET: async () => {
         try {
           // Fetch dynamic events
-          const collection = await loadEventCollection();
-          const fetchedEvents = collection.events;
+          const { loadReviewedEventCollection } = await import("../lib/sources/events");
+          const { events: fetchedEvents, partial, sources } = await loadReviewedEventCollection();
 
-          // Merge static and dynamic events
-          const today = getISTDateString();
-          const mergedEventsList = mergeEventCollectionsByUrl(
-            staticEvents,
-            fetchedEvents,
-            mergeNonEmpty,
-          )
-            .map((e) => {
-              let status = e.status;
-              if (e.startDate) {
-                const end = e.endDate || e.startDate;
-                if (today < e.startDate) {
-                  status = "upcoming";
-                } else if (today >= e.startDate && today <= end) {
-                  status = "live";
-                } else {
-                  status = undefined; // past event
-                }
-              }
-              return { ...e, status };
-            })
-            .sort((a, b) => {
-              const yearDiff = Number(b.year) - Number(a.year);
-              if (yearDiff !== 0) return yearDiff;
-              if (a.startDate && b.startDate) {
-                return b.startDate.localeCompare(a.startDate);
-              }
-              if (a.startDate) return -1;
-              if (b.startDate) return 1;
-              return 0;
-            });
-
-          const baseUrl = "https://openodia.com";
-          const xml = generateRssFeed(mergedEventsList, baseUrl);
+          // The shared loader supplies the complete canonical corpus.
+          const xml = generateRssFeed(
+            chronologicalFeedEvents(fetchedEvents),
+            "https://openodia.com",
+          );
 
           return new Response(xml, {
             status:
-              collection.events.length === 0 &&
-              collection.sources.every((source) => source.outcome === "failed")
+              fetchedEvents.length === 0 && sources.every((source) => source.outcome === "failed")
                 ? 503
                 : 200,
             headers: {
               "Content-Type": "application/rss+xml; charset=utf-8",
-              "Cache-Control": collection.partial
+              "Cache-Control": partial
                 ? "no-store"
                 : "public, s-maxage=3600, stale-while-revalidate=600",
-              "X-OpenOdia-Partial": String(collection.partial),
+              "X-OpenOdia-Partial": String(partial),
             },
           });
         } catch (e) {

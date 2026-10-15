@@ -932,9 +932,11 @@ describe("native Odia review policy", () => {
     expect(discoverScript).not.toMatch(
       /downloadArtifact|conclusion|checkout|exec\(|fetch\(|eval\(/,
     );
+    // PR label writes (add/remove needs-native-speaker-review) need
+    // pull-requests: write; issues: write alone is rejected with a 403.
     expect(publisher.permissions).toEqual({
       contents: "read",
-      "pull-requests": "read",
+      "pull-requests": "write",
       issues: "write",
       statuses: "write",
     });

@@ -1,3 +1,5 @@
+import { eventSchemaStatus } from "./event-lifecycle";
+import type { Event } from "../data/events/types";
 import React from "react";
 
 /**
@@ -141,6 +143,15 @@ export function itemListSchema(
   };
 }
 
+export function offerAvailable(e: {
+  lifecycle?: Event["lifecycle"];
+  registration?: Event["registration"];
+}): boolean {
+  const lifecycle = e.lifecycle?.state ?? "scheduled";
+  const registration = e.registration?.state;
+  return lifecycle === "scheduled" && (registration === undefined || registration === "open");
+}
+
 /**
  * ItemList of Events — the shape Google documents for a page that lists many
  * events rather than describing one. Entries without a resolvable start date
@@ -155,6 +166,9 @@ export function eventListSchema(
     endDate?: string;
     location?: string;
     organizer?: string;
+    lifecycle?: Event["lifecycle"];
+    previousStartDate?: string;
+    registration?: Event["registration"];
     /** Organizer's reviewed official site. Omitted when the registry has none. */
     organizerUrl?: string;
     /** From organizer evidence only: true = stated no fee, false = stated fee. */
@@ -179,7 +193,8 @@ export function eventListSchema(
         description: e.description,
         startDate: e.startDate,
         ...(e.endDate ? { endDate: e.endDate } : {}),
-        eventStatus: "https://schema.org/EventScheduled",
+        eventStatus: eventSchemaStatus(e),
+        ...(e.previousStartDate ? { previousStartDate: e.previousStartDate } : {}),
         ...(e.location && !/^online$/i.test(e.location.trim())
           ? {
               eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
@@ -199,15 +214,16 @@ export function eventListSchema(
             }
           : {}),
         ...(e.free === undefined ? {} : { isAccessibleForFree: e.free }),
-        // A free offer is only meaningful while admission can still be had;
-        // an ended event must not advertise tickets as InStock.
-        ...(e.free && (e.endDate ?? e.startDate) >= today
+        // A free InStock offer is emitted only while the event is still
+        // upcoming or in progress, its lifecycle is scheduled, and
+        // registration is unreviewed or open.
+        ...(e.free && (e.endDate ?? e.startDate) >= today && offerAvailable(e)
           ? {
               offers: {
                 "@type": "Offer",
                 price: 0,
                 priceCurrency: "INR",
-                url: e.url,
+                url: e.registration?.url ?? e.url,
                 availability: "https://schema.org/InStock",
               },
             }

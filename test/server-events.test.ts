@@ -39,20 +39,29 @@ describe("production events endpoint", () => {
       },
     ];
     const db: D1Like = {
-      prepare() {
+      prepare(sql) {
         return {
           bind() {
             return this;
           },
           run: async () => ({}),
-          all: async <T>() => ({ results: rows as T[] }),
+          all: async <T>() => ({
+            results: (sql.includes("event_destination_aliases")
+              ? [{ alias_url: legacy, destination_url: current, checked_at: "2026-10-13" }]
+              : sql.includes("event_reviewed_metadata")
+                ? []
+                : rows) as T[],
+          }),
         };
       },
     };
 
     globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      return { ok: true, url: url === legacy ? current : url } as Response;
+      return new Response(
+        null,
+        url === legacy ? { status: 302, headers: { location: current } } : { status: 200 },
+      );
     }) as typeof fetch;
 
     const response = await server.fetch(
@@ -69,6 +78,7 @@ describe("production events endpoint", () => {
     expect(payload.events.filter((event) => event.startDate === "2026-09-13")).toEqual([
       expect.objectContaining({ title: "Code for Communities 2.0", url: current }),
     ]);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
   it("does not resolve the curated archive before first-page pagination", async () => {
     const event = curated.find((event) => event.startDate)!;
