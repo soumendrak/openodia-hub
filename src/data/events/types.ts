@@ -100,4 +100,6 @@ export type Event = {
     /** One sentence of evidence, e.g. "ID proof, fee and 60-seat cap." */
     note: string;
   };
+  /** Set only when the organizer explicitly states there is no fee. */
+  free?: boolean;
 };

@@ -19,6 +19,7 @@ import { parseEventArchiveSearch } from "../lib/event-archive";
 import { issueFormUrl } from "../lib/issue-forms";
 import {
   getOrganizerById,
+  organizerHomepage,
   resolveOrganizer,
   resolveOrganizerId,
   ORGANIZERS,
@@ -585,20 +586,26 @@ function EventsPage() {
   // Structured data follows the same reviewed collection as the visible cards.
   const schemaEvents = mergedEventsList
     .filter((e) => !!e.startDate)
-    .map((e) => ({
-      name: e.title,
-      url: e.url,
-      description: e.description,
-      startDate: e.lifecycle?.replacementDate ?? (e.startDate as string),
-      lifecycle: e.lifecycle,
-      previousStartDate:
-        e.lifecycle?.state === "postponed"
-          ? (e.lifecycle.previousDate ?? (e.lifecycle.replacementDate ? undefined : e.startDate))
-          : undefined,
-      endDate: e.endDate,
-      location: e.location,
-      organizer: e.community,
-    }));
+    .map((e) => {
+      const organizer = e.organizerId ? getOrganizerById(e.organizerId) : undefined;
+      return {
+        name: e.title,
+        url: e.url,
+        description: e.description,
+        startDate: e.lifecycle?.replacementDate ?? (e.startDate as string),
+        lifecycle: e.lifecycle,
+        registration: e.registration,
+        previousStartDate:
+          e.lifecycle?.state === "postponed"
+            ? (e.lifecycle.previousDate ?? (e.lifecycle.replacementDate ? undefined : e.startDate))
+            : undefined,
+        endDate: e.endDate,
+        location: e.location,
+        organizer: organizer?.canonicalName ?? e.community,
+        organizerUrl: organizer ? organizerHomepage(organizer.officialLinks) : undefined,
+        free: e.free,
+      };
+    });
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-24">

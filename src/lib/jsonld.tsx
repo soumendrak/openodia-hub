@@ -143,6 +143,16 @@ export function itemListSchema(
   };
 }
 
+/** Offers require a scheduled lifecycle and registration that is not closed or sold out. */
+export function offerAvailable(e: {
+  lifecycle?: Event["lifecycle"];
+  registration?: Event["registration"];
+}): boolean {
+  const lifecycle = e.lifecycle?.state ?? "scheduled";
+  const registration = e.registration?.state;
+  return lifecycle === "scheduled" && registration !== "closed" && registration !== "sold-out";
+}
+
 /**
  * ItemList of Events — the shape Google documents for a page that lists many
  * events rather than describing one. Entries without a resolvable start date
@@ -159,8 +169,17 @@ export function eventListSchema(
     organizer?: string;
     lifecycle?: Event["lifecycle"];
     previousStartDate?: string;
+    /** Reviewed registration state; closed or sold-out suppresses offers. */
+    registration?: Event["registration"];
+    /** Organizer's reviewed official site. Omitted when the registry has none. */
+    organizerUrl?: string;
+    /** From organizer evidence only: true = stated no fee, false = stated fee. */
+    free?: boolean;
   }[],
+  /** Injected for tests; offers are only emitted for events not yet over. */
+  now: Date = new Date(),
 ) {
+  const today = now.toISOString().slice(0, 10);
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -178,7 +197,7 @@ export function eventListSchema(
         ...(e.endDate ? { endDate: e.endDate } : {}),
         eventStatus: eventSchemaStatus(e),
         ...(e.previousStartDate ? { previousStartDate: e.previousStartDate } : {}),
-        ...(e.location
+        ...(e.location && !/^online$/i.test(e.location.trim())
           ? {
               eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
               location: { "@type": "Place", name: e.location, address: e.location },
@@ -187,7 +206,31 @@ export function eventListSchema(
               eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
               location: { "@type": "VirtualLocation", url: e.url },
             }),
-        ...(e.organizer ? { organizer: { "@type": "Organization", name: e.organizer } } : {}),
+        ...(e.organizer
+          ? {
+              organizer: {
+                "@type": "Organization",
+                name: e.organizer,
+                ...(e.organizerUrl ? { url: e.organizerUrl } : {}),
+              },
+            }
+          : {}),
+        ...(e.free === undefined ? {} : { isAccessibleForFree: e.free }),
+        // A free offer is only meaningful while admission can still be had;
+        // an ended event must not advertise tickets as InStock.
+        // Postponed/cancelled events and closed/sold-out registration never
+        // advertise an InStock offer either.
+        ...(e.free && (e.endDate ?? e.startDate) >= today && offerAvailable(e)
+          ? {
+              offers: {
+                "@type": "Offer",
+                price: 0,
+                priceCurrency: "INR",
+                url: e.url,
+                availability: "https://schema.org/InStock",
+              },
+            }
+          : {}),
       },
     })),
   };
