@@ -5,15 +5,12 @@ import { handleApiDiscovery } from "./lib/api-discovery";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { estimateTokens, htmlToMarkdown } from "./lib/html-to-markdown";
-import { readEventsFromD1, syncEventsToD1, type D1Like } from "./lib/events-store";
-import { CHAPTERS, fetchChapterEvents } from "./routes/api/events";
-import { settledValues } from "./lib/fetch-utils";
-import { dedupeEventsByResolvedUrl, dedupeEventsByUrl } from "./lib/event-url";
+import { syncEventsToD1, type D1Like } from "./lib/events-store";
+import { loadEventCollection, setEventDatabase } from "./lib/event-collection";
 import { loadAwesome } from "./lib/sources/awesome";
 import { loadRepos } from "./lib/sources/repos";
 import { setCacheStore, setExecutionContext } from "./lib/sources/cache";
 import { loadDatasets, loadModels } from "./lib/sources/huggingface";
-import type { Event } from "./data/events/types";
 
 type KVRead = { get: (key: string) => Promise<string | null> };
 type KVReadWrite = KVRead & {
@@ -183,54 +180,47 @@ const EVENTS_CORS = {
   "Access-Control-Allow-Headers": "Content-Type, User-Agent",
 };
 
-async function liveScrapeEvents(): Promise<Event[]> {
-  const settled = await Promise.allSettled(
-    CHAPTERS.map((c) => fetchChapterEvents(c.organizerId ?? c.community, c.slug)),
-  );
-  return dedupeEventsByUrl(settledValues(settled).flat());
-}
-
 async function handleEvents(env: Env | undefined, request: Request): Promise<Response> {
-  let events: Event[] = [];
-  let source: "d1" | "scrape" = "scrape";
-
-  if (env?.EVENTS_DB) {
-    try {
-      events = await readEventsFromD1(env.EVENTS_DB);
-      if (events.length > 0) source = "d1";
-    } catch (err) {
-      console.warn("EVENTS_DB read failed; falling back to live scrape", err);
-    }
-  }
-
-  if (events.length === 0) {
-    events = await liveScrapeEvents();
-    source = "scrape";
-  }
-
-  // Also protects reads from databases populated before canonical URL IDs were
-  // introduced; legacy duplicate rows disappear immediately at the API edge.
-  events = await dedupeEventsByResolvedUrl(events);
+  const collection = await loadEventCollection(env?.EVENTS_DB);
+  const { events } = collection;
+  const { source, sources, partial } = collection;
+  const status =
+    events.length === 0 && sources.every((source) => source.outcome === "failed") ? 503 : 200;
 
   const url = new URL(request.url);
   const pageParam = url.searchParams.get("page");
 
   if (pageParam === null) {
-    return new Response(JSON.stringify({ events, source }), {
-      status: 200,
-      headers: EVENTS_CORS,
+    return new Response(JSON.stringify({ events, source, sources, partial }), {
+      status,
+      headers: { ...EVENTS_CORS, ...(partial ? { "Cache-Control": "no-store" } : {}) },
     });
   }
 
-  const limit = Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50);
-  const pageNum = parseInt(pageParam || "1", 10) || 1;
+  const limit = Math.max(
+    1,
+    Math.min(parseInt(url.searchParams.get("limit") || "20", 10) || 20, 50),
+  );
+  const pageNum = Math.max(1, parseInt(pageParam || "1", 10) || 1);
   const start = (pageNum - 1) * limit;
   const pageItems = events.slice(start, start + limit);
   const nextCursor = start + limit < events.length ? String(pageNum + 1) : undefined;
 
   return new Response(
-    JSON.stringify({ events: pageItems, nextCursor, total: events.length, source }),
-    { status: 200, headers: EVENTS_CORS },
+    JSON.stringify({
+      events: pageItems,
+      nextCursor,
+      total: events.length,
+      // Year facets cover the whole corpus so unvisited pages stay selectable.
+      years: [...new Set(events.map((event) => event.year))],
+      source,
+      sources,
+      partial,
+    }),
+    {
+      status,
+      headers: { ...EVENTS_CORS, ...(partial ? { "Cache-Control": "no-store" } : {}) },
+    },
   );
 }
 
@@ -241,6 +231,7 @@ export default {
     // The globally-replicated layer behind the in-isolate memo. Without it a
     // cold isolate re-runs the whole upstream fan-out on the request path.
     setCacheStore(env?.CATALOG_KV);
+    setEventDatabase(env?.EVENTS_DB);
     try {
       // URL rewrites: map dot-path URLs to TanStack Router paths
       // TanStack Router treats dots as path separators in file-based routing,
@@ -265,6 +256,23 @@ export default {
       // Falls back to live Bevy scrape if the DB is unavailable or empty.
       if (originalPath === "/api/events") {
         return await handleEvents(env, request);
+      }
+
+      if (originalPath === "/events-feed") {
+        const { generateRssFeed } = await import("./routes/events-feed");
+        const collection = await loadEventCollection(env?.EVENTS_DB);
+        return new Response(generateRssFeed(collection.events, "https://openodia.com"), {
+          status:
+            collection.events.length === 0 &&
+            collection.sources.every((source) => source.outcome === "failed")
+              ? 503
+              : 200,
+          headers: {
+            "Content-Type": "application/rss+xml; charset=utf-8",
+            "X-OpenOdia-Partial": String(collection.partial),
+            "Cache-Control": collection.partial ? "no-store" : "public, s-maxage=3600",
+          },
+        });
       }
 
       // /projects merged into /tools — preserve link equity with a 301.
@@ -348,6 +356,7 @@ export default {
   async scheduled(_event: unknown, env: Env | undefined, ctx: unknown): Promise<void> {
     setExecutionContext(ctx);
     setCacheStore(env?.CATALOG_KV);
+    setEventDatabase(env?.EVENTS_DB);
     // Refresh the catalog sources into KV. This used to warm `caches.default`,
     // which is per-colo — so it only ever helped the one colo the cron happened
     // to run in, and every other colo still paid the full GitHub + Hugging Face

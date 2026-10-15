@@ -1,5 +1,7 @@
+import { dedupeEventsByUrl } from "../src/lib/event-url";
+import { events as curated } from "../src/data/events";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { fetchChapterEvents, Route } from "../src/routes/api/events";
+import { fetchChapterEvents, fetchChapterSnapshot, Route } from "../src/routes/api/events";
 
 describe("fetchChapterEvents", () => {
   const originalFetch = globalThis.fetch;
@@ -203,7 +205,116 @@ describe("fetchChapterEvents", () => {
     expect(events).toEqual([]);
   });
 
-  it("maps all Bevy type labels and missing dates", async () => {
+  it.each([
+    ["upcomingEvents", { pastEvents: { results: [] } }],
+    ["pastEvents", { upcomingEvents: { results: [] }, pastEvents: { results: "oops" } }],
+  ])("rejects a page whose %s.results is not an array", async (key, prerenderData) => {
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: { pageProps: { prerenderData } },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => html,
+    } as Response);
+
+    await expect(fetchChapterSnapshot("Community", "chapter")).rejects.toThrow(
+      `prerenderData.${key}.results missing for slug: chapter`,
+    );
+  });
+
+  it.each(["2026-02-30T10:00:00Z", "Feb 3 2026", "2026-02-03junk"])(
+    "rejects a non-ISO or impossible start date (%s) as a parse failure",
+    async (start_date) => {
+      const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+        props: {
+          pageProps: {
+            prerenderData: {
+              upcomingEvents: {
+                count: 1,
+                results: [{ title: "Bad date", url: "https://example.com/bad", start_date }],
+              },
+              pastEvents: { count: 0, results: [] },
+            },
+          },
+        },
+      })}</script>`;
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        text: async () => html,
+      } as Response);
+      await expect(fetchChapterSnapshot("Community", "chapter")).rejects.toThrow(
+        "Unexpected event record shape",
+      );
+    },
+  );
+
+  it("drops URL-less and date-less records and coerces non-string descriptions without failing the source", async () => {
+    const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+      props: {
+        pageProps: {
+          prerenderData: {
+            upcomingEvents: {
+              count: 4,
+              results: [
+                {
+                  title: "No date",
+                  event_type_title: "Talk",
+                  start_date: "",
+                  url: "https://gdg.community.dev/events/details/no-date",
+                },
+                { title: "No URL", event_type_title: "Talk", start_date: "2026-01-02T00:00:00Z" },
+                {
+                  title: "Blank URL",
+                  url: "   ",
+                  event_type_title: "Talk",
+                  start_date: "2026-01-02T00:00:00Z",
+                },
+                {
+                  title: "Valid sibling",
+                  description_short: { html: "x" },
+                  description: 42,
+                  event_type_title: "Talk",
+                  start_date: "2026-01-02T00:00:00Z",
+                  url: "https://gdg.community.dev/events/details/valid-sibling",
+                },
+              ],
+            },
+            pastEvents: {
+              count: 1,
+              results: [
+                {
+                  title: "Fallback description",
+                  description_short: 7,
+                  description: "Plain text",
+                  event_type_title: "Talk",
+                  start_date: "2025-01-02T00:00:00Z",
+                  url: "https://gdg.community.dev/events/details/fallback",
+                },
+              ],
+            },
+          },
+        },
+      },
+    })}</script>`;
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () => mockHtml,
+    } as Response);
+    const snapshot = await fetchChapterSnapshot("Community", "chapter");
+    expect(snapshot.events.map((event) => [event.title, event.description])).toEqual([
+      ["Valid sibling", ""],
+      ["Fallback description", "Plain text"],
+    ]);
+    // The URL-less record still marks its list incomplete, so nothing is deactivated.
+    expect(snapshot.upcomingComplete).toBe(false);
+    expect(snapshot.pastComplete).toBe(true);
+  });
+
+  it("maps all Bevy type labels", async () => {
     const labels = ["Conference", "AI Summit", "Study Jam", "Speaker session", "Research", "Other"];
     const mockHtml = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
@@ -214,11 +325,11 @@ describe("fetchChapterEvents", () => {
                 title: `Event ${index}`,
                 description: "",
                 event_type_title,
-                start_date: index === 5 ? "" : "2026-01-02T00:00:00Z",
+                start_date: "2026-01-02T00:00:00Z",
                 url: `https://gdg.community.dev/events/details/event-${index}`,
               })),
             },
-            pastEvents: {},
+            pastEvents: { results: [] },
           },
         },
       },
@@ -237,7 +348,6 @@ describe("fetchChapterEvents", () => {
       "Research",
       "Talk",
     ]);
-    expect(events[5]?.date).toBe("");
   });
 
   it("serves complete and paginated live event payloads", async () => {
@@ -277,11 +387,12 @@ describe("fetchChapterEvents", () => {
     expect(await paged.json()).toMatchObject({
       events: expect.any(Array),
       nextCursor: "2",
-      total: 3,
+      total: dedupeEventsByUrl(curated).length + 3,
+      years: expect.arrayContaining([...new Set(curated.map((event) => event.year))]),
     });
     const defaulted = await get({
       request: new Request("https://openodia.com/api/events?page=nope&limit=500"),
     });
-    expect((await defaulted.json()).nextCursor).toBeUndefined();
+    expect((await defaulted.json()).nextCursor).toBe("2");
   });
 });

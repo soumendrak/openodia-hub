@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { events as staticEvents } from "../data/events";
-import { fetchChapterEvents, CHAPTERS } from "./api/events";
-import { settledValues } from "../lib/fetch-utils";
+import { loadEventCollection } from "../lib/event-collection";
 import { mergeNonEmpty } from "../lib/utils";
 import { mergeEventCollectionsByUrl } from "../lib/event-url";
 import type { Event } from "../data/events/types";
@@ -60,7 +59,7 @@ function formatRfc822Date(dateStr?: string, year?: string): string {
   return new Date().toUTCString();
 }
 
-function generateRssFeed(events: Event[], baseUrl: string): string {
+export function generateRssFeed(events: Event[], baseUrl: string): string {
   const lastBuildDate = new Date().toUTCString();
 
   const items = events
@@ -113,10 +112,8 @@ export const Route = createFileRoute("/events-feed")({
       GET: async () => {
         try {
           // Fetch dynamic events
-          const results = await Promise.allSettled(
-            CHAPTERS.map((ch) => fetchChapterEvents(ch.organizerId ?? ch.community, ch.slug)),
-          );
-          const fetchedEvents = settledValues(results).flat();
+          const collection = await loadEventCollection();
+          const fetchedEvents = collection.events;
 
           // Merge static and dynamic events
           const today = getISTDateString();
@@ -154,10 +151,17 @@ export const Route = createFileRoute("/events-feed")({
           const xml = generateRssFeed(mergedEventsList, baseUrl);
 
           return new Response(xml, {
-            status: 200,
+            status:
+              collection.events.length === 0 &&
+              collection.sources.every((source) => source.outcome === "failed")
+                ? 503
+                : 200,
             headers: {
               "Content-Type": "application/rss+xml; charset=utf-8",
-              "Cache-Control": "public, s-maxage=3600, stale-while-revalidate=600",
+              "Cache-Control": collection.partial
+                ? "no-store"
+                : "public, s-maxage=3600, stale-while-revalidate=600",
+              "X-OpenOdia-Partial": String(collection.partial),
             },
           });
         } catch (e) {

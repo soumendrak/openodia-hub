@@ -29,6 +29,11 @@ const PAGES = [
   { label: "Papers", path: "/papers" },
   { label: "Treebank search", path: "/treebank" },
   { label: "Add your project", path: "/contribute" },
+  {
+    label: "Help translate OpenOdia",
+    path: "/translation-status",
+    keywords: "translation Odia contributor native review",
+  },
   { label: "API", path: "/api" },
   { label: "About", path: "/about" },
 ];
@@ -93,7 +98,9 @@ export default function CommandPaletteDialog({
   const pages = useMemo(
     () =>
       PAGES.filter(
-        (page) => !normalizedNeedle || normalizeSearch(page.label).includes(normalizedNeedle),
+        (page) =>
+          !normalizedNeedle ||
+          normalizeSearch(`${page.label} ${page.keywords ?? ""}`).includes(normalizedNeedle),
       ),
     [normalizedNeedle],
   );
@@ -121,7 +128,7 @@ export default function CommandPaletteDialog({
       ),
     [results],
   );
-  const unavailable = data?.sources?.filter((source) => source.status === "unavailable") ?? [];
+  const unavailable = data?.sources?.filter((source) => source.status !== "ready") ?? [];
   const close = () => onOpenChange(false);
   const go = (result: SearchResult) => {
     close();
@@ -174,7 +181,8 @@ export default function CommandPaletteDialog({
         )}
         {data?.partial && (
           <p className="px-3 py-2 text-xs text-muted-foreground" role="status">
-            Partial results: {unavailable.map((source) => source.source).join(", ")} unavailable.
+            Partial results: {unavailable.map((source) => source.source).join(", ")} incomplete or
+            unavailable.
           </p>
         )}
 

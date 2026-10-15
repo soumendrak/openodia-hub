@@ -2,7 +2,7 @@ import "@testing-library/jest-dom/vitest";
 
 // jsdom implements none of these, and Radix/cmdk call them on mount. Stubbed
 // here rather than per-test so any component test can render real UI.
-if (!Element.prototype.scrollIntoView) {
+if (typeof Element !== "undefined" && !Element.prototype.scrollIntoView) {
   Element.prototype.scrollIntoView = () => {};
 }
 

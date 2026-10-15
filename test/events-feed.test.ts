@@ -36,7 +36,8 @@ describe("events-feed handler", () => {
                           "url": "https://gdg.community.dev/events/details/tech-talk-test"
                         }
                       ]
-                    }
+                    },
+                    "pastEvents": { "results": [] }
                   }
                 }
               }
