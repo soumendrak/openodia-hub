@@ -291,6 +291,80 @@ describe("cachedJson", () => {
         expect(load).toHaveBeenCalledTimes(1);
         expect(kv.put).not.toHaveBeenCalled();
       });
+
+      async function primed(key: string, value: unknown) {
+        const kv = fakeKv();
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        await mod.cachedJson(key, TTL, async () => value);
+        expect(kv.put).toHaveBeenCalledTimes(1);
+        return { kv, mod };
+      }
+
+      it("does not write an unchanged value between 6h and 20h", async () => {
+        const { kv, mod } = await primed("k", { a: 1 });
+        vi.advanceTimersByTime(MIN_WRITE_INTERVAL_MS + 1);
+        await mod.cachedJson("k", TTL, async () => ({ a: 1 }));
+        await vi.runAllTimersAsync();
+        expect(kv.put).toHaveBeenCalledTimes(1);
+      });
+
+      it("does not write a changed value before 6h", async () => {
+        const { kv, mod } = await primed("k", "v1");
+        vi.advanceTimersByTime(2 * 60 * 60 * 1000);
+        await mod.cachedJson("k", TTL, async () => "v2");
+        await vi.runAllTimersAsync();
+        expect(kv.put).toHaveBeenCalledTimes(1);
+      });
+
+      it("ignores a top-level builtAt when deciding whether a value changed", async () => {
+        const { kv, mod } = await primed("search-snapshot:v1", { d: [1], builtAt: "t1" });
+        vi.advanceTimersByTime(MIN_WRITE_INTERVAL_MS + 1);
+        await mod.cachedJson("search-snapshot:v1", TTL, async () => ({ d: [1], builtAt: "t2" }));
+        await vi.runAllTimersAsync();
+        expect(kv.put).toHaveBeenCalledTimes(1);
+        vi.advanceTimersByTime(TTL + 1);
+        await mod.cachedJson("search-snapshot:v1", TTL, async () => ({ d: [2], builtAt: "t3" }));
+        await vi.runAllTimersAsync();
+        expect(kv.put).toHaveBeenCalledTimes(2);
+      });
+
+      it("keeps preview keys memo-only too", async () => {
+        const kv = fakeKv();
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        await mod.cachedJson("preview:x", TTL, async () => "v1");
+        await vi.runAllTimersAsync();
+        expect(kv.get).not.toHaveBeenCalled();
+        expect(kv.put).not.toHaveBeenCalled();
+      });
+
+      it("treats unparseable stored JSON as a miss and repairs it", async () => {
+        const kv = fakeKv();
+        kv.data.set("cache:v3:k", "{not json");
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        const load = vi.fn(async () => "v1");
+        expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+        await vi.runAllTimersAsync();
+        expect(load).toHaveBeenCalledTimes(1);
+        expect(kv.put).toHaveBeenCalledTimes(1);
+      });
+
+      it("rejects a stored `at` in the future (negative age) and rewrites it", async () => {
+        const kv = fakeKv();
+        kv.data.set(
+          "cache:v3:k",
+          JSON.stringify({ at: Date.now() + 365 * 24 * 60 * 60 * 1000, value: "old" }),
+        );
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        const load = vi.fn(async () => "new");
+        expect(await mod.cachedJson("k", TTL, load)).toBe("new");
+        await vi.runAllTimersAsync();
+        expect(load).toHaveBeenCalledTimes(1);
+        expect(JSON.parse(kv.data.get("cache:v3:k")!).value).toBe("new");
+      });
     });
   });
 });

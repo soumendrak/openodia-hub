@@ -91,7 +91,10 @@ async function readEntry<T>(key: string): Promise<Entry<T> | undefined> {
   if (!raw) return undefined;
   try {
     const entry = JSON.parse(raw) as Entry<T>;
-    return typeof entry?.at === "number" ? entry : undefined;
+    // A future `at` (clock skew, bad write) gives a negative age, which would
+    // look fresh past the TTL and, if clamped to now, re-clamp on every read
+    // and never expire. Treat it like a corrupt entry: reload and rewrite.
+    return typeof entry?.at === "number" && entry.at <= Date.now() ? entry : undefined;
   } catch {
     return undefined;
   }
@@ -122,9 +125,13 @@ async function writeStore<T>(key: string, entry: Entry<T>, ttlMs: number): Promi
  * in-isolate memo on schedule; only the KV write is rate-limited.
  *
  * Per-item keys (resource:*, preview:*) are unbounded in number, so they stay
- * memo-only: a cold isolate pays one upstream call for them, not a fan-out. That leaves ~11 persisted keys, so
- * even a cross-colo race that lets every refreshing isolate write stays
- * bounded at keys x isolates x 4/day rather than scaling with page count.
+ * memo-only: a cold isolate pays one upstream call for them, not a fan-out.
+ *
+ * Bound: with K persisted keys (~11) and W isolates that race on the same
+ * refresh window (reads before puts propagate), changed values cost at most
+ *   K × (24h / 6h) × W = K × 4 × W writes/day,
+ * and unchanged values K × (24h / 20h) × W ≈ K × 1.2 × W. With K = 11 that is
+ * ~44·W, so the 1,000/day cap holds for up to ~20 concurrent writers per window.
  */
 export const MIN_WRITE_INTERVAL_MS = 6 * 60 * 60 * 1000;
 /** Key prefixes kept out of KV; see above. */
@@ -133,11 +140,23 @@ const MEMO_ONLY_PREFIXES = ["resource:", "preview:"];
 /** Must stay below STALE_WINDOW_MS so an unchanged copy never expires. */
 export const REWRITE_UNCHANGED_MS = 20 * 60 * 60 * 1000;
 
+/**
+ * JSON form used for change detection. A top-level `builtAt` (the search
+ * snapshot stamps one on every build) is ignored, or every load would count
+ * as a change. Values are JSON by construction — writeStore serializes them.
+ */
+function comparable(value: unknown): string {
+  if (value && typeof value === "object" && !Array.isArray(value) && "builtAt" in value) {
+    const { builtAt: _builtAt, ...rest } = value as Record<string, unknown>;
+    return JSON.stringify(rest);
+  }
+  return JSON.stringify(value);
+}
+
 function shouldWrite<T>(stored: Entry<T> | undefined, value: T, now: number): boolean {
   if (!stored) return true;
   const age = now - stored.at;
-  // Values are JSON by construction — writeStore serializes them the same way.
-  if (JSON.stringify(stored.value) === JSON.stringify(value)) return age >= REWRITE_UNCHANGED_MS;
+  if (comparable(stored.value) === comparable(value)) return age >= REWRITE_UNCHANGED_MS;
   return age >= MIN_WRITE_INTERVAL_MS;
 }
 
