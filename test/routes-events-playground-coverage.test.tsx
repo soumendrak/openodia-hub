@@ -262,7 +262,7 @@ describe("events.tsx", () => {
       render(<Component />);
       expect(queryHarness.lastOptions?.enabled).toBe(true);
       expect(screen.getByText(/Known events remain listed/)).not.toHaveAttribute("role");
-      expect(screen.getAllByRole("status")).toHaveLength(1);
+      expect(liveRegions()).toHaveLength(1);
       expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
     },
   );
@@ -283,6 +283,7 @@ describe("events.tsx", () => {
     const warning = screen.getByText(/Known events remain listed/);
     expect(warning).toHaveTextContent("does not confirm registration");
     expect(warning).not.toHaveAttribute("role");
+    expect(liveRegions()).toHaveLength(1);
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
   });
 
