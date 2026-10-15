@@ -280,7 +280,15 @@ export function mergeReviewedCollections(
   overrides: EventOverride[],
   today: string,
 ): Event[] {
-  return mergeEventCollectionsByUrl(archived, live, mergeReviewedEvents).map((event) => {
+  const owners = new Map(archived.map((event) => [eventUrlKey(event.url), event]));
+  const merge = (previous: Event, next: Event): Event => {
+    const merged = mergeReviewedEvents(previous, next);
+    const owner = owners.get(eventUrlKey(merged.url)) ?? owners.get(eventUrlKey(previous.url));
+    return owner
+      ? { ...merged, community: owner.community, organizerId: owner.organizerId }
+      : merged;
+  };
+  return mergeEventCollectionsByUrl(archived, live, merge).map((event) => {
     const reviewed = applyEventOverrides(event, overrides);
     return { ...reviewed, status: resolveEventStatus(reviewed, today) };
   });

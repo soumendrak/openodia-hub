@@ -116,3 +116,22 @@ describe("eventListSchema offers gating (lifecycle and registration)", () => {
     },
   );
 });
+
+describe("eventListSchema offer destination", () => {
+  it("points the offer at the reviewed registration URL when present", () => {
+    const item = eventListSchema(
+      [
+        {
+          name: "Open event",
+          url: "https://example.org/e",
+          description: "d",
+          startDate: "2099-12-01",
+          free: true,
+          registration: { state: "open", url: "https://example.org/register" },
+        },
+      ],
+      new Date("2026-10-01T00:00:00Z"),
+    ).itemListElement[0].item;
+    expect(item).toHaveProperty("offers.url", "https://example.org/register");
+  });
+});

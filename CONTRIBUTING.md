@@ -112,8 +112,11 @@ group, or organisation; individuals are not listed as organizers.
   (from the start date and its precision), and `status` (computed from the dates). For organizers:
   `id`, `collectionMode`, and each official link's `verificationNote`; your check date becomes
   `verifiedOn`.
-- **Registration URL, status, and fee** are not stored as `Event` fields. They inform the
-  attendance policy and its note, and keep a registration link from becoming the event URL.
+- **Registration** is its own `registration` field (`state`, optional `url`, `evidenceUrl`,
+  `verifiedAt`), separate from the attendance policy; a registration link never becomes the event
+  URL. Corrections to registration or lifecycle go through a reviewed override in
+  `src/data/event-overrides.ts` (see `docs/event-lifecycle.md`). A fee informs `free` and the
+  attendance note.
 
 **Identity and aliases.** The canonical event URL is the event's identity, and listings are
 deduplicated by it. A registration form, cohost alias, or tracking link is not the identity; put
