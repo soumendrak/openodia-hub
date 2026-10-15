@@ -3,6 +3,9 @@ set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
 BASE="${1:-origin/main}"
 fail=0
+untracked="$(git ls-files --others --exclude-standard -- src scripts test db public '*.ts' '*.tsx' '*.mjs' '*.js' | grep -v '^\.cursor/' || true)"
+echo "== untracked source files"
+if [ -n "$untracked" ]; then echo "$untracked"; echo "diff gates cannot see these: run git add -N <file> (or stage them) and rerun"; echo "FAIL"; fail=1; else echo "PASS"; fi
 step() { echo "== $1"; shift; if "$@"; then echo "PASS"; else echo "FAIL"; fail=1; fi; }
 step "locales" bun run check:locales
 step "lint (eslint, typescript-eslint)" bun run lint
