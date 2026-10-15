@@ -141,7 +141,9 @@ jobs:
       cancel-in-progress: true
     permissions:
       contents: read
-      pull-requests: read
+      # Removing or adding a label on a pull request needs pull-requests: write;
+      # issues: write alone returns 403 "Resource not accessible by integration".
+      pull-requests: write
       issues: write
       statuses: write
     runs-on: ubuntu-latest
