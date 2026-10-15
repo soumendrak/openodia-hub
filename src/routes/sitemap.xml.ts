@@ -16,6 +16,7 @@ const pages = [
   { path: "papers", changefreq: "weekly", priority: "0.8" },
   { path: "treebank", changefreq: "monthly", priority: "0.7" },
   { path: "contribute", changefreq: "monthly", priority: "0.7" },
+  { path: "translation-status", changefreq: "monthly", priority: "0.7" },
   { path: "api", changefreq: "monthly", priority: "0.5" },
 ] as const;
 

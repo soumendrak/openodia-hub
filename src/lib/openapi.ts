@@ -12,6 +12,19 @@ export const OPENAPI_SPEC = {
   },
   servers: [{ url: "https://openodia.com", description: "Production" }],
   paths: {
+    "/api/translation-status": {
+      get: {
+        summary: "Registered UI translation and native-review progress",
+        description:
+          "English/Odia inventory with separate presence and exact-wording native-review counts. Does not certify full-site translation or linguistic accuracy.",
+        responses: {
+          "200": {
+            description:
+              "Scope, total, translated, reviewed, validation errors, and per-key wording/status",
+          },
+        },
+      },
+    },
     "/api/health": {
       get: {
         summary: "Service liveness",

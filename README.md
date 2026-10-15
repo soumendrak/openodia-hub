@@ -64,8 +64,9 @@ and Cloudflare Worker that bring everything together.
 | [About](https://openodia.com/about)                 | Learn about the hub and its contributors                                            |
 
 Use **⌘K / Ctrl+K** for cross-site search and navigation. Papers, Treebank, API,
-and contribution links are also in the footer. The language toggle translates the
-navigation; page bodies and upstream content are not fully translated. Light/dark
+and contribution links are also in the footer. The language toggle translates navigation, the home hero/opening/statistics, and the footer.
+Other page bodies and upstream content retain their original language.
+`/translation-status` reports the scoped inventory and native-review progress separately. Light/dark
 mode and language preferences are saved locally.
 
 ## All Features Walkthrough

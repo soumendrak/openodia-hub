@@ -34,6 +34,11 @@ const PAGES: SearchDocument[] = [
   ["Papers", "/papers", "Odia NLP research papers"],
   ["Treebank search", "/treebank", "Search the Odia Universal Dependencies treebank"],
   ["Add your project", "/contribute", "Contribute an Odia open-source project"],
+  [
+    "Help translate OpenOdia",
+    "/translation-status",
+    "Odia contributor guide: translate UI strings and track translation status and native reviews",
+  ],
   ["API", "/api", "OpenOdia public API reference"],
   ["About", "/about", "About the OpenOdia ecosystem"],
 ].map(([title, href, summary]) => ({
