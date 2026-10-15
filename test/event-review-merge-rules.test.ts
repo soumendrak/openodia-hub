@@ -202,3 +202,31 @@ describe("review timestamp normalisation", () => {
     expect(payload.reviewedTimes.lifecycle).toBe("2026-10-13T00:00:00.000Z");
   });
 });
+
+describe("mergeReviewedCollections organizer ownership", () => {
+  it("keeps the curated organizer when a live cohost row repeats the URL", async () => {
+    const { mergeReviewedCollections } = await import("../src/lib/event-lifecycle");
+    const archived = {
+      url: "https://gdg.community.dev/events/details/owned",
+      title: "Owned",
+      type: "Workshop",
+      community: "GDG Bhubaneswar",
+      organizerId: "gdg-bhubaneswar",
+      year: "2099",
+      date: "2099-01-01",
+      startDate: "2099-01-01",
+      description: "d",
+    } as const;
+    const live = { ...archived, community: "GDG Cohost", organizerId: undefined, title: "Live" };
+    const [merged] = mergeReviewedCollections([{ ...archived }], [live], [], "2026-10-15");
+    expect(merged.community).toBe("GDG Bhubaneswar");
+    expect(merged.organizerId).toBe("gdg-bhubaneswar");
+    const [unowned] = mergeReviewedCollections(
+      [],
+      [live, { ...live, title: "Again" }],
+      [],
+      "2026-10-15",
+    );
+    expect(unowned.community).toBe("GDG Cohost");
+  });
+});

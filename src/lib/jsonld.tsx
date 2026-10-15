@@ -1,5 +1,5 @@
 import { eventSchemaStatus } from "./event-lifecycle";
-import { REGISTRATION_STATES, type Event } from "../data/events/types";
+import type { Event } from "../data/events/types";
 import React from "react";
 
 /**
@@ -143,27 +143,13 @@ export function itemListSchema(
   };
 }
 
-/**
- * Reviewed registration states that must not advertise tickets as InStock.
- * Only `open` is effectively available. Every other REGISTRATION_STATES value
- * (not-open, waitlist, closed, sold-out, unknown, and any later non-open
- * state) is suppressed. Unreviewed registration still allows an offer.
- */
-const OFFER_UNAVAILABLE_REGISTRATION = new Set<NonNullable<Event["registration"]>["state"]>(
-  REGISTRATION_STATES.filter((state) => state !== "open"),
-);
-
-/** Free InStock offers require a scheduled lifecycle and open (or unreviewed) registration. */
 export function offerAvailable(e: {
   lifecycle?: Event["lifecycle"];
   registration?: Event["registration"];
 }): boolean {
   const lifecycle = e.lifecycle?.state ?? "scheduled";
   const registration = e.registration?.state;
-  return (
-    lifecycle === "scheduled" &&
-    (registration === undefined || !OFFER_UNAVAILABLE_REGISTRATION.has(registration))
-  );
+  return lifecycle === "scheduled" && (registration === undefined || registration === "open");
 }
 
 /**
@@ -182,7 +168,6 @@ export function eventListSchema(
     organizer?: string;
     lifecycle?: Event["lifecycle"];
     previousStartDate?: string;
-    /** Reviewed registration state; only `open` (or omitted) may emit an InStock offer. */
     registration?: Event["registration"];
     /** Organizer's reviewed official site. Omitted when the registry has none. */
     organizerUrl?: string;

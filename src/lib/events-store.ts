@@ -100,8 +100,6 @@ WHERE source = 'bevy'
 ORDER BY start_date DESC
 `;
 
-// One read returns the grace-window events, reviewed sidecars and stored
-// redirect aliases together, so a sync spends a single read query on them.
 export const SYNC_SNAPSHOT_SQL = `
 SELECT 'event' AS kind, url AS a, title AS b, community AS c, type AS d, start_date AS e,
   end_date AS f, description AS g, location AS h
@@ -123,24 +121,53 @@ type SnapshotRow = {
   h: string | null;
 };
 
-/** D1 Free allows 50 queries per Worker invocation and counts every batched statement. */
-export const D1_QUERY_LIMIT = 50;
-/**
- * Queries one sync issues: per chapter an upsert, a membership write and a
- * deactivation; plus the snapshot read, the alias, review, legacy-migration and
- * status writes, the removed-chapter deactivation and retirement.
- */
+export const STATUS_SQL = `INSERT INTO event_source_status
+  (source_id, outcome, event_count, last_attempt_at, last_success_at, error_category, upcoming_complete, past_complete)
+  SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'),
+    json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'),
+    json_extract(value, '$[6]'), json_extract(value, '$[7]')
+  FROM json_each(?) WHERE true
+  ON CONFLICT(source_id) DO UPDATE SET outcome=excluded.outcome, event_count=excluded.event_count,
+  last_attempt_at=excluded.last_attempt_at,
+  last_success_at=COALESCE(excluded.last_success_at, event_source_status.last_success_at),
+  error_category=excluded.error_category, upcoming_complete=excluded.upcoming_complete, past_complete=excluded.past_complete`;
+
+export const SUBREQUEST_LIMIT = 50;
+export const MAX_REDIRECT_CHECKS = 30;
+
 export function syncQueryCount(chapters: number): number {
   return 3 * chapters + 7;
 }
 
+export function syncSubrequestPlan(chapters: number): {
+  queries: number;
+  pages: number;
+  redirects: number;
+} {
+  const queries = syncQueryCount(chapters);
+  const redirects = Math.min(MAX_REDIRECT_CHECKS, SUBREQUEST_LIMIT - queries - chapters);
+  return { queries, pages: chapters, redirects };
+}
+
+async function recordRefusedSync(db: D1Like, attemptedAt: string): Promise<void> {
+  await db
+    .prepare(STATUS_SQL)
+    .bind(
+      JSON.stringify(
+        CHAPTERS.map((chapter) => [chapter.slug, "failed", 0, attemptedAt, null, "budget", 0, 0]),
+      ),
+    )
+    .run();
+}
+
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
-  // Runtime guard: refuse before any fetch or write rather than fail midway
-  // through a sync once the chapter list outgrows the D1 query limit.
-  if (syncQueryCount(CHAPTERS.length) > D1_QUERY_LIMIT)
+  const plan = syncSubrequestPlan(CHAPTERS.length);
+  if (plan.redirects < 0) {
+    await recordRefusedSync(db, new Date().toISOString());
     throw new Error(
-      `Event sync needs ${syncQueryCount(CHAPTERS.length)} D1 queries; the limit is ${D1_QUERY_LIMIT}`,
+      `Event sync refused: ${plan.queries} D1 queries and ${plan.pages} page fetches exceed ${SUBREQUEST_LIMIT} subrequests`,
     );
+  }
   const outcomes = await Promise.all(
     CHAPTERS.map((chapter) =>
       fetchChapterOutcome(chapter.organizerId ?? chapter.community, chapter.slug),
@@ -186,7 +213,7 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     [...curated, ...previous, ...live, ...overrideUrls.map((url) => ({ url }))],
     fetch,
     overrideUrls,
-    { rows: storedAliases, deferWrite: true },
+    { rows: storedAliases, deferWrite: true, requestBudget: plan.redirects, skipConfirmed: true },
   );
   if (aliasWrite) await aliasWrite.run();
   const destination = (url: string) => storedEventDestination(url, aliases);
@@ -239,7 +266,6 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     return applyEventOverrides(merged, EVENT_OVERRIDES);
   });
   // Every checked-in correction is cached, including archive-only/removed URLs.
-  // Reuses the snapshot's reviewed rows: no second read of the sidecar table.
   const reviewWrite = await prepareReviewedUpsert(
     db,
     [
@@ -266,10 +292,6 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   // Deactivations are deferred and committed together with retirement, so an
   // aborted sync can never leave half-applied inactive memberships behind.
   const deactivations: D1PreparedStatement[] = [];
-  // Safe legacy migration: exact registry aliases only. Unknown ownership is
-  // retained, and newly observed cohosts add ownership rather than overwrite it.
-  // One statement covers every chapter; it runs before any upsert, so it only
-  // adopts rows that already existed.
   await db
     .prepare(
       `INSERT OR IGNORE INTO event_source_memberships (event_id, source_id, is_active)
@@ -296,8 +318,6 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     const rows: unknown[][] = [];
     for (const source of events) {
       if (!source.url || !source.startDate) continue;
-      // Every identifiable live record has a canonical entry carrying reviewed
-      // facts; the live record itself is a safe fallback, never a crash.
       const event = canonicalByKey.get(canonicalKey(source.url)) ?? source;
       const id = eventUrlKey(event.url);
       chapterIds.push(id);
@@ -349,22 +369,7 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
       Number(pastComplete),
     ]);
   }
-  // Every chapter's measured status in one JSON-bound statement.
-  await db
-    .prepare(
-      `INSERT INTO event_source_status
-    (source_id, outcome, event_count, last_attempt_at, last_success_at, error_category, upcoming_complete, past_complete)
-    SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'),
-      json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'),
-      json_extract(value, '$[6]'), json_extract(value, '$[7]')
-    FROM json_each(?) WHERE true
-    ON CONFLICT(source_id) DO UPDATE SET outcome=excluded.outcome, event_count=excluded.event_count,
-    last_attempt_at=excluded.last_attempt_at,
-    last_success_at=COALESCE(excluded.last_success_at, event_source_status.last_success_at),
-    error_category=excluded.error_category, upcoming_complete=excluded.upcoming_complete, past_complete=excluded.past_complete`,
-    )
-    .bind(JSON.stringify(statuses))
-    .run();
+  await db.prepare(STATUS_SQL).bind(JSON.stringify(statuses)).run();
   // A removed or renamed chapter is never visited again, so its memberships
   // would protect rows forever. Renamed chapters re-adopt rows via the alias
   // migration above before this runs; unowned legacy rows have no membership.

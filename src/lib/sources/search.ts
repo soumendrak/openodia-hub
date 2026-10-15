@@ -210,9 +210,6 @@ export function createSearchSnapshotLoader(
     const db = getEventDatabase();
     if (!db)
       return cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
-    // Reviewed D1 state is memoized per database binding for one snapshot TTL,
-    // so searches do not read D1 on every request, a snapshot never crosses to
-    // another database, and the shared KV entry never carries reviewed state.
     const hit = byDatabase.get(db);
     if (hit && Date.now() - hit.at < SEARCH_SNAPSHOT_TTL_MS) return hit.snapshot;
     const snapshot = buildSearchSnapshot(loaders);

@@ -54,11 +54,12 @@ export async function refreshEventDestinationAliases(
   fetcher: typeof fetch = fetch,
   /** URLs that exist nowhere else (standalone overrides) are checked first. */
   priority: readonly string[] = [],
-  /**
-   * `rows` is a snapshot the caller already read; with `deferWrite` the
-   * observation upsert is returned as `write` for the caller's batch instead.
-   */
-  options: { rows?: readonly AliasRow[]; deferWrite?: boolean } = {},
+  options: {
+    rows?: readonly AliasRow[];
+    deferWrite?: boolean;
+    requestBudget?: number;
+    skipConfirmed?: boolean;
+  } = {},
 ): Promise<{
   aliases: Map<string, string>;
   requests: number;
@@ -69,9 +70,11 @@ export async function refreshEventDestinationAliases(
   const rows = options.rows ?? (await db.prepare(SELECT_ALIASES).all<AliasRow>()).results;
   const aliases = admittedAliases(rows);
   const attempts = new Map(rows.map((row) => [row.alias_url, Date.parse(row.checked_at) || 0]));
+  const budget = Math.min(MAX_REDIRECT_REQUESTS, options.requestBudget ?? MAX_REDIRECT_REQUESTS);
   const urls = new Map(
     events
       .filter((event) => isGdgEventUrl(event.url))
+      .filter((event) => !options.skipConfirmed || !aliases.has(eventUrlKey(event.url)))
       .map((event) => [eventUrlKey(event.url), event.url]),
   );
   const selected = [...urls]
@@ -82,7 +85,7 @@ export async function refreshEventDestinationAliases(
         (attempts.get(a) ?? 0) - (attempts.get(b) ?? 0) ||
         a.localeCompare(b),
     )
-    .slice(0, MAX_URLS_PER_SYNC);
+    .slice(0, Math.min(MAX_URLS_PER_SYNC, budget));
   let requests = 0;
   let checked = 0;
   const observations: AliasRow[] = [];
@@ -90,8 +93,7 @@ export async function refreshEventDestinationAliases(
     let confirmed = false;
     let attempted = false;
     const destination = await resolveEventDestinationUrl(url, async (input, init) => {
-      if (requests >= MAX_REDIRECT_REQUESTS)
-        throw new Error("Event redirect request budget exhausted");
+      if (requests >= budget) throw new Error("Event redirect request budget exhausted");
       attempted = true;
       requests++;
       const response = await fetcher(input, init);

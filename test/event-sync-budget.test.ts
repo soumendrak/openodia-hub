@@ -3,7 +3,8 @@ import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import {
-  D1_QUERY_LIMIT,
+  SUBREQUEST_LIMIT,
+  syncSubrequestPlan,
   readEventsFromD1,
   syncEventsToD1,
   syncQueryCount,
@@ -146,7 +147,9 @@ it("syncs 114 rows within D1 Free's query budget with constant parameters and re
   expect(queries).toBeLessThanOrEqual(50);
   // Per-statement parameters stay constant (D1 allows 100), independent of row count.
   expect(maxParameters).toBeLessThanOrEqual(8);
-  expect(fetcher.mock.calls.filter(([, init]) => init?.method === "HEAD")).toHaveLength(30);
+  expect(fetcher.mock.calls.filter(([, init]) => init?.method === "HEAD")).toHaveLength(
+    syncSubrequestPlan(5).redirects,
+  );
   expect(fetcher.mock.calls.filter(([, init]) => init?.method !== "HEAD")).toHaveLength(5);
   // Remove the old grace-period row and its review: the canonical sidecar must stand alone.
   await db.prepare("DELETE FROM events WHERE id=?").bind(alias).run();
@@ -322,31 +325,51 @@ function counting(target: D1Like) {
 
 // Each chapter serves its own distinct, complete list; on the second run one
 // event per chapter has gone, so the retirement statements are built and run.
-it.each([4, 5, 9])(
-  "stays within D1's query budget at %i extra chapters and retires removed rows",
+it.each([4, 5])(
+  "keeps D1 queries and fetches within the subrequest limit at %i extra chapters and retires removed rows",
   async (extra) => {
     const chapters = addChapters(extra);
     const CHAPTERS = scale.chapters;
     let perChapter = 3;
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async (input, init) => {
-        if (init?.method === "HEAD") return new Response(null);
-        const slug = CHAPTERS.find((chapter) => String(input).includes(`/${chapter.slug}/`))!.slug;
-        return new Response(chapterPage(slug, perChapter));
-      }),
+    const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (init?.method === "HEAD") return new Response(null);
+      const chapter = CHAPTERS.find((entry) => String(input).includes(`/${entry.slug}/`));
+      return new Response(chapterPage(chapter?.slug ?? "unknown", perChapter));
+    });
+    vi.stubGlobal("fetch", fetcher);
+    const plan = syncSubrequestPlan(chapters);
+    const reviewedUrl = `https://gdg.community.dev/events/details/${CHAPTERS[0].slug}-0`;
+    const reviewedBase: Event = { ...fixture, url: reviewedUrl, startDate: "2099-02-01" };
+    await db
+      .prepare("INSERT INTO events(id,url,title,community,type,start_date) VALUES(?,?,?,?,?,?)")
+      .bind(reviewedUrl, reviewedUrl, "Reviewed", fixture.community, "Workshop", "2099-02-01")
+      .run();
+    await persistReviewedEvent(
+      db,
+      applyEventOverrides(reviewedBase, [
+        {
+          url: reviewedUrl,
+          evidenceUrl: proof.evidenceUrl,
+          reviewedAt: "2026-10-12",
+          patch: { registration: { state: "closed", ...proof } },
+        },
+      ]),
     );
     const first = counting(db);
     expect(await syncEventsToD1(first.wrapped)).toEqual({ upserted: chapters * 3 });
-    // syncQueryCount is the ceiling; the alias and review writes are skipped when empty.
-    expect(first.counter.queries).toBeLessThanOrEqual(syncQueryCount(chapters));
-    expect(first.counter.queries).toBeGreaterThanOrEqual(syncQueryCount(chapters) - 2);
-    expect(first.counter.queries).toBeLessThanOrEqual(D1_QUERY_LIMIT);
+    expect(first.counter.queries).toBe(syncQueryCount(chapters));
+    const heads = fetcher.mock.calls.filter(([, init]) => init?.method === "HEAD").length;
+    expect(heads).toBe(plan.redirects);
+    expect(first.counter.queries + fetcher.mock.calls.length).toBeLessThanOrEqual(SUBREQUEST_LIMIT);
 
     perChapter = 2;
+    fetcher.mockClear();
     const second = counting(db);
     expect(await syncEventsToD1(second.wrapped)).toEqual({ upserted: chapters * 2 });
-    expect(second.counter.queries).toBeLessThanOrEqual(syncQueryCount(chapters));
+    expect(second.counter.queries).toBe(syncQueryCount(chapters));
+    expect(second.counter.queries + fetcher.mock.calls.length).toBeLessThanOrEqual(
+      SUBREQUEST_LIMIT,
+    );
     const { results } = await db
       .prepare("SELECT id, is_active FROM events WHERE id LIKE '%-2' ORDER BY id")
       .all<{ id: string; is_active: number }>();
@@ -359,19 +382,49 @@ it.each([4, 5, 9])(
   },
 );
 
-it("refuses to start a sync whose chapter count would exceed the query limit", async () => {
+it("persists redirect observations and does not re-check confirmed URLs on the next sync", async () => {
+  const CHAPTERS = scale.chapters;
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (init?.method === "HEAD") return new Response(null);
+    const chapter = CHAPTERS.find((entry) => String(input).includes(`/${entry.slug}/`));
+    return new Response(chapterPage(chapter?.slug ?? "unknown", 1));
+  });
+  vi.stubGlobal("fetch", fetcher);
+  await syncEventsToD1(db);
+  const firstHeads = fetcher.mock.calls
+    .filter(([, init]) => init?.method === "HEAD")
+    .map(([input]) => String(input));
+  expect(firstHeads.length).toBeGreaterThanOrEqual(CHAPTERS.length);
+  const stored = await db
+    .prepare("SELECT alias_url FROM event_destination_aliases WHERE destination_url IS NOT NULL")
+    .all<{ alias_url: string }>();
+  expect(stored.results.length).toBe(firstHeads.length);
+  fetcher.mockClear();
+  await syncEventsToD1(db);
+  const secondHeads = fetcher.mock.calls
+    .filter(([, init]) => init?.method === "HEAD")
+    .map(([input]) => String(input));
+  expect(secondHeads.filter((url) => firstHeads.includes(url))).toEqual([]);
+});
+
+it("refuses a sync whose D1 queries and page fetches would exceed the subrequest limit and records why", async () => {
   const fetcher = vi.fn();
   vi.stubGlobal("fetch", fetcher);
   let extra = 0;
-  while (syncQueryCount(addChapters(extra)) <= D1_QUERY_LIMIT) extra++;
+  while (syncSubrequestPlan(addChapters(extra)).redirects >= 0) extra++;
   const { counter, wrapped } = counting(db);
-  await expect(syncEventsToD1(wrapped)).rejects.toThrow(/D1 queries; the limit is 50/);
-  expect(counter.queries).toBe(0);
+  await expect(syncEventsToD1(wrapped)).rejects.toThrow(/exceed 50 subrequests/);
+  expect(counter.queries).toBe(1);
   expect(fetcher).not.toHaveBeenCalled();
+  const { results } = await db
+    .prepare("SELECT outcome, error_category FROM event_source_status")
+    .all<{ outcome: string; error_category: string }>();
+  expect(results).toHaveLength(scale.chapters.length);
+  expect(results.every((row) => row.outcome === "failed" && row.error_category === "budget")).toBe(
+    true,
+  );
 });
 
-// Kills the `mergeReviewedEvents(old, event)` -> `event` mutant: a reviewed start
-// date in the sidecar must reach the stored row, because start_date feeds retirement.
 it("writes the reviewed start date, not the upstream one, into the D1 row", async () => {
   const url = "https://gdg.community.dev/events/details/reviewed-start";
   const base: Event = { ...fixture, url, title: "Reviewed start", startDate: "2099-02-01" };
@@ -409,7 +462,6 @@ it("writes the reviewed start date, not the upstream one, into the D1 row", asyn
 it("skips and logs invalid merged reviewed metadata instead of aborting the sync", async () => {
   const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
   const url = "https://gdg.community.dev/events/details/invalid-review";
-  // A stored reviewed end before the live start makes the merged range invalid.
   await db
     .prepare("INSERT INTO event_reviewed_metadata VALUES(?,?,?)")
     .bind(
@@ -432,5 +484,10 @@ it("skips and logs invalid merged reviewed metadata instead of aborting the sync
   );
   await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 1 });
   expect(warn.mock.calls.some(([message]) => /skipped/.test(String(message)))).toBe(true);
+  const row = await db
+    .prepare("SELECT is_active FROM events WHERE id=?")
+    .bind(eventUrlKey(url))
+    .all<{ is_active: number }>();
+  expect(row.results).toEqual([{ is_active: 1 }]);
   warn.mockRestore();
 });
