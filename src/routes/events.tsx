@@ -19,6 +19,14 @@ import {
   ORGANIZERS,
 } from "../data/organizers";
 
+/** The organizer's homepage when one is listed, else its first official link. */
+export function organizerHomepage(links: readonly { label: string; url: string }[]) {
+  const home = links.find(
+    (l) => /website|homepage/i.test(l.label) || new URL(l.url).pathname === "/",
+  );
+  return (home ?? links[0])?.url;
+}
+
 export const Route = createFileRoute("/events")({
   validateSearch: (
     search: Record<string, unknown>,
@@ -550,19 +558,20 @@ function EventsPage() {
   // a handful of entries only carry a prose date that never parsed.
   const schemaEvents = events
     .filter((e) => !!e.startDate)
-    .map((e) => ({
-      name: e.title,
-      url: e.url,
-      description: e.description,
-      startDate: e.startDate as string,
-      endDate: e.endDate,
-      location: e.location,
-      organizer: e.community,
-      organizerUrl: e.organizerId
-        ? getOrganizerById(e.organizerId)?.officialLinks[0]?.url
-        : undefined,
-      free: e.free,
-    }));
+    .map((e) => {
+      const organizer = e.organizerId ? getOrganizerById(e.organizerId) : undefined;
+      return {
+        name: e.title,
+        url: e.url,
+        description: e.description,
+        startDate: e.startDate as string,
+        endDate: e.endDate,
+        location: e.location,
+        organizer: organizer?.canonicalName ?? e.community,
+        organizerUrl: organizer ? organizerHomepage(organizer.officialLinks) : undefined,
+        free: e.free,
+      };
+    });
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-24">

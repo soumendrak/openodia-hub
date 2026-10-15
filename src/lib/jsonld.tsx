@@ -157,13 +157,13 @@ export function eventListSchema(
     organizer?: string;
     /** Organizer's reviewed official site. Omitted when the registry has none. */
     organizerUrl?: string;
-    /** Only real, sourced values — never a placeholder. */
-    image?: string;
-    performers?: string[];
-    /** True only when the organizer states attendance is free. */
+    /** From organizer evidence only: true = stated no fee, false = stated fee. */
     free?: boolean;
   }[],
+  /** Injected for tests; offers are only emitted for events not yet over. */
+  now: Date = new Date(),
 ) {
+  const today = now.toISOString().slice(0, 10);
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -180,7 +180,7 @@ export function eventListSchema(
         startDate: e.startDate,
         ...(e.endDate ? { endDate: e.endDate } : {}),
         eventStatus: "https://schema.org/EventScheduled",
-        ...(e.location
+        ...(e.location && !/^online$/i.test(e.location.trim())
           ? {
               eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
               location: { "@type": "Place", name: e.location, address: e.location },
@@ -198,13 +198,11 @@ export function eventListSchema(
               },
             }
           : {}),
-        ...(e.image ? { image: [e.image] } : {}),
-        ...(e.performers?.length
-          ? { performer: e.performers.map((name) => ({ "@type": "Person", name })) }
-          : {}),
-        ...(e.free
+        ...(e.free === undefined ? {} : { isAccessibleForFree: e.free }),
+        // A free offer is only meaningful while admission can still be had;
+        // an ended event must not advertise tickets as InStock.
+        ...(e.free && (e.endDate ?? e.startDate) >= today
           ? {
-              isAccessibleForFree: true,
               offers: {
                 "@type": "Offer",
                 price: 0,

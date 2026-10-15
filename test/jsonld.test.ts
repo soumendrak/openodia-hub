@@ -15,31 +15,25 @@ describe("serializeJsonLd", () => {
 });
 
 describe("eventListSchema", () => {
+  const NOW = new Date("2026-06-15T08:00:00Z");
   const base = {
     name: "Workshop",
     url: "https://example.org/event",
     description: "d",
-    startDate: "2026-02-07",
+    startDate: "2026-07-01",
     organizer: "NIT Rourkela",
   };
   const item = (e: Parameters<typeof eventListSchema>[0][number]) =>
-    eventListSchema([e]).itemListElement[0].item as Record<string, unknown>;
+    eventListSchema([e], NOW).itemListElement[0].item as Record<string, unknown>;
 
-  it("emits organizer.url, image, performer and a free INR offer when sourced", () => {
-    const out = item({
-      ...base,
-      organizerUrl: "https://www.nitrkl.ac.in/",
-      image: "https://example.org/poster.png",
-      performers: ["Ada Lovelace"],
-      free: true,
-    });
+  it("emits organizer.url and a free INR offer for an upcoming free event", () => {
+    const out = item({ ...base, organizerUrl: "https://www.nitrkl.ac.in/", free: true });
     expect(out.organizer).toEqual({
       "@type": "Organization",
       name: "NIT Rourkela",
       url: "https://www.nitrkl.ac.in/",
     });
-    expect(out.image).toEqual(["https://example.org/poster.png"]);
-    expect(out.performer).toEqual([{ "@type": "Person", name: "Ada Lovelace" }]);
+    expect(out.isAccessibleForFree).toBe(true);
     expect(out.offers).toEqual({
       "@type": "Offer",
       price: 0,
@@ -47,15 +41,36 @@ describe("eventListSchema", () => {
       url: "https://example.org/event",
       availability: "https://schema.org/InStock",
     });
-    expect(JSON.parse(serializeJsonLd(eventListSchema([base])))).toBeTruthy();
+    expect(JSON.parse(serializeJsonLd(eventListSchema([base], NOW)))).toBeTruthy();
+  });
+
+  it("emits no offer once a free event has ended, judged by endDate", () => {
+    const ended = item({ ...base, startDate: "2026-02-07", endDate: "2026-02-16", free: true });
+    expect(ended.isAccessibleForFree).toBe(true);
+    expect(ended).not.toHaveProperty("offers");
+    const running = item({ ...base, startDate: "2026-06-10", endDate: "2026-06-15", free: true });
+    expect(running).toHaveProperty("offers");
+  });
+
+  it("states isAccessibleForFree=false for a fee-based event and offers nothing", () => {
+    const out = item({ ...base, free: false });
+    expect(out.isAccessibleForFree).toBe(false);
+    expect(out).not.toHaveProperty("offers");
   });
 
   it("omits fields it has no real data for instead of inventing them", () => {
     const out = item(base);
     expect(out.organizer).toEqual({ "@type": "Organization", name: "NIT Rourkela" });
-    expect(out).not.toHaveProperty("image");
-    expect(out).not.toHaveProperty("performer");
-    expect(out).not.toHaveProperty("offers");
-    expect(item({ ...base, performers: [], free: false })).not.toHaveProperty("offers");
+    for (const k of ["image", "performer", "offers", "isAccessibleForFree"]) {
+      expect(out).not.toHaveProperty(k);
+    }
+  });
+
+  it("marks an 'Online' location as an online event, not a physical Place", () => {
+    const out = item({ ...base, location: " Online " });
+    expect(out.eventAttendanceMode).toBe("https://schema.org/OnlineEventAttendanceMode");
+    expect(out.location).toEqual({ "@type": "VirtualLocation", url: base.url });
+    const venue = item({ ...base, location: "NIT Rourkela" });
+    expect(venue.eventAttendanceMode).toBe("https://schema.org/OfflineEventAttendanceMode");
   });
 });
