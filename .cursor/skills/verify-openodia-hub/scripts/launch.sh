@@ -11,7 +11,8 @@ if [ "${VERIFY_SKIP_BUILD:-0}" != "1" ]; then
   bun install --frozen-lockfile
   bun run build
 fi
-if [ "${E2E_UPSTREAM_FAILURE:-0}" = "1" ]; then PROBE="/__fixture-clock"; else PROBE="/api/videos"; fi
+if [ "${E2E_UPSTREAM_FAILURE:-0}" = "1" ]; then PROBE="/__fixture-clock"; MODE=outage; else PROBE="/api/videos"; MODE=recorded; fi
+echo "$MODE" >"$RUN/server-$PORT.mode"
 E2E_PORT="$PORT" nohup node test/e2e/serve.mjs >"$RUN/server-$PORT.log" 2>&1 &
 pid=$!
 printf '%s %s %s\n' "$pid" "$(awk '{print $22}' "/proc/$pid/stat")" "$(pwd)" >"$PIDFILE"

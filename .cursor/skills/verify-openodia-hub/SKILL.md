@@ -32,7 +32,7 @@ Runs `bun install --frozen-lockfile`, `bun run build`, then `node test/e2e/serve
 That is the built production Worker under Miniflare with fresh in-memory KV and D1, `db/schema.sql` applied, `test/e2e/fixtures/catalog-kv.jsonl` seeded, the clock frozen at 2026-10-12T00:00:00Z, and all outbound network mocked (PyPI and GDG recorded, everything else 503).
 Ready = log line `Fixture Worker ready` AND `GET /api/videos` returns 200; the script prints `ready http://127.0.0.1:<port> pid=<pid>`.
 `VERIFY_SKIP_BUILD=1` reuses an existing `dist/` (only when nothing changed since the last build).
-Set `E2E_UPSTREAM_FAILURE=1` before launch to get the outage variant (no seed, every upstream fails) for error-state changes; readiness then probes `/__fixture-clock` because `/api/videos` intentionally returns 503.
+Set `E2E_UPSTREAM_FAILURE=1` before launch to get the outage variant (no seed, every upstream fails) for error-state changes; readiness then probes `/__fixture-clock` because `/api/videos` intentionally returns 503, launch records the mode in `$VERIFY_DIR/server-<port>.mode`, and doctor expects that 503 instead of 200.
 Isolation: each port gets its own pid file, log and generated entry files, so pick a different `VERIFY_PORT` to run a second instance. Avoid 9158 and 9161/9162, used by `bun run test:bilingual` and `bunx playwright test`.
 `bun run dev` (vite, port 9090) is for humans: it hits live upstreams and remote bindings, so do not use it as proof.
 
@@ -76,7 +76,7 @@ Regression suites (same server stack, own ports): `bun run test:bilingual` and `
 
 ## 5. Evidence
 
-Everything goes to `VERIFY_EVIDENCE` (default `/tmp/verify-openodia-hub/evidence`): screenshots `<run>-NN-<step>.png`, `<run>-drive.json`, curl headers and bodies, and `standards.log` (`$S/standards.sh origin/main > $VERIFY_EVIDENCE/standards.log 2>&1`).
+Everything goes to `VERIFY_EVIDENCE` (default `/tmp/verify-openodia-hub/evidence`): screenshots `<run>-NN-<step>.png`, `<run>-drive.json`, curl headers and bodies, and `standards.log` (`$S/standards.sh origin/main > "${VERIFY_EVIDENCE:-${VERIFY_DIR:-/tmp/verify-openodia-hub}/evidence}/standards.log" 2>&1`).
 Proof standards:
 
 - Drive the real UI or public HTTP route. No internal setters, no test-only endpoints (`/__fixture-clock` is for the doctor only).
@@ -96,4 +96,9 @@ Kills only the pid recorded in `$VERIFY_DIR/server-<port>.pid`, and only after c
 
 ## Maintenance
 
-When routes, placeholders or fixtures change, update `features/`. Use `/maintain-verification-skill` to keep the map honest.
+Keep this skill honest by hand whenever the app changes:
+
+1. A route, placeholder, button name or fixture changed: update the matching `features/*.md` recipe and rerun its drive command.
+2. A new user-facing page or public endpoint: add a feature file (or a line in `features/public-api.md`) and list it in `features/README.md`.
+3. `package.json` scripts, `test/e2e/serve.mjs` or CI gates changed: update `scripts/launch.sh` / `scripts/standards.sh` and sections 1-2 here.
+4. Prove the edit: launch, doctor, drive one changed journey, cleanup, and confirm the evidence remains.

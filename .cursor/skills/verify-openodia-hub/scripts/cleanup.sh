@@ -19,5 +19,5 @@ if [ "$ours" = 1 ]; then
 else
   echo "no server of ours on $PORT (pid file missing, stale, or another process): nothing killed"
 fi
-rm -f "$PIDFILE" "dist/server/e2e-entry-$PORT.mjs" "dist/server/e2e-clock-$PORT.mjs"
+rm -f "$PIDFILE" "$RUN/server-$PORT.mode" "dist/server/e2e-entry-$PORT.mjs" "dist/server/e2e-clock-$PORT.mjs"
 echo "evidence kept in ${VERIFY_EVIDENCE:-$RUN/evidence}"

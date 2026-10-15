@@ -24,13 +24,15 @@ try {
   );
   page.on("pageerror", (e) => log.push(`pageerror ${e.message}`));
   page.on("response", (r) => {
+    if (r.request().isNavigationRequest() && r.request().frame() === page.mainFrame())
+      navigations.push({ path: new URL(r.url()).pathname, status: r.status() });
     if (new URL(r.url()).origin === origin)
       log.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
   });
   await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
   const visit = async (p) => {
     const res = await page.goto(origin + p);
-    navigations.push({ path: p, status: res?.status() ?? null });
+    if (!res) navigations.push({ path: p, status: null });
     await page.waitForLoadState("networkidle");
   };
   let n = 0;

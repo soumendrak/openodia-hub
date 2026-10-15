@@ -10,9 +10,11 @@ echo "port $PORT listener pid: ${owner:-none}"
 clock="$(curl -fsS "http://127.0.0.1:$PORT/__fixture-clock" 2>/dev/null || true)"
 echo "fixture clock: ${clock:-unreachable}"
 case "$clock" in *2026-10-12*) ;; *) ok=0 ;; esac
+mode="$(cat "$RUN/server-$PORT.mode" 2>/dev/null || echo recorded)"
+if [ "$mode" = outage ]; then want=503; else want=200; fi
 code="$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/api/videos")"
-echo "/api/videos: $code"
-[ "$code" = "200" ] || ok=0
+echo "mode: $mode; /api/videos: $code (want $want)"
+[ "$code" = "$want" ] || ok=0
 top="$(git rev-parse --show-toplevel)"
 dist="$(stat -c %Y "$top/dist/server/index.js" 2>/dev/null || echo 0)"
 src="$(cd "$top" && find src public package.json bun.lock vite.config.ts wrangler.jsonc tsconfig.json -type f -printf '%T@\n' 2>/dev/null | sort -n | tail -1 | cut -d. -f1)"
