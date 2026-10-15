@@ -106,7 +106,7 @@ syndication and discovery surfaces.
   source data; `EVENTS_DB` stores synced events. D1 schema lives in `db/schema.sql`.
 - Some development bindings have `remote: true`; local development can read remote
   services. Do not assume every development data source is isolated.
-- Catalog warming uses `0 */6 * * *`; event sync runs separately at `15 */6 * * *` (UTC). The event invocation is bounded to 35 external requests and eight D1 queries; public event surfaces read stored destination aliases without HEAD requests. See `docs/event-lifecycle.md` for migration order and budgets.
+- Catalog warming uses `0 */6 * * *`; event sync runs separately at `15 */6 * * *` (UTC). The event invocation is bounded to 35 external requests and 3 × chapters + 7 D1 queries (22 today, guarded at 50); public event surfaces read stored destination aliases without HEAD requests. See `docs/event-lifecycle.md` for migration order and budgets.
 - `GITHUB_TOKEN` is optional upstream GitHub authentication; `YOUTUBE_API_KEY` enables
   optional YouTube enrichment. Never commit credentials. Consult the relevant loader
   and your runtime's environment setup when configuring them.

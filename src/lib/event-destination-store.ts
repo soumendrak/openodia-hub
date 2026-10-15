@@ -5,11 +5,11 @@ import { mapWithConcurrency } from "./fetch-utils";
 
 const MAX_REDIRECT_REQUESTS = 30;
 const MAX_URLS_PER_SYNC = 30;
-type AliasRow = { alias_url: string; destination_url: string | null; checked_at: string };
-const SELECT_ALIASES =
+export type AliasRow = { alias_url: string; destination_url: string | null; checked_at: string };
+export const SELECT_ALIASES =
   "SELECT alias_url, destination_url, checked_at FROM event_destination_aliases";
 
-function admittedAliases(rows: AliasRow[]): Map<string, string> {
+function admittedAliases(rows: readonly AliasRow[]): Map<string, string> {
   return new Map(
     rows
       .filter(
@@ -54,9 +54,19 @@ export async function refreshEventDestinationAliases(
   fetcher: typeof fetch = fetch,
   /** URLs that exist nowhere else (standalone overrides) are checked first. */
   priority: readonly string[] = [],
-): Promise<{ aliases: Map<string, string>; requests: number; checked: number }> {
+  /**
+   * `rows` is a snapshot the caller already read; with `deferWrite` the
+   * observation upsert is returned as `write` for the caller's batch instead.
+   */
+  options: { rows?: readonly AliasRow[]; deferWrite?: boolean } = {},
+): Promise<{
+  aliases: Map<string, string>;
+  requests: number;
+  checked: number;
+  write?: ReturnType<D1Like["prepare"]>;
+}> {
   const first = new Set(priority.map(eventUrlKey));
-  const rows = (await db.prepare(SELECT_ALIASES).all<AliasRow>()).results;
+  const rows = options.rows ?? (await db.prepare(SELECT_ALIASES).all<AliasRow>()).results;
   const aliases = admittedAliases(rows);
   const attempts = new Map(rows.map((row) => [row.alias_url, Date.parse(row.checked_at) || 0]));
   const urls = new Map(
@@ -98,16 +108,17 @@ export async function refreshEventDestinationAliases(
     });
     if (confirmed) aliases.set(key, destination);
   });
-  if (observations.length)
-    await db
-      .prepare(
-        `INSERT INTO event_destination_aliases(alias_url, destination_url, checked_at)
+  const write = observations.length
+    ? db
+        .prepare(
+          `INSERT INTO event_destination_aliases(alias_url, destination_url, checked_at)
     SELECT json_extract(value, '$.alias_url'), json_extract(value, '$.destination_url'), json_extract(value, '$.checked_at')
     FROM json_each(?) WHERE true ON CONFLICT(alias_url) DO UPDATE SET
     destination_url = COALESCE(excluded.destination_url, event_destination_aliases.destination_url),
     checked_at = excluded.checked_at WHERE excluded.checked_at >= event_destination_aliases.checked_at`,
-      )
-      .bind(JSON.stringify(observations))
-      .run();
-  return { aliases, requests, checked };
+        )
+        .bind(JSON.stringify(observations))
+    : undefined;
+  if (write && !options.deferWrite) await write.run();
+  return { aliases, requests, checked, ...(options.deferWrite ? { write } : {}) };
 }

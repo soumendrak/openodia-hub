@@ -86,7 +86,10 @@ describe("eventListSchema offers gating (lifecycle and registration)", () => {
   };
   const evidence = { evidenceUrl: "https://example.org/notice", verifiedAt: "2026-09-30" };
   const item = (extra: Record<string, unknown>) =>
-    eventListSchema([{ ...base, ...extra }], now).itemListElement[0].item as Record<string, unknown>;
+    eventListSchema([{ ...base, ...extra }], now).itemListElement[0].item as Record<
+      string,
+      unknown
+    >;
 
   it("emits an InStock offer for a scheduled free future event", () => {
     expect(item({})).toHaveProperty("offers.availability", "https://schema.org/InStock");
@@ -94,11 +97,14 @@ describe("eventListSchema offers gating (lifecycle and registration)", () => {
     expect(item({ registration: { state: "open" } })).toHaveProperty("offers");
   });
 
-  it.each(["cancelled", "postponed"] as const)("omits offers for a %s future free event", (state) => {
-    const it = item({ lifecycle: { state, ...evidence } });
-    expect(it).not.toHaveProperty("offers");
-    expect(it.isAccessibleForFree).toBe(true);
-  });
+  it.each(["cancelled", "postponed"] as const)(
+    "omits offers for a %s future free event",
+    (state) => {
+      const it = item({ lifecycle: { state, ...evidence } });
+      expect(it).not.toHaveProperty("offers");
+      expect(it.isAccessibleForFree).toBe(true);
+    },
+  );
 
   it.each(["closed", "sold-out"] as const)("omits offers when registration is %s", (state) => {
     expect(item({ registration: { state } })).not.toHaveProperty("offers");

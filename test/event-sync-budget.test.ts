@@ -2,12 +2,38 @@
 import { readFileSync } from "node:fs";
 import { Miniflare } from "miniflare";
 import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
-import { readEventsFromD1, syncEventsToD1, type D1Like } from "../src/lib/events-store";
+import {
+  D1_QUERY_LIMIT,
+  readEventsFromD1,
+  syncEventsToD1,
+  syncQueryCount,
+  type D1Like,
+} from "../src/lib/events-store";
 import { applyEventOverrides } from "../src/lib/event-lifecycle";
 import { persistReviewedEvent } from "../src/lib/event-reviewed-store";
 import type { Event } from "../src/data/events/types";
 import { events as curated } from "../src/data/events";
 import { eventUrlKey } from "../src/lib/event-url";
+
+// Synthetic chapters are appended to the real list so the budget is measured at
+// and beyond the chapter counts production is heading towards.
+const scale = vi.hoisted(() => ({
+  real: 0,
+  chapters: [] as { slug: string; community: string; organizerId?: string }[],
+}));
+vi.mock("../src/routes/api/events", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/routes/api/events")>();
+  scale.chapters.push(...actual.CHAPTERS);
+  scale.real = actual.CHAPTERS.length;
+  return { ...actual, CHAPTERS: scale.chapters };
+});
+/** Appends `extra` synthetic chapters to the real list (0 restores it). */
+function addChapters(extra: number) {
+  scale.chapters.splice(scale.real);
+  for (let index = 0; index < extra; index++)
+    scale.chapters.push({ slug: `budget-chapter-${index}`, community: `Budget Chapter ${index}` });
+  return scale.chapters.length;
+}
 
 let mf: Miniflare;
 let db: D1Like;
@@ -25,9 +51,16 @@ beforeAll(async () => {
 });
 afterAll(() => mf.dispose());
 afterEach(async () => {
-  for (const table of ["events", "event_reviewed_metadata", "event_destination_aliases"])
+  for (const table of [
+    "events",
+    "event_reviewed_metadata",
+    "event_destination_aliases",
+    "event_source_memberships",
+    "event_source_status",
+  ])
     await db.prepare(`DELETE FROM ${table}`).run();
   vi.unstubAllGlobals();
+  addChapters(0);
 });
 const proof = { evidenceUrl: "https://example.org/official", verifiedAt: "2026-10-12" };
 const canonical = "https://gdg.community.dev/events/details/carry-current";
@@ -252,3 +285,152 @@ it.each(["absent", "expired"])(
     });
   },
 );
+
+const chapterPage = (slug: string, count: number, start = "2099-02-01") =>
+  `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+    props: {
+      pageProps: {
+        prerenderData: {
+          upcomingEvents: {
+            count,
+            links: { next: null },
+            results: Array.from({ length: count }, (_, index) => ({
+              url: `https://gdg.community.dev/events/details/${slug}-${index}`,
+              title: `${slug} event ${index}`,
+              description: "Distinct chapter event",
+              event_type_title: "Workshop",
+              start_date: start,
+            })),
+          },
+          pastEvents: { count: 0, links: { next: null }, results: [] },
+        },
+      },
+    },
+  })}</script>`;
+
+function counting(target: D1Like) {
+  const counter = { queries: 0 };
+  const wrapped: D1Like = {
+    prepare(sql) {
+      counter.queries++;
+      return target.prepare(sql);
+    },
+    batch: (statements) => (target.batch ? target.batch(statements) : Promise.resolve()),
+  };
+  return { counter, wrapped };
+}
+
+// Each chapter serves its own distinct, complete list; on the second run one
+// event per chapter has gone, so the retirement statements are built and run.
+it.each([4, 5, 9])(
+  "stays within D1's query budget at %i extra chapters and retires removed rows",
+  async (extra) => {
+    const chapters = addChapters(extra);
+    const CHAPTERS = scale.chapters;
+    let perChapter = 3;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input, init) => {
+        if (init?.method === "HEAD") return new Response(null);
+        const slug = CHAPTERS.find((chapter) => String(input).includes(`/${chapter.slug}/`))!.slug;
+        return new Response(chapterPage(slug, perChapter));
+      }),
+    );
+    const first = counting(db);
+    expect(await syncEventsToD1(first.wrapped)).toEqual({ upserted: chapters * 3 });
+    // syncQueryCount is the ceiling; the alias and review writes are skipped when empty.
+    expect(first.counter.queries).toBeLessThanOrEqual(syncQueryCount(chapters));
+    expect(first.counter.queries).toBeGreaterThanOrEqual(syncQueryCount(chapters) - 2);
+    expect(first.counter.queries).toBeLessThanOrEqual(D1_QUERY_LIMIT);
+
+    perChapter = 2;
+    const second = counting(db);
+    expect(await syncEventsToD1(second.wrapped)).toEqual({ upserted: chapters * 2 });
+    expect(second.counter.queries).toBeLessThanOrEqual(syncQueryCount(chapters));
+    const { results } = await db
+      .prepare("SELECT id, is_active FROM events WHERE id LIKE '%-2' ORDER BY id")
+      .all<{ id: string; is_active: number }>();
+    expect(results).toHaveLength(chapters);
+    expect(results.every((row) => row.is_active === 0)).toBe(true);
+    const active = await db
+      .prepare("SELECT COUNT(*) AS n FROM events WHERE is_active = 1")
+      .all<{ n: number }>();
+    expect(active.results[0].n).toBe(chapters * 2);
+  },
+);
+
+it("refuses to start a sync whose chapter count would exceed the query limit", async () => {
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  let extra = 0;
+  while (syncQueryCount(addChapters(extra)) <= D1_QUERY_LIMIT) extra++;
+  const { counter, wrapped } = counting(db);
+  await expect(syncEventsToD1(wrapped)).rejects.toThrow(/D1 queries; the limit is 50/);
+  expect(counter.queries).toBe(0);
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+// Kills the `mergeReviewedEvents(old, event)` -> `event` mutant: a reviewed start
+// date in the sidecar must reach the stored row, because start_date feeds retirement.
+it("writes the reviewed start date, not the upstream one, into the D1 row", async () => {
+  const url = "https://gdg.community.dev/events/details/reviewed-start";
+  const base: Event = { ...fixture, url, title: "Reviewed start", startDate: "2099-02-01" };
+  await db
+    .prepare("INSERT INTO events(id,url,title,community,type,start_date) VALUES(?,?,?,?,?,?)")
+    .bind(eventUrlKey(url), url, base.title, base.community, base.type, base.startDate)
+    .run();
+  await persistReviewedEvent(
+    db,
+    applyEventOverrides(base, [
+      {
+        url,
+        evidenceUrl: proof.evidenceUrl,
+        reviewedAt: "2026-10-12",
+        patch: { startDate: "2099-03-15" },
+      },
+    ]),
+  );
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input, init) =>
+      init?.method === "HEAD"
+        ? new Response(null)
+        : new Response(page(String(input).includes("gdg-bhubaneswar/") ? [url] : [])),
+    ),
+  );
+  expect(await syncEventsToD1(db)).toEqual({ upserted: 1 });
+  const { results } = await db
+    .prepare("SELECT start_date FROM events WHERE id=?")
+    .bind(eventUrlKey(url))
+    .all<{ start_date: string }>();
+  expect(results).toEqual([{ start_date: "2099-03-15" }]);
+});
+
+it("skips and logs invalid merged reviewed metadata instead of aborting the sync", async () => {
+  const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+  const url = "https://gdg.community.dev/events/details/invalid-review";
+  // A stored reviewed end before the live start makes the merged range invalid.
+  await db
+    .prepare("INSERT INTO event_reviewed_metadata VALUES(?,?,?)")
+    .bind(
+      eventUrlKey(url),
+      JSON.stringify({ patch: { endDate: "2099-01-05" } }),
+      "2026-10-12T00:00:00.000Z",
+    )
+    .run();
+  await db
+    .prepare("INSERT INTO events(id,url,title,community,type,start_date) VALUES(?,?,?,?,?,?)")
+    .bind(eventUrlKey(url), url, "Invalid review", fixture.community, "Workshop", "2099-01-01")
+    .run();
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input, init) =>
+      init?.method === "HEAD"
+        ? new Response(null)
+        : new Response(page(String(input).includes("gdg-bhubaneswar/") ? [url] : [])),
+    ),
+  );
+  await expect(syncEventsToD1(db)).resolves.toEqual({ upserted: 1 });
+  expect(warn.mock.calls.some(([message]) => /skipped/.test(String(message)))).toBe(true);
+  warn.mockRestore();
+});

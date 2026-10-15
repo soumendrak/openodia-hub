@@ -204,11 +204,20 @@ export function createSearchSnapshotLoader(
   loaders: SearchLoaders = DEFAULT_LOADERS,
   cacheKey = "search-snapshot:v3-reviewed-events-outcomes",
 ): () => Promise<SearchSnapshot> {
+  const byDatabase = new WeakMap<object, { at: number; snapshot: Promise<SearchSnapshot> }>();
   return async () => {
     const { getEventDatabase } = await import("../event-request-context");
-    // Reviewed D1 state is current per request; retain the upstream catalog caches.
-    if (getEventDatabase()) return buildSearchSnapshot(loaders);
-    return cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+    const db = getEventDatabase();
+    if (!db)
+      return cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+    // Reviewed D1 state is memoized per database binding for one snapshot TTL,
+    // so searches do not read D1 on every request, a snapshot never crosses to
+    // another database, and the shared KV entry never carries reviewed state.
+    const hit = byDatabase.get(db);
+    if (hit && Date.now() - hit.at < SEARCH_SNAPSHOT_TTL_MS) return hit.snapshot;
+    const snapshot = buildSearchSnapshot(loaders);
+    byDatabase.set(db, { at: Date.now(), snapshot });
+    return snapshot;
   };
 }
 

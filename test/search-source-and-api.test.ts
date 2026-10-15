@@ -292,6 +292,31 @@ describe("search snapshot adapters", () => {
   });
 });
 
+describe("search snapshot cache with D1 bound", () => {
+  it("memoizes the D1-backed snapshot per database instead of rebuilding per search", async () => {
+    const { createSearchSnapshotLoader } = await import("../src/lib/sources/search");
+    const { withEventDatabase } = await import("../src/lib/event-request-context");
+    const events = vi.fn(async () => liveEvents);
+    const load = createSearchSnapshotLoader(
+      {
+        catalog: vi.fn(async () => catalog),
+        papers: vi.fn(async () => papers),
+        videos: vi.fn(async () => channels),
+        events,
+      },
+      `search-snapshot:test-d1:${Date.now()}:${Math.random()}`,
+    );
+    const db = { prepare: vi.fn() } as never;
+    const first = await withEventDatabase(db, () => load());
+    const second = await withEventDatabase(db, () => load());
+    expect(second).toBe(first);
+    expect(events).toHaveBeenCalledTimes(1);
+    // A request without the binding never reuses the D1-backed snapshot.
+    await load();
+    expect(events).toHaveBeenCalledTimes(2);
+  });
+});
+
 describe("search API contract", () => {
   async function handler() {
     const route = await import("../src/routes/api/search");

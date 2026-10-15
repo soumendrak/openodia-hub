@@ -1,8 +1,16 @@
 import { applyEventOverrides, mergeReviewedEvents } from "./event-lifecycle";
 import { events as curated } from "../data/events";
-import { refreshEventDestinationAliases, storedEventDestination } from "./event-destination-store";
+import {
+  refreshEventDestinationAliases,
+  storedEventDestination,
+  type AliasRow,
+} from "./event-destination-store";
 import { EVENT_OVERRIDES } from "../data/event-overrides";
-import { persistReviewedEvents, restoreReviewedEvents } from "./event-reviewed-store";
+import {
+  prepareReviewedUpsert,
+  restoreReviewedEvents,
+  type ReviewedRow,
+} from "./event-reviewed-store";
 /**
  * D1-backed persistence for Bevy-scraped community events.
  *
@@ -88,7 +96,47 @@ WHERE source = 'bevy'
 ORDER BY start_date DESC
 `;
 
+// One read returns the grace-window events, reviewed sidecars and stored
+// redirect aliases together, so a sync spends a single read query on them.
+export const SYNC_SNAPSHOT_SQL = `
+SELECT 'event' AS kind, url AS a, title AS b, community AS c, type AS d, start_date AS e,
+  end_date AS f, description AS g, location AS h
+FROM events WHERE source = 'bevy' AND (is_active = 1 OR last_seen > datetime('now', '-30 days'))
+UNION ALL SELECT 'review', event_id, payload_json, reviewed_at, NULL, NULL, NULL, NULL, NULL
+FROM event_reviewed_metadata
+UNION ALL SELECT 'alias', alias_url, destination_url, checked_at, NULL, NULL, NULL, NULL, NULL
+FROM event_destination_aliases
+`;
+type SnapshotRow = {
+  kind: "event" | "review" | "alias";
+  a: string;
+  b: string | null;
+  c: string | null;
+  d: string | null;
+  e: string | null;
+  f: string | null;
+  g: string | null;
+  h: string | null;
+};
+
+/** D1 Free allows 50 queries per Worker invocation and counts every batched statement. */
+export const D1_QUERY_LIMIT = 50;
+/**
+ * Queries one sync issues: per chapter an upsert, a membership write and a
+ * deactivation; plus the snapshot read, the alias, review, legacy-migration and
+ * status writes, the removed-chapter deactivation and retirement.
+ */
+export function syncQueryCount(chapters: number): number {
+  return 3 * chapters + 7;
+}
+
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
+  // Runtime guard: refuse before any fetch or write rather than fail midway
+  // through a sync once the chapter list outgrows the D1 query limit.
+  if (syncQueryCount(CHAPTERS.length) > D1_QUERY_LIMIT)
+    throw new Error(
+      `Event sync needs ${syncQueryCount(CHAPTERS.length)} D1 queries; the limit is ${D1_QUERY_LIMIT}`,
+    );
   const outcomes = await Promise.all(
     CHAPTERS.map((chapter) =>
       fetchChapterOutcome(chapter.organizerId ?? chapter.community, chapter.slug),
@@ -99,16 +147,44 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   const live = dedupeEventsByUrl(outcomes.flatMap((outcome) => outcome.events)).map((event) =>
     applyEventOverrides(event, EVENT_OVERRIDES),
   );
-  const previous = await readEventRecords(db);
-  const reviewedHistory = await restoreReviewedEvents(db, [...curated, ...previous]);
+  const snapshot = (await db.prepare(SYNC_SNAPSHOT_SQL).all<SnapshotRow>()).results;
+  const previous = eventRecords(
+    snapshot
+      .filter((row) => row.kind === "event")
+      .map((row) => ({
+        url: row.a,
+        title: row.b ?? "",
+        community: row.c ?? "",
+        type: row.d ?? "",
+        start_date: row.e ?? "",
+        end_date: row.f,
+        description: row.g,
+        location: row.h,
+      }))
+      .sort((x, y) => y.start_date.localeCompare(x.start_date)),
+  );
+  const storedReviews: ReviewedRow[] = snapshot
+    .filter((row) => row.kind === "review")
+    .map((row) => ({ event_id: row.a, payload_json: row.b ?? "", reviewed_at: row.c ?? "" }));
+  const storedAliases: AliasRow[] = snapshot
+    .filter((row) => row.kind === "alias")
+    .map((row) => ({ alias_url: row.a, destination_url: row.b, checked_at: row.c ?? "" }));
+  const reviewedHistory = await restoreReviewedEvents(
+    db,
+    [...curated, ...previous],
+    undefined,
+    storedReviews,
+  );
   // A standalone override's old URL may exist nowhere else; resolve it first.
   const overrideUrls = EVENT_OVERRIDES.map((override) => override.url);
-  const { aliases } = await refreshEventDestinationAliases(
+  const { aliases, write: aliasWrite } = await refreshEventDestinationAliases(
     db,
     [...curated, ...previous, ...live, ...overrideUrls.map((url) => ({ url }))],
     fetch,
     overrideUrls,
+    { rows: storedAliases, deferWrite: true },
   );
+  if (aliasWrite) await aliasWrite.run();
   const canonicalKey = (url: string) => eventUrlKey(storedEventDestination(url, aliases));
   let canonical = await dedupeEventsByResolvedUrl(
     live,
@@ -153,16 +229,22 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     return applyEventOverrides(old ? mergeReviewedEvents(old, event) : event, EVENT_OVERRIDES);
   });
   // Every checked-in correction is cached, including archive-only/removed URLs.
-  await persistReviewedEvents(db, [
-    ...previousCanonical,
-    ...canonical,
-    ...EVENT_OVERRIDES.map((override) => ({
-      url: override.url,
-      ...override.patch,
-      reviewedAt: override.reviewedAt,
-      reviewedFields: Object.keys(override.patch) as NonNullable<Event["reviewedFields"]>,
-    })),
-  ]);
+  // Reuses the snapshot's reviewed rows: no second read of the sidecar table.
+  const reviewWrite = await prepareReviewedUpsert(
+    db,
+    [
+      ...previousCanonical,
+      ...canonical,
+      ...EVENT_OVERRIDES.map((override) => ({
+        url: override.url,
+        ...override.patch,
+        reviewedAt: override.reviewedAt,
+        reviewedFields: Object.keys(override.patch) as NonNullable<Event["reviewedFields"]>,
+      })),
+    ],
+    storedReviews,
+  );
+  if (reviewWrite) await reviewWrite.run();
   const canonicalByKey = new Map(canonical.map((event) => [eventUrlKey(event.url), event]));
   // Readers treat any non-empty D1 as the authoritative snapshot, so a partial
   // run must not seed an empty database; the live fallback stays in charge.
@@ -174,29 +256,39 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
   // Deactivations are deferred and committed together with retirement, so an
   // aborted sync can never leave half-applied inactive memberships behind.
   const deactivations: D1PreparedStatement[] = [];
+  // Safe legacy migration: exact registry aliases only. Unknown ownership is
+  // retained, and newly observed cohosts add ownership rather than overwrite it.
+  // One statement covers every chapter; it runs before any upsert, so it only
+  // adopts rows that already existed.
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO event_source_memberships (event_id, source_id, is_active)
+      SELECT e.id, json_extract(c.value, '$[0]'), e.is_active FROM events e, json_each(?) c
+      WHERE e.source = 'bevy' AND e.community IN (SELECT value FROM json_each(json_extract(c.value, '$[1]')))`,
+    )
+    .bind(
+      JSON.stringify(
+        CHAPTERS.map((chapter) => [
+          chapter.slug,
+          [
+            chapter.community,
+            ...(chapter.organizerId ? getOrganizerById(chapter.organizerId).aliases : []),
+          ],
+        ]),
+      ),
+    )
+    .run();
+  const statuses: unknown[][] = [];
   for (const [index, chapter] of CHAPTERS.entries()) {
     const { status, upcomingComplete, pastComplete } = outcomes[index];
     const events = seed ? outcomes[index].events : [];
-    const names = [
-      chapter.community,
-      ...(chapter.organizerId ? getOrganizerById(chapter.organizerId).aliases : []),
-    ];
-    // Safe legacy migration: exact registry aliases only. Unknown ownership is
-    // retained, and newly observed cohosts add ownership rather than overwrite it.
-    await db
-      .prepare(
-        `INSERT OR IGNORE INTO event_source_memberships (event_id, source_id, is_active)
-      SELECT id, ?, is_active FROM events WHERE source = 'bevy'
-      AND community IN (SELECT value FROM json_each(?))`,
-      )
-      .bind(chapter.slug, JSON.stringify(names))
-      .run();
     const chapterIds: string[] = [];
     const rows: unknown[][] = [];
     for (const source of events) {
       if (!source.url || !source.startDate) continue;
-      // Every identifiable live record has a canonical entry carrying reviewed facts.
-      const event = canonicalByKey.get(canonicalKey(source.url))!;
+      // Every identifiable live record has a canonical entry carrying reviewed
+      // facts; the live record itself is a safe fallback, never a crash.
+      const event = canonicalByKey.get(canonicalKey(source.url)) ?? source;
       const id = eventUrlKey(event.url);
       chapterIds.push(id);
       if (!seenIds.has(id)) {
@@ -236,28 +328,33 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
           .bind(chapter.slug, JSON.stringify(chapterIds), Number(pastComplete)),
       );
     }
-    await db
-      .prepare(
-        `INSERT INTO event_source_status
-      (source_id, outcome, event_count, last_attempt_at, last_success_at, error_category, upcoming_complete, past_complete)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(source_id) DO UPDATE SET outcome=excluded.outcome, event_count=excluded.event_count,
-      last_attempt_at=excluded.last_attempt_at,
-      last_success_at=COALESCE(excluded.last_success_at, event_source_status.last_success_at),
-      error_category=excluded.error_category, upcoming_complete=excluded.upcoming_complete, past_complete=excluded.past_complete`,
-      )
-      .bind(
-        chapter.slug,
-        status.outcome,
-        status.eventCount,
-        status.lastAttemptAt,
-        status.lastSuccessAt ?? null,
-        status.errorCategory ?? null,
-        Number(upcomingComplete),
-        Number(pastComplete),
-      )
-      .run();
+    statuses.push([
+      chapter.slug,
+      status.outcome,
+      status.eventCount,
+      status.lastAttemptAt,
+      status.lastSuccessAt ?? null,
+      status.errorCategory ?? null,
+      Number(upcomingComplete),
+      Number(pastComplete),
+    ]);
   }
+  // Every chapter's measured status in one JSON-bound statement.
+  await db
+    .prepare(
+      `INSERT INTO event_source_status
+    (source_id, outcome, event_count, last_attempt_at, last_success_at, error_category, upcoming_complete, past_complete)
+    SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'),
+      json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'),
+      json_extract(value, '$[6]'), json_extract(value, '$[7]')
+    FROM json_each(?) WHERE true
+    ON CONFLICT(source_id) DO UPDATE SET outcome=excluded.outcome, event_count=excluded.event_count,
+    last_attempt_at=excluded.last_attempt_at,
+    last_success_at=COALESCE(excluded.last_success_at, event_source_status.last_success_at),
+    error_category=excluded.error_category, upcoming_complete=excluded.upcoming_complete, past_complete=excluded.past_complete`,
+    )
+    .bind(JSON.stringify(statuses))
+    .run();
   // A removed or renamed chapter is never visited again, so its memberships
   // would protect rows forever. Renamed chapters re-adopt rows via the alias
   // migration above before this runs; unowned legacy rows have no membership.
@@ -308,9 +405,12 @@ export async function readEventSourceStatuses(db: D1Like): Promise<EventSourceSt
 }
 
 async function readEventRecords(db: D1Like): Promise<Event[]> {
-  const result = await db.prepare(SELECT_ACTIVE_SQL).all<Row>();
+  return eventRecords((await db.prepare(SELECT_ACTIVE_SQL).all<Row>()).results);
+}
+
+function eventRecords(rows: Row[]): Event[] {
   return dedupeEventsByUrl(
-    result.results.map((r) => {
+    rows.map((r) => {
       const organizerId = resolveOrganizerId(r.community);
       return {
         url: r.url,

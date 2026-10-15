@@ -29,6 +29,8 @@
       "binding": "EVENTS_DB",
       "database_name": "openodia-events",
       "database_id": "ec88a8bb-e2f5-42d3-96fe-57191259d49c",
+      // `wrangler d1 migrations apply` reads the additive migrations from here.
+      "migrations_dir": "db/migrations",
       "remote": true,
     },
   ],

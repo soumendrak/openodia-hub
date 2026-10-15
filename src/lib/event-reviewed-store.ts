@@ -112,13 +112,36 @@ export function normalizeReviewedTimes(
   return normalized;
 }
 
+export type ReviewedRow = { event_id: string; payload_json: string; reviewed_at: string };
+export const SELECT_REVIEWED_SQL =
+  "SELECT event_id, payload_json, reviewed_at FROM event_reviewed_metadata";
+
 /** A whole sync uses one read and one JSON-bound write regardless of review count. */
 export async function persistReviewedEvents(
   db: D1Like,
   events: (Pick<Event, "url"> & Partial<Event>)[],
 ): Promise<void> {
+  await (await prepareReviewedUpsert(db, events, undefined, true))?.run();
+}
+
+/**
+ * Builds the single reviewed-metadata upsert without running it. `stored` is a
+ * snapshot the caller already read, so a sync spends no second read. A row whose
+ * merged metadata is invalid is skipped and logged rather than aborting the batch.
+ */
+export async function prepareReviewedUpsert(
+  db: D1Like,
+  events: (Pick<Event, "url"> & Partial<Event>)[],
+  stored?: readonly ReviewedRow[],
+  /** Direct writers fail loudly; a sync skips and logs the row instead. */
+  strict = false,
+) {
+  const reject = (url: string, message: string) => {
+    if (strict) throw new Error("Invalid reviewed event metadata");
+    console.warn(message, eventUrlKey(url));
+  };
   const reviewed = events.filter((event) => event.reviewedAt);
-  if (!reviewed.length) return;
+  if (!reviewed.length) return undefined;
   const merged = new Map<string, Event>();
   for (const event of reviewed) {
     const incoming: EventPatch = {};
@@ -128,22 +151,28 @@ export async function persistReviewedEvents(
       validateOverrides([
         { url: event.url, evidenceUrl: event.url, reviewedAt: event.reviewedAt!, patch: incoming },
       ]).length
-    )
-      throw new Error("Invalid reviewed event metadata");
+    ) {
+      reject(event.url, "Invalid reviewed event metadata skipped");
+      continue;
+    }
     const key = eventUrlKey(event.url);
     const previous = merged.get(key);
     merged.set(key, previous ? mergeReviewedEvents(previous, event as Event) : (event as Event));
   }
   const invalidStored = new Map<string, { payload: string; reviewedAt: string }>();
-  const restored = await restoreReviewedEvents(db, [...merged.values()], (eventId, observed) =>
-    invalidStored.set(eventId, observed),
+  const restored = await restoreReviewedEvents(
+    db,
+    [...merged.values()],
+    (eventId, observed) => invalidStored.set(eventId, observed),
+    stored,
   );
-  const records = restored.map((event) => {
+  const records = restored.flatMap((event) => {
     const patch: EventPatch = {};
     for (const key of event.reviewedFields ?? REVIEW_FIELDS)
       if (event[key] !== undefined) Object.assign(patch, { [key]: event[key] });
-    const incoming = merged.get(eventUrlKey(event.url))!;
+    const incoming = merged.get(eventUrlKey(event.url));
     if (
+      !incoming ||
       ((incoming.reviewedFields ?? REVIEW_FIELDS).includes("endDate") &&
         incoming.endDate !== undefined &&
         event.startDate !== undefined &&
@@ -151,25 +180,30 @@ export async function persistReviewedEvents(
       validateOverrides([
         { url: event.url, evidenceUrl: event.url, reviewedAt: event.reviewedAt!, patch },
       ]).length
-    )
-      throw new Error("Invalid reviewed event metadata");
-    return {
-      event_id: eventUrlKey(event.url),
-      payload_json: JSON.stringify({
-        patch,
-        reviewedFields: event.reviewedFields,
-        reviewedTimes: normalizeReviewedTimes(event.reviewedTimes, patch, event.reviewedAt!),
-        ...(invalidStored.has(eventUrlKey(event.url))
-          ? { replaceStored: invalidStored.get(eventUrlKey(event.url)) }
-          : {}),
-      }),
-      reviewed_at: new Date(event.reviewedAt!).toISOString(),
-    };
+    ) {
+      reject(event.url, "Invalid merged reviewed event metadata skipped");
+      return [];
+    }
+    return [
+      {
+        event_id: eventUrlKey(event.url),
+        payload_json: JSON.stringify({
+          patch,
+          reviewedFields: event.reviewedFields,
+          reviewedTimes: normalizeReviewedTimes(event.reviewedTimes, patch, event.reviewedAt!),
+          ...(invalidStored.has(eventUrlKey(event.url))
+            ? { replaceStored: invalidStored.get(eventUrlKey(event.url)) }
+            : {}),
+        }),
+        reviewed_at: new Date(event.reviewedAt!).toISOString(),
+      },
+    ];
   });
+  if (!records.length) return undefined;
   // A malformed stored payload is treated as empty so a valid review repairs it.
   // Every conflict merges field by field on per-field review times (ties keep
   // the stored value), so concurrent writers never replace each other's fields.
-  await db.prepare(REVIEWED_UPSERT_SQL).bind(JSON.stringify(records)).run();
+  return db.prepare(REVIEWED_UPSERT_SQL).bind(JSON.stringify(records));
 }
 
 export async function restoreReviewedEvents(
@@ -180,12 +214,12 @@ export async function restoreReviewedEvents(
     eventId: string,
     observed: { payload: string; reviewedAt: string },
   ) => void = () => {},
+  /** A snapshot already read by the caller; omitted, the table is read here. */
+  stored?: readonly ReviewedRow[],
 ): Promise<Event[]> {
-  const result = await db
-    .prepare("SELECT event_id, payload_json, reviewed_at FROM event_reviewed_metadata")
-    .all<{ event_id: string; payload_json: string; reviewed_at: string }>();
+  const rows = stored ?? (await db.prepare(SELECT_REVIEWED_SQL).all<ReviewedRow>()).results;
   const byUrl = new Map(events.map((event) => [eventUrlKey(event.url), event]));
-  for (const row of result.results) {
+  for (const row of rows) {
     const event = byUrl.get(row.event_id);
     if (!event) continue;
     try {
