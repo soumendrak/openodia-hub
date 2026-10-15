@@ -223,7 +223,7 @@ export type EventSourceStatus = {
   eventCount: number;
   lastAttemptAt: string;
   lastSuccessAt?: string;
-  errorCategory?: "http" | "timeout" | "parse" | "network";
+  errorCategory?: "http" | "timeout" | "parse" | "network" | "budget";
   upcomingComplete: boolean;
   pastComplete: boolean;
 };

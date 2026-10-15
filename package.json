@@ -9,6 +9,7 @@
     "build:dev": "vite build --mode development",
     "preview": "wrangler dev -c dist/server/wrangler.json --local --port 4173",
     "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

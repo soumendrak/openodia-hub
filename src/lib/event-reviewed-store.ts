@@ -124,16 +124,10 @@ export async function persistReviewedEvents(
   await (await prepareReviewedUpsert(db, events, undefined, true))?.run();
 }
 
-/**
- * Builds the single reviewed-metadata upsert without running it. `stored` is a
- * snapshot the caller already read, so a sync spends no second read. A row whose
- * merged metadata is invalid is skipped and logged rather than aborting the batch.
- */
 export async function prepareReviewedUpsert(
   db: D1Like,
   events: (Pick<Event, "url"> & Partial<Event>)[],
   stored?: readonly ReviewedRow[],
-  /** Direct writers fail loudly; a sync skips and logs the row instead. */
   strict = false,
 ) {
   const reject = (url: string, message: string) => {
@@ -214,7 +208,6 @@ export async function restoreReviewedEvents(
     eventId: string,
     observed: { payload: string; reviewedAt: string },
   ) => void = () => {},
-  /** A snapshot already read by the caller; omitted, the table is read here. */
   stored?: readonly ReviewedRow[],
 ): Promise<Event[]> {
   const rows = stored ?? (await db.prepare(SELECT_REVIEWED_SQL).all<ReviewedRow>()).results;
