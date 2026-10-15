@@ -1,3 +1,20 @@
+import {
+  applyArchivedOrganizer,
+  applyEventOverrides,
+  mergeAliasReviewedEvents,
+} from "./event-lifecycle";
+import { events as curated } from "../data/events";
+import {
+  refreshEventDestinationAliases,
+  storedEventDestination,
+  type AliasRow,
+} from "./event-destination-store";
+import { EVENT_OVERRIDES } from "../data/event-overrides";
+import {
+  prepareReviewedUpsert,
+  restoreReviewedEvents,
+  type ReviewedRow,
+} from "./event-reviewed-store";
 /**
  * D1-backed persistence for Bevy-scraped community events.
  *
@@ -8,7 +25,7 @@
  */
 
 import { CHAPTERS, fetchChapterOutcome, type EventSourceStatus } from "../routes/api/events";
-import { dedupeEventsByUrl, eventUrlKey } from "./event-url";
+import { dedupeEventsByResolvedUrl, dedupeEventsByUrl, eventUrlKey } from "./event-url";
 import type { Event } from "../data/events/types";
 import { events as curatedEvents } from "../data/events";
 import { getOrganizerById, resolveOrganizerId } from "../data/organizers";
@@ -83,36 +100,225 @@ WHERE source = 'bevy'
 ORDER BY start_date DESC
 `;
 
+export const SYNC_SNAPSHOT_SQL = `
+SELECT 'event' AS kind, url AS a, title AS b, community AS c, type AS d, start_date AS e,
+  end_date AS f, description AS g, location AS h
+FROM events WHERE source = 'bevy' AND (is_active = 1 OR last_seen > datetime('now', '-30 days'))
+UNION ALL SELECT 'review', event_id, payload_json, reviewed_at, NULL, NULL, NULL, NULL, NULL
+FROM event_reviewed_metadata
+UNION ALL SELECT 'alias', alias_url, destination_url, checked_at, NULL, NULL, NULL, NULL, NULL
+FROM event_destination_aliases
+`;
+type SnapshotRow = {
+  kind: "event" | "review" | "alias";
+  a: string;
+  b: string | null;
+  c: string | null;
+  d: string | null;
+  e: string | null;
+  f: string | null;
+  g: string | null;
+  h: string | null;
+};
+
+export const STATUS_SQL = `INSERT INTO event_source_status
+  (source_id, outcome, event_count, last_attempt_at, last_success_at, error_category, upcoming_complete, past_complete)
+  SELECT json_extract(value, '$[0]'), json_extract(value, '$[1]'), json_extract(value, '$[2]'),
+    json_extract(value, '$[3]'), json_extract(value, '$[4]'), json_extract(value, '$[5]'),
+    json_extract(value, '$[6]'), json_extract(value, '$[7]')
+  FROM json_each(?) WHERE true
+  ON CONFLICT(source_id) DO UPDATE SET outcome=excluded.outcome, event_count=excluded.event_count,
+  last_attempt_at=excluded.last_attempt_at,
+  last_success_at=COALESCE(excluded.last_success_at, event_source_status.last_success_at),
+  error_category=excluded.error_category, upcoming_complete=excluded.upcoming_complete, past_complete=excluded.past_complete`;
+
+export const SUBREQUEST_LIMIT = 50;
+export const MAX_REDIRECT_CHECKS = 30;
+
+export function syncQueryCount(chapters: number): number {
+  return 3 * chapters + 7;
+}
+
+export function syncSubrequestPlan(chapters: number): {
+  queries: number;
+  pages: number;
+  redirects: number;
+} {
+  const queries = syncQueryCount(chapters);
+  const redirects = Math.min(MAX_REDIRECT_CHECKS, SUBREQUEST_LIMIT - queries - chapters);
+  return { queries, pages: chapters, redirects };
+}
+
+async function recordRefusedSync(db: D1Like, attemptedAt: string): Promise<void> {
+  await db
+    .prepare(STATUS_SQL)
+    .bind(
+      JSON.stringify(
+        CHAPTERS.map((chapter) => [chapter.slug, "failed", 0, attemptedAt, null, "budget", 0, 0]),
+      ),
+    )
+    .run();
+}
+
 export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> {
+  const plan = syncSubrequestPlan(CHAPTERS.length);
+  if (plan.redirects < 0) {
+    await recordRefusedSync(db, new Date().toISOString());
+    throw new Error(
+      `Event sync refused: ${plan.queries} D1 queries and ${plan.pages} page fetches exceed ${SUBREQUEST_LIMIT} subrequests`,
+    );
+  }
   const outcomes = await Promise.all(
     CHAPTERS.map((chapter) =>
       fetchChapterOutcome(chapter.organizerId ?? chapter.community, chapter.slug),
     ),
   );
+  // Reviewed facts and stored redirect aliases decide each record's canonical
+  // identity before any chapter writes, so old alias rows can retire safely.
+  const live = dedupeEventsByUrl(outcomes.flatMap((outcome) => outcome.events)).map((event) =>
+    applyEventOverrides(event, EVENT_OVERRIDES),
+  );
+  const snapshot = (await db.prepare(SYNC_SNAPSHOT_SQL).all<SnapshotRow>()).results;
+  const previous = eventRecords(
+    snapshot
+      .filter((row) => row.kind === "event")
+      .map((row) => ({
+        url: row.a,
+        title: row.b ?? "",
+        community: row.c ?? "",
+        type: row.d ?? "",
+        start_date: row.e ?? "",
+        end_date: row.f,
+        description: row.g,
+        location: row.h,
+      }))
+      .sort((x, y) => y.start_date.localeCompare(x.start_date)),
+  );
+  const storedReviews: ReviewedRow[] = snapshot
+    .filter((row) => row.kind === "review")
+    .map((row) => ({ event_id: row.a, payload_json: row.b ?? "", reviewed_at: row.c ?? "" }));
+  const storedAliases: AliasRow[] = snapshot
+    .filter((row) => row.kind === "alias")
+    .map((row) => ({ alias_url: row.a, destination_url: row.b, checked_at: row.c ?? "" }));
+  const reviewedHistory = await restoreReviewedEvents(
+    db,
+    [...curated, ...previous],
+    undefined,
+    storedReviews,
+  );
+  // A standalone override's old URL may exist nowhere else; resolve it first.
+  const overrideUrls = EVENT_OVERRIDES.map((override) => override.url);
+  const { aliases, write: aliasWrite } = await refreshEventDestinationAliases(
+    db,
+    [...curated, ...previous, ...live, ...overrideUrls.map((url) => ({ url }))],
+    fetch,
+    overrideUrls,
+    { rows: storedAliases, deferWrite: true, requestBudget: plan.redirects, skipConfirmed: true },
+  );
+  if (aliasWrite) await aliasWrite.run();
+  const destination = (url: string) => storedEventDestination(url, aliases);
+  const canonicalKey = (url: string) => eventUrlKey(destination(url));
+  const mergeOwned = (previous: Event, next: Event) =>
+    mergeAliasReviewedEvents(previous, next, curated, destination);
+  let canonical = await dedupeEventsByResolvedUrl(
+    live,
+    async (url) => destination(url),
+    [],
+    mergeOwned,
+    true,
+  );
+
+  // Preserve reviewed alias facts at the canonical identity before the old
+  // base row retires. Only current live rows count as seen upstream.
+  const knownKeys = new Set(
+    [...curated, ...reviewedHistory].map((event) => eventUrlKey(event.url)),
+  );
+  // A checked-in override whose base row is gone still carries reviewed facts
+  // that must follow its alias to the current canonical event.
+  const standaloneOverrides = EVENT_OVERRIDES.filter(
+    (override) => !knownKeys.has(eventUrlKey(override.url)),
+  ).map(
+    (override) =>
+      ({
+        url: override.url,
+        ...override.patch,
+        reviewedAt: override.reviewedAt,
+        reviewedFields: Object.keys(override.patch),
+      }) as Event,
+  );
+  const previousCanonical = await dedupeEventsByResolvedUrl(
+    [
+      ...curated.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)),
+      ...reviewedHistory.map((event) => applyEventOverrides(event, EVENT_OVERRIDES)),
+      ...standaloneOverrides,
+    ],
+    async (url) => destination(url),
+    [],
+    mergeOwned,
+    true,
+  );
+  const byUrl = new Map(previousCanonical.map((event) => [eventUrlKey(event.url), event]));
+  canonical = canonical.map((event) => {
+    const old = byUrl.get(eventUrlKey(event.url));
+    const merged = old
+      ? mergeOwned(old, event)
+      : applyArchivedOrganizer(event, curated, destination);
+    return applyEventOverrides(merged, EVENT_OVERRIDES);
+  });
+  // Every checked-in correction is cached, including archive-only/removed URLs.
+  const reviewWrite = await prepareReviewedUpsert(
+    db,
+    [
+      ...previousCanonical,
+      ...canonical,
+      ...EVENT_OVERRIDES.map((override) => ({
+        url: override.url,
+        ...override.patch,
+        reviewedAt: override.reviewedAt,
+        reviewedFields: Object.keys(override.patch) as NonNullable<Event["reviewedFields"]>,
+      })),
+    ],
+    storedReviews,
+  );
+  if (reviewWrite) await reviewWrite.run();
+  const canonicalByKey = new Map(canonical.map((event) => [eventUrlKey(event.url), event]));
+  // Readers treat any non-empty D1 as the authoritative snapshot, so a partial
+  // run must not seed an empty database; the live fallback stays in charge.
+  // Measured source statuses are still recorded.
+  const seed =
+    previous.length > 0 || outcomes.every((outcome) => outcome.status.outcome !== "failed");
+
   const seenIds = new Set<string>();
   // Deactivations are deferred and committed together with retirement, so an
   // aborted sync can never leave half-applied inactive memberships behind.
   const deactivations: D1PreparedStatement[] = [];
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO event_source_memberships (event_id, source_id, is_active)
+      SELECT e.id, json_extract(c.value, '$[0]'), e.is_active FROM events e, json_each(?) c
+      WHERE e.source = 'bevy' AND e.community IN (SELECT value FROM json_each(json_extract(c.value, '$[1]')))`,
+    )
+    .bind(
+      JSON.stringify(
+        CHAPTERS.map((chapter) => [
+          chapter.slug,
+          [
+            chapter.community,
+            ...(chapter.organizerId ? getOrganizerById(chapter.organizerId).aliases : []),
+          ],
+        ]),
+      ),
+    )
+    .run();
+  const statuses: unknown[][] = [];
   for (const [index, chapter] of CHAPTERS.entries()) {
-    const { events, status, upcomingComplete, pastComplete } = outcomes[index];
-    const names = [
-      chapter.community,
-      ...(chapter.organizerId ? getOrganizerById(chapter.organizerId).aliases : []),
-    ];
-    // Safe legacy migration: exact registry aliases only. Unknown ownership is
-    // retained, and newly observed cohosts add ownership rather than overwrite it.
-    await db
-      .prepare(
-        `INSERT OR IGNORE INTO event_source_memberships (event_id, source_id, is_active)
-      SELECT id, ?, is_active FROM events WHERE source = 'bevy'
-      AND community IN (SELECT value FROM json_each(?))`,
-      )
-      .bind(chapter.slug, JSON.stringify(names))
-      .run();
+    const { status, upcomingComplete, pastComplete } = outcomes[index];
+    const events = seed ? outcomes[index].events : [];
     const chapterIds: string[] = [];
     const rows: unknown[][] = [];
-    for (const event of events) {
-      if (!event.url || !event.startDate) continue;
+    for (const source of events) {
+      if (!source.url || !source.startDate) continue;
+      const event = canonicalByKey.get(canonicalKey(source.url)) ?? source;
       const id = eventUrlKey(event.url);
       chapterIds.push(id);
       if (!seenIds.has(id)) {
@@ -135,6 +341,7 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
     if (chapterIds.length)
       await db.prepare(MEMBERSHIP_SQL).bind(chapter.slug, JSON.stringify(chapterIds)).run();
     if (
+      seed &&
       status.outcome !== "failed" &&
       upcomingComplete &&
       events.every((event) => event.url && event.startDate)
@@ -151,28 +358,18 @@ export async function syncEventsToD1(db: D1Like): Promise<{ upserted: number }> 
           .bind(chapter.slug, JSON.stringify(chapterIds), Number(pastComplete)),
       );
     }
-    await db
-      .prepare(
-        `INSERT INTO event_source_status
-      (source_id, outcome, event_count, last_attempt_at, last_success_at, error_category, upcoming_complete, past_complete)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(source_id) DO UPDATE SET outcome=excluded.outcome, event_count=excluded.event_count,
-      last_attempt_at=excluded.last_attempt_at,
-      last_success_at=COALESCE(excluded.last_success_at, event_source_status.last_success_at),
-      error_category=excluded.error_category, upcoming_complete=excluded.upcoming_complete, past_complete=excluded.past_complete`,
-      )
-      .bind(
-        chapter.slug,
-        status.outcome,
-        status.eventCount,
-        status.lastAttemptAt,
-        status.lastSuccessAt ?? null,
-        status.errorCategory ?? null,
-        Number(upcomingComplete),
-        Number(pastComplete),
-      )
-      .run();
+    statuses.push([
+      chapter.slug,
+      status.outcome,
+      status.eventCount,
+      status.lastAttemptAt,
+      status.lastSuccessAt ?? null,
+      status.errorCategory ?? null,
+      Number(upcomingComplete),
+      Number(pastComplete),
+    ]);
   }
+  await db.prepare(STATUS_SQL).bind(JSON.stringify(statuses)).run();
   // A removed or renamed chapter is never visited again, so its memberships
   // would protect rows forever. Renamed chapters re-adopt rows via the alias
   // migration above before this runs; unowned legacy rows have no membership.
@@ -222,10 +419,13 @@ export async function readEventSourceStatuses(db: D1Like): Promise<EventSourceSt
   );
 }
 
-export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
-  const result = await db.prepare(SELECT_ACTIVE_SQL).all<Row>();
+async function readEventRecords(db: D1Like): Promise<Event[]> {
+  return eventRecords((await db.prepare(SELECT_ACTIVE_SQL).all<Row>()).results);
+}
+
+function eventRecords(rows: Row[]): Event[] {
   return dedupeEventsByUrl(
-    result.results.map((r) => {
+    rows.map((r) => {
       const organizerId = resolveOrganizerId(r.community);
       return {
         url: r.url,
@@ -242,4 +442,20 @@ export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
       };
     }),
   );
+}
+
+export async function readEventsFromD1(db: D1Like): Promise<Event[]> {
+  const events = await readEventRecords(db);
+  try {
+    return (await restoreReviewedEvents(db, events)).map((event) =>
+      applyEventOverrides(event, EVENT_OVERRIDES),
+    );
+  } catch (error) {
+    if (!(error instanceof Error) || !/no such table.*event_reviewed_metadata/i.test(error.message))
+      throw error;
+    console.warn(
+      "Reviewed event metadata unavailable; serving legacy records with checked-in corrections",
+    );
+    return events.map((event) => applyEventOverrides(event, EVENT_OVERRIDES));
+  }
 }

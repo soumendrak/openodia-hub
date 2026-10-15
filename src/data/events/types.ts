@@ -17,6 +17,40 @@ export const ATTENDANCE_POLICIES = [
   "unknown",
 ] as const;
 
+export const EVENT_LIFECYCLES = ["scheduled", "postponed", "cancelled"] as const;
+export const REGISTRATION_STATES = [
+  "unknown",
+  "not-open",
+  "open",
+  "closed",
+  "sold-out",
+  "waitlist",
+] as const;
+export const EVENT_NOTICE_KINDS = [
+  "venue",
+  "time",
+  "registration",
+  "postponement",
+  "cancellation",
+] as const;
+export type EventEvidence = { evidenceUrl: string; verifiedAt: string };
+export type EventLifecycle = EventEvidence & {
+  state: (typeof EVENT_LIFECYCLES)[number];
+  replacementDate?: string;
+  /** Original precise day only when stated in the reviewed rescheduling notice. */
+  previousDate?: string;
+};
+export type EventRegistration = {
+  state: (typeof REGISTRATION_STATES)[number];
+  evidenceUrl?: string;
+  verifiedAt?: string;
+  url?: string;
+};
+export type EventNotice = EventEvidence & {
+  kind: (typeof EVENT_NOTICE_KINDS)[number];
+  text: string;
+};
+
 export type Event = {
   year: string;
   date: string;
@@ -41,6 +75,26 @@ export type Event = {
    * approval: request-to-attend/selection · restricted: staff/officials/campus
    * only · unknown: no explicit evidence.
    */
+  /** Reviewed facts remain independent from date-derived status and attendance eligibility. */
+  lifecycle?: EventLifecycle;
+  registration?: EventRegistration;
+  notices?: EventNotice[];
+  /** Timestamp of a reviewed correction; never inferred from scrape time. */
+  reviewedAt?: string;
+  /** Per-field review timestamps, so retained fields keep their own review time. */
+  reviewedTimes?: Partial<Record<NonNullable<Event["reviewedFields"]>[number], string>>;
+  /** Only explicitly corrected fields are protected from unreviewed upstream writes. */
+  reviewedFields?: (
+    | "title"
+    | "description"
+    | "startDate"
+    | "endDate"
+    | "location"
+    | "attendance"
+    | "lifecycle"
+    | "registration"
+    | "notices"
+  )[];
   attendance?: {
     policy: (typeof ATTENDANCE_POLICIES)[number];
     /** One sentence of evidence, e.g. "ID proof, fee and 60-seat cap." */

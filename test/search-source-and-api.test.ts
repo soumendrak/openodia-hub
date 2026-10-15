@@ -292,6 +292,56 @@ describe("search snapshot adapters", () => {
   });
 });
 
+describe("search snapshot cache with D1 bound", () => {
+  it("memoizes the D1-backed snapshot per database instead of rebuilding per search", async () => {
+    const { createSearchSnapshotLoader } = await import("../src/lib/sources/search");
+    const { withEventDatabase } = await import("../src/lib/event-request-context");
+    const events = vi.fn(async () => liveEvents);
+    const load = createSearchSnapshotLoader(
+      {
+        catalog: vi.fn(async () => catalog),
+        papers: vi.fn(async () => papers),
+        videos: vi.fn(async () => channels),
+        events,
+      },
+      `search-snapshot:test-d1:${Date.now()}:${Math.random()}`,
+    );
+    const db = { prepare: vi.fn() } as never;
+    const first = await withEventDatabase(db, () => load());
+    const second = await withEventDatabase(db, () => load());
+    expect(second).toBe(first);
+    expect(events).toHaveBeenCalledTimes(1);
+    await load();
+    expect(events).toHaveBeenCalledTimes(2);
+  });
+
+  it("rebuilds the D1-backed snapshot once the snapshot TTL has passed", async () => {
+    const { createSearchSnapshotLoader, SEARCH_SNAPSHOT_TTL_MS } =
+      await import("../src/lib/sources/search");
+    const { withEventDatabase } = await import("../src/lib/event-request-context");
+    const events = vi.fn(async () => liveEvents);
+    const load = createSearchSnapshotLoader(
+      {
+        catalog: vi.fn(async () => catalog),
+        papers: vi.fn(async () => papers),
+        videos: vi.fn(async () => channels),
+        events,
+      },
+      `search-snapshot:test-d1-ttl:${Date.now()}:${Math.random()}`,
+    );
+    const db = { prepare: vi.fn() } as never;
+    const start = Date.now();
+    const now = vi.spyOn(Date, "now").mockReturnValue(start);
+    const first = await withEventDatabase(db, () => load());
+    now.mockReturnValue(start + SEARCH_SNAPSHOT_TTL_MS - 1);
+    expect(await withEventDatabase(db, () => load())).toBe(first);
+    now.mockReturnValue(start + SEARCH_SNAPSHOT_TTL_MS);
+    expect(await withEventDatabase(db, () => load())).not.toBe(first);
+    expect(events).toHaveBeenCalledTimes(2);
+    now.mockRestore();
+  });
+});
+
 describe("search API contract", () => {
   async function handler() {
     const route = await import("../src/routes/api/search");

@@ -26,6 +26,7 @@ describe("events-feed handler", () => {
               "props": {
                 "pageProps": {
                   "prerenderData": {
+                    "pastEvents": { "results": [] },
                     "upcomingEvents": {
                       "results": [
                         {

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { REGISTRATION_STATES } from "../src/data/events/types";
 import { eventListSchema, serializeJsonLd } from "../src/lib/jsonld";
 
 describe("serializeJsonLd", () => {
@@ -72,5 +73,76 @@ describe("eventListSchema", () => {
     expect(out.location).toEqual({ "@type": "VirtualLocation", url: base.url });
     const venue = item({ ...base, location: "NIT Rourkela" });
     expect(venue.eventAttendanceMode).toBe("https://schema.org/OfflineEventAttendanceMode");
+  });
+});
+
+describe("eventListSchema offers gating (lifecycle and registration)", () => {
+  const now = new Date("2026-10-01T00:00:00Z");
+  const base = {
+    name: "Future free event",
+    url: "https://example.org/e",
+    description: "d",
+    startDate: "2026-12-01",
+    free: true,
+  };
+  const evidence = { evidenceUrl: "https://example.org/notice", verifiedAt: "2026-09-30" };
+  const item = (extra: Record<string, unknown>) =>
+    eventListSchema([{ ...base, ...extra }], now).itemListElement[0].item as Record<
+      string,
+      unknown
+    >;
+
+  it("emits an InStock offer for a scheduled free future event", () => {
+    expect(item({})).toHaveProperty("offers.availability", "https://schema.org/InStock");
+    expect(item({ lifecycle: { state: "scheduled", ...evidence } })).toHaveProperty("offers");
+    expect(item({ registration: { state: "open" } })).toMatchObject({
+      offers: { url: base.url, availability: "https://schema.org/InStock" },
+    });
+  });
+
+  it("points an open free offer at the reviewed registration URL", () => {
+    const registrationUrl = "https://example.org/register";
+    expect(
+      item({ registration: { state: "open", url: registrationUrl, ...evidence } }),
+    ).toMatchObject({
+      offers: { url: registrationUrl, price: 0, availability: "https://schema.org/InStock" },
+    });
+  });
+
+  it.each(["cancelled", "postponed"] as const)(
+    "omits offers for a %s future free event",
+    (state) => {
+      const it = item({ lifecycle: { state, ...evidence } });
+      expect(it).not.toHaveProperty("offers");
+      expect(it.isAccessibleForFree).toBe(true);
+    },
+  );
+
+  it.each(REGISTRATION_STATES.filter((state) => state !== "open"))(
+    "omits offers when registration is %s",
+    (state) => {
+      const out = item({ registration: { state } });
+      expect(out).not.toHaveProperty("offers");
+      expect(out.isAccessibleForFree).toBe(true);
+    },
+  );
+});
+
+describe("eventListSchema offer destination", () => {
+  it("points the offer at the reviewed registration URL when present", () => {
+    const item = eventListSchema(
+      [
+        {
+          name: "Open event",
+          url: "https://example.org/e",
+          description: "d",
+          startDate: "2099-12-01",
+          free: true,
+          registration: { state: "open", url: "https://example.org/register" },
+        },
+      ],
+      new Date("2026-10-01T00:00:00Z"),
+    ).itemListElement[0].item;
+    expect(item).toHaveProperty("offers.url", "https://example.org/register");
   });
 });

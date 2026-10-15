@@ -132,6 +132,9 @@ export async function fetchChapterSnapshot(
   const chapterFetch = signal ? fetch : fetchWithTimeout;
   const response = await chapterFetch(`https://gdg.community.dev/${slug}/`, {
     ...(signal ? { signal } : {}),
+    // A configured chapter must return its own data. Do not let implicit
+    // redirect chains consume the scheduled external-request budget.
+    redirect: "manual",
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -220,7 +223,7 @@ export type EventSourceStatus = {
   eventCount: number;
   lastAttemptAt: string;
   lastSuccessAt?: string;
-  errorCategory?: "http" | "timeout" | "parse" | "network";
+  errorCategory?: "http" | "timeout" | "parse" | "network" | "budget";
   upcomingComplete: boolean;
   pastComplete: boolean;
 };
@@ -327,8 +330,8 @@ export const Route = createFileRoute("/api/events")({
     handlers: {
       GET: async ({ request }: { request: Request }) => {
         try {
-          const { loadEventCollection } = await import("../../lib/event-collection");
-          const collection = await loadEventCollection();
+          const { loadReviewedEventCollection } = await import("../../lib/sources/events");
+          const collection = await loadReviewedEventCollection();
           const url = new URL(request.url);
           const page = Math.max(1, parseInt(url.searchParams.get("page") || "1", 10) || 1);
           const limit = Math.max(

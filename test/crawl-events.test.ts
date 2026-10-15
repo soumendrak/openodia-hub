@@ -94,11 +94,14 @@ describe("resolveDestinationUrl", () => {
     "https://gdg.community.dev/events/details/google-gdg-on-campus-kalinga-institute-of-industrial-technology-bhubaneswar-india-presents-deploy-or-redacted/";
 
   it("uses the final GDG event URL after a title/slug redirect", async () => {
-    const fetcher = vi.fn().mockResolvedValue({ ok: true, url: finalUrl });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: finalUrl } }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
     await expect(resolveDestinationUrl(oldUrl, fetcher)).resolves.toBe(finalUrl);
     expect(fetcher).toHaveBeenCalledWith(
       oldUrl,
-      expect.objectContaining({ method: "HEAD", redirect: "follow" }),
+      expect.objectContaining({ method: "HEAD", redirect: "manual" }),
     );
   });
 
@@ -109,7 +112,12 @@ describe("resolveDestinationUrl", () => {
     await expect(
       resolveDestinationUrl(
         oldUrl,
-        vi.fn().mockResolvedValue({ ok: true, url: "https://gdg.community.dev/gdg-kiit/" }),
+        vi.fn().mockResolvedValue(
+          new Response(null, {
+            status: 302,
+            headers: { location: "https://gdg.community.dev/gdg-kiit/" },
+          }),
+        ),
       ),
     ).resolves.toBe(oldUrl);
     await expect(

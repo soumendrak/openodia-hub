@@ -271,6 +271,7 @@ describe("event persistence URL deduplication", () => {
     });
 
     vi.resetModules();
+    globalThis.fetch = vi.fn(async () => new Response(null));
     const { syncEventsToD1: syncWithMockedSource } = await import("../src/lib/events-store");
 
     const calls: { sql: string; values: unknown[] }[] = [];

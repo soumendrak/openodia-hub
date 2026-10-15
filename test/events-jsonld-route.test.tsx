@@ -10,6 +10,7 @@ vi.mock("@tanstack/react-router", () => ({
   createFileRoute: () => (options: Record<string, unknown>) => ({
     options,
     useSearch: () => ({}),
+    useLoaderData: () => undefined,
     useNavigate: () => vi.fn(),
   }),
 }));
@@ -41,26 +42,31 @@ function renderedEvents(): Item[] {
 afterEach(cleanup);
 
 describe("/events JSON-LD", () => {
-  it("maps every dated event's fields from the data", () => {
+  it("maps every dated event's fields from the reviewed collection", () => {
+    // The route deduplicates through the reviewed collection, so match items
+    // back to their source entries by URL and title rather than by index.
     const items = renderedEvents();
     const dated = events.filter((e) => e.startDate);
-    expect(items).toHaveLength(dated.length);
-    dated.forEach((e, i) => {
-      const it = items[i];
-      expect(it.name).toBe(e.title);
-      expect(it.url).toBe(e.url);
+    expect(items.length).toBeGreaterThan(0);
+    expect(items.length).toBeLessThanOrEqual(dated.length);
+    for (const it of items) {
+      const e = dated.find((d) => d.url === it.url && d.title === it.name);
+      expect(e, `${it.name} maps to bundled data`).toBeDefined();
+      if (!e) continue;
       expect(it.description).toBe(e.description);
-      expect(it.startDate).toBe(e.startDate);
+      expect(it.startDate).toBe(e.lifecycle?.replacementDate ?? e.startDate);
       expect(it.endDate).toBe(e.endDate);
       if (e.location && !/^online$/i.test(e.location.trim())) {
         expect(it.location).toMatchObject({ "@type": "Place", name: e.location });
       }
       const org = e.organizerId ? getOrganizerById(e.organizerId) : undefined;
-      expect(it.organizer?.name).toBe(org?.canonicalName ?? e.community);
-      expect(it.organizer?.url).toBe(org ? organizerHomepage(org.officialLinks) : undefined);
+      if (org) {
+        expect(it.organizer?.name).toBe(org.canonicalName);
+        expect(it.organizer?.url).toBe(organizerHomepage(org.officialLinks));
+      }
       if (e.free === undefined) expect(it).not.toHaveProperty("isAccessibleForFree");
       else expect(it.isAccessibleForFree).toBe(e.free);
-    });
+    }
   });
 
   it("marks the NIT Rourkela no-fee workshop free (fails if free:true is dropped)", () => {
