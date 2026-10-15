@@ -15,18 +15,11 @@ import { parseEventArchiveSearch } from "../lib/event-archive";
 import { issueFormUrl } from "../lib/issue-forms";
 import {
   getOrganizerById,
+  organizerHomepage,
   resolveOrganizer,
   resolveOrganizerId,
   ORGANIZERS,
 } from "../data/organizers";
-
-/** The organizer's homepage when one is listed, else its first official link. */
-export function organizerHomepage(links: readonly { label: string; url: string }[]) {
-  const home = links.find(
-    (l) => /website|homepage/i.test(l.label) || new URL(l.url).pathname === "/",
-  );
-  return (home ?? links[0])?.url;
-}
 
 export const Route = createFileRoute("/events")({
   validateSearch: parseEventArchiveSearch,

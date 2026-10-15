@@ -545,3 +545,21 @@ export function validateOrganizerRegistry(registry: readonly OrganizerInput[]): 
 
   return errors;
 }
+
+/**
+ * The organizer's homepage: an "Official website"/"homepage" link or a link to
+ * a site root. Undefined when there is none — a listing page is not a homepage.
+ * Malformed URLs are skipped rather than thrown, since this runs during render.
+ */
+export function organizerHomepage(
+  links: readonly { label: string; url: string }[],
+): string | undefined {
+  return links.find((l) => {
+    if (/website|homepage/i.test(l.label)) return true;
+    try {
+      return new URL(l.url).pathname === "/";
+    } catch {
+      return false;
+    }
+  })?.url;
+}

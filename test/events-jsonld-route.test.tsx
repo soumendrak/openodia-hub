@@ -21,9 +21,9 @@ vi.mock("../src/components/Reveal", () => ({
   Reveal: ({ children }: { children?: ReactNode }) => children,
 }));
 
-import { Route, organizerHomepage } from "../src/routes/events";
+import { Route } from "../src/routes/events";
 import { events } from "../src/data/events";
-import { getOrganizerById } from "../src/data/organizers";
+import { getOrganizerById, organizerHomepage } from "../src/data/organizers";
 
 type Item = Record<string, unknown> & { organizer?: { name: string; url?: string } };
 
@@ -58,6 +58,8 @@ describe("/events JSON-LD", () => {
       const org = e.organizerId ? getOrganizerById(e.organizerId) : undefined;
       expect(it.organizer?.name).toBe(org?.canonicalName ?? e.community);
       expect(it.organizer?.url).toBe(org ? organizerHomepage(org.officialLinks) : undefined);
+      if (e.free === undefined) expect(it).not.toHaveProperty("isAccessibleForFree");
+      else expect(it.isAccessibleForFree).toBe(e.free);
     });
   });
 
@@ -85,9 +87,8 @@ describe("organizerHomepage", () => {
         { label: "Main", url: "https://x.org/" },
       ]),
     ).toBe("https://x.org/");
-    expect(organizerHomepage([{ label: "Events", url: "https://x.org/events" }])).toBe(
-      "https://x.org/events",
-    );
+    expect(organizerHomepage([{ label: "Events", url: "https://x.org/events" }])).toBeUndefined();
+    expect(organizerHomepage([{ label: "Bad", url: "not a url" }])).toBeUndefined();
     expect(organizerHomepage([])).toBeUndefined();
   });
 });
