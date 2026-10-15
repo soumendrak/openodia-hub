@@ -558,6 +558,10 @@ function EventsPage() {
       endDate: e.endDate,
       location: e.location,
       organizer: e.community,
+      organizerUrl: e.organizerId
+        ? getOrganizerById(e.organizerId)?.officialLinks[0]?.url
+        : undefined,
+      free: e.free,
     }));
 
   return (

@@ -155,6 +155,13 @@ export function eventListSchema(
     endDate?: string;
     location?: string;
     organizer?: string;
+    /** Organizer's reviewed official site. Omitted when the registry has none. */
+    organizerUrl?: string;
+    /** Only real, sourced values — never a placeholder. */
+    image?: string;
+    performers?: string[];
+    /** True only when the organizer states attendance is free. */
+    free?: boolean;
   }[],
 ) {
   return {
@@ -182,7 +189,31 @@ export function eventListSchema(
               eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
               location: { "@type": "VirtualLocation", url: e.url },
             }),
-        ...(e.organizer ? { organizer: { "@type": "Organization", name: e.organizer } } : {}),
+        ...(e.organizer
+          ? {
+              organizer: {
+                "@type": "Organization",
+                name: e.organizer,
+                ...(e.organizerUrl ? { url: e.organizerUrl } : {}),
+              },
+            }
+          : {}),
+        ...(e.image ? { image: [e.image] } : {}),
+        ...(e.performers?.length
+          ? { performer: e.performers.map((name) => ({ "@type": "Person", name })) }
+          : {}),
+        ...(e.free
+          ? {
+              isAccessibleForFree: true,
+              offers: {
+                "@type": "Offer",
+                price: 0,
+                priceCurrency: "INR",
+                url: e.url,
+                availability: "https://schema.org/InStock",
+              },
+            }
+          : {}),
       },
     })),
   };
