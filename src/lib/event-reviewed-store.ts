@@ -1,10 +1,13 @@
 import type { Event } from "../data/events/types";
+
+type ReviewField = (typeof REVIEW_FIELDS)[number];
 import type { D1Like } from "./events-store";
 import { eventUrlKey } from "./event-url";
 import {
   mergeReviewedEvents,
   normalizeEventDates,
   REVIEW_FIELDS,
+  timestamp,
   validEventPatch,
   validateOverrides,
   type EventOverride,
@@ -46,6 +49,15 @@ const STORED = `(CASE WHEN ${REPLACING} THEN '{}'
    AND COALESCE(json_type(event_reviewed_metadata.payload_json, '$.reviewedTimes'), 'object') = 'object'
   THEN event_reviewed_metadata.payload_json ELSE '{}' END ELSE '{}' END)`;
 
+// A field's review time in canonical ISO form, never later than its row's
+// review. Malformed times fall back to the row's review time.
+const fieldTime = (payload: string, key: string, rowReviewedAt: string) =>
+  `min(COALESCE(strftime('%Y-%m-%dT%H:%M:%fZ', json_extract(${payload}, '$.reviewedTimes.' || ${key})), ${rowReviewedAt}), ${rowReviewedAt})`;
+const storedFieldTime = (key: string) =>
+  fieldTime(STORED, key, "event_reviewed_metadata.reviewed_at");
+const incomingFieldTime = (key: string) =>
+  fieldTime("excluded.payload_json", key, "excluded.reviewed_at");
+
 // Every conflict merges field by field on per-field review times (an untimed key
 // takes its own row's reviewed_at; ties keep the stored value), so concurrent
 // writers never replace each other's fields.
@@ -57,27 +69,48 @@ export const REVIEWED_UPSERT_SQL = `INSERT INTO event_reviewed_metadata (event_i
           FROM (
             SELECT existing.key, existing.value, existing.type FROM json_each(${STORED}, '$.patch') existing
             WHERE NOT EXISTS (SELECT 1 FROM json_each(excluded.payload_json, '$.patch') incoming WHERE incoming.key = existing.key
-              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
-                > COALESCE(json_extract(${STORED}, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
+              AND ${incomingFieldTime("incoming.key")}
+                > ${storedFieldTime("existing.key")})
             UNION ALL
             SELECT incoming.key, incoming.value, incoming.type FROM json_each(excluded.payload_json, '$.patch') incoming
             WHERE NOT EXISTS (SELECT 1 FROM json_each(${STORED}, '$.patch') existing WHERE existing.key = incoming.key
-              AND COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at)
-                <= COALESCE(json_extract(${STORED}, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at))
+              AND ${incomingFieldTime("incoming.key")}
+                <= ${storedFieldTime("existing.key")})
           )
         ), 'reviewedTimes', (
           SELECT json_group_object(key, at) FROM (
             SELECT key, max(at) AS at FROM (
-              SELECT existing.key, COALESCE(json_extract(${STORED}, '$.reviewedTimes.' || existing.key), event_reviewed_metadata.reviewed_at) AS at
+              SELECT existing.key, ${storedFieldTime("existing.key")} AS at
               FROM json_each(${STORED}, '$.patch') existing
               UNION ALL
-              SELECT incoming.key, COALESCE(json_extract(excluded.payload_json, '$.reviewedTimes.' || incoming.key), excluded.reviewed_at) AS at
+              SELECT incoming.key, ${incomingFieldTime("incoming.key")} AS at
               FROM json_each(excluded.payload_json, '$.patch') incoming
             ) GROUP BY key
           )
         )),
     reviewed_at = CASE WHEN ${REPLACING} THEN excluded.reviewed_at
       ELSE max(excluded.reviewed_at, event_reviewed_metadata.reviewed_at) END`;
+
+/**
+ * Per-field review times in one canonical form. The upsert compares times as
+ * strings, where '...:00Z' sorts above '...:00.000Z', so every stored value is
+ * a full ISO instant. Only admitted fields present in the patch keep a time,
+ * and no field can claim a review newer than its row's `reviewed_at`.
+ */
+export function normalizeReviewedTimes(
+  times: unknown,
+  patch: EventPatch,
+  reviewedAt: string,
+): NonNullable<Event["reviewedTimes"]> | undefined {
+  if (!times || typeof times !== "object") return undefined;
+  const ceiling = Date.parse(reviewedAt);
+  const normalized: NonNullable<Event["reviewedTimes"]> = {};
+  for (const [key, at] of Object.entries(times)) {
+    if (!REVIEW_FIELDS.includes(key as ReviewField) || !(key in patch) || !timestamp(at)) continue;
+    normalized[key as ReviewField] = new Date(Math.min(Date.parse(at), ceiling)).toISOString();
+  }
+  return normalized;
+}
 
 /** A whole sync uses one read and one JSON-bound write regardless of review count. */
 export async function persistReviewedEvents(
@@ -125,7 +158,7 @@ export async function persistReviewedEvents(
       payload_json: JSON.stringify({
         patch,
         reviewedFields: event.reviewedFields,
-        reviewedTimes: event.reviewedTimes,
+        reviewedTimes: normalizeReviewedTimes(event.reviewedTimes, patch, event.reviewedAt!),
         ...(invalidStored.has(eventUrlKey(event.url))
           ? { replaceStored: invalidStored.get(eventUrlKey(event.url)) }
           : {}),
@@ -183,10 +216,11 @@ export async function restoreReviewedEvents(
           ...payload.patch,
           reviewedAt: row.reviewed_at,
           reviewedFields: Object.keys(payload.patch) as (typeof REVIEW_FIELDS)[number][],
-          reviewedTimes:
-            payload.reviewedTimes && typeof payload.reviewedTimes === "object"
-              ? payload.reviewedTimes
-              : undefined,
+          reviewedTimes: normalizeReviewedTimes(
+            payload.reviewedTimes,
+            payload.patch,
+            row.reviewed_at,
+          ),
         }),
         !changedDay,
       );

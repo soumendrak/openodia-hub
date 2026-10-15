@@ -41,7 +41,7 @@ export function preciseDate(value: unknown): value is string {
   const parsed = new Date(value);
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
-function timestamp(value: unknown): value is string {
+export function timestamp(value: unknown): value is string {
   return (
     typeof value === "string" &&
     /^(\d{4}-\d{2}-\d{2})(T\d{2}:\d{2}:\d{2}(\.\d+)?Z)?$/.test(value) &&
