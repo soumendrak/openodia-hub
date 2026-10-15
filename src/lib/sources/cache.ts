@@ -85,15 +85,20 @@ export function lastCacheLayer(): CacheLayer {
   return lastLayer;
 }
 
-async function readStore<T>(key: string): Promise<Entry<T> | undefined> {
+/** Rejects when the store itself fails; a missing or corrupt entry is `undefined`. */
+async function readEntry<T>(key: string): Promise<Entry<T> | undefined> {
+  const raw = await store?.get(CACHE_PREFIX + key);
+  if (!raw) return undefined;
   try {
-    const raw = await store?.get(CACHE_PREFIX + key);
-    if (!raw) return undefined;
     const entry = JSON.parse(raw) as Entry<T>;
     return typeof entry?.at === "number" ? entry : undefined;
   } catch {
     return undefined;
   }
+}
+
+function readStore<T>(key: string): Promise<Entry<T> | undefined> {
+  return readEntry<T>(key).catch(() => undefined);
 }
 
 async function writeStore<T>(key: string, entry: Entry<T>, ttlMs: number): Promise<void> {
@@ -154,7 +159,17 @@ function refresh<T>(
   const run = (async () => {
     // Another isolate may already have refreshed this key: adopt its copy
     // instead of re-running the fan-out and writing a duplicate.
-    const stored = store && persist ? await readStore<T>(key) : undefined;
+    let stored: Entry<T> | undefined;
+    // A failed read (e.g. read quota exhausted) is not a miss: without the
+    // stored timestamp the write gate can't work, so skip the write.
+    let readFailed = false;
+    if (store && persist) {
+      try {
+        stored = await readEntry<T>(key);
+      } catch {
+        readFailed = true;
+      }
+    }
     if (stored && Date.now() - stored.at < ttlMs) {
       memo.set(key, stored);
       return stored.value;
@@ -163,7 +178,7 @@ function refresh<T>(
     const now = Date.now();
     const entry: Entry<T> = { at: now, value };
     memo.set(key, entry);
-    if (!store || !persist || !shouldWrite(stored, value, now)) return value;
+    if (!store || !persist || readFailed || !shouldWrite(stored, value, now)) return value;
     // The caller is already waiting on the fan-out; don't make it wait on the
     // write too. waitUntil keeps it alive past the response where there is a
     // ctx to hang it on, and the cron path has none, so it awaits.

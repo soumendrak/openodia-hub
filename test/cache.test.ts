@@ -279,6 +279,18 @@ describe("cachedJson", () => {
         expect(kv.put).not.toHaveBeenCalled();
         expect(load).toHaveBeenCalledTimes(2);
       });
+
+      it("skips the write when the throttle read fails", async () => {
+        const kv = fakeKv();
+        const mod = await freshCache();
+        mod.setCacheStore(kv);
+        kv.get.mockRejectedValue(new Error("read quota"));
+        const load = vi.fn(async () => "v1");
+        expect(await mod.cachedJson("k", TTL, load)).toBe("v1");
+        await vi.runAllTimersAsync();
+        expect(load).toHaveBeenCalledTimes(1);
+        expect(kv.put).not.toHaveBeenCalled();
+      });
     });
   });
 });
