@@ -15,6 +15,7 @@ import { parseEventArchiveSearch } from "../lib/event-archive";
 import { issueFormUrl } from "../lib/issue-forms";
 import {
   getOrganizerById,
+  organizerHomepage,
   resolveOrganizer,
   resolveOrganizerId,
   ORGANIZERS,
@@ -577,15 +578,20 @@ function EventsPage() {
   // a handful of entries only carry a prose date that never parsed.
   const schemaEvents = events
     .filter((e) => !!e.startDate)
-    .map((e) => ({
-      name: e.title,
-      url: e.url,
-      description: e.description,
-      startDate: e.startDate as string,
-      endDate: e.endDate,
-      location: e.location,
-      organizer: e.community,
-    }));
+    .map((e) => {
+      const organizer = e.organizerId ? getOrganizerById(e.organizerId) : undefined;
+      return {
+        name: e.title,
+        url: e.url,
+        description: e.description,
+        startDate: e.startDate as string,
+        endDate: e.endDate,
+        location: e.location,
+        organizer: organizer?.canonicalName ?? e.community,
+        organizerUrl: organizer ? organizerHomepage(organizer.officialLinks) : undefined,
+        free: e.free,
+      };
+    });
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-24">
