@@ -5,12 +5,13 @@ import { ExternalLink, Calendar, MapPin, Search, X, Rss, ChevronDown, Loader2 } 
 import { Reveal } from "../components/Reveal";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { mergeNonEmpty } from "../lib/utils";
-import { mergeEventCollectionsByUrl } from "../lib/event-url";
+import { eventUrlKey, mergeEventCollectionsByUrl } from "../lib/event-url";
 import { events } from "../data/events";
 import type { Event } from "../data/events";
 import { pageHead } from "../lib/seo";
 import { JsonLd, breadcrumbSchema, eventListSchema } from "../lib/jsonld";
 import { normalizeSearch } from "../lib/search";
+import { parseEventArchiveSearch } from "../lib/event-archive";
 import { issueFormUrl } from "../lib/issue-forms";
 import {
   getOrganizerById,
@@ -20,19 +21,7 @@ import {
 } from "../data/organizers";
 
 export const Route = createFileRoute("/events")({
-  validateSearch: (
-    search: Record<string, unknown>,
-  ): { q?: string; community?: string; type?: Event["type"] } => ({
-    q: typeof search.q === "string" && search.q.length <= 80 ? search.q : undefined,
-    community:
-      typeof search.community === "string" && search.community.length <= 80
-        ? search.community
-        : undefined,
-    type:
-      typeof search.type === "string" && ALL_TYPES.includes(search.type as Event["type"])
-        ? (search.type as Event["type"])
-        : undefined,
-  }),
+  validateSearch: parseEventArchiveSearch,
   head: () =>
     pageHead({
       path: "events",
@@ -235,22 +224,18 @@ const getEventMonthName = (e: Event): string => {
 };
 
 function EventsPage() {
-  const routeSearch = Route.useSearch();
+  const routeSearch = parseEventArchiveSearch(Route.useSearch());
   const [draftQuery, setDraftQuery] = useState(routeSearch.q ?? "");
   useEffect(() => setDraftQuery(routeSearch.q ?? ""), [routeSearch.q]);
   const query = draftQuery;
   const navigate = Route.useNavigate();
-  const setFilters = (next: { q?: string; community?: string; type?: Event["type"] }) => {
+  const setFilters = (next: ReturnType<typeof parseEventArchiveSearch>) => {
     void navigate({ search: next, replace: true });
   };
   const setQuery = (next: string) => {
     const bounded = next.slice(0, 80);
     setDraftQuery(bounded);
-    setFilters({
-      ...(bounded ? { q: bounded } : {}),
-      ...(routeSearch.community ? { community: routeSearch.community } : {}),
-      ...(routeSearch.type ? { type: routeSearch.type } : {}),
-    });
+    void navigate({ search: { ...routeSearch, q: bounded || undefined }, replace: true });
   };
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   useSearchShortcut(searchInputRef);
@@ -261,7 +246,8 @@ function EventsPage() {
   const unknownCommunity = requestedCommunity && !activeCommunity ? requestedCommunity : null;
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const needle = normalizeSearch(query);
-  const isFiltering = !!needle || !!activeType || !!requestedCommunity;
+  const isFiltering = !!needle || !!activeType || !!requestedCommunity || !!routeSearch.year;
+  const needsCompleteCorpus = (isFiltering || !!routeSearch.sort) && !unknownCommunity;
 
   const isProgrammaticScroll = useRef(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -281,9 +267,11 @@ function EventsPage() {
   // page 2 and page 1 events vanish from the filter."
   const {
     data: liveData,
+    isError: liveSourceError,
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
+    isFetchNextPageError,
   } = useInfiniteQuery({
     queryKey: ["liveEvents"],
     initialPageParam: 1,
@@ -294,6 +282,8 @@ function EventsPage() {
         events: Event[];
         nextCursor?: string;
         total: number;
+        partial?: boolean;
+        years?: string[];
       }>;
     },
     getNextPageParam: (lastPage, allPages) =>
@@ -313,16 +303,46 @@ function EventsPage() {
     queryFn: async () => {
       const response = await fetch("/api/events");
       if (!response.ok) throw new Error("Failed to fetch complete event search corpus");
-      return response.json() as Promise<{ events: Event[] }>;
+      return response.json() as Promise<{ events: Event[]; partial?: boolean }>;
     },
-    enabled: isFiltering && !unknownCommunity,
+    enabled: needsCompleteCorpus,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
   const loadedEvents = liveData?.pages.flatMap((p) => p.events) ?? [];
+  // API pages include the bundled curated archive. A Load More page holding only
+  // bundled events adds nothing visible, so continue to the next page for the user.
+  const lastPage = liveData?.pages.at(-1);
+  const duplicateOnlyPage =
+    !!lastPage &&
+    liveData!.pages.length > 1 &&
+    lastPage.events.every((event) =>
+      events.some((bundled) => eventUrlKey(bundled.url) === eventUrlKey(event.url)),
+    );
+  useEffect(() => {
+    // A failed automatic request leaves the same duplicate page last; retrying
+    // here would loop, so the user resumes with Load More instead.
+    if (duplicateOnlyPage && hasNextPage && !isFetchingNextPage && !isFetchNextPageError) {
+      void fetchNextPage();
+    }
+  }, [
+    duplicateOnlyPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isFetchNextPageError,
+    fetchNextPage,
+    lastPage,
+  ]);
   // Disabled queries keep cached data: clearing filters must restore pagination.
-  const fetchedEvents = isFiltering ? (completeSearchEvents?.events ?? loadedEvents) : loadedEvents;
+  const fetchedEvents = needsCompleteCorpus
+    ? (completeSearchEvents?.events ?? loadedEvents)
+    : loadedEvents;
+  const partialEvents =
+    liveSourceError ||
+    (needsCompleteCorpus && isCompleteError) ||
+    (needsCompleteCorpus && completeSearchEvents?.partial) ||
+    liveData?.pages.some((page) => page.partial);
   const totalLiveEvents = liveData?.pages[0]?.total ?? 0;
 
   const today = getISTDateString();
@@ -343,9 +363,11 @@ function EventsPage() {
     })
     .sort((a, b) => {
       const yearDiff = Number(b.year) - Number(a.year);
-      if (yearDiff !== 0) return yearDiff;
+      if (yearDiff !== 0) return routeSearch.sort === "oldest" ? -yearDiff : yearDiff;
       if (a.startDate && b.startDate) {
-        return b.startDate.localeCompare(a.startDate);
+        return routeSearch.sort === "oldest"
+          ? a.startDate.localeCompare(b.startDate)
+          : b.startDate.localeCompare(a.startDate);
       }
       if (a.startDate) return -1;
       if (b.startDate) return 1;
@@ -373,7 +395,12 @@ function EventsPage() {
             ].join(" "),
           ).includes(needle)
         : true;
-      return matchesType && matchesCommunity && matchesQuery;
+      return (
+        matchesType &&
+        matchesCommunity &&
+        matchesQuery &&
+        (!routeSearch.year || e.year === routeSearch.year)
+      );
     });
 
   const filtered = unknownCommunity ? [] : applyFilter(mergedEventsList);
@@ -386,8 +413,8 @@ function EventsPage() {
     (e) => e.status === "upcoming" || e.status === "live",
   );
 
-  const dynamicYears = [...new Set(filteredPastEvents.map((e) => e.year))].sort(
-    (a, b) => Number(b) - Number(a),
+  const dynamicYears = [...new Set(filteredPastEvents.map((e) => e.year))].sort((a, b) =>
+    routeSearch.sort === "oldest" ? Number(a) - Number(b) : Number(b) - Number(a),
   );
 
   // Registry identities stay selectable even when their first live page has no events.
@@ -569,6 +596,58 @@ function EventsPage() {
         ])}
       />
       {schemaEvents.length > 0 && <JsonLd data={eventListSchema(schemaEvents)} />}
+      {partialEvents && (
+        <p className="mb-6 rounded-xl border border-amber-500/40 bg-surface p-4 text-sm text-muted-foreground">
+          Some event sources are incomplete or unavailable. Known events remain listed. A successful
+          source check does not confirm registration or complete organizer coverage.
+        </p>
+      )}
+      <div className="mb-6 flex flex-wrap gap-4">
+        <label className="text-sm">
+          Archive year
+          <select
+            aria-label="Archive year"
+            className="ml-2 rounded border border-border bg-surface p-2"
+            value={routeSearch.year ?? ""}
+            onChange={(event) =>
+              void navigate({ search: { ...routeSearch, year: event.target.value || undefined } })
+            }
+          >
+            <option value="">All years</option>
+            {[
+              ...new Set([
+                ...mergedEventsList.map((event) => event.year),
+                ...(liveData?.pages[0]?.years ?? []),
+                ...(routeSearch.year ? [routeSearch.year] : []),
+              ]),
+            ]
+              .sort()
+              .reverse()
+              .map((year) => (
+                <option key={year}>{year}</option>
+              ))}
+          </select>
+        </label>
+        <label className="text-sm">
+          Sort
+          <select
+            aria-label="Event sort"
+            className="ml-2 rounded border border-border bg-surface p-2"
+            value={routeSearch.sort ?? "newest"}
+            onChange={(event) =>
+              void navigate({
+                search: {
+                  ...routeSearch,
+                  sort: event.target.value === "oldest" ? "oldest" : undefined,
+                },
+              })
+            }
+          >
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </label>
+      </div>
       <Reveal>
         <p className="text-sm uppercase tracking-widest text-neon">Community</p>
         <h1 className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 font-display text-5xl font-bold md:text-7xl">
@@ -688,9 +767,10 @@ function EventsPage() {
                 value={activeCommunity ?? ""}
                 onChange={(e) =>
                   setFilters({
+                    ...routeSearch,
                     ...(routeSearch.q ? { q: routeSearch.q } : {}),
                     ...(routeSearch.type ? { type: routeSearch.type } : {}),
-                    ...(e.target.value ? { community: e.target.value } : {}),
+                    community: e.target.value || undefined,
                   })
                 }
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
@@ -715,9 +795,10 @@ function EventsPage() {
                 value={activeType ?? ""}
                 onChange={(e) =>
                   setFilters({
+                    ...routeSearch,
                     ...(routeSearch.q ? { q: routeSearch.q } : {}),
                     ...(routeSearch.community ? { community: routeSearch.community } : {}),
-                    ...(e.target.value ? { type: e.target.value as Event["type"] } : {}),
+                    type: (e.target.value as Event["type"]) || undefined,
                   })
                 }
                 className="block w-full appearance-none rounded-2xl border border-border bg-surface py-3 pl-4 pr-10 text-sm text-foreground focus:border-neon focus:outline-none cursor-pointer hover:border-border/80"
@@ -740,7 +821,7 @@ function EventsPage() {
               <button
                 onClick={() => {
                   setDraftQuery("");
-                  setFilters({});
+                  setFilters({ sort: routeSearch.sort });
                 }}
                 className="flex items-center gap-1.5 rounded-2xl border border-border px-4 py-3 text-sm text-muted-foreground hover:border-neon/40 hover:text-foreground transition"
               >
@@ -758,16 +839,25 @@ function EventsPage() {
         </p>
       )}
 
-      {isFiltering && !unknownCommunity && isCompletePending && (
+      {needsCompleteCorpus && isCompletePending && (
         <p className="mt-4 text-sm text-muted-foreground">
           Loading the complete event collection… Counts below cover loaded events until this
           finishes.
         </p>
       )}
-      {isFiltering && !unknownCommunity && isCompleteError && (
+      {needsCompleteCorpus && isCompleteError && (
         <p className="mt-4 text-sm text-muted-foreground">
           The complete live event collection is unavailable. Results and counts cover curated and
           previously loaded events only.
+          {hasNextPage && (
+            <button
+              onClick={() => fetchNextPage()}
+              disabled={isFetchingNextPage}
+              className="ml-2 font-medium text-neon underline underline-offset-2 disabled:opacity-50"
+            >
+              {isFetchingNextPage ? "Loading…" : "Load more events"}
+            </button>
+          )}
         </p>
       )}
       {/* The one announcement per filter change. Source, scope and organizer
@@ -986,7 +1076,7 @@ function EventsPage() {
                   Current collection: {mergedEventsList.length} unique curated and loaded live
                   events.
                 </p>
-                {hasNextPage && (
+                {hasNextPage && !needsCompleteCorpus && (
                   <button
                     onClick={() => fetchNextPage()}
                     disabled={isFetchingNextPage}
