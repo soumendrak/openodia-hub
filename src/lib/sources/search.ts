@@ -5,7 +5,7 @@ import { cachedJson } from "./cache";
 import { loadCatalog } from "./catalog";
 import { loadPapers } from "./papers";
 import { loadVideos } from "./videos";
-import { CHAPTERS, fetchChapterEvents } from "../../routes/api/events";
+import { CHAPTERS, fetchChapterEvents, type LiveEventCollection } from "../../routes/api/events";
 
 export type SearchSnapshot = {
   documents: SearchDocument[];
@@ -67,9 +67,13 @@ function eventDocument(event: Event): SearchDocument {
 }
 
 export async function loadLiveSearchEvents(
-  fetcher: typeof fetchChapterEvents = fetchChapterEvents,
+  fetcher?: typeof fetchChapterEvents,
   chapters: typeof CHAPTERS = CHAPTERS,
-): Promise<Event[]> {
+): Promise<Event[] | LiveEventCollection> {
+  if (!fetcher) {
+    const { loadEventCollection } = await import("../event-collection");
+    return loadEventCollection();
+  }
   const settled = await Promise.allSettled(
     chapters.map((chapter) => fetcher(chapter.organizerId ?? chapter.community, chapter.slug)),
   );
@@ -158,12 +162,16 @@ export async function buildSearchSnapshot(
     sources.push({ source: "videos", status: "ready", count: records.length });
   } else sources.push({ source: "videos", status: "unavailable", count: 0 });
 
-  const known = [...events, ...(live.status === "fulfilled" ? live.value : [])];
+  const liveEvents =
+    live.status === "fulfilled" ? (Array.isArray(live.value) ? live.value : live.value.events) : [];
+  const eventPartial =
+    live.status === "rejected" || (!Array.isArray(live.value) && live.value.partial);
+  const known = [...events, ...liveEvents];
   const eventRecords = dedupeEventsByUrl(known).map(eventDocument);
   documents.push(...eventRecords);
   sources.push({
     source: "events",
-    status: live.status === "rejected" ? "unavailable" : "ready",
+    status: eventPartial ? "partial" : "ready",
     count: eventRecords.length,
   });
 
@@ -172,7 +180,7 @@ export async function buildSearchSnapshot(
 
 export function createSearchSnapshotLoader(
   loaders: SearchLoaders = DEFAULT_LOADERS,
-  cacheKey = "search-snapshot:v1",
+  cacheKey = "search-snapshot:v2-events-outcomes",
 ): () => Promise<SearchSnapshot> {
   return () => cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
 }

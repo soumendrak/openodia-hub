@@ -122,7 +122,7 @@ export const OPENAPI_SPEC = {
       get: {
         summary: "Community events",
         description:
-          "Live + static event feed (GDG/GDGoC chapters scraped from Bevy, merged with the curated archive).",
+          "Live, persisted and curated events in one canonical feed. Returns partial and bounded sources metadata: sourceId, outcome (success-empty/success-events/failed), eventCount, lastAttemptAt, optional lastSuccessAt, completeness flags, and a sanitized errorCategory. Fetch success does not imply complete history or registration availability.",
         parameters: [
           {
             name: "page",
@@ -135,7 +135,10 @@ export const OPENAPI_SPEC = {
             schema: { type: "integer", maximum: 50, default: 20 },
           },
         ],
-        responses: { "200": { description: "Array of events" } },
+        responses: {
+          "200": { description: "Events with measured source outcomes and partial flag" },
+          "503": { description: "All live sources unavailable and no retained events" },
+        },
       },
     },
     "/api/models": {

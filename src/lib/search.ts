@@ -33,7 +33,7 @@ export type SearchResult = SearchDocument & { score: number };
 
 export type SearchSourceStatus = {
   source: string;
-  status: "ready" | "unavailable";
+  status: "ready" | "unavailable" | "partial";
   count: number;
 };
 

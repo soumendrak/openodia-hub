@@ -93,6 +93,8 @@ async function cachedDestinationUrl(rawUrl: string): Promise<string> {
   return destination;
 }
 
+export const RESOLVE_CONCURRENCY = 4;
+
 type DatedEventUrl = Pick<Event, "url"> & Partial<Pick<Event, "startDate" | "date">>;
 
 /**
@@ -103,20 +105,35 @@ type DatedEventUrl = Pick<Event, "url"> & Partial<Pick<Event, "startDate" | "dat
 export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
   items: T[],
   resolveDestination: (url: string) => Promise<string> = cachedDestinationUrl,
+  // Records merged later (e.g. the curated archive). A dated reference whose URL
+  // is absent from `items` may be the redirect target of a lone legacy row.
+  references: DatedEventUrl[] = [],
 ): Promise<T[]> {
   const dateCounts = new Map<string, number>();
   for (const item of items) {
     const date = item.startDate || item.date || "";
     dateCounts.set(date, (dateCounts.get(date) ?? 0) + 1);
   }
+  const itemKeys = new Set(items.map((item) => eventUrlKey(item.url)));
+  for (const reference of references) {
+    const date = reference.startDate || reference.date;
+    if (date && !itemKeys.has(eventUrlKey(reference.url))) {
+      dateCounts.set(date, (dateCounts.get(date) ?? 0) + 1);
+    }
+  }
 
-  const destinations = await Promise.all(
-    items.map((item) => {
-      const date = item.startDate || item.date || "";
-      // Counted from this same `items` list above, so every date has an entry.
-      return dateCounts.get(date)! > 1 ? resolveDestination(item.url) : Promise.resolve(item.url);
-    }),
-  );
+  // Bounded worker pool: at most RESOLVE_CONCURRENCY redirect lookups in flight.
+  const destinations = items.map((item) => item.url);
+  const pending = items
+    .map((item, index) => ({ item, index }))
+    // Counted from this same `items` list above, so every date has an entry.
+    .filter(({ item }) => dateCounts.get(item.startDate || item.date || "")! > 1);
+  const worker = async () => {
+    for (let next = pending.shift(); next; next = pending.shift()) {
+      destinations[next.index] = await resolveDestination(next.item.url);
+    }
+  };
+  await Promise.all(Array.from({ length: RESOLVE_CONCURRENCY }, worker));
 
   const winners = new Map<string, { item: T; isDirectDestination: boolean }>();
   items.forEach((item, index) => {
@@ -135,7 +152,13 @@ export async function dedupeEventsByResolvedUrl<T extends DatedEventUrl>(
     }
   });
 
-  return [...winners.values()].map(({ item }) => item);
+  // A redirected row standing in for a reference record carries obsolete
+  // metadata; the reference (e.g. curated archive) owns the destination's facts.
+  const referenceByKey = new Map(references.map((ref) => [eventUrlKey(ref.url), ref]));
+  return [...winners.values()].map(({ item, isDirectDestination }) => {
+    const reference = isDirectDestination ? undefined : referenceByKey.get(eventUrlKey(item.url));
+    return reference ? ({ ...item, ...reference, url: item.url } as T) : item;
+  });
 }
 
 /**

@@ -121,7 +121,7 @@ export default function CommandPaletteDialog({
       ),
     [results],
   );
-  const unavailable = data?.sources?.filter((source) => source.status === "unavailable") ?? [];
+  const unavailable = data?.sources?.filter((source) => source.status !== "ready") ?? [];
   const close = () => onOpenChange(false);
   const go = (result: SearchResult) => {
     close();
@@ -174,7 +174,8 @@ export default function CommandPaletteDialog({
         )}
         {data?.partial && (
           <p className="px-3 py-2 text-xs text-muted-foreground" role="status">
-            Partial results: {unavailable.map((source) => source.source).join(", ")} unavailable.
+            Partial results: {unavailable.map((source) => source.source).join(", ")} incomplete or
+            unavailable.
           </p>
         )}
 

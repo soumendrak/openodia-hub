@@ -151,6 +151,34 @@ describe("search snapshot adapters", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("retains checked-in event search results when the live loader rejects entirely", async () => {
+    const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+    const snapshot = await buildSearchSnapshot({
+      ...loaders,
+      events: async () => {
+        throw new Error("event source unavailable");
+      },
+    });
+    expect(snapshot.sources).toContainEqual(
+      expect.objectContaining({ source: "events", status: "partial" }),
+    );
+    expect(snapshot.documents.some((document) => document.kind === "event")).toBe(true);
+  });
+
+  it("keeps healthy event search results while exposing measured partial source state", async () => {
+    const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+    const snapshot = await buildSearchSnapshot({
+      ...loaders,
+      events: async () => ({ events: liveEvents, sources: [], partial: true }),
+    });
+    expect(snapshot.sources).toContainEqual(
+      expect.objectContaining({ source: "events", status: "partial" }),
+    );
+    expect(snapshot.documents).toContainEqual(
+      expect.objectContaining({ id: `event:${liveEvents[0].url}` }),
+    );
+  });
+
   it("maps every supported dynamic kind with stable internal destinations", async () => {
     const { buildSearchSnapshot } = await import("../src/lib/sources/search");
     const snapshot = await buildSearchSnapshot(loaders);
@@ -227,7 +255,7 @@ describe("search snapshot adapters", () => {
     expect(snapshot.sources).toContainEqual(
       expect.objectContaining({
         source: "events",
-        status: "unavailable",
+        status: "partial",
         count: expect.any(Number),
       }),
     );
