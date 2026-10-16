@@ -61,6 +61,8 @@ body:
         - "SOA (OAIC) (soa-oaic)"
         - "Startup Odisha (startup-odisha)"
         - "Odisha E&IT / OCAC (odisha-eit)"
+        - "Institute of Odia Studies and Research (iosr)"
+        - "Odia Wikimedians User Group (odia-wikimedians)"
         - "Not listed yet (name it below)"
     validations:
       required: true

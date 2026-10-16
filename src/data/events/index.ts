@@ -42,6 +42,8 @@ import { pmecBerhampurEvents } from "./pmec-berhampur";
 import { soaOaicEvents } from "./soa-oaic";
 import { startupOdishaEvents } from "./startup-odisha";
 import { odishaEitEvents } from "./odisha-eit";
+import { iosrEvents } from "./iosr";
+import { odiaWikimediansEvents } from "./odia-wikimedians";
 
 type RawEvent = Omit<Event, "community">;
 
@@ -72,6 +74,8 @@ const sources: { organizerId: OrganizerId; events: RawEvent[] }[] = [
   { organizerId: "soa-oaic", events: soaOaicEvents },
   { organizerId: "startup-odisha", events: startupOdishaEvents },
   { organizerId: "odisha-eit", events: odishaEitEvents },
+  { organizerId: "iosr", events: iosrEvents },
+  { organizerId: "odia-wikimedians", events: odiaWikimediansEvents },
 ];
 
 const MONTH_MAP: Record<string, number> = {

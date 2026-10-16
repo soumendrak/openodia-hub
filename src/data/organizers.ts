@@ -436,6 +436,42 @@ export const ORGANIZERS = [
       ),
     ],
   },
+  {
+    id: "iosr",
+    canonicalName: "Institute of Odia Studies and Research",
+    aliases: ["IOSR"],
+    description:
+      "A Bhubaneswar non-profit for Odia language, literature, and culture that runs the National Language Conference.",
+    region: "Bhubaneswar / Odisha",
+    kind: "institution",
+    collectionMode: "manual",
+    officialLinks: [
+      official(
+        "National Language Conference",
+        "https://iosrodisha.in/nlc/index.html",
+        "2026-10-16",
+        "The NLC-2026 page names IOSR as organizer and lists the dates and venue.",
+      ),
+    ],
+  },
+  {
+    id: "odia-wikimedians",
+    canonicalName: "Odia Wikimedians User Group",
+    aliases: [],
+    description:
+      "The volunteer community behind Odia Wikipedia and other Odia-language Wikimedia projects.",
+    region: "Odisha",
+    kind: "community",
+    collectionMode: "manual",
+    officialLinks: [
+      official(
+        "Meta-Wiki page",
+        "https://meta.wikimedia.org/wiki/Odia_Wikimedians_User_Group",
+        "2026-10-16",
+        "The user group's Meta-Wiki page and 2025-2026 annual report list the Wikipedia 25 events and dates.",
+      ),
+    ],
+  },
 ] as const satisfies readonly Organizer[];
 
 function normalizeIdentity(value: string): string {
