@@ -68,7 +68,7 @@ HTTP, for API and SSR changes:
 
 ```bash
 P="${VERIFY_PORT:-9171}"; E="${VERIFY_EVIDENCE:-${VERIFY_DIR:-/tmp/verify-openodia-hub}/evidence}"
-curl -sS -D "$E/api-resources.headers" "http://127.0.0.1:$P/api/resources?q=sua" -o "$E/api-resources.json"
+curl -sS -D "$E/$P-api-resources.headers" "http://127.0.0.1:$P/api/resources?q=sua" -o "$E/$P-api-resources.json"
 ```
 
 Routes: `/api/`, `/api/health`, `/api/contributors`, `/.well-known/api-catalog`, `/mcp` (POST JSON-RPC), `/api/awesome`, `/api/datasets`, `/api/events`, `/api/models`, `/api/pypi`, `/api/repos`, `/api/resources`, `/api/search`, `/api/translation-status`, `/api/videos`, plus markdown negotiation (`-H 'Accept: text/markdown'`) and `/r/<kind>/<owner>/<name>` detail pages.

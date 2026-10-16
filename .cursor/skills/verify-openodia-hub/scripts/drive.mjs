@@ -123,7 +123,14 @@ try {
       else if (verb === "expect")
         await page.getByText(arg).first().waitFor({ state: "visible", timeout: 15000 });
       else if (verb === "goto") await visit(arg);
-      else if (verb === "attr") {
+      else if (verb === "reload") {
+        const here = new URL(page.url());
+        await visit(here.pathname + here.search);
+      } else if (verb === "storage") {
+        const [key, want] = split(arg, "=");
+        const got = await page.evaluate((k) => localStorage.getItem(k), key);
+        if (got !== want) throw new Error(`localStorage ${key}="${got}", want "${want}"`);
+      } else if (verb === "attr") {
         const [sel, name, want] = arg.split("|");
         const got = await page.locator(sel).first().getAttribute(name, { timeout: 15000 });
         if (got !== want) throw new Error(`${sel} ${name}="${got}", want "${want}"`);

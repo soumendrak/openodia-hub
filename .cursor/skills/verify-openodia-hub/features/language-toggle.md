@@ -14,10 +14,10 @@ Click the translate icon button in the header on any page.
 ## Driving it with drive.mjs
 
 ```bash
-"${VERIFY_NODE:-node}" $S/drive.mjs / "click:Switch language" "attr:html|lang|or" "attr:header|lang|or" "attr:main|lang|en"
+"${VERIFY_NODE:-node}" $S/drive.mjs / "click:Switch language" "attr:html|lang|or" "attr:header|lang|or" "attr:main|lang|en" "storage:locale=or" "reload" "attr:html|lang|or" "attr:header|lang|or"
 ```
 
-Proof: the run exits 0 only if after the click `html[lang=or]`, `header[lang=or]` and `main[lang=en]` (from `test/e2e/accessibility.spec.ts`), and the screenshot shows Odia navigation.
+Proof: the run exits 0 only if `localStorage.locale` is `or` and the Odia `lang` attributes survive a reload, and after the click `html[lang=or]`, `header[lang=or]` and `main[lang=en]` (from `test/e2e/accessibility.spec.ts`), and the screenshot shows Odia navigation.
 
 ## Gotchas
 
