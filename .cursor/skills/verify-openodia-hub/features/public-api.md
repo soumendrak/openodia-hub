@@ -15,18 +15,21 @@ JSON and markdown endpoints served by the Worker.
 ## Driving it with curl
 
 ```bash
-P="${VERIFY_PORT:-9171}"; E="${VERIFY_EVIDENCE:-${VERIFY_DIR:-/tmp/verify-openodia-hub}/evidence}"; B="http://127.0.0.1:$P"
-curl -sS -D "$E/api-resources.headers" "$B/api/resources?q=sua" -o "$E/api-resources.json"
-curl -sS -D "$E/tools-md.headers" -H 'Accept: text/markdown' "$B/tools" -o "$E/tools.md"
-curl -sS -D "$E/health.headers" "$B/api/health" -o "$E/health.json"
-curl -sS -D "$E/contributors.headers" "$B/api/contributors" -o "$E/contributors.json"
-curl -sS -D "$E/api-catalog.headers" "$B/.well-known/api-catalog" -o "$E/api-catalog.json"
-for ep in awesome datasets events models pypi repos "search?q=sua" translation-status videos; do f="$(echo "$ep" | tr -c 'a-z0-9\n' '_')"; curl -sS -m 15 -D "$E/api-$f.headers" "$B/api/$ep" -o "$E/api-$f.json"; done
-curl -sS -m 15 -o /dev/null -w '/api/ %{http_code} -> %{redirect_url}\n' "$B/api/"
-curl -sS -D "$E/mcp.headers" -X POST -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' "$B/mcp" -o "$E/mcp-tools.json"
+P="${VERIFY_PORT:-9171}"; E="${VERIFY_EVIDENCE:-${VERIFY_DIR:-/tmp/verify-openodia-hub}/evidence}"; B="http://127.0.0.1:$P"; bad=0
+get() { local want="$1" name="$2" code; shift 2; code="$(curl -sS -m 15 -D "$E/$name.headers" -o "$E/$name.body" -w '%{http_code}' "$@")" || code=000; echo "$name $code (want $want)"; [ "$code" = "$want" ] || bad=1; }
+get 200 api-resources "$B/api/resources?q=sua"
+get 200 tools-md -H 'Accept: text/markdown' "$B/tools"
+get 200 health "$B/api/health"
+get 200 contributors "$B/api/contributors"
+get 200 api-catalog "$B/.well-known/api-catalog"
+for ep in awesome datasets events models pypi repos "search?q=sua" translation-status videos; do get 200 "api-$(echo "$ep" | tr -c 'a-z0-9\n' '_')" "$B/api/$ep"; done
+get 307 api-index "$B/api/"
+get 200 mcp-tools -X POST -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' "$B/mcp"
+get 405 mcp-get "$B/mcp"
+[ "$bad" = 0 ] && echo "API SWEEP OK" || { echo "API SWEEP FAIL"; false; }
 ```
 
-Proof (headers files hold status, `Content-Type`, CORS and cache headers):
+Proof (each check prints its status and the sweep ends with `API SWEEP OK`, otherwise `API SWEEP FAIL` and a non-zero status; `<name>.headers` holds status, `Content-Type`, CORS and cache headers, and `<name>.body` holds the body):
 
 - `/api/resources?q=sua`: 200, `application/json`, `Access-Control-Allow-Origin: *`, body `total: 1`, name `Sua`.
 - `/api/health`: 200, `{"status":"ok","scope":"liveness","upstreamsChecked":false}`.

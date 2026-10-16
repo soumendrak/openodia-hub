@@ -5,6 +5,8 @@ PORT="${VERIFY_PORT:-9171}"
 RUN="${VERIFY_DIR:-/tmp/verify-openodia-hub}"
 PIDFILE="$RUN/server-$PORT.pid"
 mkdir -p "$RUN" "${VERIFY_EVIDENCE:-$RUN/evidence}"
+exec 7>"$RUN/port-$PORT.lock"
+flock -n 7 || { echo "port $PORT is being launched by another run: set VERIFY_PORT"; exit 1; }
 if ss -ltn | grep -q ":$PORT "; then echo "port $PORT is busy (not ours): set VERIFY_PORT"; exit 1; fi
 rm -f "$PIDFILE"
 SNAP="$RUN/app-$PORT"
@@ -14,17 +16,19 @@ if [ "${VERIFY_SKIP_BUILD:-0}" != "1" ]; then
   bun install --frozen-lockfile
   bun run build
 fi
-rm -rf "$SNAP" && mkdir -p "$SNAP/test" && cp -r dist db "$SNAP/" && cp -r test/e2e "$SNAP/test/" && ln -s "$(pwd)/node_modules" "$SNAP/node_modules"
+rm -rf "$SNAP" && mkdir -p "$SNAP/test" && cp -rp dist db "$SNAP/" && cp -rp test/e2e "$SNAP/test/" && ln -s "$(pwd)/node_modules" "$SNAP/node_modules"
 flock -u 9
 exec 9>&-
 if [ "${E2E_UPSTREAM_FAILURE:-0}" = "1" ]; then PROBE="/__fixture-clock"; MODE=outage; else PROBE="/api/videos"; MODE=recorded; fi
 echo "$MODE" >"$RUN/server-$PORT.mode"
-(cd "$SNAP" && E2E_PORT="$PORT" exec nohup node test/e2e/serve.mjs) >"$RUN/server-$PORT.log" 2>&1 &
+(cd "$SNAP" && E2E_PORT="$PORT" exec nohup node test/e2e/serve.mjs) >"$RUN/server-$PORT.log" 2>&1 7>&- &
 pid=$!
 printf '%s %s %s\n' "$pid" "$(awk '{print $22}' "/proc/$pid/stat")" "$(pwd)" >"$PIDFILE"
-for _ in $(seq 1 120); do
+deadline=$((SECONDS + 120))
+while [ "$SECONDS" -lt "$deadline" ]; do
+  left=$((deadline - SECONDS))
   if grep -q "Fixture Worker ready" "$RUN/server-$PORT.log"; then
-    if curl -fsS -m 10 -o /dev/null "http://127.0.0.1:$PORT$PROBE"; then
+    if curl -fsS -m "$((left < 10 ? left : 10))" -o /dev/null "http://127.0.0.1:$PORT$PROBE"; then
       echo "ready http://127.0.0.1:$PORT pid=$pid probe=$PROBE"
       exit 0
     fi
