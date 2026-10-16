@@ -117,7 +117,11 @@ try {
       else if (verb === "expect")
         await page.getByText(arg).first().waitFor({ state: "visible", timeout: 15000 });
       else if (verb === "goto") await visit(arg);
-      else if (verb === "h1") {
+      else if (verb === "attr") {
+        const [sel, name, want] = arg.split("|");
+        const got = await page.locator(sel).first().getAttribute(name, { timeout: 15000 });
+        if (got !== want) throw new Error(`${sel} ${name}="${got}", want "${want}"`);
+      } else if (verb === "h1") {
         const h = ((await page.locator("h1").first().textContent({ timeout: 15000 })) ?? "").trim();
         if (!h.startsWith(arg)) throw new Error(`h1 "${h}" does not start with "${arg}"`);
       } else throw new Error(`unknown step ${step}`);

@@ -21,9 +21,12 @@ flock 9
 if [ "${VERIFY_SKIP_BUILD:-0}" != "1" ]; then
   bun install --frozen-lockfile
   bun run build
+  bash "$HERE/inputs.sh" >dist/.verify-inputs
+elif ! bash "$HERE/inputs.sh" | cmp -s - dist/.verify-inputs; then
+  echo "VERIFY_SKIP_BUILD=1 but dist/ was not built by launch.sh from the current inputs: rebuild without it"; exit 1
 fi
 rm -rf "$SNAP" && mkdir -p "$SNAP/test" && cp -rp dist db "$SNAP/" && cp -rp test/e2e "$SNAP/test/" && ln -s "$(pwd)/node_modules" "$SNAP/node_modules"
-bash "$HERE/inputs.sh" >"$SNAP/.inputs"
+cp dist/.verify-inputs "$SNAP/.inputs"
 flock -u 9
 exec 9>&-
 if [ "${E2E_UPSTREAM_FAILURE:-0}" = "1" ]; then PROBE="/__fixture-clock"; MODE=outage; else PROBE="/api/videos"; MODE=recorded; fi
