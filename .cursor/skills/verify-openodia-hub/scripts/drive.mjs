@@ -71,7 +71,9 @@ try {
       log.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
     const kind = r.request().resourceType();
     if (new URL(r.url()).origin === origin && (kind === "fetch" || kind === "xhr")) {
-      saves.push(saveResponse(r));
+      saves.push(
+        saveResponse(r).catch((e) => log.push(`evidenceerror ${String(e?.message ?? e)}`)),
+      );
       if (
         r.status() >= 400 &&
         !allowStatus.has(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`)
