@@ -58,6 +58,12 @@ try {
     )
       log.push(`hydration ${m.text()}`);
   });
+  page.on("requestfailed", (q) => {
+    if (new URL(q.url()).origin === origin)
+      log.push(
+        `httperror failed ${q.method()} ${new URL(q.url()).pathname} ${q.failure()?.errorText ?? ""}`,
+      );
+  });
   page.on("response", (r) => {
     if (r.request().isNavigationRequest() && r.request().frame() === page.mainFrame())
       navigations.push({ path: new URL(r.url()).pathname, status: r.status() });

@@ -27,6 +27,12 @@ get 307 api-index "$B/api/"
 get 200 mcp-tools -X POST -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' "$B/mcp"
 get 405 mcp-get "$B/mcp"
 has() { jq -e "$2" "$E/$P-$1.body" >/dev/null 2>&1 && echo "$1 payload ok" || { echo "$1 payload FAIL: $2"; bad=1; }; }
+hdr() { grep -qiE "$2" "$E/$P-$1.headers" && echo "$1 header ok" || { echo "$1 header FAIL: $2"; bad=1; }; }
+hdr api-resources '^content-type: *application/json'
+hdr api-resources '^access-control-allow-origin: *\*'
+hdr api-catalog '^content-type: *application/linkset\+json'
+for f in "$E/$P"-api-*.headers; do n="${f##*/$P-}"; n="${n%.headers}"; [ "$n" = api-catalog ] || [ "$n" = api-index ] || hdr "$n" '^content-type: *application/json'; done
+has contributors '.error == "warming_up" and .contributors == [] and .totalContributors == 0'
 has api-resources '.total == 1 and .resources[0].name == "Sua"'
 has health '.status == "ok" and .scope == "liveness" and .upstreamsChecked == false'
 has api-catalog '.linkset | type == "array"'

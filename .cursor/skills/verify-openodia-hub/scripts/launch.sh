@@ -20,8 +20,11 @@ exec 9>"$(git rev-parse --git-common-dir)/verify-openodia-hub.lock"
 flock 9
 if [ "${VERIFY_SKIP_BUILD:-0}" != "1" ]; then
   bun install --frozen-lockfile
+  pre="$(bash "$HERE/inputs.sh")"
   bun run build
-  bash "$HERE/inputs.sh" >dist/.verify-inputs
+  post="$(bash "$HERE/inputs.sh")"
+  if [ "$pre" != "$post" ]; then rm -f dist/.verify-inputs; echo "build inputs changed while bun run build was running: dist/ may be stale or mixed, rerun launch.sh"; exit 1; fi
+  printf '%s\n' "$post" >dist/.verify-inputs
 elif ! bash "$HERE/inputs.sh" | cmp -s - dist/.verify-inputs; then
   echo "VERIFY_SKIP_BUILD=1 but dist/ was not built by launch.sh from the current inputs: rebuild without it"; exit 1
 fi

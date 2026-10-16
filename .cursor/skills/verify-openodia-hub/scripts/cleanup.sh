@@ -10,7 +10,7 @@ pid="$(owned_pid "$PIDFILE" "$PORT" "$(pwd)")" && ours=1 || ours=0
 if [ "$ours" = 1 ]; then
   kill "$pid"
   for _ in $(seq 1 20); do kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done
-  kill -0 "$pid" 2>/dev/null && kill -9 "$pid"
+  [ "$(owned_pid "$PIDFILE" "$PORT" "$(pwd)")" = "$pid" ] && kill -9 "$pid"
   echo "stopped pid=$pid"
 else
   echo "no server of ours on $PORT (pid file missing, stale, or another process): nothing killed"
