@@ -7,6 +7,7 @@ RUN="${VERIFY_DIR:-/tmp/verify-openodia-hub}"
 PIDFILE="$RUN/server-$PORT.pid"
 NODE="$(command -v "${VERIFY_NODE:-node}")" || { echo "node not found: set VERIFY_NODE"; exit 1; }
 [ "$("$NODE" -p 'process.versions.node.split(".")[0]')" -ge 22 ] || { echo "node 22+ required (README, CONTRIBUTING, CI e2e); $NODE is $("$NODE" -v): set VERIFY_NODE to a node 22+ binary"; exit 1; }
+bun --version 2>/dev/null | awk -F. '{exit !($1 > 1 || ($1 == 1 && $2 >= 3))}' || { echo "bun 1.3+ required (CONTRIBUTING.md)"; exit 1; }
 mkdir -p "$RUN" "${VERIFY_EVIDENCE:-$RUN/evidence}"
 exec 7>"$RUN/port-$PORT.lock"
 flock -n 7 || { echo "port $PORT is being launched by another run: set VERIFY_PORT"; exit 1; }

@@ -34,7 +34,7 @@ const saveResponse = async (r) => {
     headers: await r.allHeaders(),
     requestBody: r.request().postData(),
   };
-  const body = await r.body().catch((e) => Buffer.from(`body unavailable: ${e?.message ?? e}`));
+  const body = await r.body();
   await writeFile(`${base}.json`, JSON.stringify(meta, null, 2));
   await writeFile(`${base}.body`, body);
   log.push(`saved ${meta.method} ${meta.url} -> ${base}.body`);

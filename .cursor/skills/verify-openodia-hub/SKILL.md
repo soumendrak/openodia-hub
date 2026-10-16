@@ -6,7 +6,7 @@ description: Prove a change to OpenOdia Hub (TanStack Start app on a Cloudflare 
 # Verify OpenOdia Hub
 
 All commands run from the repo root. Helpers live in `.cursor/skills/verify-openodia-hub/scripts/` (call it `$S`).
-Requirements already on the dev box: `bun`, `node` 22+ (README, CONTRIBUTING and CI e2e pin 22; `launch.sh` refuses older; point `VERIFY_NODE` at a node 22+ binary when the default `node` is older), Playwright Chromium (`bunx playwright install chromium` if missing).
+Requirements already on the dev box: `bun` 1.3+ (CONTRIBUTING; `standards.sh` and `launch.sh` refuse older), `node` 22+ (README, CONTRIBUTING and CI e2e pin 22; `launch.sh` refuses older; point `VERIFY_NODE` at a node 22+ binary when the default `node` is older), Playwright Chromium (`bunx playwright install chromium` if missing).
 No Cloudflare login, token or secret is needed: the harness never touches remote KV/D1 or the network.
 
 ## 1. Standards gate (run first, run last)
@@ -16,7 +16,7 @@ S=.cursor/skills/verify-openodia-hub/scripts
 $S/standards.sh origin/main
 ```
 
-Runs, in CI order: `bun run check:locales`, `bun run lint`, `bunx tsc --noEmit -p tsconfig.json` (tsconfig has `strict: true`),
+Runs `bun install --frozen-lockfile` first, then, in CI order: `bun run check:locales`, `bun run lint`, `bunx tsc --noEmit -p tsconfig.json` (tsconfig has `strict: true`),
 `bun run test:coverage:diff -- --base origin/main` (vitest + 100% coverage of every changed executable line, same gate as CI `test` job),
 a check that no untracked source files exist (diff gates cannot see them; `git add -N <file>` fixes it), and a scan of added lines for new `//`, `/* */` or JSX comments. Ends with `STANDARDS OK` or `STANDARDS FAIL`.
 Rules: never add `eslint-disable`, `@ts-ignore`, `@ts-expect-error`, `any`, or `/* v8 ignore */` to pass; never add code comments; fix the code or add tests.
