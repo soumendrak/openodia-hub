@@ -26,10 +26,24 @@ for ep in awesome datasets events models pypi repos "search?q=sua" translation-s
 get 307 api-index "$B/api/"
 get 200 mcp-tools -X POST -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' "$B/mcp"
 get 405 mcp-get "$B/mcp"
+has() { jq -e "$2" "$E/$P-$1.body" >/dev/null 2>&1 && echo "$1 payload ok" || { echo "$1 payload FAIL: $2"; bad=1; }; }
+has api-resources '.total == 1 and .resources[0].name == "Sua"'
+has health '.status == "ok" and .scope == "liveness" and .upstreamsChecked == false'
+has api-catalog '.linkset | type == "array"'
+has api-awesome '(.items | length) == 2 and .items[0].name == "Sua"'
+has api-datasets '(.datasets | length) == 2'
+has api-models '(.models | length) == 2'
+has api-repos '(.repos | length) == 2'
+has api-events '(.events | length) == 150'
+has api-pypi '.version == "0.2.0" and .releases == 2'
+has api-search_q_sua '.results[0].title == "Sua"'
+has api-translation_status '.total == 46'
+has api-videos '(.channels | length) == 2'
+has mcp-tools '[.result.tools[].name] | index("search") != null'
 [ "$bad" = 0 ] && echo "API SWEEP OK" || { echo "API SWEEP FAIL"; false; }
 ```
 
-Proof (each check prints its status and the sweep ends with `API SWEEP OK`, otherwise `API SWEEP FAIL` and a non-zero status; `<port>-<name>.headers` holds status, `Content-Type`, CORS and cache headers, and `<port>-<name>.body` holds the body (the port prefix keeps concurrent runs on different ports apart)):
+Proof (each check prints its status, each `has` line checks the fixture payload with `jq`, and the sweep ends with `API SWEEP OK`, otherwise `API SWEEP FAIL` and a non-zero status; `<port>-<name>.headers` holds status, `Content-Type`, CORS and cache headers, and `<port>-<name>.body` holds the body (the port prefix keeps concurrent runs on different ports apart)):
 
 - `/api/resources?q=sua`: 200, `application/json`, `Access-Control-Allow-Origin: *`, body `total: 1`, name `Sua`.
 - `/api/health`: 200, `{"status":"ok","scope":"liveness","upstreamsChecked":false}`.
@@ -45,7 +59,7 @@ Proof (each check prints its status and the sweep ends with `API SWEEP OK`, othe
   - `/api/search?q=sua`: `.results[0].title` is `Sua`, `href` `/r/gh/soumendrak/MTEnglish2Odia`.
   - `/api/translation-status`: `.total` is 46.
   - `/api/videos`: `.channels | length` is 2 (`OdiaGenAI` first).
-  - `/api/`: 307 to `/api` (the HTML API index page; drive it with `node $S/drive.mjs /api`).
+  - `/api/`: 307 to `/api` (the HTML API index page; drive it with `"${VERIFY_NODE:-node}" $S/drive.mjs /api`).
 - `/mcp`: POST `tools/list` returns `result.tools` including `search`; `GET /mcp` is 405.
 
 ## Gotchas

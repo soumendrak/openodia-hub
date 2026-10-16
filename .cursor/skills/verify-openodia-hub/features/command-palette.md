@@ -15,7 +15,7 @@ Press Ctrl+K anywhere, type, pick an option.
 ## Driving it with drive.mjs
 
 ```bash
-node $S/drive.mjs / "press:Control+k" "expect:Search OpenOdia"
+"${VERIFY_NODE:-node}" $S/drive.mjs / "press:Control+k" "expect:Search OpenOdia"
 ```
 
 Typing into the dialog needs a custom script: `page.getByRole("dialog").getByRole("combobox").fill("translate")`, then click option `/Help translate OpenOdia/` and expect heading "Help translate OpenOdia." (from `test/e2e/bilingual.mjs`). Cross-check `GET /api/search?q=translate` contains href `/translation-status`.

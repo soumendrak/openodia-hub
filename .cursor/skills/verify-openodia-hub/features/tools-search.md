@@ -15,7 +15,7 @@ Header nav "Tools" (or "Models", "Datasets"), then type in the search box under 
 ## Driving it with drive.mjs
 
 ```bash
-node $S/drive.mjs /tools "fill:Search projects, repos, datasets, models… [/]=fixture-no-match-93817" "expect:No projects match" "fill:Search projects, repos, datasets, models… [/]=" "expect:Sua"
+"${VERIFY_NODE:-node}" $S/drive.mjs /tools "fill:Search projects, repos, datasets, models… [/]=fixture-no-match-93817" "expect:No projects match" "fill:Search projects, repos, datasets, models… [/]=" "expect:Sua"
 ```
 
 Proof: screenshot shows `No projects match "fixture-no-match-93817".` then the "Sua" card returns. Cross-check `GET /api/resources?q=sua` returns `total: 1` with name `Sua`.

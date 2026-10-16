@@ -49,17 +49,17 @@ Read-only. Checks the recorded pid is ours (the same start-time, repo-root, `ser
 Browser, real user path:
 
 ```bash
-node $S/drive.mjs <path> [step ...]
+"${VERIFY_NODE:-node}" $S/drive.mjs <path> [step ...]
 ```
 
-A same-origin fetch/XHR response >= 400 fails the journey (`httperror` in the log, `ok: false`, exit 1). A journey that deliberately exercises an error state lists the expected statuses in `VERIFY_ALLOW_STATUS`, for example `VERIFY_ALLOW_STATUS=503` with `E2E_UPSTREAM_FAILURE=1`.
+A same-origin fetch/XHR response >= 400 fails the journey (`httperror` in the log, `ok: false`, exit 1). A journey that deliberately exercises an error state lists each expected failure in `VERIFY_ALLOW_STATUS` as comma-separated `STATUS METHOD PATH` entries (query ignored), for example `VERIFY_ALLOW_STATUS="503 GET /api/videos"` with `E2E_UPSTREAM_FAILURE=1`; a bare status exempts nothing. `drive.mjs` refuses to run under node older than 22.
 
 Steps: `fill:<placeholder>=<value>`, `click:<button accessible name, substring match>`, `link:<link name, substring match>`, `press:<key>`, `expect:<visible text>`, `goto:<path>`, `h1:<prefix the first h1 must start with>`. A failed write of response evidence logs `evidenceerror` and fails the journey.
 It blocks every non-local request, freezes the page clock, screenshots after load and after every step as `<run>-NN-<step>.png`, logs every same-origin response, page error and hydration/React console error or warning (the same filter as `test/e2e/bilingual.mjs`), saves every same-origin fetch/XHR response (including `/_serverFn/*`) as `<run>-api-NN-<path>.json` (method, status, headers, request body) plus `.body`, writes `<run>-drive.json` (`<run>` is a ms timestamp, so runs never overwrite each other), records every navigation status in `navigations`, and exits 1 on any page error, hydration error, failed step or 4xx/5xx navigation. A failing step still writes the JSON (with `failed`) and a `failed` screenshot. Values may contain `=` and `:`; only the first separator splits. Check intended error pages with curl instead.
 Example that was run on main:
 
 ```bash
-node $S/drive.mjs /tools "fill:Search projects, repos, datasets, models… [/]=fixture-no-match-93817" "expect:No projects match" "fill:Search projects, repos, datasets, models… [/]=" "expect:Sua"
+"${VERIFY_NODE:-node}" $S/drive.mjs /tools "fill:Search projects, repos, datasets, models… [/]=fixture-no-match-93817" "expect:No projects match" "fill:Search projects, repos, datasets, models… [/]=" "expect:Sua"
 ```
 
 For interactions the step language cannot express (dialogs, checkboxes, keyboard focus), write a throwaway Playwright script in `$VERIFY_DIR` modelled on `test/e2e/*.spec.ts` and run it against the same port; reuse their selectors (ARIA roles and names), not CSS classes or coordinates.
@@ -78,7 +78,7 @@ Regression suites (same server stack, own ports): `bun run test:bilingual` and `
 
 ## 5. Evidence
 
-Everything goes to `VERIFY_EVIDENCE` (default `/tmp/verify-openodia-hub/evidence`): screenshots `<run>-NN-<step>.png`, `<run>-drive.json`, curl headers and bodies, and `standards.log` (`$S/standards.sh origin/main > "${VERIFY_EVIDENCE:-${VERIFY_DIR:-/tmp/verify-openodia-hub}/evidence}/standards.log" 2>&1`).
+Everything goes to `VERIFY_EVIDENCE` (default `/tmp/verify-openodia-hub/evidence`): screenshots `<run>-NN-<step>.png`, `<run>-drive.json`, curl headers and bodies, and `standards.log` (`E="${VERIFY_EVIDENCE:-${VERIFY_DIR:-/tmp/verify-openodia-hub}/evidence}"; mkdir -p "$E" && $S/standards.sh origin/main > "$E/standards.log" 2>&1`).
 Proof standards:
 
 - Drive the real UI or public HTTP route. No internal setters, no test-only endpoints (`/__fixture-clock` is for the doctor only).

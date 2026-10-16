@@ -9,9 +9,13 @@ const run = Date.now();
 const allowStatus = new Set(
   (process.env.VERIFY_ALLOW_STATUS ?? "")
     .split(",")
-    .map((v) => v.trim())
-    .filter(Boolean),
+    .map((v) => v.trim().split(/\s+/).join(" "))
+    .filter((v) => /^\d{3} [A-Z]+ \/\S*$/.test(v)),
 );
+if (Number(process.versions.node.split(".")[0]) < 22) {
+  console.error(`node 22+ required, this is ${process.version}: run with "$VERIFY_NODE"`);
+  process.exit(1);
+}
 const split = (s, sep) => {
   const i = s.indexOf(sep);
   return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + sep.length)];
@@ -62,7 +66,10 @@ try {
     const kind = r.request().resourceType();
     if (new URL(r.url()).origin === origin && (kind === "fetch" || kind === "xhr")) {
       saves.push(saveResponse(r));
-      if (r.status() >= 400 && !allowStatus.has(String(r.status())))
+      if (
+        r.status() >= 400 &&
+        !allowStatus.has(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`)
+      )
         log.push(`httperror ${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
     }
   });

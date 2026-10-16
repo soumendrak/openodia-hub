@@ -17,7 +17,7 @@ step "locales" bun run check:locales
 step "lint (eslint, typescript-eslint)" bun run lint
 step "typecheck (tsc strict, tsconfig strict:true)" bunx tsc --noEmit -p tsconfig.json
 step "unit tests + 100% changed-line coverage vs $BASE" bun run test:coverage:diff -- --base "$BASE"
-blank() { perl -0777 -pe 's/("(?:[^"\\\n]|\\.)*")|(\x27(?:[^\x27\\\n]|\\.)*\x27)|(`(?:[^`\\]|\\.)*`)/defined $1 ? "\"\"" : defined $2 ? "\x27\x27" : do { my $t = $3; my $n = ($t =~ tr!\n!!); "`" . join(" ", map { s!\s+! !gr } $t =~ m!\$\{([^}]*)\}!g) . "`" . ("\n+" x $n) }/ge'; }
+blank() { perl -0777 -pe 's/("(?:[^"\\\n]|\\.)*")|(\x27(?:[^\x27\\\n]|\\.)*\x27)|(`(?:[^`\\]|\\.)*`)/defined $1 ? "\"\"" : defined $2 ? "\x27\x27" : do { my $t = $3; my $n = ($t =~ tr!\n!!); "`" . join(" ", map { s!\s+! !gr } $t =~ m!\$\{((?:[^{}]|\{(?1)\})*)\}!g) . "`" . ("\n+" x $n) }/ge'; }
 added="$(git diff -U0 "$BASE" -- 'src/**' 'scripts/**' 'test/**' '*.ts' '*.tsx' '*.mjs' '*.js' ':!**/*.md' ':!.cursor/**' ':!src/routeTree.gen.ts' | grep -E '^\+[^+]' | blank | sed 's,\\/,,g' | grep -E '^\+\s*(\*\s|\*/)|(^\+|[^:])//|/\*' || true)"
 echo "== no new code comments vs $BASE"
 if [ -n "$added" ]; then echo "$added"; echo "FAIL"; fail=1; else echo "PASS"; fi

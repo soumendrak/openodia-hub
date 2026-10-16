@@ -25,7 +25,7 @@ Header and footer navigation, or a direct URL.
 
 ```bash
 bad=""
-while IFS='|' read -r p h; do node $S/drive.mjs "$p" "h1:$h" || bad="$bad $p"; done <<'EOF'
+while IFS='|' read -r p h; do "${VERIFY_NODE:-node}" $S/drive.mjs "$p" "h1:$h" || bad="$bad $p"; done <<'EOF'
 /events|Odia AI Events
 /tutorials|One shared idea.
 /communities|Communities & organizers.
@@ -36,7 +36,7 @@ while IFS='|' read -r p h; do node $S/drive.mjs "$p" "h1:$h" || bad="$bad $p"; d
 /translation-status|Help translate OpenOdia.
 /api|OpenOdia API.
 EOF
-node $S/drive.mjs /events "link:Tools" "expect:Sua" || bad="$bad /events->/tools"
+"${VERIFY_NODE:-node}" $S/drive.mjs /events "link:Tools" "expect:Sua" || bad="$bad /events->/tools"
 [ -z "$bad" ] || { echo "FAILED:$bad"; false; }
 ```
 

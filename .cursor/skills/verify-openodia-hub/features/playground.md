@@ -15,7 +15,7 @@ Header nav "Playground".
 ## Driving it with drive.mjs
 
 ```bash
-node $S/drive.mjs /playground "click:Odialang"
+"${VERIFY_NODE:-node}" $S/drive.mjs /playground "click:Odialang"
 ```
 
 Then in a custom script: fill `getByRole("textbox", { name: /Odialang code editor/ })` with `dekha "Browser verification"`, click "Run", expect a `pre` with "Browser verification" (from `test/e2e/flows.spec.ts`).
