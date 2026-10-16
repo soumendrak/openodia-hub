@@ -23,6 +23,7 @@ head="$(cd "$top" && git log -1 --format=%ct)"
 dist="$(stat -c %Y "$dist_file" 2>/dev/null || echo 0)"
 echo "build: ${newer:+newer input $newer}${newer:-no input newer than dist} head commit=$head dist=$dist"
 harness=ok
+bash "$HERE/inputs.sh" | cmp -s - "$RUN/app-$PORT/.inputs" || harness="build inputs added, edited or deleted since launch"
 for d in db test/e2e; do diff -rq "$top/$d" "$RUN/app-$PORT/$d" >/dev/null 2>&1 || harness="$d differs from snapshot"; done
 echo "harness: $harness"
 { [ -e "$dist_file" ] && [ -z "$newer" ] && [ "$dist" -ge "$head" ] && [ "$harness" = ok ]; } || { echo "snapshot dist missing or older than working-tree inputs: relaunch"; ok=0; }

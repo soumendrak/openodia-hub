@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)"
-BASE="${1:-origin/main}"
+BASE_REF="${1:-origin/main}"
+BASE="$(git merge-base "$BASE_REF" HEAD)" || { echo "cannot find merge base of $BASE_REF and HEAD: fetch it or pass an existing ref"; echo "STANDARDS FAIL"; exit 2; }
+echo "diff base: merge-base($BASE_REF, HEAD) = $BASE"
 fail=0
 untracked="$(git ls-files --others --exclude-standard -- src scripts test db public '*.ts' '*.tsx' '*.mjs' '*.js' | grep -v '^\.cursor/' || true)"
 echo "== untracked source files"

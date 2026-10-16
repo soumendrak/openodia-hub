@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
 cd "$(git rev-parse --show-toplevel)"
 PORT="${VERIFY_PORT:-9171}"
 RUN="${VERIFY_DIR:-/tmp/verify-openodia-hub}"
 PIDFILE="$RUN/server-$PORT.pid"
+NODE="$(command -v "${VERIFY_NODE:-node}")" || { echo "node not found: set VERIFY_NODE"; exit 1; }
+[ "$("$NODE" -p 'process.versions.node.split(".")[0]')" -ge 22 ] || { echo "node 22+ required (README, CONTRIBUTING, CI e2e); $NODE is $("$NODE" -v): set VERIFY_NODE to a node 22+ binary"; exit 1; }
 mkdir -p "$RUN" "${VERIFY_EVIDENCE:-$RUN/evidence}"
 exec 7>"$RUN/port-$PORT.lock"
 flock -n 7 || { echo "port $PORT is being launched by another run: set VERIFY_PORT"; exit 1; }
@@ -17,11 +20,12 @@ if [ "${VERIFY_SKIP_BUILD:-0}" != "1" ]; then
   bun run build
 fi
 rm -rf "$SNAP" && mkdir -p "$SNAP/test" && cp -rp dist db "$SNAP/" && cp -rp test/e2e "$SNAP/test/" && ln -s "$(pwd)/node_modules" "$SNAP/node_modules"
+bash "$HERE/inputs.sh" >"$SNAP/.inputs"
 flock -u 9
 exec 9>&-
 if [ "${E2E_UPSTREAM_FAILURE:-0}" = "1" ]; then PROBE="/__fixture-clock"; MODE=outage; else PROBE="/api/videos"; MODE=recorded; fi
 echo "$MODE" >"$RUN/server-$PORT.mode"
-(cd "$SNAP" && E2E_PORT="$PORT" exec nohup node test/e2e/serve.mjs) >"$RUN/server-$PORT.log" 2>&1 7>&- &
+(cd "$SNAP" && E2E_PORT="$PORT" exec nohup "$NODE" test/e2e/serve.mjs) >"$RUN/server-$PORT.log" 2>&1 7>&- &
 pid=$!
 printf '%s %s %s\n' "$pid" "$(awk '{print $22}' "/proc/$pid/stat")" "$(pwd)" >"$PIDFILE"
 deadline=$((SECONDS + 120))

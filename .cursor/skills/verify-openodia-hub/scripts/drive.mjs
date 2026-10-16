@@ -71,6 +71,23 @@ try {
     const res = await page.goto(origin + p);
     if (!res) navigations.push({ path: p, status: null });
     await page.waitForLoadState("networkidle");
+    await page
+      .waitForFunction(
+        () => {
+          const button = document.querySelector("header button");
+          return (
+            button !== null &&
+            Object.keys(button).some(
+              (key) => key.startsWith("__reactProps") && typeof button[key]?.onClick === "function",
+            )
+          );
+        },
+        null,
+        { timeout: 15000 },
+      )
+      .catch(() =>
+        log.push(`hydration timeout: no React onClick on header button after visiting ${p}`),
+      );
   };
   let n = 0;
   const shot = async (label) => {
