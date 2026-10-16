@@ -10,7 +10,9 @@ NODE="$(command -v "${VERIFY_NODE:-node}")" || { echo "node not found: set VERIF
 mkdir -p "$RUN" "${VERIFY_EVIDENCE:-$RUN/evidence}"
 exec 7>"$RUN/port-$PORT.lock"
 flock -n 7 || { echo "port $PORT is being launched by another run: set VERIFY_PORT"; exit 1; }
-if ss -ltn | grep -q ":$PORT "; then echo "port $PORT is busy (not ours): set VERIFY_PORT"; exit 1; fi
+command -v ss >/dev/null || { echo "ss is required to check port $PORT before replacing run state"; exit 1; }
+listeners="$(ss -ltnH "sport = :$PORT")" || { echo "port check for $PORT failed; refusing to replace run state"; exit 1; }
+if [ -n "$listeners" ]; then echo "port $PORT is busy: set VERIFY_PORT"; exit 1; fi
 rm -f "$PIDFILE"
 SNAP="$RUN/app-$PORT"
 exec 9>"$(git rev-parse --git-common-dir)/verify-openodia-hub.lock"

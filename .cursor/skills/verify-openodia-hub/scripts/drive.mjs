@@ -110,7 +110,10 @@ try {
       else if (verb === "expect")
         await page.getByText(arg).first().waitFor({ state: "visible", timeout: 15000 });
       else if (verb === "goto") await visit(arg);
-      else throw new Error(`unknown step ${step}`);
+      else if (verb === "h1") {
+        const h = ((await page.locator("h1").first().textContent({ timeout: 15000 })) ?? "").trim();
+        if (!h.startsWith(arg)) throw new Error(`h1 "${h}" does not start with "${arg}"`);
+      } else throw new Error(`unknown step ${step}`);
       await page.waitForLoadState("networkidle");
       log.push(`step ok ${step}`);
       await shot(verb);
@@ -124,12 +127,18 @@ try {
 } catch (e) {
   failed = failed ?? { step: "launch", error: String(e?.message ?? e) };
 } finally {
-  await Promise.allSettled(saves);
+  const settled = await Promise.allSettled(saves);
+  for (const r of settled)
+    if (r.status === "rejected") log.push(`evidenceerror ${String(r.reason?.message ?? r.reason)}`);
   const last = navigations.at(-1);
   const bad =
     failed !== null ||
     log.some(
-      (l) => l.startsWith("pageerror") || l.startsWith("hydration") || l.startsWith("httperror"),
+      (l) =>
+        l.startsWith("pageerror") ||
+        l.startsWith("hydration") ||
+        l.startsWith("httperror") ||
+        l.startsWith("evidenceerror"),
     ) ||
     navigations.some((v) => v.status === null || v.status >= 400);
   const summary = {

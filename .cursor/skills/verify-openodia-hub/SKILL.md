@@ -54,7 +54,7 @@ node $S/drive.mjs <path> [step ...]
 
 A same-origin fetch/XHR response >= 400 fails the journey (`httperror` in the log, `ok: false`, exit 1). A journey that deliberately exercises an error state lists the expected statuses in `VERIFY_ALLOW_STATUS`, for example `VERIFY_ALLOW_STATUS=503` with `E2E_UPSTREAM_FAILURE=1`.
 
-Steps: `fill:<placeholder>=<value>`, `click:<button accessible name, substring match>`, `link:<link name, substring match>`, `press:<key>`, `expect:<visible text>`, `goto:<path>`.
+Steps: `fill:<placeholder>=<value>`, `click:<button accessible name, substring match>`, `link:<link name, substring match>`, `press:<key>`, `expect:<visible text>`, `goto:<path>`, `h1:<prefix the first h1 must start with>`. A failed write of response evidence logs `evidenceerror` and fails the journey.
 It blocks every non-local request, freezes the page clock, screenshots after load and after every step as `<run>-NN-<step>.png`, logs every same-origin response, page error and hydration/React console error or warning (the same filter as `test/e2e/bilingual.mjs`), saves every same-origin fetch/XHR response (including `/_serverFn/*`) as `<run>-api-NN-<path>.json` (method, status, headers, request body) plus `.body`, writes `<run>-drive.json` (`<run>` is a ms timestamp, so runs never overwrite each other), records every navigation status in `navigations`, and exits 1 on any page error, hydration error, failed step or 4xx/5xx navigation. A failing step still writes the JSON (with `failed`) and a `failed` screenshot. Values may contain `=` and `:`; only the first separator splits. Check intended error pages with curl instead.
 Example that was run on main:
 
