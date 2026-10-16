@@ -24,8 +24,10 @@ Header and footer navigation, or a direct URL.
 ## Driving it
 
 ```bash
-for p in /events /tutorials /communities /papers /treebank /contribute /about /translation-status /api; do node $S/drive.mjs "$p" || echo "FAILED $p"; done
-node $S/drive.mjs /events "link:Tools" "expect:Sua"
+bad=""
+for p in /events /tutorials /communities /papers /treebank /contribute /about /translation-status /api; do node $S/drive.mjs "$p" || bad="$bad $p"; done
+node $S/drive.mjs /events "link:Tools" "expect:Sua" || bad="$bad /events->/tools"
+[ -z "$bad" ] || { echo "FAILED:$bad"; false; }
 ```
 
 Proof: each run exits 0, `status` is 200, `h1` matches the table, no `pageerror` or `hydration` lines, and the screenshot shows the page. Client-side navigations save their `/api/*` and `/_serverFn/*` responses as `<run>-api-NN-*.json` (status, headers) and `.body` files in evidence.

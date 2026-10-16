@@ -6,6 +6,12 @@ const out = process.env.VERIFY_EVIDENCE ?? `${runDir}/evidence`;
 const origin = `http://127.0.0.1:${port}`;
 const [path = "/", ...steps] = process.argv.slice(2);
 const run = Date.now();
+const allowStatus = new Set(
+  (process.env.VERIFY_ALLOW_STATUS ?? "")
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean),
+);
 const split = (s, sep) => {
   const i = s.indexOf(sep);
   return i < 0 ? [s, ""] : [s.slice(0, i), s.slice(i + sep.length)];
@@ -54,8 +60,11 @@ try {
     if (new URL(r.url()).origin === origin)
       log.push(`${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
     const kind = r.request().resourceType();
-    if (new URL(r.url()).origin === origin && (kind === "fetch" || kind === "xhr"))
+    if (new URL(r.url()).origin === origin && (kind === "fetch" || kind === "xhr")) {
       saves.push(saveResponse(r));
+      if (r.status() >= 400 && !allowStatus.has(String(r.status())))
+        log.push(`httperror ${r.status()} ${r.request().method()} ${new URL(r.url()).pathname}`);
+    }
   });
   await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
   const visit = async (p) => {
@@ -100,7 +109,14 @@ try {
 } finally {
   await Promise.allSettled(saves);
   const last = navigations.at(-1);
+  const bad =
+    failed !== null ||
+    log.some(
+      (l) => l.startsWith("pageerror") || l.startsWith("hydration") || l.startsWith("httperror"),
+    ) ||
+    navigations.some((v) => v.status === null || v.status >= 400);
   const summary = {
+    ok: !bad,
     url: page?.url() ?? null,
     status: last?.status ?? null,
     navigations,
@@ -118,9 +134,5 @@ try {
   await writeFile(`${out}/${run}-drive.json`, JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
   await browser.close();
-  const bad =
-    failed !== null ||
-    log.some((l) => l.startsWith("pageerror") || l.startsWith("hydration")) ||
-    navigations.some((v) => v.status === null || v.status >= 400);
   process.exitCode = bad ? 1 : 0;
 }

@@ -33,7 +33,7 @@ That is the built production Worker under Miniflare with fresh in-memory KV and 
 Ready = log line `Fixture Worker ready` AND `GET /api/videos` returns 200; the script prints `ready http://127.0.0.1:<port> pid=<pid>`.
 `VERIFY_SKIP_BUILD=1` reuses an existing `dist/` (only when nothing changed since the last build).
 Set `E2E_UPSTREAM_FAILURE=1` before launch to get the outage variant (no seed, every upstream fails) for error-state changes; readiness then probes `/__fixture-clock` because `/api/videos` intentionally returns 503, launch records the mode in `$VERIFY_DIR/server-<port>.mode`, and doctor expects that 503 instead of 200.
-Isolation: each port gets its own pid file, log and generated entry files, so pick a different `VERIFY_PORT` to run a second instance. Avoid 9158 and 9161/9162, used by `bun run test:bilingual` and `bunx playwright test`.
+Isolation: under a repo lock, launch builds and then copies `dist/`, `db/` and `test/e2e/` into an immutable snapshot `$VERIFY_DIR/app-<port>` (with `node_modules` symlinked), and runs `serve.mjs` from there. Each port gets its own snapshot, pid file and log, and its generated entry files live inside its snapshot, so a later build or another launch never swaps a running server's assets. Pick a different `VERIFY_PORT` to run a second instance. Avoid 9158 and 9161/9162, used by `bun run test:bilingual` and `bunx playwright test`.
 `bun run dev` (vite, port 9090) is for humans: it hits live upstreams and remote bindings, so do not use it as proof.
 
 ## 3. Doctor
@@ -42,7 +42,7 @@ Isolation: each port gets its own pid file, log and generated entry files, so pi
 $S/doctor.sh
 ```
 
-Read-only. Checks the pid we started is alive, shows the port listener (a `workerd` child, so its pid differs from ours), confirms `/__fixture-clock` reports 2026-10-12 (proves it is our fixture Worker, not someone's dev server), `/api/videos` is 200, and `dist/` is newer than HEAD and than every working-tree input (`src/`, `public/`, lockfile, configs). `DOCTOR FAIL` means relaunch, never drive.
+Read-only. Checks the recorded pid is ours (the same start-time, repo-root, `serve.mjs` command-line and `E2E_PORT` checks as cleanup, via `scripts/owned.sh`), shows the port listener (a `workerd` child, so its pid differs from ours), confirms `/__fixture-clock` reports 2026-10-12 (proves it is our fixture Worker, not someone's dev server), `/api/videos` is 200, and the snapshot's `dist/` is newer than HEAD and than every working-tree input (`src/`, `public/`, lockfile, configs). `DOCTOR FAIL` means relaunch, never drive.
 
 ## 4. Drive
 
@@ -51,6 +51,8 @@ Browser, real user path:
 ```bash
 node $S/drive.mjs <path> [step ...]
 ```
+
+A same-origin fetch/XHR response >= 400 fails the journey (`httperror` in the log, `ok: false`, exit 1). A journey that deliberately exercises an error state lists the expected statuses in `VERIFY_ALLOW_STATUS`, for example `VERIFY_ALLOW_STATUS=503` with `E2E_UPSTREAM_FAILURE=1`.
 
 Steps: `fill:<placeholder>=<value>`, `click:<button accessible name, substring match>`, `link:<link name, substring match>`, `press:<key>`, `expect:<visible text>`, `goto:<path>`.
 It blocks every non-local request, freezes the page clock, screenshots after load and after every step as `<run>-NN-<step>.png`, logs every same-origin response, page error and hydration/React console error or warning (the same filter as `test/e2e/bilingual.mjs`), saves every same-origin fetch/XHR response (including `/_serverFn/*`) as `<run>-api-NN-<path>.json` (method, status, headers, request body) plus `.body`, writes `<run>-drive.json` (`<run>` is a ms timestamp, so runs never overwrite each other), records every navigation status in `navigations`, and exits 1 on any page error, hydration error, failed step or 4xx/5xx navigation. A failing step still writes the JSON (with `failed`) and a `failed` screenshot. Values may contain `=` and `:`; only the first separator splits. Check intended error pages with curl instead.
@@ -92,7 +94,7 @@ Proof standards:
 $S/cleanup.sh
 ```
 
-Kills only the pid recorded in `$VERIFY_DIR/server-<port>.pid`, and only after checking that its start time, repo root, `test/e2e/serve.mjs` command line and `E2E_PORT` still match, so a stale or foreign pid is never signalled. It removes the generated `dist/server/e2e-entry-<port>.mjs` and `e2e-clock-<port>.mjs`, and keeps the evidence directory. Never `pkill node` or `pkill workerd`; other agents share this box. Run cleanup after failed attempts too.
+Kills only the pid recorded in `$VERIFY_DIR/server-<port>.pid`, and only after checking that its start time, repo root, `test/e2e/serve.mjs` command line and `E2E_PORT` still match, so a stale or foreign pid is never signalled. It removes that port's snapshot `$VERIFY_DIR/app-<port>` (which holds the generated entry and clock files) and keeps the evidence directory. Never `pkill node` or `pkill workerd`; other agents share this box. Run cleanup after failed attempts too.
 
 ## Maintenance
 

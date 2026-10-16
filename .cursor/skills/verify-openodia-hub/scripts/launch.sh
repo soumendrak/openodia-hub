@@ -7,13 +7,19 @@ PIDFILE="$RUN/server-$PORT.pid"
 mkdir -p "$RUN" "${VERIFY_EVIDENCE:-$RUN/evidence}"
 if ss -ltn | grep -q ":$PORT "; then echo "port $PORT is busy (not ours): set VERIFY_PORT"; exit 1; fi
 rm -f "$PIDFILE"
+SNAP="$RUN/app-$PORT"
+exec 9>"$(git rev-parse --git-common-dir)/verify-openodia-hub.lock"
+flock 9
 if [ "${VERIFY_SKIP_BUILD:-0}" != "1" ]; then
   bun install --frozen-lockfile
   bun run build
 fi
+rm -rf "$SNAP" && mkdir -p "$SNAP/test" && cp -r dist db "$SNAP/" && cp -r test/e2e "$SNAP/test/" && ln -s "$(pwd)/node_modules" "$SNAP/node_modules"
+flock -u 9
+exec 9>&-
 if [ "${E2E_UPSTREAM_FAILURE:-0}" = "1" ]; then PROBE="/__fixture-clock"; MODE=outage; else PROBE="/api/videos"; MODE=recorded; fi
 echo "$MODE" >"$RUN/server-$PORT.mode"
-E2E_PORT="$PORT" nohup node test/e2e/serve.mjs >"$RUN/server-$PORT.log" 2>&1 &
+(cd "$SNAP" && E2E_PORT="$PORT" exec nohup node test/e2e/serve.mjs) >"$RUN/server-$PORT.log" 2>&1 &
 pid=$!
 printf '%s %s %s\n' "$pid" "$(awk '{print $22}' "/proc/$pid/stat")" "$(pwd)" >"$PIDFILE"
 for _ in $(seq 1 120); do
