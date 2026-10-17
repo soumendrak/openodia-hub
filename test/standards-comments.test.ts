@@ -48,15 +48,15 @@ describe("findComments", () => {
 
   it("orders comments by position", () => {
     expect(findComments("x.ts", "export const a = [1, /* one */ 2]; // two\n// three\n")).toEqual([
-      { line: 1, endLine: 1 },
-      { line: 1, endLine: 1 },
-      { line: 2, endLine: 2 },
+      { line: 1, endLine: 1, text: "/* one */" },
+      { line: 1, endLine: 1, text: "// two" },
+      { line: 2, endLine: 2, text: "// three" },
     ]);
   });
 
   it("reports the lines each comment spans", () => {
     expect(findComments("x.ts", "export const a = 1;\n/*\nplain\n*/\n")).toEqual([
-      { line: 2, endLine: 4 },
+      { line: 2, endLine: 4, text: "/*\nplain\n*/" },
     ]);
   });
 });
@@ -67,6 +67,25 @@ describe("newComments", () => {
   it("flags a line added inside an existing block comment", () => {
     expect(newComments("src/a.ts", block, new Set([3]))).toEqual([
       { rule: "no-new-comments", file: "src/a.ts", line: 1, message: "new comment on lines 1-4" },
+    ]);
+  });
+
+  it("still flags the edited block when its earlier version is known", () => {
+    const before = "/*\n  old\n*/\nexport const a = 1;\n";
+    expect(newComments("src/a.ts", block, new Set([3]), before)).toHaveLength(1);
+  });
+
+  it("keeps an existing trailing comment when only the code on its line changes", () => {
+    const before = "export const c = 1; // default\n";
+    const after = "export const c = 2; // default\n";
+    expect(newComments("src/c.ts", after, new Set([1]), before)).toEqual([]);
+  });
+
+  it("flags each copy of a comment beyond the copies that already existed", () => {
+    const before = "export const c = 1; // same\n";
+    const after = "export const c = 1; // same\nexport const d = 1; // same\n";
+    expect(newComments("src/c.ts", after, new Set([1, 2]), before)).toEqual([
+      { rule: "no-new-comments", file: "src/c.ts", line: 2, message: "new comment on line 2" },
     ]);
   });
 

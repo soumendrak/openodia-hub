@@ -30,6 +30,9 @@ type Mode = { readonly staged: boolean; readonly base: string };
 
 const USAGE = "standards: usage: bun scripts/standards.ts [--staged | --base <rev>]";
 const DIFF_FLAGS = ["--unified=0", "--diff-filter=ACMR"];
+const ZIZMOR_FLAGS = "--offline --no-ignores --no-config --collect=all --strict-collection".split(
+  " ",
+);
 
 function resolveMode(args: readonly string[], io: Io): Mode | string {
   if (args.length === 1 && args[0] === "--staged") return { staged: true, base: "" };
@@ -41,19 +44,9 @@ function resolveMode(args: readonly string[], io: Io): Mode | string {
   return { staged: false, base: found.stdout.trim() };
 }
 
-function diffArgs(mode: Mode, ...flags: string[]) {
-  return mode.staged ? ["diff", "--cached", ...flags] : ["diff", mode.base, ...flags];
-}
-
-function changedLines(mode: Mode, io: Io, content: (file: string) => string | undefined) {
-  const changed = parseChangedLines(io.run("git", diffArgs(mode, ...DIFF_FLAGS), true).stdout);
-  if (mode.staged) return changed;
-  const untracked = io.run("git", ["ls-files", "--others", "--exclude-standard"], true).stdout;
-  for (const file of untracked.split("\n").filter(Boolean)) {
-    const lines = content(file)?.split("\n").length ?? 0;
-    changed.set(file, new Set(Array.from({ length: lines }, (_, index) => index + 1)));
-  }
-  return changed;
+function diff(io: Io, mode: Mode, ...flags: string[]) {
+  const target = mode.staged ? "--cached" : mode.base;
+  return io.run("git", ["-c", "core.quotePath=false", "diff", target, ...flags], true).stdout;
 }
 
 function report(io: Io, findings: readonly Finding[], exceptions: readonly StandardsException[]) {
@@ -64,11 +57,11 @@ function report(io: Io, findings: readonly Finding[], exceptions: readonly Stand
   return blocking.length === 0 && problems.length === 0;
 }
 
-function unstagedChanges(io: Io) {
+function unstagedChanges(io: Io, staged: boolean) {
   const status = io.run("git", ["status", "--porcelain", "--untracked-files=all"], true);
   return status.stdout
     .split("\n")
-    .filter((line) => line.length > 3 && line[1] !== " ")
+    .filter((line) => line.startsWith("??") || (staged && line.length > 3 && line[1] !== " "))
     .map((line) => line.slice(3));
 }
 
@@ -82,14 +75,7 @@ function zizmor(io: Io, files: readonly string[], exceptions: readonly Standards
     io.log(`zizmor ${ZIZMOR_VERSION} is required: pipx install zizmor==${ZIZMOR_VERSION}`);
     return false;
   }
-  const flags = [
-    "--offline",
-    "--no-ignores",
-    "--no-config",
-    "--collect=all",
-    "--strict-collection",
-  ];
-  const result = io.run("zizmor", [...flags, "--format", "json", ".github"], true);
+  const result = io.run("zizmor", [...ZIZMOR_FLAGS, "--format", "json", ".github"], true);
   try {
     return report(io, parseZizmor(JSON.parse(result.stdout)), exceptions);
   } catch {
@@ -117,19 +103,23 @@ export function main(args: readonly string[], io: Io): number {
     io.log(mode);
     return 2;
   }
-  const content = (file: string) => {
-    if (!mode.staged) return io.read(file);
-    const shown = io.run("git", ["show", `:${file}`], true);
+  const show = (spec: string) => {
+    const shown = io.run("git", ["show", spec], true);
     return shown.status === 0 ? shown.stdout : undefined;
   };
-  const dirty = mode.staged ? unstagedChanges(io) : [];
+  const content = (file: string) => (mode.staged ? show(`:${file}`) : io.read(file));
+  const dirty = unstagedChanges(io, mode.staged);
   if (dirty.length > 0) {
     io.log(`standards: stage or stash these changes first: ${dirty.join(", ")}`);
     return 1;
   }
-  const changed = changedLines(mode, io, content);
-  const names = io.run("git", diffArgs(mode, "--name-only", "--diff-filter=ACMR"), true).stdout;
-  const paths = [...names.split("\n").filter(Boolean), ...changed.keys()];
+  const changed = parseChangedLines(diff(io, mode, ...DIFF_FLAGS));
+  const paths = diff(io, mode, "--name-only", "-z", "--diff-filter=ACMR").split("\0");
+  const quoted = paths.filter((path) => /["\\\p{Cc}]/u.test(path));
+  if (quoted.length > 0) {
+    io.log(`standards: rename paths that git quotes: ${quoted.join(", ")}`);
+    return 1;
+  }
   const results: [string, boolean][] = [];
   const tool = (name: string, args: string[]) =>
     results.push([name, io.run("bun", ["run", ...args], false).status === 0]);
@@ -138,10 +128,13 @@ export function main(args: readonly string[], io: Io): number {
   tool("typecheck", ["typecheck"]);
   const exceptions = loadExceptions(io, content);
   results.push(["exceptions file", exceptions !== undefined]);
-  const comments = [...changed].flatMap(([file, lines]) => {
-    const text = isCommentScanned(file) ? content(file) : undefined;
-    return text === undefined ? [] : newComments(file, text, lines);
-  });
+  const comments = [...changed]
+    .filter(([file]) => isCommentScanned(file))
+    .flatMap(([file, lines]) => {
+      const text = content(file);
+      const before = show(`${mode.staged ? "HEAD" : mode.base}:${file}`);
+      return text === undefined ? [] : newComments(file, text, lines, before);
+    });
   results.push(["no new comments", report(io, comments, exceptions ?? [])]);
   results.push(["zizmor", zizmor(io, paths, exceptions ?? [])]);
   tool("tests and 100% changed-line coverage", [

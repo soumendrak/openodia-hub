@@ -26,7 +26,9 @@ function scriptKind(file: string): ts.ScriptKind {
   return /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
 }
 
-export function findComments(file: string, text: string): { line: number; endLine: number }[] {
+type Comment = { line: number; endLine: number; text: string };
+
+export function findComments(file: string, text: string): Comment[] {
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, scriptKind(file));
   const ranges = new Map<number, number>();
   const literals: [number, number][] = [];
@@ -46,12 +48,23 @@ export function findComments(file: string, text: string): { line: number; endLin
   return [...ranges]
     .filter(([pos]) => !literals.some(([start, end]) => pos >= start && pos < end))
     .sort(([a], [b]) => a - b)
-    .map(([pos, end]) => ({ line: line(pos), endLine: line(end - 1) }));
+    .map(([pos, end]) => ({ line: line(pos), endLine: line(end - 1), text: text.slice(pos, end) }));
 }
 
-export function newComments(file: string, text: string, changed: ReadonlySet<number>): Finding[] {
+export function newComments(
+  file: string,
+  text: string,
+  changed: ReadonlySet<number>,
+  before = "",
+): Finding[] {
+  const old = findComments(file, before).map((comment) => comment.text);
   return findComments(file, text)
     .filter(({ line, endLine }) => [...changed].some((n) => n >= line && n <= endLine))
+    .filter((comment) => {
+      const index = old.indexOf(comment.text);
+      if (index >= 0) old.splice(index, 1);
+      return index < 0;
+    })
     .map(({ line, endLine }) => ({
       rule: COMMENT_RULE,
       file,

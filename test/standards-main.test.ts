@@ -24,7 +24,7 @@ function fakeIo(options: {
   status?: string;
   files?: Record<string, string>;
   staged?: Record<string, string>;
-  untracked?: string;
+  before?: Record<string, string>;
   failing?: string[];
   mergeBase?: number;
   zizmorVersion?: string;
@@ -41,15 +41,19 @@ function fakeIo(options: {
   const io: Io = {
     run(command, args) {
       calls.push({ command, args });
-      const joined = [command, ...args].join(" ");
+      const plain = args[0] === "-c" ? args.slice(2) : args;
+      const joined = [command, ...plain].join(" ");
       const ok = (stdout: string) => ({ status: 0, stdout, stderr: "" });
       if (joined.startsWith("git merge-base"))
         return { status: options.mergeBase ?? 0, stdout: "abc123\n", stderr: "no ref" };
-      if (joined.startsWith("git diff") && args.includes("--name-only"))
+      if (joined.startsWith("git diff") && plain.includes("--name-only"))
         return ok(options.names ?? "");
       if (joined.startsWith("git diff")) return ok(options.diff ?? "");
       if (joined.startsWith("git status")) return ok(options.status ?? "");
-      if (joined.startsWith("git ls-files")) return ok(options.untracked ?? "");
+      if (joined.startsWith("git show") && !joined.startsWith("git show :")) {
+        const content = options.before?.[plain[1]?.split(":")[1] ?? ""];
+        return content === undefined ? { status: 128, stdout: "", stderr: "" } : ok(content);
+      }
       if (joined.startsWith("git show :")) {
         const index: Record<string, string> = {
           "scripts/standards/exceptions.json": exceptionsFile,
@@ -97,9 +101,9 @@ describe("standards entry point", () => {
     expect(main([], io)).toBe(0);
     expect(calls.map((call) => [call.command, ...call.args].join(" "))).toEqual([
       "git merge-base origin/main HEAD",
-      "git diff abc123 --unified=0 --diff-filter=ACMR",
-      "git ls-files --others --exclude-standard",
-      "git diff abc123 --name-only --diff-filter=ACMR",
+      "git status --porcelain --untracked-files=all",
+      "git -c core.quotePath=false diff abc123 --unified=0 --diff-filter=ACMR",
+      "git -c core.quotePath=false diff abc123 --name-only -z --diff-filter=ACMR",
       "bun run check:locales",
       "bun run lint",
       "bun run typecheck",
@@ -144,13 +148,48 @@ describe("standards entry point", () => {
     );
   });
 
-  it("scans untracked files in full and skips deleted ones", () => {
-    const { io, lines } = fakeIo({
-      untracked: "src/new.ts\nsrc/gone.ts\nREADME.md\n",
-      files: { "src/new.ts": "export {};\n// added\n" },
-    });
+  it("refuses untracked files in base mode so every check can see them", () => {
+    const { io, lines } = fakeIo({ status: "?? src/new.ts\n M src/edited.ts\n" });
     expect(main(["--base", "main"], io)).toBe(1);
-    expect(lines).toContain("src/new.ts:2 no-new-comments new comment on line 2");
+    expect(lines).toEqual(["standards: stage or stash these changes first: src/new.ts"]);
+  });
+
+  it("keeps an existing trailing comment when only the code beside it changes", () => {
+    const { io, calls, lines } = fakeIo({
+      diff: diffFor("src/a.ts", 1, 1) + diffFor("README.md", 1, 1),
+      files: { "src/a.ts": "export const a = 2; // default\n" },
+      before: { "src/a.ts": "export const a = 1; // default\n" },
+    });
+    expect(main(["--base", "main"], io)).toBe(0);
+    expect(calls.map((call) => call.args.join(" "))).toContain("show main:src/a.ts");
+    expect(calls.map((call) => call.args.join(" "))).not.toContain("show main:README.md");
+    expect(lines).toContain("PASS no new comments");
+  });
+
+  it("compares staged edits against HEAD", () => {
+    const { io, calls } = fakeIo({
+      diff: diffFor("src/a.ts", 1, 1),
+      staged: { "src/a.ts": "export const a = 2; // default\n" },
+      before: { "src/a.ts": "export const a = 1; // default\n" },
+    });
+    expect(main(["--staged"], io)).toBe(0);
+    expect(calls.map((call) => call.args.join(" "))).toContain("show HEAD:src/a.ts");
+  });
+
+  it("runs zizmor for a workflow whose name git would quote", () => {
+    const { io, calls } = fakeIo({ names: "src/a.ts\0.github/workflows/ପରୀକ୍ଷା.yml\0" });
+    expect(main(["--base", "main"], io)).toBe(0);
+    expect(calls.some((call) => call.command === "zizmor" && call.args.includes(".github"))).toBe(
+      true,
+    );
+  });
+
+  it("refuses paths that git quotes even with core.quotePath off", () => {
+    const { io, lines } = fakeIo({ names: 'src/a"b.ts\0src/ok.ts\0src/tab\there.ts\0' });
+    expect(main(["--base", "main"], io)).toBe(1);
+    expect(lines).toEqual([
+      'standards: rename paths that git quotes: src/a"b.ts, src/tab\there.ts',
+    ]);
   });
 
   it("reads staged content in staged mode", () => {
@@ -161,7 +200,7 @@ describe("standards entry point", () => {
     });
     expect(main(["--staged"], io)).toBe(0);
     expect(calls.map((call) => call.args.join(" "))).toContain(
-      "diff --cached --unified=0 --diff-filter=ACMR",
+      "-c core.quotePath=false diff --cached --unified=0 --diff-filter=ACMR",
     );
     expect(calls.map((call) => call.args.join(" "))).toContain(
       "run test:coverage:diff -- --staged",
@@ -218,7 +257,7 @@ describe("standards entry point", () => {
 
   it("runs zizmor when a workflow changes and blocks new findings, replaying PR #134's trigger", () => {
     const { io, calls, lines } = fakeIo({
-      names: ".github/workflows/x.yml\n",
+      names: ".github/workflows/x.yml\0",
       zizmorOutput: JSON.stringify([zizmorFinding]),
     });
     expect(main(["--base", "main"], io)).toBe(1);
@@ -234,7 +273,7 @@ describe("standards entry point", () => {
   });
 
   it("fails when zizmor is missing, the wrong version, or prints no JSON", () => {
-    const names = "scripts/standards/zizmor.ts\n";
+    const names = "scripts/standards/zizmor.ts\0";
     const wrong = fakeIo({ names, zizmorVersion: `zizmor ${ZIZMOR_VERSION}0` });
     expect(main(["--base", "main"], wrong.io)).toBe(1);
     expect(wrong.lines).toContain(
@@ -243,17 +282,6 @@ describe("standards entry point", () => {
     const broken = fakeIo({ names, zizmorOutput: "not json" });
     expect(main(["--base", "main"], broken.io)).toBe(1);
     expect(broken.lines).toContain("zizmor: boom");
-  });
-
-  it("runs zizmor for a workflow that only moved untracked into place", () => {
-    const { io, calls } = fakeIo({
-      untracked: ".github/workflows/new.yml\n",
-      files: { ".github/workflows/new.yml": "on: push\n" },
-    });
-    expect(main(["--base", "main"], io)).toBe(0);
-    expect(calls.some((call) => call.command === "zizmor" && call.args.includes(".github"))).toBe(
-      true,
-    );
   });
 
   it("refuses staged mode while the worktree differs from the index", () => {
@@ -271,7 +299,7 @@ describe("standards entry point", () => {
 
   it("audits staged .github when the worktree matches the index", () => {
     const { io, lines } = fakeIo({
-      names: ".github/workflows/x.yml\n",
+      names: ".github/workflows/x.yml\0",
       status: "M  .github/workflows/x.yml\n",
     });
     expect(main(["--staged"], io)).toBe(0);
