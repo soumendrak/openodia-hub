@@ -35,6 +35,7 @@ const CURATED_REPOS: string[] = [
   "odiaorg/odiaDictColln",
   "shrixtacy/Subhadra-AI",
   "HimanshuMohanty-Git24/OdiaLingua",
+  "HimanshuMohanty-Git24/OdiaGPT",
   "GnsP/odia-keyboard",
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
@@ -50,6 +51,7 @@ const CURATED_REPOS: string[] = [
   "sushantamishra79/LLM-ODIA",
   "Sumitpatel29/sahayak_odia_voice_agent",
   "biranchikulesika/lipy",
+  "odia-genai/odia-wikipedia-sep26",
   // ── imsbg — Odia educational apps ──
   "imsbg/odiabhasa",
   "imsbg/odia-bhasa",
