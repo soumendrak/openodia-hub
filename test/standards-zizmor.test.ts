@@ -3,7 +3,7 @@ import { parseZizmor } from "../scripts/standards/zizmor";
 
 const location = (kind: string, path: string, row: number) => ({
   symbolic: { key: { Local: { verbatim_path: path } }, kind },
-  concrete: { location: { start_point: { row } } },
+  concrete: { location: { start_point: { row } }, feature: `  uses: ${path}@v${row}  ` },
 });
 const report = (overrides: Record<string, unknown> = {}) => ({
   ident: "dangerous-triggers",
@@ -25,6 +25,7 @@ describe("parseZizmor", () => {
         file: ".github/workflows/b.yml",
         line: 3,
         message: "High: use of fundamentally insecure workflow trigger",
+        key: "uses: .github/workflows/b.yml@v2",
       },
     ]);
   });

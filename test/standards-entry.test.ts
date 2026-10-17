@@ -1,6 +1,5 @@
 import { resolve } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ZIZMOR_VERSION } from "../scripts/standards/zizmor";
 
 describe("standards CLI entry", () => {
   const argv = process.argv;
@@ -12,10 +11,12 @@ describe("standards CLI entry", () => {
 
   it("runs main with the real process when invoked as a script", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
-    process.argv = [argv[0] ?? "bun", resolve("scripts", "standards.ts"), "zizmor-version"];
+    process.argv = [argv[0] ?? "bun", resolve("scripts", "standards.ts"), "--nope"];
     await import("../scripts/standards");
-    expect(log).toHaveBeenCalledWith(ZIZMOR_VERSION);
-    expect(process.exitCode).toBe(0);
+    expect(log).toHaveBeenCalledWith(
+      "standards: usage: bun scripts/standards.ts [--staged | --base <rev>]",
+    );
+    expect(process.exitCode).toBe(2);
   });
 
   it("wires real process, file and clock access", async () => {
@@ -36,7 +37,7 @@ describe("standards CLI entry", () => {
 describe("standards CLI entry guard", () => {
   it("does not run main for a same-suffix path or a missing script path", async () => {
     const argv = process.argv;
-    process.argv = [argv[0] ?? "bun", "/elsewhere/scripts/standards.ts", "zizmor-version"];
+    process.argv = [argv[0] ?? "bun", "/elsewhere/scripts/standards.ts", "--nope"];
     vi.resetModules();
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     await import("../scripts/standards");

@@ -2,25 +2,29 @@ import { z } from "zod";
 
 export const EXCEPTIONS_PATH = "scripts/standards/exceptions.json";
 
-export type Finding = {
-  readonly rule: string;
-  readonly file: string;
+export type Finding = Readonly<Record<"rule" | "file" | "message" | "key", string>> & {
   readonly line: number;
-  readonly message: string;
 };
+
+const isCalendarDate = (value: string) =>
+  !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().startsWith(value);
 
 const exceptionSchema = z
   .object({
     rule: z.string().min(1),
     file: z.string().min(1),
-    limit: z.number().int().positive(),
+    findings: z.array(z.string().min(1)).min(1),
     reason: z.string().min(1),
-    expires: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    expires: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/)
+      .refine(isCalendarDate),
     approvedBy: z.string().min(1),
   })
   .strict();
 
 export type StandardsException = z.infer<typeof exceptionSchema>;
+export type Exceptions = readonly StandardsException[];
 
 export function parseExceptions(raw: unknown): StandardsException[] {
   return z
@@ -29,33 +33,35 @@ export function parseExceptions(raw: unknown): StandardsException[] {
     .parse(raw).exceptions;
 }
 
+export function consume(pool: string[], item: string): boolean {
+  const index = pool.indexOf(item);
+  if (index >= 0) pool.splice(index, 1);
+  return index >= 0;
+}
+
 const key = (rule: string, file: string) => `${rule} in ${file}`;
 
-export function applyExceptions(
-  findings: readonly Finding[],
-  exceptions: readonly StandardsException[],
-  today: string,
-): { blocking: Finding[]; problems: string[] } {
-  const problems: string[] = [];
-  const limits = new Map<string, number>();
-  for (const entry of exceptions) {
+export function checkExceptions(exceptions: Exceptions, today: string) {
+  const seen = new Set<string>();
+  return exceptions.flatMap((entry) => {
     const id = key(entry.rule, entry.file);
-    if (limits.has(id)) problems.push(`${id}: duplicate exception`);
+    const problems = seen.has(id) ? [`${id}: duplicate exception`] : [];
     if (entry.expires < today) problems.push(`${id}: exception expired on ${entry.expires}`);
-    limits.set(id, entry.limit);
-  }
-  const groups = new Map<string, Finding[]>();
-  for (const finding of findings) {
-    const id = key(finding.rule, finding.file);
-    groups.set(id, [...(groups.get(id) ?? []), finding]);
-  }
-  const blocking: Finding[] = [];
-  for (const [id, group] of groups) {
-    const limit = limits.get(id) ?? 0;
-    if (group.length <= limit) continue;
-    blocking.push(...group);
-    if (limit > 0)
-      problems.push(`${id}: ${group.length} found, ${limit} allowed by ${EXCEPTIONS_PATH}`);
-  }
+    seen.add(id);
+    return problems;
+  });
+}
+
+export function applyExceptions(findings: readonly Finding[], entries: Exceptions, stale: boolean) {
+  const allowed = new Map(
+    entries.map((entry) => [key(entry.rule, entry.file), [...entry.findings]]),
+  );
+  const blocking = findings.filter(
+    (finding) => !consume(allowed.get(key(finding.rule, finding.file)) ?? [], finding.key),
+  );
+  const unused = stale ? [...allowed].filter(([, left]) => left.length > 0) : [];
+  const problems = unused.map(
+    ([id, left]) => `${id}: no longer found, remove from ${EXCEPTIONS_PATH}: ${left.join(" | ")}`,
+  );
   return { blocking, problems };
 }

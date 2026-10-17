@@ -8,7 +8,10 @@ const locationSchema = z.object({
     key: z.object({ Local: z.object({ verbatim_path: z.string() }) }),
     kind: z.string(),
   }),
-  concrete: z.object({ location: z.object({ start_point: z.object({ row: z.number() }) }) }),
+  concrete: z.object({
+    location: z.object({ start_point: z.object({ row: z.number() }) }),
+    feature: z.string(),
+  }),
 });
 
 const reportSchema = z.array(
@@ -30,6 +33,7 @@ export function parseZizmor(raw: unknown): Finding[] {
       file: primary.symbolic.key.Local.verbatim_path,
       line: primary.concrete.location.start_point.row + 1,
       message: `${report.determinations.severity}: ${report.desc}`,
+      key: primary.concrete.feature.trim(),
     };
   });
 }

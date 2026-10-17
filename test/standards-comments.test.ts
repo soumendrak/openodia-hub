@@ -66,7 +66,13 @@ describe("newComments", () => {
 
   it("flags a line added inside an existing block comment", () => {
     expect(newComments("src/a.ts", block, new Set([3]))).toEqual([
-      { rule: "no-new-comments", file: "src/a.ts", line: 1, message: "new comment on lines 1-4" },
+      {
+        rule: "no-new-comments",
+        file: "src/a.ts",
+        line: 1,
+        message: "new comment on lines 1-4",
+        key: "/*\n  old\n  added prose line\n*/",
+      },
     ]);
   });
 
@@ -85,8 +91,20 @@ describe("newComments", () => {
     const before = "export const c = 1; // same\n";
     const after = "export const c = 1; // same\nexport const d = 1; // same\n";
     expect(newComments("src/c.ts", after, new Set([1, 2]), before)).toEqual([
-      { rule: "no-new-comments", file: "src/c.ts", line: 2, message: "new comment on line 2" },
+      {
+        rule: "no-new-comments",
+        file: "src/c.ts",
+        line: 2,
+        message: "new comment on line 2",
+        key: "// same",
+      },
     ]);
+  });
+
+  it("does not let a new copy reuse the text of an unchanged comment elsewhere", () => {
+    const before = "export const c = 1; // default\n";
+    const after = "export const c = 1; // default\nexport const d = 1; // default\n";
+    expect(newComments("src/c.ts", after, new Set([2]), before)).toHaveLength(1);
   });
 
   it("ignores comments on unchanged lines", () => {

@@ -22,7 +22,7 @@ jobs:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
-      - run: pipx install "zizmor==$(bun scripts/standards.ts zizmor-version)"
+      - run: pipx install zizmor==1.31.1
       - name: Run repository standards
         env:
           BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}

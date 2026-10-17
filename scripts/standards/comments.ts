@@ -1,5 +1,5 @@
 import ts from "typescript";
-import type { Finding } from "./exceptions";
+import { consume } from "./exceptions";
 
 export const COMMENT_RULE = "no-new-comments";
 
@@ -51,27 +51,18 @@ export function findComments(file: string, text: string): Comment[] {
     .map(([pos, end]) => ({ line: line(pos), endLine: line(end - 1), text: text.slice(pos, end) }));
 }
 
-export function newComments(
-  file: string,
-  text: string,
-  changed: ReadonlySet<number>,
-  before = "",
-): Finding[] {
+export function newComments(file: string, text: string, lines: ReadonlySet<number>, before = "") {
   const old = findComments(file, before).map((comment) => comment.text);
-  return findComments(file, text)
-    .filter(({ line, endLine }) => [...changed].some((n) => n >= line && n <= endLine))
-    .filter((comment) => {
-      const index = old.indexOf(comment.text);
-      if (index >= 0) old.splice(index, 1);
-      return index < 0;
-    })
-    .map(({ line, endLine }) => ({
+  const comments = findComments(file, text);
+  const touched = ({ line, endLine }: Comment) => [...lines].some((n) => n >= line && n <= endLine);
+  for (const comment of comments) if (!touched(comment)) consume(old, comment.text);
+  return comments
+    .filter((comment) => touched(comment) && !consume(old, comment.text))
+    .map(({ line, endLine, text: comment }) => ({
       rule: COMMENT_RULE,
       file,
       line,
-      message:
-        line === endLine
-          ? `new comment on line ${line}`
-          : `new comment on lines ${line}-${endLine}`,
+      message: `new comment on ${line === endLine ? `line ${line}` : `lines ${line}-${endLine}`}`,
+      key: comment,
     }));
 }

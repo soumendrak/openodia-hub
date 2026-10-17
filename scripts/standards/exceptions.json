@@ -3,7 +3,7 @@
     {
       "rule": "zizmor/artipacked",
       "file": ".github/workflows/check-links.yml",
-      "limit": 1,
+      "findings": ["uses: actions/checkout@v4"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -11,7 +11,13 @@
     {
       "rule": "zizmor/artipacked",
       "file": ".github/workflows/ci.yml",
-      "limit": 5,
+      "findings": [
+        "uses: actions/checkout@v4\n        with:\n          fetch-depth: 0",
+        "uses: actions/checkout@v4",
+        "uses: actions/checkout@v4",
+        "uses: actions/checkout@v4",
+        "uses: actions/checkout@v4"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -19,7 +25,7 @@
     {
       "rule": "zizmor/artipacked",
       "file": ".github/workflows/crawl-events.yml",
-      "limit": 1,
+      "findings": ["uses: actions/checkout@v5"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -27,7 +33,7 @@
     {
       "rule": "zizmor/artipacked",
       "file": ".github/workflows/sync-contributors.yml",
-      "limit": 1,
+      "findings": ["uses: actions/checkout@v4"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -35,7 +41,7 @@
     {
       "rule": "zizmor/cache-poisoning",
       "file": ".github/workflows/ci.yml",
-      "limit": 2,
+      "findings": ["uses: oven-sh/setup-bun@v2", "uses: oven-sh/setup-bun@v2"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -43,7 +49,7 @@
     {
       "rule": "zizmor/dangerous-triggers",
       "file": ".github/workflows/translation-review.yml",
-      "limit": 3,
+      "findings": ["pull_request_target", "issue_comment", "workflow_run"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -51,7 +57,9 @@
     {
       "rule": "zizmor/excessive-permissions",
       "file": ".github/workflows/check-links.yml",
-      "limit": 1,
+      "findings": [
+        "check-links:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun scripts/check-links.mjs"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -59,7 +67,12 @@
     {
       "rule": "zizmor/excessive-permissions",
       "file": ".github/workflows/ci.yml",
-      "limit": 4,
+      "findings": [
+        "name: CI\n\non:\n  push:\n    branches: [main]\n  pull_request:\n    branches: [main]\n\nconcurrency:\n  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}\n  cancel-in-progress: true\n\njobs:\n  standards:\n    permissions:\n      contents: read\n      pull-requests: write\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          fetch-depth: 0\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: pipx install zizmor==1.31.1\n      - name: Run repository standards\n        env:\n          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}\n        run: bun scripts/standards.ts --base \"$BASE_SHA\"\n      - name: Update sticky PR coverage report\n        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository\n        uses: actions/github-script@v7\n        with:\n          script: |\n            const current = await github.rest.pulls.get({ ...context.repo, pull_number: context.issue.number });\n            if (current.data.head.sha !== context.payload.pull_request.head.sha) {\n              core.info('Skipping stale coverage report because the PR head has changed.');\n              return;\n            }\n            const fs = require('node:fs');\n            const coverage = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));\n            const metrics = { Statements: [], Functions: [], Branches: [], Lines: [] };\n            for (const file of Object.values(coverage)) {\n              metrics.Statements.push(...Object.values(file.s));\n              metrics.Functions.push(...Object.values(file.f));\n              metrics.Branches.push(...Object.values(file.b).flat());\n              const lines = new Map();\n              for (const [id, statement] of Object.entries(file.statementMap)) {\n                const line = statement.start.line;\n                lines.set(line, Math.max(lines.get(line) || 0, file.s[id]));\n              }\n              metrics.Lines.push(...lines.values());\n            }\n            const marker = '<!-- openodia-coverage -->';\n            const body = [marker, `## Coverage at ${context.payload.pull_request.head.sha.slice(0, 7)}`,\n              'Changed executable lines: **100% (required gate passed)**.', '',\n              '| Repository metric | Covered / total | Coverage |', '|---|---:|---:|',\n              ...Object.entries(metrics).map(([name, hits]) => {\n                const count = hits.filter(hit => hit > 0).length;\n                return `| ${name} | ${count} / ${hits.length} | ${((count / hits.length) * 100).toFixed(2)}% |`;\n              })].join('\\n');\n            const args = { ...context.repo, issue_number: context.issue.number };\n            const comments = await github.paginate(github.rest.issues.listComments, args);\n            const existing = comments.find(comment => comment.user.type === 'Bot' && comment.body?.includes(marker));\n            const beforeWrite = await github.rest.pulls.get({ ...context.repo, pull_number: context.issue.number });\n            if (beforeWrite.data.head.sha !== context.payload.pull_request.head.sha) return;\n            if (existing) await github.rest.issues.updateComment({ ...context.repo, comment_id: existing.id, body });\n            else await github.rest.issues.createComment({ ...args, body });\n\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - uses: actions/upload-artifact@v4\n        with:\n          name: built-worker\n          path: dist/\n\n  e2e:\n    runs-on: ubuntu-latest\n    needs: build\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 22\n      - run: bun install --frozen-lockfile\n      - uses: actions/download-artifact@v4\n        with:\n          name: built-worker\n          path: dist/\n      - run: bunx playwright install --with-deps chromium\n      - name: Verify bilingual UX and translation API on the built Worker\n        run: bun run test:bilingual\n      - uses: actions/upload-artifact@v4\n        if: always()\n        with:\n          name: bilingual-browser-evidence\n          path: /tmp/openodia-bilingual-browser\n      - name: Test built Worker API, UX, accessibility and visual regression\n        run: bunx playwright test\n      - uses: actions/upload-artifact@v4\n        if: always()\n        with:\n          name: playwright-report\n          path: |\n            playwright-report/\n            test-results/\n\n  deploy:\n    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n    needs: [standards, build, e2e]\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - name: Deploy to Cloudflare Workers\n        uses: cloudflare/wrangler-action@v3\n        with:\n          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}\n          command: deploy\n\n  preview:\n    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository\n    runs-on: ubuntu-latest\n    needs: [standards, build, e2e]\n    permissions:\n      contents: read\n      pull-requests: write\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - name: Upload preview version\n        id: deploy\n        uses: cloudflare/wrangler-action@v3\n        with:\n          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}\n          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}\n          command: versions upload --message \"PR #${{ github.event.pull_request.number }} @ ${{ github.event.pull_request.head.sha }}\"\n      - name: Comment preview URL on PR\n        uses: actions/github-script@v7\n        with:\n          script: |\n            const url = `${{ steps.deploy.outputs.deployment-url }}`;\n            const sha = context.payload.pull_request.head.sha.slice(0, 7);\n            const marker = '<!-- cf-workers-preview -->';\n            const body = [\n              marker,\n              `**Cloudflare Workers preview:** ${url}`,\n              ``,\n              `Built from ${sha}. Note: previews share the production KV namespace.`,\n            ].join('\\n');\n            const { data: comments } = await github.rest.issues.listComments({\n              owner: context.repo.owner,\n              repo: context.repo.repo,\n              issue_number: context.issue.number,\n            });\n            const existing = comments.find(c => c.body && c.body.includes(marker));\n            if (existing) {\n              await github.rest.issues.updateComment({\n                owner: context.repo.owner,\n                repo: context.repo.repo,\n                comment_id: existing.id,\n                body,\n              });\n            } else {\n              await github.rest.issues.createComment({\n                owner: context.repo.owner,\n                repo: context.repo.repo,\n                issue_number: context.issue.number,\n                body,\n              });\n            }",
+        "build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - uses: actions/upload-artifact@v4\n        with:\n          name: built-worker\n          path: dist/",
+        "e2e:\n    runs-on: ubuntu-latest\n    needs: build\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - uses: actions/setup-node@v4\n        with:\n          node-version: 22\n      - run: bun install --frozen-lockfile\n      - uses: actions/download-artifact@v4\n        with:\n          name: built-worker\n          path: dist/\n      - run: bunx playwright install --with-deps chromium\n      - name: Verify bilingual UX and translation API on the built Worker\n        run: bun run test:bilingual\n      - uses: actions/upload-artifact@v4\n        if: always()\n        with:\n          name: bilingual-browser-evidence\n          path: /tmp/openodia-bilingual-browser\n      - name: Test built Worker API, UX, accessibility and visual regression\n        run: bunx playwright test\n      - uses: actions/upload-artifact@v4\n        if: always()\n        with:\n          name: playwright-report\n          path: |\n            playwright-report/\n            test-results/",
+        "deploy:\n    if: github.ref == 'refs/heads/main'\n    runs-on: ubuntu-latest\n    needs: [standards, build, e2e]\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - run: bun run build\n      - name: Deploy to Cloudflare Workers\n        uses: cloudflare/wrangler-action@v3\n        with:\n          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}\n          command: deploy"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -67,7 +80,9 @@
     {
       "rule": "zizmor/excessive-permissions",
       "file": ".github/workflows/crawl-events.yml",
-      "limit": 1,
+      "findings": [
+        "crawl:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v5\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - name: Crawl events\n        id: crawl\n        run: |\n          set -o pipefail\n          set +e\n          bun run scripts/crawl-events.mjs 2>&1 | tee /tmp/crawl-output.txt\n          status=${PIPESTATUS[0]}\n          set -e\n          echo \"has_changes=$(grep -c 'NEW_EVENTS_FOUND' /tmp/crawl-output.txt || true)\" >> $GITHUB_OUTPUT\n          exit $status\n      - name: Create PR if event data changed\n        if: (success() || failure()) && steps.crawl.outputs.has_changes != '0'\n        uses: peter-evans/create-pull-request@v7\n        with:\n          token: ${{ secrets.PAT }}\n          commit-message: \"auto: crawl new Odia AI events\"\n          title: \"Odia AI event data updated — $(date +'%b %d')\"\n          body: |\n            Automated crawl found new events or refreshed redirected event destinations.\n\n            Review and merge if the events look correct.\n            Source list: https://github.com/soumendrak/openodia-hub/blob/main/.agents/skills/crawl-events/references/sources.md\n          branch: auto/crawl-events\n          delete-branch: true"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -75,7 +90,9 @@
     {
       "rule": "zizmor/excessive-permissions",
       "file": ".github/workflows/sync-contributors.yml",
-      "limit": 1,
+      "findings": [
+        "sync:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: actions/checkout@v4\n      - uses: oven-sh/setup-bun@v2\n      - run: bun install --frozen-lockfile\n      - name: Sync contributors\n        env:\n          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}\n          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_KV_API_TOKEN }}\n          CONTRIBUTORS_KV_NAMESPACE_ID: ${{ secrets.CONTRIBUTORS_KV_NAMESPACE_ID }}\n        run: bun run scripts/sync-contributors.ts"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -83,7 +100,9 @@
     {
       "rule": "zizmor/template-injection",
       "file": ".github/workflows/ci.yml",
-      "limit": 1,
+      "findings": [
+        "|\n            const url = `${{ steps.deploy.outputs.deployment-url }}`;\n            const sha = context.payload.pull_request.head.sha.slice(0, 7);\n            const marker = '<!-- cf-workers-preview -->';\n            const body = [\n              marker,\n              `**Cloudflare Workers preview:** ${url}`,\n              ``,\n              `Built from ${sha}. Note: previews share the production KV namespace.`,\n            ].join('\\n');\n            const { data: comments } = await github.rest.issues.listComments({\n              owner: context.repo.owner,\n              repo: context.repo.repo,\n              issue_number: context.issue.number,\n            });\n            const existing = comments.find(c => c.body && c.body.includes(marker));\n            if (existing) {\n              await github.rest.issues.updateComment({\n                owner: context.repo.owner,\n                repo: context.repo.repo,\n                comment_id: existing.id,\n                body,\n              });\n            } else {\n              await github.rest.issues.createComment({\n                owner: context.repo.owner,\n                repo: context.repo.repo,\n                issue_number: context.issue.number,\n                body,\n              });\n            }"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -91,7 +110,7 @@
     {
       "rule": "zizmor/unpinned-uses",
       "file": ".github/workflows/check-links.yml",
-      "limit": 2,
+      "findings": ["actions/checkout@v4", "oven-sh/setup-bun@v2"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -99,7 +118,27 @@
     {
       "rule": "zizmor/unpinned-uses",
       "file": ".github/workflows/ci.yml",
-      "limit": 19,
+      "findings": [
+        "actions/checkout@v4",
+        "oven-sh/setup-bun@v2",
+        "actions/github-script@v7",
+        "actions/checkout@v4",
+        "oven-sh/setup-bun@v2",
+        "actions/upload-artifact@v4",
+        "actions/checkout@v4",
+        "oven-sh/setup-bun@v2",
+        "actions/setup-node@v4",
+        "actions/download-artifact@v4",
+        "actions/upload-artifact@v4",
+        "actions/upload-artifact@v4",
+        "actions/checkout@v4",
+        "oven-sh/setup-bun@v2",
+        "cloudflare/wrangler-action@v3",
+        "actions/checkout@v4",
+        "oven-sh/setup-bun@v2",
+        "cloudflare/wrangler-action@v3",
+        "actions/github-script@v7"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -107,7 +146,11 @@
     {
       "rule": "zizmor/unpinned-uses",
       "file": ".github/workflows/crawl-events.yml",
-      "limit": 3,
+      "findings": [
+        "actions/checkout@v5",
+        "oven-sh/setup-bun@v2",
+        "peter-evans/create-pull-request@v7"
+      ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -115,7 +158,7 @@
     {
       "rule": "zizmor/unpinned-uses",
       "file": ".github/workflows/sync-contributors.yml",
-      "limit": 2,
+      "findings": ["actions/checkout@v4", "oven-sh/setup-bun@v2"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -123,7 +166,7 @@
     {
       "rule": "zizmor/unpinned-uses",
       "file": ".github/workflows/translation-review-notification.yml",
-      "limit": 1,
+      "findings": ["actions/github-script@v7"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"
@@ -131,7 +174,7 @@
     {
       "rule": "zizmor/unpinned-uses",
       "file": ".github/workflows/translation-review.yml",
-      "limit": 2,
+      "findings": ["actions/github-script@v7", "actions/github-script@v7"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
       "expires": "2027-01-17",
       "approvedBy": "pending-review:soumendrak"

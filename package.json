@@ -10,7 +10,6 @@
     "preview": "wrangler dev -c dist/server/wrangler.json --local --port 4173",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.standards.json",
-    "standards": "bun scripts/standards.ts",
     "format": "prettier --write .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

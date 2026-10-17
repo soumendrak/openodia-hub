@@ -12,7 +12,7 @@ const zizmorFinding = {
   locations: [
     {
       symbolic: { key: { Local: { verbatim_path: ".github/workflows/x.yml" } }, kind: "Primary" },
-      concrete: { location: { start_point: { row: 2 } } },
+      concrete: { location: { start_point: { row: 2 } }, feature: "pull_request_target" },
     },
   ],
   ignored: false,
@@ -21,6 +21,7 @@ const zizmorFinding = {
 function fakeIo(options: {
   diff?: string;
   names?: string;
+  audited?: string;
   status?: string;
   files?: Record<string, string>;
   staged?: Record<string, string>;
@@ -50,6 +51,8 @@ function fakeIo(options: {
         return ok(options.names ?? "");
       if (joined.startsWith("git diff")) return ok(options.diff ?? "");
       if (joined.startsWith("git status")) return ok(options.status ?? "");
+      if (joined.startsWith("git ls-files"))
+        return ok(options.audited ?? ".github/workflows/x.yml\0");
       if (joined.startsWith("git show") && !joined.startsWith("git show :")) {
         const content = options.before?.[plain[1]?.split(":")[1] ?? ""];
         return content === undefined ? { status: 128, stdout: "", stderr: "" } : ok(content);
@@ -83,12 +86,6 @@ const diffFor = (file: string, start: number, count: number) =>
   `diff --git a/${file} b/${file}\n+++ b/${file}\n@@ -0,0 +${start},${count} @@\n`;
 
 describe("standards entry point", () => {
-  it("prints the pinned zizmor version", () => {
-    const { io, lines } = fakeIo({});
-    expect(main(["zizmor-version"], io)).toBe(0);
-    expect(lines).toEqual([ZIZMOR_VERSION]);
-  });
-
   it("rejects unknown arguments", () => {
     const { io, lines } = fakeIo({});
     expect(main(["--nope"], io)).toBe(2);
@@ -102,8 +99,8 @@ describe("standards entry point", () => {
     expect(calls.map((call) => [call.command, ...call.args].join(" "))).toEqual([
       "git merge-base origin/main HEAD",
       "git status --porcelain --untracked-files=all",
-      "git -c core.quotePath=false diff abc123 --unified=0 --diff-filter=ACMR",
-      "git -c core.quotePath=false diff abc123 --name-only -z --diff-filter=ACMR",
+      "git -c core.quotePath=false diff abc123 --unified=0 -M --diff-filter=ACMR",
+      "git -c core.quotePath=false diff abc123 --name-only -z --diff-filter=ACMRD",
       "bun run check:locales",
       "bun run lint",
       "bun run typecheck",
@@ -179,7 +176,7 @@ describe("standards entry point", () => {
   it("runs zizmor for a workflow whose name git would quote", () => {
     const { io, calls } = fakeIo({ names: "src/a.ts\0.github/workflows/ପରୀକ୍ଷା.yml\0" });
     expect(main(["--base", "main"], io)).toBe(0);
-    expect(calls.some((call) => call.command === "zizmor" && call.args.includes(".github"))).toBe(
+    expect(calls.some((call) => call.command === "zizmor" && call.args.includes("json"))).toBe(
       true,
     );
   });
@@ -200,7 +197,7 @@ describe("standards entry point", () => {
     });
     expect(main(["--staged"], io)).toBe(0);
     expect(calls.map((call) => call.args.join(" "))).toContain(
-      "-c core.quotePath=false diff --cached --unified=0 --diff-filter=ACMR",
+      "-c core.quotePath=false diff --cached --unified=0 -M --diff-filter=ACMR",
     );
     expect(calls.map((call) => call.args.join(" "))).toContain(
       "run test:coverage:diff -- --staged",
@@ -214,7 +211,7 @@ describe("standards entry point", () => {
         {
           rule: "no-new-comments",
           file: "src/a.ts",
-          limit: 1,
+          findings: ["// MIT"],
           reason: "License header.",
           expires: "2027-01-17",
           approvedBy: "soumendrak",
@@ -235,7 +232,7 @@ describe("standards entry point", () => {
         {
           rule: "no-new-comments",
           file: "src/a.ts",
-          limit: 1,
+          findings: ["// MIT"],
           reason: "License header.",
           expires: "2026-01-01",
           approvedBy: "soumendrak",
@@ -245,6 +242,7 @@ describe("standards entry point", () => {
     const { io, lines } = fakeIo({ exceptions });
     expect(main(["--base", "main"], io)).toBe(1);
     expect(lines).toContain("no-new-comments in src/a.ts: exception expired on 2026-01-01");
+    expect(lines).toContain("FAIL exceptions file");
   });
 
   it("fails on a malformed or missing exceptions file", () => {
@@ -262,7 +260,7 @@ describe("standards entry point", () => {
     });
     expect(main(["--base", "main"], io)).toBe(1);
     expect(calls.map((call) => [call.command, ...call.args].join(" "))).toContain(
-      "zizmor --offline --no-ignores --no-config --collect=all --strict-collection --format json .github",
+      "zizmor --offline --no-ignores --no-config --strict-collection --format json .github/workflows/x.yml",
     );
     expect(lines).toEqual(
       expect.arrayContaining([
@@ -312,5 +310,58 @@ describe("standards entry point", () => {
     });
     expect(main(["--staged"], io)).toBe(1);
     expect(lines).toContain("FAIL exceptions file");
+  });
+
+  it("compares a renamed file against its old path", () => {
+    const { io, calls, lines } = fakeIo({
+      diff:
+        "diff --git a/src/old.ts b/src/a.ts\nrename from src/old.ts\nrename to src/a.ts\n" +
+        diffFor("src/a.ts", 1, 1),
+      files: { "src/a.ts": "export const a = 2; // default\n" },
+      before: { "src/old.ts": "export const a = 1; // default\n" },
+    });
+    expect(main(["--base", "main"], io)).toBe(0);
+    expect(calls.map((call) => call.args.join(" "))).toContain("show main:src/old.ts");
+    expect(lines).toContain("PASS no new comments");
+  });
+
+  it("audits local composite actions alongside the workflows", () => {
+    const { io, calls } = fakeIo({
+      names: "actions/release/action.yml\0",
+      audited: ".github/workflows/x.yml\0actions/release/action.yml\0",
+    });
+    expect(main(["--base", "main"], io)).toBe(0);
+    const joined = calls.map((call) => [call.command, ...call.args].join(" "));
+    expect(joined).toContain(
+      "git ls-files -z -- .github/workflows/*.yml .github/workflows/*.yaml .github/dependabot.yml :(glob)**/action.yml :(glob)**/action.yaml",
+    );
+    expect(joined.find((call) => call.startsWith("zizmor --offline"))).toMatch(
+      / \.github\/workflows\/x\.yml actions\/release\/action\.yml$/,
+    );
+  });
+
+  it("fails on zizmor exceptions that no longer match and ignores other rules' entries", () => {
+    const base = { reason: "Baseline.", expires: "2027-01-17", approvedBy: "soumendrak" };
+    const comment = { ...base, rule: "no-new-comments", file: "src/a.ts", findings: ["// MIT"] };
+    const trigger = { ...base, rule: "zizmor/dangerous-triggers", file: ".github/workflows/x.yml" };
+    const matching = fakeIo({
+      names: ".github/workflows/x.yml\0",
+      zizmorOutput: JSON.stringify([zizmorFinding]),
+      exceptions: JSON.stringify({
+        exceptions: [comment, { ...trigger, findings: ["pull_request_target"] }],
+      }),
+    });
+    expect(main(["--base", "main"], matching.io)).toBe(0);
+    const stale = fakeIo({
+      names: ".github/workflows/x.yml\0",
+      exceptions: JSON.stringify({ exceptions: [{ ...trigger, findings: ["workflow_run"] }] }),
+    });
+    expect(main(["--base", "main"], stale.io)).toBe(1);
+    expect(stale.lines).toEqual(
+      expect.arrayContaining([
+        "zizmor/dangerous-triggers in .github/workflows/x.yml: no longer found, remove from scripts/standards/exceptions.json: workflow_run",
+        "FAIL zizmor",
+      ]),
+    );
   });
 });
