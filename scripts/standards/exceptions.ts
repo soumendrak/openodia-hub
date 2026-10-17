@@ -52,14 +52,14 @@ export function checkExceptions(exceptions: Exceptions, today: string) {
   });
 }
 
-export function applyExceptions(findings: readonly Finding[], entries: Exceptions, stale: boolean) {
+export function applyExceptions(findings: readonly Finding[], entries: Exceptions) {
   const allowed = new Map(
     entries.map((entry) => [key(entry.rule, entry.file), [...entry.findings]]),
   );
   const blocking = findings.filter(
     (finding) => !consume(allowed.get(key(finding.rule, finding.file)) ?? [], finding.key),
   );
-  const unused = stale ? [...allowed].filter(([, left]) => left.length > 0) : [];
+  const unused = [...allowed].filter(([, left]) => left.length > 0);
   const problems = unused.map(
     ([id, left]) => `${id}: no longer found, remove from ${EXCEPTIONS_PATH}: ${left.join(" | ")}`,
   );

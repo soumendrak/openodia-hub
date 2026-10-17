@@ -340,7 +340,7 @@ describe("standards entry point", () => {
     );
   });
 
-  it("fails on zizmor exceptions that no longer match and ignores other rules' entries", () => {
+  it("fails on unused comment and zizmor exceptions, each in its own step", () => {
     const base = { reason: "Baseline.", expires: "2027-01-17", approvedBy: "soumendrak" };
     const comment = { ...base, rule: "no-new-comments", file: "src/a.ts", findings: ["// MIT"] };
     const trigger = { ...base, rule: "zizmor/dangerous-triggers", file: ".github/workflows/x.yml" };
@@ -351,7 +351,14 @@ describe("standards entry point", () => {
         exceptions: [comment, { ...trigger, findings: ["pull_request_target"] }],
       }),
     });
-    expect(main(["--base", "main"], matching.io)).toBe(0);
+    expect(main(["--base", "main"], matching.io)).toBe(1);
+    expect(matching.lines).toEqual(
+      expect.arrayContaining([
+        "no-new-comments in src/a.ts: no longer found, remove from scripts/standards/exceptions.json: // MIT",
+        "FAIL no new comments",
+        "PASS zizmor",
+      ]),
+    );
     const stale = fakeIo({
       names: ".github/workflows/x.yml\0",
       exceptions: JSON.stringify({ exceptions: [{ ...trigger, findings: ["workflow_run"] }] }),

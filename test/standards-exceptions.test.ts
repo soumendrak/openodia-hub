@@ -67,12 +67,12 @@ describe("checkExceptions", () => {
 
 describe("applyExceptions", () => {
   it("allows exactly the grandfathered findings", () => {
-    expect(applyExceptions(grandfathered, [entry], true)).toEqual({ blocking: [], problems: [] });
+    expect(applyExceptions(grandfathered, [entry])).toEqual({ blocking: [], problems: [] });
   });
 
   it("blocks a new finding swapped in for a fixed one, replaying the count-only gap", () => {
     const swapped = [...grandfathered.slice(0, 2), finding("actions/upload-artifact@v4", 9)];
-    expect(applyExceptions(swapped, [entry], true)).toEqual({
+    expect(applyExceptions(swapped, [entry])).toEqual({
       blocking: [finding("actions/upload-artifact@v4", 9)],
       problems: [
         "zizmor/unpinned-uses in .github/workflows/ci.yml: no longer found, remove from scripts/standards/exceptions.json: actions/checkout@v4",
@@ -82,18 +82,12 @@ describe("applyExceptions", () => {
 
   it("blocks one more copy of a grandfathered finding", () => {
     const extra = [...grandfathered, finding("actions/checkout@v4", 7)];
-    expect(applyExceptions(extra, [entry], true).blocking).toEqual([
-      finding("actions/checkout@v4", 7),
-    ]);
-  });
-
-  it("leaves stale entries alone when asked", () => {
-    expect(applyExceptions([], [entry], false)).toEqual({ blocking: [], problems: [] });
+    expect(applyExceptions(extra, [entry]).blocking).toEqual([finding("actions/checkout@v4", 7)]);
   });
 
   it("blocks findings with no exception", () => {
     const other = { ...finding("x"), file: ".github/workflows/new.yml" };
-    expect(applyExceptions([other], [entry], false).blocking).toEqual([other]);
+    expect(applyExceptions([other], [entry]).blocking).toEqual([other]);
   });
 });
 

@@ -46,8 +46,8 @@ function diff(io: Io, mode: Mode, ...flags: string[]) {
   return io.run("git", ["-c", "core.quotePath=false", "diff", target, ...flags], true).stdout;
 }
 
-function report(io: Io, findings: readonly Finding[], exceptions: Exceptions, stale: boolean) {
-  const { blocking, problems } = applyExceptions(findings, exceptions, stale);
+function report(io: Io, findings: readonly Finding[], exceptions: Exceptions) {
+  const { blocking, problems } = applyExceptions(findings, exceptions);
   for (const finding of blocking)
     io.log(`${finding.file}:${finding.line} ${finding.rule} ${finding.message}`);
   for (const problem of problems) io.log(problem);
@@ -78,7 +78,7 @@ function zizmor(io: Io, files: readonly string[], exceptions: Exceptions) {
   const result = io.run("zizmor", [...ZIZMOR_FLAGS, "--format", "json", ...inputs], true);
   const baseline = exceptions.filter((entry) => entry.rule.startsWith("zizmor/"));
   try {
-    return report(io, parseZizmor(JSON.parse(result.stdout)), baseline, true);
+    return report(io, parseZizmor(JSON.parse(result.stdout)), baseline);
   } catch {
     io.log(`zizmor: ${result.stderr.trim()}`);
     return false;
@@ -138,7 +138,7 @@ export function main(args: readonly string[], io: Io): number {
       return text === undefined ? [] : newComments(file, text, lines, before);
     });
   const allowed = (exceptions ?? []).filter((entry) => entry.rule === COMMENT_RULE);
-  results.push(["no new comments", report(io, comments, allowed, false)]);
+  results.push(["no new comments", report(io, comments, allowed)]);
   results.push(["zizmor", zizmor(io, paths, exceptions ?? [])]);
   tool("tests and 100% changed-line coverage", [
     "test:coverage:diff",
