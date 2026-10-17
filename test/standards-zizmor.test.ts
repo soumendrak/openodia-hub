@@ -30,6 +30,15 @@ describe("parseZizmor", () => {
     ]);
   });
 
+  it("keys a finding on the first line of its feature so unrelated edits keep the key", () => {
+    const job = location("Primary", ".github/workflows/a.yml", 4);
+    const multiLine = {
+      ...job,
+      concrete: { ...job.concrete, feature: "  build:\n    steps: []\n" },
+    };
+    expect(parseZizmor([report({ locations: [multiLine] })])[0]?.key).toBe("build:");
+  });
+
   it("falls back to the first location", () => {
     const only = report({ locations: [location("Related", ".github/workflows/a.yml", 0)] });
     expect(parseZizmor([only])[0]?.file).toBe(".github/workflows/a.yml");

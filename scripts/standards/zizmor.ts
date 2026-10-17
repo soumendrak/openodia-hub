@@ -33,7 +33,7 @@ export function parseZizmor(raw: unknown): Finding[] {
       file: primary.symbolic.key.Local.verbatim_path,
       line: primary.concrete.location.start_point.row + 1,
       message: `${report.determinations.severity}: ${report.desc}`,
-      key: primary.concrete.feature.trim(),
+      key: primary.concrete.feature.trim().replace(/\n.*/s, ""),
     };
   });
 }
