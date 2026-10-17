@@ -1,0 +1,1 @@
+Stage or stash every change before you commit, and never use `--no-verify` or any other way to skip the pre-commit hook. The hook and `just check` run `bun scripts/standards.ts`, the same standards CI runs, and it refuses untracked files and unstaged edits.

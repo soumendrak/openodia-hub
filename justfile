@@ -45,10 +45,6 @@ test:
 coverage:
     bun run test:coverage
 
-# Require 100% line coverage for staged production-code changes
-coverage-diff:
-    bun run test:coverage:diff -- --staged
-
 # Activate the version-controlled Git hooks in this clone
 hooks-install:
     bun run hooks:install
@@ -57,8 +53,9 @@ hooks-install:
 test-watch:
     bun run test:watch
 
-# Run lint + tests (CI gate)
-check: lint test
+# Run every repository standard against the merge base with origin/main (same command as CI)
+check:
+    bun scripts/standards.ts --base "$(git merge-base origin/main HEAD)"
 
 # Browser checks for the Pattachitra theme (needs a running server)
 check-pattachitra url="http://localhost:9090":

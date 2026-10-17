@@ -1,0 +1,186 @@
+{
+  "exceptions": [
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/check-links.yml",
+      "findings": ["jobs.check-links.steps.* uses: actions/checkout@v4"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-03-12",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/ci.yml",
+      "findings": [
+        "jobs.standards.steps.* uses: actions/checkout@v4",
+        "jobs.build.steps.* uses: actions/checkout@v4",
+        "jobs.e2e.steps.* uses: actions/checkout@v4",
+        "jobs.deploy.steps.* uses: actions/checkout@v4",
+        "jobs.preview.steps.* uses: actions/checkout@v4"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-29",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/crawl-events.yml",
+      "findings": ["jobs.crawl.steps.* uses: actions/checkout@v5"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-02-26",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/sync-contributors.yml",
+      "findings": ["jobs.sync.steps.* uses: actions/checkout@v4"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-03-26",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/cache-poisoning",
+      "file": ".github/workflows/ci.yml",
+      "findings": [
+        "jobs.deploy.steps.*.uses uses: oven-sh/setup-bun@v2",
+        "jobs.preview.steps.*.uses uses: oven-sh/setup-bun@v2"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-29",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/dangerous-triggers",
+      "file": ".github/workflows/translation-review.yml",
+      "findings": [
+        "on.pull_request_target pull_request_target",
+        "on.workflow_run workflow_run",
+        "on.issue_comment issue_comment"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-15",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/check-links.yml",
+      "findings": ["jobs.check-links check-links:"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-03-12",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/ci.yml",
+      "findings": ["name: CI", "jobs.build build:", "jobs.e2e e2e:", "jobs.deploy deploy:"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-29",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/crawl-events.yml",
+      "findings": ["jobs.crawl crawl:"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-02-26",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/sync-contributors.yml",
+      "findings": ["jobs.sync sync:"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-03-26",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/template-injection",
+      "file": ".github/workflows/ci.yml",
+      "findings": ["jobs.preview.steps.*.with.script steps.deploy.outputs.deployment-url"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-29",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/check-links.yml",
+      "findings": [
+        "jobs.check-links.steps.*.uses actions/checkout@v4",
+        "jobs.check-links.steps.*.uses oven-sh/setup-bun@v2"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-03-12",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/ci.yml",
+      "findings": [
+        "jobs.standards.steps.*.uses actions/checkout@v4",
+        "jobs.standards.steps.*.uses oven-sh/setup-bun@v2",
+        "jobs.standards.steps.*.uses actions/github-script@v7",
+        "jobs.build.steps.*.uses actions/checkout@v4",
+        "jobs.build.steps.*.uses oven-sh/setup-bun@v2",
+        "jobs.build.steps.*.uses actions/upload-artifact@v4",
+        "jobs.e2e.steps.*.uses actions/checkout@v4",
+        "jobs.e2e.steps.*.uses oven-sh/setup-bun@v2",
+        "jobs.e2e.steps.*.uses actions/setup-node@v4",
+        "jobs.e2e.steps.*.uses actions/download-artifact@v4",
+        "jobs.e2e.steps.*.uses actions/upload-artifact@v4",
+        "jobs.e2e.steps.*.uses actions/upload-artifact@v4",
+        "jobs.deploy.steps.*.uses actions/checkout@v4",
+        "jobs.deploy.steps.*.uses oven-sh/setup-bun@v2",
+        "jobs.deploy.steps.*.uses cloudflare/wrangler-action@v3",
+        "jobs.preview.steps.*.uses actions/checkout@v4",
+        "jobs.preview.steps.*.uses oven-sh/setup-bun@v2",
+        "jobs.preview.steps.*.uses cloudflare/wrangler-action@v3",
+        "jobs.preview.steps.*.uses actions/github-script@v7"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-29",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/crawl-events.yml",
+      "findings": [
+        "jobs.crawl.steps.*.uses actions/checkout@v5",
+        "jobs.crawl.steps.*.uses oven-sh/setup-bun@v2",
+        "jobs.crawl.steps.*.uses peter-evans/create-pull-request@v7"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-02-26",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/sync-contributors.yml",
+      "findings": [
+        "jobs.sync.steps.*.uses actions/checkout@v4",
+        "jobs.sync.steps.*.uses oven-sh/setup-bun@v2"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-03-26",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/translation-review-notification.yml",
+      "findings": ["jobs.notify-review-change.steps.*.uses actions/github-script@v7"],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-02-12",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/translation-review.yml",
+      "findings": [
+        "jobs.discover-review-prs.steps.*.uses actions/github-script@v7",
+        "jobs.publish-native-review.steps.*.uses actions/github-script@v7"
+      ],
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-15",
+      "approvedBy": "pending-review:soumendrak"
+    }
+  ]
+}
