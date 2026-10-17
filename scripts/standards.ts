@@ -26,7 +26,7 @@ export type Io = {
 type Mode = { readonly staged: boolean; readonly base: string };
 
 const USAGE = "standards: usage: bun scripts/standards.ts [--staged | --base <rev>]";
-const DIFF_FLAGS = ["--unified=0", "-M", "--diff-filter=ACMR"];
+const DIFF_FLAGS = ["--unified=0", "-M", "--diff-filter=ACMR", "--text"];
 const ZIZMOR_FLAGS = ["--offline", "--no-ignores", "--no-config", "--strict-collection"];
 const TRIGGER = /^(?:\.github\/|scripts\/standards)|(?:^|\/)action\.ya?ml$/;
 const AUDITED = [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/dependabot.yml"];
@@ -58,7 +58,7 @@ function unstagedChanges(io: Io, staged: boolean) {
   const status = io.run("git", ["status", "--porcelain", "--untracked-files=all"], true);
   return status.stdout
     .split("\n")
-    .filter((line) => line.startsWith("??") || (staged && line.length > 3 && line[1] !== " "))
+    .filter((line) => line.length > 3 && (staged ? line[1] !== " " : /^(?:\?\?|.D)/.test(line)))
     .map((line) => line.slice(3));
 }
 

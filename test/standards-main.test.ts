@@ -104,7 +104,7 @@ describe("standards entry point", () => {
     expect(calls.map((call) => [call.command, ...call.args].join(" "))).toEqual([
       "git merge-base origin/main HEAD",
       "git status --porcelain --untracked-files=all",
-      "git -c core.quotePath=false diff abc123 --unified=0 -M --diff-filter=ACMR",
+      "git -c core.quotePath=false diff abc123 --unified=0 -M --diff-filter=ACMR --text",
       "git -c core.quotePath=false diff abc123 --name-only -z --diff-filter=ACMRD",
       "bun run check:locales",
       "bun run lint",
@@ -156,6 +156,14 @@ describe("standards entry point", () => {
     expect(lines).toEqual(["standards: stage or stash these changes first: src/new.ts"]);
   });
 
+  it("refuses unstaged deletions in base mode so zizmor only audits files that exist", () => {
+    const { io, lines } = fakeIo({ status: " D .github/workflows/old.yml\n M src/edited.ts\n" });
+    expect(main(["--base", "main"], io)).toBe(1);
+    expect(lines).toEqual([
+      "standards: stage or stash these changes first: .github/workflows/old.yml",
+    ]);
+  });
+
   it("keeps an existing trailing comment when only the code beside it changes", () => {
     const { io, calls, lines } = fakeIo({
       diff: diffFor("src/a.ts", 1, 1) + diffFor("README.md", 1, 1),
@@ -202,7 +210,7 @@ describe("standards entry point", () => {
     });
     expect(main(["--staged"], io)).toBe(0);
     expect(calls.map((call) => call.args.join(" "))).toContain(
-      "-c core.quotePath=false diff --cached --unified=0 -M --diff-filter=ACMR",
+      "-c core.quotePath=false diff --cached --unified=0 -M --diff-filter=ACMR --text",
     );
     expect(calls.map((call) => call.args.join(" "))).toContain(
       "run test:coverage:diff -- --staged",
