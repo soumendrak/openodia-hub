@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["scripts/standards.ts", "scripts/standards/**/*.ts", "test/standards-*.test.ts"],
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noPropertyAccessFromIndexSignature": true
+  }
+}

@@ -110,7 +110,7 @@ syndication and discovery surfaces.
 - `GITHUB_TOKEN` is optional upstream GitHub authentication; `YOUTUBE_API_KEY` enables
   optional YouTube enrichment. Never commit credentials. Consult the relevant loader
   and your runtime's environment setup when configuring them.
-- `.github/workflows/ci.yml` runs lint, changed-line coverage, and build in parallel.
+- `.github/workflows/ci.yml` runs `bun scripts/standards.ts` (locales, lint, typecheck, new-comment check, zizmor, changed-line coverage) and the build in parallel.
   Production deploys on `main` after all checks pass. Same-repository PR previews use
   Worker version uploads; their KV is shared with production.
 - Separate GitHub workflows sync contributors, propose event-data PRs, and check links.

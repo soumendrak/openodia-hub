@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { parse } from "yaml";
 import { describe, expect, it, vi } from "vitest";
 const workflow = parse(readFileSync(".github/workflows/ci.yml", "utf8"));
-const script = workflow.jobs.test.steps.find(
+const script = workflow.jobs.standards.steps.find(
   (step: { name?: string }) => step.name === "Update sticky PR coverage report",
 ).with.script;
 async function run(heads: string[], existing = true) {

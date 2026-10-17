@@ -1,0 +1,140 @@
+{
+  "exceptions": [
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/check-links.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/ci.yml",
+      "limit": 5,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/crawl-events.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/artipacked",
+      "file": ".github/workflows/sync-contributors.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/cache-poisoning",
+      "file": ".github/workflows/ci.yml",
+      "limit": 2,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/dangerous-triggers",
+      "file": ".github/workflows/translation-review.yml",
+      "limit": 3,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/check-links.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/ci.yml",
+      "limit": 4,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/crawl-events.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/excessive-permissions",
+      "file": ".github/workflows/sync-contributors.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/template-injection",
+      "file": ".github/workflows/ci.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/check-links.yml",
+      "limit": 2,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/ci.yml",
+      "limit": 19,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/crawl-events.yml",
+      "limit": 3,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/sync-contributors.yml",
+      "limit": 2,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/translation-review-notification.yml",
+      "limit": 1,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    },
+    {
+      "rule": "zizmor/unpinned-uses",
+      "file": ".github/workflows/translation-review.yml",
+      "limit": 2,
+      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
+      "expires": "2027-01-17",
+      "approvedBy": "pending-review:soumendrak"
+    }
+  ]
+}

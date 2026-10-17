@@ -38,7 +38,7 @@ Screenshot baselines are checked in and must be reviewed when deliberately updat
 ## Before opening a PR
 
 1. Run `bun run lint`, `bun run test`, `bun x tsc --noEmit`, and `bun run build`.
-2. Add meaningful tests for changed executable behavior. After staging, run `just coverage-diff` or `bun run test:coverage:diff -- --staged`. The pre-commit hook requires 100% coverage of changed executable lines; that is not a claim of 100% repository-wide coverage.
+2. Add meaningful tests for changed executable behavior. After staging, run `bun scripts/standards.ts --staged`. The pre-commit hook runs that command, and CI runs `bun scripts/standards.ts --base <sha>`. It requires 100% coverage of changed executable lines (not 100% repository-wide coverage), blocks new code comments, and runs zizmor when workflows change.
 3. For design changes, start the dev server and run `just check-pattachitra`. Check narrow layouts, keyboard operation, and reduced motion.
 4. Update documentation for behavior, routes, sources, or setup changes. For documentation-only edits, check formatting, links, and claims against the implementation.
 
