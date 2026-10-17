@@ -17,23 +17,19 @@ const reportSchema = z.array(
     desc: z.string(),
     determinations: z.object({ severity: z.string() }),
     locations: z.array(locationSchema).nonempty(),
-    ignored: z.boolean(),
   }),
 );
 
 export function parseZizmor(raw: unknown): Finding[] {
-  return reportSchema
-    .parse(raw)
-    .filter((report) => !report.ignored)
-    .map((report) => {
-      const primary =
-        report.locations.find((location) => location.symbolic.kind === "Primary") ??
-        report.locations[0];
-      return {
-        rule: `zizmor/${report.ident}`,
-        file: primary.symbolic.key.Local.verbatim_path,
-        line: primary.concrete.location.start_point.row + 1,
-        message: `${report.determinations.severity}: ${report.desc}`,
-      };
-    });
+  return reportSchema.parse(raw).map((report) => {
+    const primary =
+      report.locations.find((location) => location.symbolic.kind === "Primary") ??
+      report.locations[0];
+    return {
+      rule: `zizmor/${report.ident}`,
+      file: primary.symbolic.key.Local.verbatim_path,
+      line: primary.concrete.location.start_point.row + 1,
+      message: `${report.determinations.severity}: ${report.desc}`,
+    };
+  });
 }

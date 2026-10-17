@@ -34,8 +34,8 @@ describe("parseZizmor", () => {
     expect(parseZizmor([only])[0]?.file).toBe(".github/workflows/a.yml");
   });
 
-  it("drops findings zizmor marks ignored", () => {
-    expect(parseZizmor([report({ ignored: true })])).toEqual([]);
+  it("keeps findings an inline zizmor ignore comment would hide", () => {
+    expect(parseZizmor([report({ ignored: true })])).toHaveLength(1);
   });
 
   it("rejects output it does not recognise", () => {

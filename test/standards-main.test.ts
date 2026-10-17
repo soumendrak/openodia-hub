@@ -20,6 +20,8 @@ const zizmorFinding = {
 
 function fakeIo(options: {
   diff?: string;
+  names?: string;
+  status?: string;
   files?: Record<string, string>;
   staged?: Record<string, string>;
   untracked?: string;
@@ -43,10 +45,17 @@ function fakeIo(options: {
       const ok = (stdout: string) => ({ status: 0, stdout, stderr: "" });
       if (joined.startsWith("git merge-base"))
         return { status: options.mergeBase ?? 0, stdout: "abc123\n", stderr: "no ref" };
+      if (joined.startsWith("git diff") && args.includes("--name-only"))
+        return ok(options.names ?? "");
       if (joined.startsWith("git diff")) return ok(options.diff ?? "");
+      if (joined.startsWith("git status")) return ok(options.status ?? "");
       if (joined.startsWith("git ls-files")) return ok(options.untracked ?? "");
       if (joined.startsWith("git show :")) {
-        const content = options.staged?.[args[1]?.slice(1) ?? ""];
+        const index: Record<string, string> = {
+          "scripts/standards/exceptions.json": exceptionsFile,
+          ...options.staged,
+        };
+        const content = index[args[1]?.slice(1) ?? ""];
         return content === undefined ? { status: 128, stdout: "", stderr: "" } : ok(content);
       }
       if (joined === "zizmor --version")
@@ -90,6 +99,7 @@ describe("standards entry point", () => {
       "git merge-base origin/main HEAD",
       "git diff abc123 --unified=0 --diff-filter=ACMR",
       "git ls-files --others --exclude-standard",
+      "git diff abc123 --name-only --diff-filter=ACMR",
       "bun run check:locales",
       "bun run lint",
       "bun run typecheck",
@@ -207,11 +217,14 @@ describe("standards entry point", () => {
   });
 
   it("runs zizmor when a workflow changes and blocks new findings, replaying PR #134's trigger", () => {
-    const { io, lines } = fakeIo({
-      diff: diffFor(".github/workflows/x.yml", 1, 3),
+    const { io, calls, lines } = fakeIo({
+      names: ".github/workflows/x.yml\n",
       zizmorOutput: JSON.stringify([zizmorFinding]),
     });
     expect(main(["--base", "main"], io)).toBe(1);
+    expect(calls.map((call) => [call.command, ...call.args].join(" "))).toContain(
+      "zizmor --offline --no-ignores --strict-collection --format json .github",
+    );
     expect(lines).toEqual(
       expect.arrayContaining([
         ".github/workflows/x.yml:3 zizmor/dangerous-triggers High: use of fundamentally insecure workflow trigger",
@@ -221,14 +234,60 @@ describe("standards entry point", () => {
   });
 
   it("fails when zizmor is missing, the wrong version, or prints no JSON", () => {
-    const diff = diffFor("scripts/standards/zizmor.ts", 1, 1);
-    const wrong = fakeIo({ diff, zizmorVersion: "zizmor 0.1.0" });
+    const names = "scripts/standards/zizmor.ts\n";
+    const wrong = fakeIo({ names, zizmorVersion: `zizmor ${ZIZMOR_VERSION}0` });
     expect(main(["--base", "main"], wrong.io)).toBe(1);
     expect(wrong.lines).toContain(
       `zizmor ${ZIZMOR_VERSION} is required: pipx install zizmor==${ZIZMOR_VERSION}`,
     );
-    const broken = fakeIo({ diff, zizmorOutput: "not json" });
+    const broken = fakeIo({ names, zizmorOutput: "not json" });
     expect(main(["--base", "main"], broken.io)).toBe(1);
     expect(broken.lines).toContain("zizmor: boom");
+  });
+
+  it("runs zizmor for a workflow that only moved untracked into place", () => {
+    const { io, calls } = fakeIo({
+      untracked: ".github/workflows/new.yml\n",
+      files: { ".github/workflows/new.yml": "on: push\n" },
+    });
+    expect(main(["--base", "main"], io)).toBe(0);
+    expect(calls.some((call) => call.command === "zizmor" && call.args.includes(".github"))).toBe(
+      true,
+    );
+  });
+
+  it("refuses to audit .github in staged mode while it has unstaged changes", () => {
+    const { io, calls, lines } = fakeIo({
+      names: ".github/workflows/x.yml\n",
+      status:
+        "MM .github/workflows/x.yml\n?? .github/workflows/new.yml\nM  .github/workflows/ok.yml\n",
+    });
+    expect(main(["--staged"], io)).toBe(1);
+    expect(calls.map((call) => [call.command, ...call.args].join(" "))).toContain(
+      "git status --porcelain --untracked-files=all -- .github",
+    );
+    expect(lines).toContain(
+      "zizmor: stage or stash these .github changes first: .github/workflows/x.yml, .github/workflows/new.yml",
+    );
+    expect(calls.some((call) => call.command === "zizmor" && call.args.includes(".github"))).toBe(
+      false,
+    );
+  });
+
+  it("audits staged .github when the worktree matches the index", () => {
+    const { io, lines } = fakeIo({
+      names: ".github/workflows/x.yml\n",
+      status: "M  .github/workflows/x.yml\n",
+    });
+    expect(main(["--staged"], io)).toBe(0);
+    expect(lines).toContain("PASS zizmor");
+  });
+
+  it("applies the staged exceptions file in staged mode", () => {
+    const { io, lines } = fakeIo({
+      staged: { "scripts/standards/exceptions.json": "{" },
+    });
+    expect(main(["--staged"], io)).toBe(1);
+    expect(lines).toContain("FAIL exceptions file");
   });
 });
