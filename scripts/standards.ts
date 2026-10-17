@@ -1,5 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { parseChangedLines } from "../src/lib/diff-coverage";
 import { isCommentScanned, newComments } from "./standards/comments";
 import {
@@ -62,40 +64,32 @@ function report(io: Io, findings: readonly Finding[], exceptions: readonly Stand
   return blocking.length === 0 && problems.length === 0;
 }
 
-function unstagedWorkflows(io: Io) {
-  const status = io.run(
-    "git",
-    ["status", "--porcelain", "--untracked-files=all", "--", ".github"],
-    true,
-  );
+function unstagedChanges(io: Io) {
+  const status = io.run("git", ["status", "--porcelain", "--untracked-files=all"], true);
   return status.stdout
     .split("\n")
     .filter((line) => line.length > 3 && line[1] !== " ")
     .map((line) => line.slice(3));
 }
 
-function zizmor(
-  io: Io,
-  mode: Mode,
-  files: readonly string[],
-  exceptions: readonly StandardsException[],
-) {
+function zizmor(io: Io, files: readonly string[], exceptions: readonly StandardsException[]) {
   if (!files.some((file) => file.startsWith(".github/") || file.startsWith("scripts/standards"))) {
     io.log("zizmor: skipped, no workflow or standards changes");
     return true;
-  }
-  const unstaged = mode.staged ? unstagedWorkflows(io) : [];
-  if (unstaged.length > 0) {
-    io.log(`zizmor: stage or stash these .github changes first: ${unstaged.join(", ")}`);
-    return false;
   }
   const version = io.run("zizmor", ["--version"], true);
   if (version.status !== 0 || version.stdout.trim() !== `zizmor ${ZIZMOR_VERSION}`) {
     io.log(`zizmor ${ZIZMOR_VERSION} is required: pipx install zizmor==${ZIZMOR_VERSION}`);
     return false;
   }
-  const flags = ["--offline", "--no-ignores", "--strict-collection", "--format", "json", ".github"];
-  const result = io.run("zizmor", flags, true);
+  const flags = [
+    "--offline",
+    "--no-ignores",
+    "--no-config",
+    "--collect=all",
+    "--strict-collection",
+  ];
+  const result = io.run("zizmor", [...flags, "--format", "json", ".github"], true);
   try {
     return report(io, parseZizmor(JSON.parse(result.stdout)), exceptions);
   } catch {
@@ -128,6 +122,11 @@ export function main(args: readonly string[], io: Io): number {
     const shown = io.run("git", ["show", `:${file}`], true);
     return shown.status === 0 ? shown.stdout : undefined;
   };
+  const dirty = mode.staged ? unstagedChanges(io) : [];
+  if (dirty.length > 0) {
+    io.log(`standards: stage or stash these changes first: ${dirty.join(", ")}`);
+    return 1;
+  }
   const changed = changedLines(mode, io, content);
   const names = io.run("git", diffArgs(mode, "--name-only", "--diff-filter=ACMR"), true).stdout;
   const paths = [...names.split("\n").filter(Boolean), ...changed.keys()];
@@ -144,7 +143,7 @@ export function main(args: readonly string[], io: Io): number {
     return text === undefined ? [] : newComments(file, text, lines);
   });
   results.push(["no new comments", report(io, comments, exceptions ?? [])]);
-  results.push(["zizmor", zizmor(io, mode, paths, exceptions ?? [])]);
+  results.push(["zizmor", zizmor(io, paths, exceptions ?? [])]);
   tool("tests and 100% changed-line coverage", [
     "test:coverage:diff",
     "--",
@@ -169,5 +168,5 @@ export const realIo: Io = {
   log: (line) => console.log(line),
 };
 
-if (process.argv[1]?.endsWith("scripts/standards.ts"))
+if (resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url))
   process.exitCode = main(process.argv.slice(2), realIo);

@@ -223,7 +223,7 @@ describe("standards entry point", () => {
     });
     expect(main(["--base", "main"], io)).toBe(1);
     expect(calls.map((call) => [call.command, ...call.args].join(" "))).toContain(
-      "zizmor --offline --no-ignores --strict-collection --format json .github",
+      "zizmor --offline --no-ignores --no-config --collect=all --strict-collection --format json .github",
     );
     expect(lines).toEqual(
       expect.arrayContaining([
@@ -256,22 +256,17 @@ describe("standards entry point", () => {
     );
   });
 
-  it("refuses to audit .github in staged mode while it has unstaged changes", () => {
+  it("refuses staged mode while the worktree differs from the index", () => {
     const { io, calls, lines } = fakeIo({
-      names: ".github/workflows/x.yml\n",
-      status:
-        "MM .github/workflows/x.yml\n?? .github/workflows/new.yml\nM  .github/workflows/ok.yml\n",
+      status: "MM .github/workflows/x.yml\n?? eslint.local.js\nM  src/ok.ts\n",
     });
     expect(main(["--staged"], io)).toBe(1);
-    expect(calls.map((call) => [call.command, ...call.args].join(" "))).toContain(
-      "git status --porcelain --untracked-files=all -- .github",
-    );
-    expect(lines).toContain(
-      "zizmor: stage or stash these .github changes first: .github/workflows/x.yml, .github/workflows/new.yml",
-    );
-    expect(calls.some((call) => call.command === "zizmor" && call.args.includes(".github"))).toBe(
-      false,
-    );
+    expect(calls.map((call) => [call.command, ...call.args].join(" "))).toEqual([
+      "git status --porcelain --untracked-files=all",
+    ]);
+    expect(lines).toEqual([
+      "standards: stage or stash these changes first: .github/workflows/x.yml, eslint.local.js",
+    ]);
   });
 
   it("audits staged .github when the worktree matches the index", () => {
