@@ -140,11 +140,8 @@ export function main(args: readonly string[], io: Io): number {
   const allowed = (exceptions ?? []).filter((entry) => entry.rule === COMMENT_RULE);
   results.push(["no new comments", report(io, comments, allowed)]);
   results.push(["zizmor", zizmor(io, paths, exceptions ?? [])]);
-  tool("tests and 100% changed-line coverage", [
-    "test:coverage:diff",
-    "--",
-    ...(mode.staged ? ["--staged"] : ["--base", mode.base]),
-  ]);
+  const range = mode.staged ? ["--staged"] : ["--base", mode.base];
+  tool("tests and 100% changed-line coverage", ["test:coverage:diff", "--", ...range]);
   for (const [name, ok] of results) io.log(`${ok ? "PASS" : "FAIL"} ${name}`);
   const passed = results.every(([, ok]) => ok);
   io.log(passed ? "STANDARDS OK" : "STANDARDS FAIL");
@@ -153,10 +150,8 @@ export function main(args: readonly string[], io: Io): number {
 
 export const realIo: Io = {
   run(command, args, capture) {
-    const result = spawnSync(command, args, {
-      encoding: "utf8",
-      stdio: capture ? "pipe" : "inherit",
-    });
+    const stdio = capture ? "pipe" : "inherit";
+    const result = spawnSync(command, args, { encoding: "utf8", stdio });
     return { status: result.status ?? 1, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
   },
   read: (path) => (existsSync(path) ? readFileSync(path, "utf8") : undefined),

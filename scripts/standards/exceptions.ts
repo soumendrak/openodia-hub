@@ -26,11 +26,10 @@ const exceptionSchema = z
 export type StandardsException = z.infer<typeof exceptionSchema>;
 export type Exceptions = readonly StandardsException[];
 
+const fileSchema = z.object({ exceptions: z.array(exceptionSchema) }).strict();
+
 export function parseExceptions(raw: unknown): StandardsException[] {
-  return z
-    .object({ exceptions: z.array(exceptionSchema) })
-    .strict()
-    .parse(raw).exceptions;
+  return fileSchema.parse(raw).exceptions;
 }
 
 export function consume(pool: string[], item: string): boolean {

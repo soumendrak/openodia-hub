@@ -11,7 +11,12 @@ const zizmorFinding = {
   determinations: { severity: "High" },
   locations: [
     {
-      symbolic: { key: { Local: { verbatim_path: ".github/workflows/x.yml" } }, kind: "Primary" },
+      symbolic: {
+        key: { Local: { verbatim_path: ".github/workflows/x.yml" } },
+        kind: "Primary",
+        route: { route: [{ Key: "on" }, { Key: "pull_request_target" }] },
+        feature_kind: "KeyOnly",
+      },
       concrete: { location: { start_point: { row: 2 } }, feature: "pull_request_target" },
     },
   ],
@@ -348,7 +353,10 @@ describe("standards entry point", () => {
       names: ".github/workflows/x.yml\0",
       zizmorOutput: JSON.stringify([zizmorFinding]),
       exceptions: JSON.stringify({
-        exceptions: [comment, { ...trigger, findings: ["pull_request_target"] }],
+        exceptions: [
+          comment,
+          { ...trigger, findings: ["on.pull_request_target pull_request_target"] },
+        ],
       }),
     });
     expect(main(["--base", "main"], matching.io)).toBe(1);

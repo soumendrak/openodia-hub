@@ -20,16 +20,10 @@ const literalKinds = new Set([
   ts.SyntaxKind.RegularExpressionLiteral,
 ]);
 
-function scriptKind(file: string): ts.ScriptKind {
-  if (file.endsWith(".tsx")) return ts.ScriptKind.TSX;
-  if (file.endsWith(".jsx")) return ts.ScriptKind.JSX;
-  return /\.[cm]?js$/.test(file) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
-}
-
 type Comment = { line: number; endLine: number; text: string };
 
 export function findComments(file: string, text: string): Comment[] {
-  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, scriptKind(file));
+  const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
   const ranges = new Map<number, number>();
   const literals: [number, number][] = [];
   const visit = (node: ts.Node): void => {
