@@ -327,6 +327,20 @@ describe("standards entry point", () => {
     expect(lines).toContain("PASS no new comments");
   });
 
+  it.each([["src/notes.txt"], ["src/routeTree.gen.ts"]])(
+    "scans every comment in a file renamed from unscanned %s",
+    (from) => {
+      const text = "// prose\nexport const a = 1;\n";
+      const { io, lines } = fakeIo({
+        diff: `diff --git a/${from} b/src/a.ts\nsimilarity index 100%\nrename from ${from}\nrename to src/a.ts\n`,
+        files: { "src/a.ts": text },
+        before: { [from]: text },
+      });
+      expect(main(["--base", "main"], io)).toBe(1);
+      expect(lines).toContain("src/a.ts:1 no-new-comments new comment on line 1");
+    },
+  );
+
   it("audits local composite actions alongside the workflows", () => {
     const { io, calls } = fakeIo({
       names: "actions/release/action.yml\0",

@@ -36,6 +36,8 @@ describe("parseExceptions", () => {
   it.each([
     ["a missing reason", { ...entry, reason: "" }],
     ["a missing approver", { ...entry, approvedBy: "" }],
+    ["a whitespace-only reason", { ...entry, reason: "  " }],
+    ["a whitespace-only approver", { ...entry, approvedBy: "\t " }],
     ["a malformed expiry", { ...entry, expires: "soon" }],
     ["an impossible month", { ...entry, expires: "2027-13-01" }],
     ["an impossible day", { ...entry, expires: "2027-02-30" }],

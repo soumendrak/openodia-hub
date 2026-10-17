@@ -25,7 +25,6 @@ export type Io = {
 
 type Mode = { readonly staged: boolean; readonly base: string };
 
-const USAGE = "standards: usage: bun scripts/standards.ts --staged | --base <rev>";
 const DIFF_FLAGS = ["--unified=0", "-M", "--diff-filter=ACMR", "--text"];
 const ZIZMOR_FLAGS = ["--offline", "--no-ignores", "--no-config", "--strict-collection"];
 const TRIGGER = /^(?:\.github\/|scripts\/standards)|(?:^|\/)action\.ya?ml$/;
@@ -92,7 +91,7 @@ function loadExceptions(io: Io, content: (file: string) => string | undefined) {
 export function main(args: readonly string[], io: Io): number {
   const mode = resolveMode(args);
   if (mode === undefined) {
-    io.log(USAGE);
+    io.log("standards: usage: bun scripts/standards.ts --staged | --base <rev>");
     return 2;
   }
   const show = (spec: string) => {
@@ -108,7 +107,13 @@ export function main(args: readonly string[], io: Io): number {
   const patch = diff(io, mode, ...DIFF_FLAGS);
   const changed = parseChangedLines(patch);
   const renames = [...patch.matchAll(/^rename from (.*)\nrename to (.*)$/gm)];
-  const renamed = new Map(renames.map(([, from, to]) => [to, from]));
+  const renamed = new Map(renames.map(([, from, to]) => [String(to), String(from)]));
+  for (const [to, from] of renamed) {
+    if (isCommentScanned(from)) continue;
+    const text = content(to);
+    renamed.delete(to);
+    changed.set(to, new Set(text?.split("\n").map((_, index) => index + 1)));
+  }
   const paths = diff(io, mode, "--name-only", "-z", "--diff-filter=ACMRD").split("\0");
   const quoted = paths.filter((path) => /["\\\p{Cc}]/u.test(path));
   if (quoted.length > 0) {

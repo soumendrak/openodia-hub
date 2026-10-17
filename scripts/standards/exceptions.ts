@@ -7,19 +7,18 @@ export type Finding = Readonly<Record<"rule" | "file" | "message" | "key", strin
 };
 
 const isCalendarDate = (value: string) =>
-  !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().startsWith(value);
+  /^\d{4}-\d{2}-\d{2}$/.test(value) &&
+  !Number.isNaN(Date.parse(value)) &&
+  new Date(value).toISOString().startsWith(value);
 
 const exceptionSchema = z
   .object({
     rule: z.string().min(1),
     file: z.string().min(1),
     findings: z.array(z.string().min(1)).min(1),
-    reason: z.string().min(1),
-    expires: z
-      .string()
-      .regex(/^\d{4}-\d{2}-\d{2}$/)
-      .refine(isCalendarDate),
-    approvedBy: z.string().min(1),
+    reason: z.string().trim().min(1),
+    expires: z.string().refine(isCalendarDate),
+    approvedBy: z.string().trim().min(1),
   })
   .strict();
 

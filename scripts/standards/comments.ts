@@ -4,11 +4,8 @@ import { consume } from "./exceptions";
 export const COMMENT_RULE = "no-new-comments";
 
 const SCANNED = /\.(?:[cm]?[jt]s|[jt]sx)$/;
-const GENERATED = new Set(["src/routeTree.gen.ts"]);
-
-export function isCommentScanned(file: string): boolean {
-  return SCANNED.test(file) && !GENERATED.has(file);
-}
+export const isCommentScanned = (file: string) =>
+  SCANNED.test(file) && file !== "src/routeTree.gen.ts";
 
 type Comment = { line: number; endLine: number; text: string };
 
