@@ -55,7 +55,7 @@ test-watch:
 
 # Run every repository standard against the merge base with origin/main (same command as CI)
 check:
-    bun scripts/standards.ts
+    bun scripts/standards.ts --base "$(git merge-base origin/main HEAD)"
 
 # Browser checks for the Pattachitra theme (needs a running server)
 check-pattachitra url="http://localhost:9090":

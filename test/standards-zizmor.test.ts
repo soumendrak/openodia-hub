@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseZizmor } from "../scripts/standards/zizmor";
+import { parseZizmor, ZIZMOR_REQUIREMENTS, ZIZMOR_VERSION } from "../scripts/standards/zizmor";
 
 type Segment = { Key: string } | { Index: number };
 
@@ -115,5 +116,11 @@ describe("parseZizmor", () => {
 
   it("rejects output it does not recognise", () => {
     expect(() => parseZizmor([{ ident: "x" }])).toThrow();
+  });
+
+  it("installs the checked version from a requirements file where every line carries a hash", () => {
+    const requirements = readFileSync(ZIZMOR_REQUIREMENTS, "utf8");
+    expect(requirements.startsWith(`zizmor==${ZIZMOR_VERSION} \\\n`)).toBe(true);
+    expect(requirements.match(/--hash=sha256:[0-9a-f]{64}/g)).toHaveLength(11);
   });
 });

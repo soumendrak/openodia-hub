@@ -32,7 +32,6 @@ function fakeIo(options: {
   staged?: Record<string, string>;
   before?: Record<string, string>;
   failing?: string[];
-  mergeBase?: number;
   zizmorVersion?: string;
   zizmorOutput?: string;
   exceptions?: string | null;
@@ -50,8 +49,6 @@ function fakeIo(options: {
       const plain = args[0] === "-c" ? args.slice(2) : args;
       const joined = [command, ...plain].join(" ");
       const ok = (stdout: string) => ({ status: 0, stdout, stderr: "" });
-      if (joined.startsWith("git merge-base"))
-        return { status: options.mergeBase ?? 0, stdout: "abc123\n", stderr: "no ref" };
       if (joined.startsWith("git diff") && plain.includes("--name-only"))
         return ok(options.names ?? "");
       if (joined.startsWith("git diff")) return ok(options.diff ?? "");
@@ -94,15 +91,15 @@ describe("standards entry point", () => {
   it("rejects unknown arguments", () => {
     const { io, lines } = fakeIo({});
     expect(main(["--nope"], io)).toBe(2);
-    expect(lines).toEqual(["standards: usage: bun scripts/standards.ts [--staged | --base <rev>]"]);
+    expect(lines).toEqual(["standards: usage: bun scripts/standards.ts --staged | --base <rev>"]);
     expect(main(["--base"], io)).toBe(2);
+    expect(main([], io)).toBe(2);
   });
 
-  it("runs every step against the merge base by default and passes", () => {
+  it("runs every step against the given base and passes", () => {
     const { io, calls, lines } = fakeIo({});
-    expect(main([], io)).toBe(0);
+    expect(main(["--base", "abc123"], io)).toBe(0);
     expect(calls.map((call) => [call.command, ...call.args].join(" "))).toEqual([
-      "git merge-base origin/main HEAD",
       "git status --porcelain --untracked-files=all",
       "git -c core.quotePath=false diff abc123 --unified=0 -M --diff-filter=ACMR --text",
       "git -c core.quotePath=false diff abc123 --name-only -z --diff-filter=ACMRD",
@@ -113,14 +110,6 @@ describe("standards entry point", () => {
     ]);
     expect(lines.at(-1)).toBe("STANDARDS OK");
     expect(lines).toContain("zizmor: skipped, no workflow or standards changes");
-  });
-
-  it("fails when the merge base cannot be found", () => {
-    const { io, lines } = fakeIo({ mergeBase: 1 });
-    expect(main([], io)).toBe(2);
-    expect(lines).toEqual([
-      "standards: cannot find the merge base of origin/main and HEAD: no ref",
-    ]);
   });
 
   it("reports each failing tool and keeps running the rest", () => {
@@ -288,7 +277,7 @@ describe("standards entry point", () => {
     const wrong = fakeIo({ names, zizmorVersion: `zizmor ${ZIZMOR_VERSION}0` });
     expect(main(["--base", "main"], wrong.io)).toBe(1);
     expect(wrong.lines).toContain(
-      `zizmor ${ZIZMOR_VERSION} is required: pipx install zizmor==${ZIZMOR_VERSION}`,
+      `zizmor ${ZIZMOR_VERSION} is required: pip install --require-hashes -r scripts/standards/zizmor-requirements.txt`,
     );
     const broken = fakeIo({ names, zizmorOutput: "not json" });
     expect(main(["--base", "main"], broken.io)).toBe(1);
@@ -353,22 +342,32 @@ describe("standards entry point", () => {
     );
   });
 
-  it("fails on unused comment and zizmor exceptions, each in its own step", () => {
+  it("keeps a comment exception while its comment is in the file, and fails it once the text is gone", () => {
     const base = { reason: "Baseline.", expires: "2027-01-17", approvedBy: "soumendrak" };
     const comment = { ...base, rule: "no-new-comments", file: "src/a.ts", findings: ["// MIT"] };
     const trigger = { ...base, rule: "zizmor/dangerous-triggers", file: ".github/workflows/x.yml" };
-    const matching = fakeIo({
+    const exceptions = JSON.stringify({
+      exceptions: [
+        comment,
+        { ...trigger, findings: ["on.pull_request_target pull_request_target"] },
+      ],
+    });
+    const kept = fakeIo({
       names: ".github/workflows/x.yml\0",
       zizmorOutput: JSON.stringify([zizmorFinding]),
-      exceptions: JSON.stringify({
-        exceptions: [
-          comment,
-          { ...trigger, findings: ["on.pull_request_target pull_request_target"] },
-        ],
-      }),
+      files: { "src/a.ts": "// MIT\nexport {};\n" },
+      exceptions,
     });
-    expect(main(["--base", "main"], matching.io)).toBe(1);
-    expect(matching.lines).toEqual(
+    expect(main(["--base", "main"], kept.io)).toBe(0);
+    expect(kept.lines).toEqual(expect.arrayContaining(["PASS no new comments", "PASS zizmor"]));
+    const gone = fakeIo({
+      names: ".github/workflows/x.yml\0",
+      zizmorOutput: JSON.stringify([zizmorFinding]),
+      files: { "src/a.ts": "export {};\n" },
+      exceptions,
+    });
+    expect(main(["--base", "main"], gone.io)).toBe(1);
+    expect(gone.lines).toEqual(
       expect.arrayContaining([
         "no-new-comments in src/a.ts: no longer found, remove from scripts/standards/exceptions.json: // MIT",
         "FAIL no new comments",
@@ -386,5 +385,43 @@ describe("standards entry point", () => {
         "FAIL zizmor",
       ]),
     );
+  });
+
+  it("passes a later PR whose base already has an approved comment, and blocks another copy", () => {
+    const exceptions = JSON.stringify({
+      exceptions: [
+        {
+          rule: "no-new-comments",
+          file: "src/a.ts",
+          findings: ["// MIT"],
+          reason: "License header.",
+          expires: "2027-01-17",
+          approvedBy: "soumendrak",
+        },
+      ],
+    });
+    const prA = fakeIo({
+      exceptions,
+      diff: diffFor("src/a.ts", 1, 2),
+      files: { "src/a.ts": "// MIT\nexport const a = 1;\n" },
+    });
+    expect(main(["--base", "main"], prA.io)).toBe(0);
+    const merged = "// MIT\nexport const a = 1;\n";
+    const prB = fakeIo({
+      exceptions,
+      diff: diffFor("src/a.ts", 3, 1),
+      files: { "src/a.ts": `${merged}export const b = 2;\n` },
+      before: { "src/a.ts": merged },
+    });
+    expect(main(["--base", "main"], prB.io)).toBe(0);
+    expect(prB.lines).toContain("PASS no new comments");
+    const copy = fakeIo({
+      exceptions,
+      diff: diffFor("src/a.ts", 3, 1),
+      files: { "src/a.ts": `${merged}// MIT\n` },
+      before: { "src/a.ts": merged },
+    });
+    expect(main(["--base", "main"], copy.io)).toBe(1);
+    expect(copy.lines).toContain("src/a.ts:3 no-new-comments new comment on line 3");
   });
 });

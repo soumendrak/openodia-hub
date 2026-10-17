@@ -3,16 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseChangedLines } from "../src/lib/diff-coverage";
-import { COMMENT_RULE, isCommentScanned, newComments } from "./standards/comments";
+import { COMMENT_RULE, findComments, isCommentScanned, newComments } from "./standards/comments";
 import {
   applyExceptions,
   checkExceptions,
   EXCEPTIONS_PATH,
   parseExceptions,
   type Exceptions,
-  type Finding,
+  type StandardsException,
 } from "./standards/exceptions";
-import { parseZizmor, ZIZMOR_VERSION } from "./standards/zizmor";
+import { parseZizmor, ZIZMOR_INSTALL, ZIZMOR_VERSION } from "./standards/zizmor";
 
 export type RunResult = Readonly<{ status: number; stdout: string; stderr: string }>;
 
@@ -25,20 +25,16 @@ export type Io = {
 
 type Mode = { readonly staged: boolean; readonly base: string };
 
-const USAGE = "standards: usage: bun scripts/standards.ts [--staged | --base <rev>]";
+const USAGE = "standards: usage: bun scripts/standards.ts --staged | --base <rev>";
 const DIFF_FLAGS = ["--unified=0", "-M", "--diff-filter=ACMR", "--text"];
 const ZIZMOR_FLAGS = ["--offline", "--no-ignores", "--no-config", "--strict-collection"];
 const TRIGGER = /^(?:\.github\/|scripts\/standards)|(?:^|\/)action\.ya?ml$/;
 const AUDITED = [".github/workflows/*.yml", ".github/workflows/*.yaml", ".github/dependabot.yml"];
 
-function resolveMode(args: readonly string[], io: Io): Mode | string {
+function resolveMode(args: readonly string[]): Mode | undefined {
   if (args.length === 1 && args[0] === "--staged") return { staged: true, base: "" };
   if (args.length === 2 && args[0] === "--base" && args[1]) return { staged: false, base: args[1] };
-  if (args.length > 0) return USAGE;
-  const found = io.run("git", ["merge-base", "origin/main", "HEAD"], true);
-  if (found.status !== 0)
-    return `standards: cannot find the merge base of origin/main and HEAD: ${found.stderr.trim()}`;
-  return { staged: false, base: found.stdout.trim() };
+  return undefined;
 }
 
 function diff(io: Io, mode: Mode, ...flags: string[]) {
@@ -46,8 +42,7 @@ function diff(io: Io, mode: Mode, ...flags: string[]) {
   return io.run("git", ["-c", "core.quotePath=false", "diff", target, ...flags], true).stdout;
 }
 
-function report(io: Io, findings: readonly Finding[], exceptions: Exceptions) {
-  const { blocking, problems } = applyExceptions(findings, exceptions);
+function report(io: Io, { blocking, problems }: ReturnType<typeof applyExceptions>) {
   for (const finding of blocking)
     io.log(`${finding.file}:${finding.line} ${finding.rule} ${finding.message}`);
   for (const problem of problems) io.log(problem);
@@ -69,7 +64,7 @@ function zizmor(io: Io, files: readonly string[], exceptions: Exceptions) {
   }
   const version = io.run("zizmor", ["--version"], true);
   if (version.status !== 0 || version.stdout.trim() !== `zizmor ${ZIZMOR_VERSION}`) {
-    io.log(`zizmor ${ZIZMOR_VERSION} is required: pipx install zizmor==${ZIZMOR_VERSION}`);
+    io.log(`zizmor ${ZIZMOR_VERSION} is required: ${ZIZMOR_INSTALL}`);
     return false;
   }
   const actions = [":(glob)**/action.yml", ":(glob)**/action.yaml"];
@@ -78,7 +73,7 @@ function zizmor(io: Io, files: readonly string[], exceptions: Exceptions) {
   const result = io.run("zizmor", [...ZIZMOR_FLAGS, "--format", "json", ...inputs], true);
   const baseline = exceptions.filter((entry) => entry.rule.startsWith("zizmor/"));
   try {
-    return report(io, parseZizmor(JSON.parse(result.stdout)), baseline);
+    return report(io, applyExceptions(parseZizmor(JSON.parse(result.stdout)), baseline));
   } catch {
     io.log(`zizmor: ${result.stderr.trim()}`);
     return false;
@@ -95,9 +90,9 @@ function loadExceptions(io: Io, content: (file: string) => string | undefined) {
 }
 
 export function main(args: readonly string[], io: Io): number {
-  const mode = resolveMode(args, io);
-  if (typeof mode === "string") {
-    io.log(mode);
+  const mode = resolveMode(args);
+  if (mode === undefined) {
+    io.log(USAGE);
     return 2;
   }
   const show = (spec: string) => {
@@ -138,7 +133,9 @@ export function main(args: readonly string[], io: Io): number {
       return text === undefined ? [] : newComments(file, text, lines, before);
     });
   const allowed = (exceptions ?? []).filter((entry) => entry.rule === COMMENT_RULE);
-  results.push(["no new comments", report(io, comments, allowed)]);
+  const present = ({ file }: StandardsException) =>
+    findComments(file, content(file) ?? "").map((comment) => comment.text);
+  results.push(["no new comments", report(io, applyExceptions(comments, allowed, present))]);
   results.push(["zizmor", zizmor(io, paths, exceptions ?? [])]);
   const range = mode.staged ? ["--staged"] : ["--base", mode.base];
   tool("tests and 100% changed-line coverage", ["test:coverage:diff", "--", ...range]);

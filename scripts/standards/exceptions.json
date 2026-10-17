@@ -5,7 +5,7 @@
       "file": ".github/workflows/check-links.yml",
       "findings": ["jobs.check-links.steps.* uses: actions/checkout@v4"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-03-12",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -19,7 +19,7 @@
         "jobs.preview.steps.* uses: actions/checkout@v4"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-01-29",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -27,7 +27,7 @@
       "file": ".github/workflows/crawl-events.yml",
       "findings": ["jobs.crawl.steps.* uses: actions/checkout@v5"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-02-26",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -35,7 +35,7 @@
       "file": ".github/workflows/sync-contributors.yml",
       "findings": ["jobs.sync.steps.* uses: actions/checkout@v4"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-03-26",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -46,7 +46,7 @@
         "jobs.preview.steps.*.uses uses: oven-sh/setup-bun@v2"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-01-29",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -58,7 +58,7 @@
         "on.issue_comment issue_comment"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-01-15",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -66,7 +66,7 @@
       "file": ".github/workflows/check-links.yml",
       "findings": ["jobs.check-links check-links:"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-03-12",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -74,7 +74,7 @@
       "file": ".github/workflows/ci.yml",
       "findings": ["name: CI", "jobs.build build:", "jobs.e2e e2e:", "jobs.deploy deploy:"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-01-29",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -82,7 +82,7 @@
       "file": ".github/workflows/crawl-events.yml",
       "findings": ["jobs.crawl crawl:"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-02-26",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -90,7 +90,7 @@
       "file": ".github/workflows/sync-contributors.yml",
       "findings": ["jobs.sync sync:"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-03-26",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -98,7 +98,7 @@
       "file": ".github/workflows/ci.yml",
       "findings": ["jobs.preview.steps.*.with.script steps.deploy.outputs.deployment-url"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-01-29",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -109,7 +109,7 @@
         "jobs.check-links.steps.*.uses oven-sh/setup-bun@v2"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-03-12",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -137,7 +137,7 @@
         "jobs.preview.steps.*.uses actions/github-script@v7"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-01-29",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -149,7 +149,7 @@
         "jobs.crawl.steps.*.uses peter-evans/create-pull-request@v7"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-02-26",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -160,7 +160,7 @@
         "jobs.sync.steps.*.uses oven-sh/setup-bun@v2"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-03-26",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -168,7 +168,7 @@
       "file": ".github/workflows/translation-review-notification.yml",
       "findings": ["jobs.notify-review-change.steps.*.uses actions/github-script@v7"],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-02-12",
       "approvedBy": "pending-review:soumendrak"
     },
     {
@@ -179,7 +179,7 @@
         "jobs.publish-native-review.steps.*.uses actions/github-script@v7"
       ],
       "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-17",
+      "expires": "2027-01-15",
       "approvedBy": "pending-review:soumendrak"
     }
   ]

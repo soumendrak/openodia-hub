@@ -65,14 +65,16 @@ describe("checkExceptions", () => {
   });
 });
 
+const apply = (found: readonly Finding[]) => applyExceptions(found, [entry]);
+
 describe("applyExceptions", () => {
   it("allows exactly the grandfathered findings", () => {
-    expect(applyExceptions(grandfathered, [entry])).toEqual({ blocking: [], problems: [] });
+    expect(apply(grandfathered)).toEqual({ blocking: [], problems: [] });
   });
 
   it("blocks a new finding swapped in for a fixed one, replaying the count-only gap", () => {
     const swapped = [...grandfathered.slice(0, 2), finding("actions/upload-artifact@v4", 9)];
-    expect(applyExceptions(swapped, [entry])).toEqual({
+    expect(apply(swapped)).toEqual({
       blocking: [finding("actions/upload-artifact@v4", 9)],
       problems: [
         "zizmor/unpinned-uses in .github/workflows/ci.yml: no longer found, remove from scripts/standards/exceptions.json: actions/checkout@v4",
@@ -82,12 +84,20 @@ describe("applyExceptions", () => {
 
   it("blocks one more copy of a grandfathered finding", () => {
     const extra = [...grandfathered, finding("actions/checkout@v4", 7)];
-    expect(applyExceptions(extra, [entry]).blocking).toEqual([finding("actions/checkout@v4", 7)]);
+    expect(apply(extra).blocking).toEqual([finding("actions/checkout@v4", 7)]);
   });
 
   it("blocks findings with no exception", () => {
     const other = { ...finding("x"), file: ".github/workflows/new.yml" };
-    expect(applyExceptions([other], [entry]).blocking).toEqual([other]);
+    expect(apply([other]).blocking).toEqual([other]);
+  });
+
+  it("approves listed copies that are present even when no new finding uses them", () => {
+    const present = () => ["actions/checkout@v4", "actions/checkout@v4", "oven-sh/setup-bun@v2"];
+    expect(applyExceptions([], [entry], present)).toEqual({ blocking: [], problems: [] });
+    const extra = finding("actions/checkout@v4", 9);
+    const more = () => [...present(), "actions/checkout@v4"];
+    expect(applyExceptions([extra], [entry], more).blocking).toEqual([extra]);
   });
 });
 

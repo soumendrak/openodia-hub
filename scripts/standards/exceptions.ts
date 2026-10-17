@@ -51,16 +51,24 @@ export function checkExceptions(exceptions: Exceptions, today: string) {
   });
 }
 
-export function applyExceptions(findings: readonly Finding[], entries: Exceptions) {
-  const allowed = new Map(
-    entries.map((entry) => [key(entry.rule, entry.file), [...entry.findings]]),
-  );
-  const blocking = findings.filter(
-    (finding) => !consume(allowed.get(key(finding.rule, finding.file)) ?? [], finding.key),
-  );
-  const unused = [...allowed].filter(([, left]) => left.length > 0);
-  const problems = unused.map(
-    ([id, left]) => `${id}: no longer found, remove from ${EXCEPTIONS_PATH}: ${left.join(" | ")}`,
-  );
-  return { blocking, problems };
+export function applyExceptions(
+  findings: readonly Finding[],
+  entries: Exceptions,
+  present = ({ rule, file }: StandardsException): readonly string[] =>
+    findings.filter((item) => item.rule === rule && item.file === file).map((item) => item.key),
+) {
+  const unapproved = new Map<string, string[]>();
+  const problems: string[] = [];
+  for (const entry of entries) {
+    const id = key(entry.rule, entry.file);
+    const listed = [...entry.findings];
+    const extra = present(entry).filter((item) => !consume(listed, item));
+    unapproved.set(id, extra);
+    const stale = `${id}: no longer found, remove from ${EXCEPTIONS_PATH}: ${listed.join(" | ")}`;
+    if (listed.length > 0) problems.push(stale);
+  }
+  const pool = (finding: Finding) =>
+    unapproved.get(key(finding.rule, finding.file)) ?? [finding.key];
+  const blocking = [...findings].reverse().filter((finding) => consume(pool(finding), finding.key));
+  return { blocking: blocking.reverse(), problems };
 }

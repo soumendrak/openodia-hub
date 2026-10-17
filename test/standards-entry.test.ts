@@ -14,7 +14,7 @@ describe("standards CLI entry", () => {
     process.argv = [argv[0] ?? "bun", resolve("scripts", "standards.ts"), "--nope"];
     await import("../scripts/standards");
     expect(log).toHaveBeenCalledWith(
-      "standards: usage: bun scripts/standards.ts [--staged | --base <rev>]",
+      "standards: usage: bun scripts/standards.ts --staged | --base <rev>",
     );
     expect(process.exitCode).toBe(2);
   });

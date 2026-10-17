@@ -10,16 +10,6 @@ export function isCommentScanned(file: string): boolean {
   return SCANNED.test(file) && !GENERATED.has(file);
 }
 
-const literalKinds = new Set([
-  ts.SyntaxKind.JsxText,
-  ts.SyntaxKind.StringLiteral,
-  ts.SyntaxKind.NoSubstitutionTemplateLiteral,
-  ts.SyntaxKind.TemplateHead,
-  ts.SyntaxKind.TemplateMiddle,
-  ts.SyntaxKind.TemplateTail,
-  ts.SyntaxKind.RegularExpressionLiteral,
-]);
-
 type Comment = { line: number; endLine: number; text: string };
 
 export function findComments(file: string, text: string): Comment[] {
@@ -27,7 +17,8 @@ export function findComments(file: string, text: string): Comment[] {
   const ranges = new Map<number, number>();
   const literals: [number, number][] = [];
   const visit = (node: ts.Node): void => {
-    const literal = literalKinds.has(node.kind);
+    const { FirstLiteralToken, LastTemplateToken } = ts.SyntaxKind;
+    const literal = node.kind >= FirstLiteralToken && node.kind <= LastTemplateToken;
     const jsxText = node.kind === ts.SyntaxKind.JsxText;
     if (literal) literals.push([jsxText ? node.pos : node.getStart(source), node.end]);
     const around = [

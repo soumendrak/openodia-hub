@@ -2,6 +2,8 @@ import { z } from "zod";
 import type { Finding } from "./exceptions";
 
 export const ZIZMOR_VERSION = "1.31.1";
+export const ZIZMOR_REQUIREMENTS = "scripts/standards/zizmor-requirements.txt";
+export const ZIZMOR_INSTALL = `pip install --require-hashes -r ${ZIZMOR_REQUIREMENTS}`;
 
 const segment = z.object({ Key: z.string() }).or(z.object({ Index: z.number() }));
 
