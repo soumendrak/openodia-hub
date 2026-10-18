@@ -200,7 +200,17 @@ describe("isolated module lint gates", () => {
       overrideConfigFile: true,
       overrideConfig: [
         ...config,
-        { files: ["src/**/*.ts"], languageOptions: { parserOptions: { project: false } } },
+        {
+          files: ["src/**/*.ts"],
+          languageOptions: {
+            parser: {
+              parseForESLint: (code: string) => ({
+                ...tseslint.parser.parseForESLint(code),
+                services: {},
+              }),
+            },
+          },
+        },
       ],
     });
     await expect(
