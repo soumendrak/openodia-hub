@@ -147,6 +147,12 @@ const ownedTypes = {
     const declare = (node: Node & { id?: Node | null }) =>
       node.id && declarations.push([bound(node.id), node]);
     const exported = (node: Node) => !!node.parent?.type.startsWith("Export");
+    const alias = (node: Node & { id: TSESTree.Identifier | null }, exposed: () => boolean) => {
+      declare(node);
+      const name = node.id?.name ?? "";
+      aliases.set(name, exposed);
+      check(node, "relay", () => exported(node) && exposes(name));
+    };
     const sink = (node: Node, type: Node | null | undefined, value: Node | null | undefined) =>
       check(node, "parsed", () => mentions(type) && untyped(value));
     return {
@@ -156,26 +162,15 @@ const ownedTypes = {
       },
       TSImportEqualsDeclaration(node) {
         const ref = node.moduleReference;
-        declare(node);
-        aliases.set(node.id.name, () => mentions(ref));
+        alias(node, () => mentions(ref));
         if (ref.type === "TSExternalModuleReference" && owned(ref.expression.value))
           imported.add(node.id.name);
       },
-      "ClassDeclaration, FunctionDeclaration, TSDeclareFunction, TSEnumDeclaration, TSModuleDeclaration":
-        declare,
-      TSTypeAliasDeclaration(node) {
-        declare(node);
-        aliases.set(
-          node.id.name,
-          () => holds(node.typeAnnotation, mentions) || mentions(node.typeParameters),
-        );
-        check(node, "relay", () => exported(node) && exposes(node.id.name));
-      },
-      TSInterfaceDeclaration(node) {
-        declare(node);
-        aliases.set(node.id.name, () => node.extends.some(mentions));
-        check(node, "relay", () => exported(node) && exposes(node.id.name));
-      },
+      "FunctionDeclaration, TSDeclareFunction, TSEnumDeclaration, TSModuleDeclaration": declare,
+      TSTypeAliasDeclaration: (node) =>
+        alias(node, () => holds(node.typeAnnotation, mentions) || mentions(node.typeParameters)),
+      TSInterfaceDeclaration: (node) => alias(node, () => node.extends.some(mentions)),
+      ClassDeclaration: (node) => alias(node, () => node.implements.some(mentions)),
       VariableDeclarator(node) {
         declare(node);
         const { id, init } = node;
