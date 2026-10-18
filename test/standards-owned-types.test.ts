@@ -127,6 +127,8 @@ const flagged: Record<string, string> = {
   R45: "declare function morph<T>(value: unknown, proof: unknown): T;\nexport const e = morph<CanonicalEvent>(raw, isoDay(s)!);",
   R46: "function bad<T>(seed: T): T {\n  let result!: T;\n  return seed && result;\n}\nexport const e = bad(event);",
   R47: 'export function process<T extends { event: CanonicalEvent }>(event: T["event"] = JSON.parse(s)) {\n  return save(event);\n}',
+  R48: "function fake(): never {\n  return undefined!;\n}\nexport const e: CanonicalEvent = fake();",
+  R49: 'import { make } from "fake-lib";\nfunction bad<T>(seed: T): T {\n  void seed;\n  return make<T>();\n}\nexport const e = bad(event);',
   R35: `type Many = ${Array.from({ length: 2600 }, (_, i) => `{ a${i}: ${i} }`).join(" | ")} | { last: CanonicalEvent };\nexport const e = raw as Many;`,
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",
