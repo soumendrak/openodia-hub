@@ -42,19 +42,30 @@ export const httpsUrl = refine((value: string): value is HttpsUrl => {
 
 export const text = refine((value: string): value is Text => value.trim() !== "", "blank-text");
 
-type ExactShape = { readonly kind: "exact"; readonly start: IsoDay; readonly end: IsoDay };
+type DateParts = {
+  readonly start: IsoDay;
+  readonly end: IsoDay;
+  readonly previous: IsoDay | null;
+};
+
+type ExactShape = { readonly kind: "exact" } & DateParts;
 
 export type ExactDates = Brand<ExactShape, "ExactDates">;
 
 export type Dates = ExactDates | { readonly kind: "approximate"; readonly label: Text };
 
-const checkDates = refine(
-  (shape: ExactShape): shape is ExactDates => shape.start <= shape.end,
-  "end-before-start",
-);
+const isExactDates = (shape: ExactShape): shape is ExactDates =>
+  shape.start <= shape.end && shape.previous !== shape.start;
 
-export const dates = ({ start, end }: { readonly start: IsoDay; readonly end: IsoDay }) =>
-  checkDates({ kind: "exact", start, end });
+export function dates({
+  start,
+  end,
+  previous,
+}: DateParts): Result<ExactDates, "end-before-start" | "moved-to-same-day"> {
+  const shape: ExactShape = Object.freeze({ kind: "exact", start, end, previous });
+  if (isExactDates(shape)) return { ok: true, value: shape };
+  return { ok: false, error: end < start ? "end-before-start" : "moved-to-same-day" };
+}
 
 export type Field<T> =
   | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }
@@ -66,14 +77,11 @@ export type Field<T> =
     }
   | { readonly kind: "cleared"; readonly at: IsoInstant; readonly evidence: HttpsUrl };
 
-type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: IsoInstant };
+type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: IsoDay | IsoInstant };
 
-export type Lifecycle = (
-  | { readonly kind: "scheduled" }
-  | { readonly kind: "postponed"; readonly previous: IsoDay | null; readonly rescheduled: boolean }
-  | { readonly kind: "cancelled" }
-) &
-  Verified;
+export type Lifecycle = {
+  readonly kind: "scheduled" | "postponed" | "rescheduled" | "cancelled";
+} & Verified;
 
 export type Attendance = {
   readonly policy: (typeof ATTENDANCE_POLICIES)[number];
@@ -85,7 +93,7 @@ export type Registration =
       readonly state: "unknown";
       readonly url: HttpsUrl | null;
       readonly evidenceUrl: HttpsUrl | null;
-      readonly verifiedAt: IsoInstant | null;
+      readonly verifiedAt: IsoDay | IsoInstant | null;
     }
   | ({
       readonly state: Exclude<(typeof REGISTRATION_STATES)[number], "unknown">;
@@ -126,31 +134,11 @@ type Values = {
 
 export type CanonicalEvent = { readonly [K in keyof Values]: Field<Values[K]> };
 
-type CorrectionShape = {
+export type Correction = {
   readonly at: IsoInstant;
   readonly evidence: HttpsUrl;
   readonly patch: { readonly [K in keyof Values]?: Values[K] };
 };
-
-export type Correction = Brand<CorrectionShape, "Correction">;
-
-const isCorrection = (shape: CorrectionShape): shape is Correction => {
-  const { dates, lifecycle } = shape.patch;
-  if (lifecycle?.kind !== "postponed" || !lifecycle.rescheduled) return true;
-  return dates?.kind === "exact" && dates.start !== lifecycle.previous;
-};
-
-export function correction({
-  at,
-  evidence,
-  patch,
-}: CorrectionShape): Result<Correction, "rescheduled-without-dates" | "moved-to-same-day"> {
-  const shape = { at, evidence, patch: { ...patch } };
-  if (isCorrection(shape)) return { ok: true, value: shape };
-  const error =
-    shape.patch.dates?.kind === "exact" ? "moved-to-same-day" : "rescheduled-without-dates";
-  return { ok: false, error };
-}
 
 function rank<T>(field: Field<T>) {
   if (field.kind !== "upstream") return `2${field.at}${JSON.stringify(field)}`;
