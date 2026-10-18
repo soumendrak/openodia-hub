@@ -10,7 +10,7 @@ async function lint(filePath: string, code: string) {
 }
 
 const internalImport =
-  "isolated/internal-imports: Import from src/events, src/boundary or src/platform, not from their internal/ files.";
+  "isolated/internal-imports: Import from src/events (or whichever module owns this internal/ folder), not from its internal/ files.";
 
 const literalOnly =
   "isolated/internal-imports: Load modules by plain string paths with no wildcard directories so the internal/ fence can check them.";
@@ -111,7 +111,8 @@ describe("isolated module lint gates", () => {
 
   it.each([
     ["src/routes/fixture.ts", "../events/parsers/../internal/x"],
-    ["src/events/parsers/fixture.js", "../../boundary/internal/x"],
+    ["src/lib/parsers/fixture.ts", "../../boundary/internal/x"],
+    ["src/routes/fixture.ts", "@/lib/internal/x"],
   ])("rejects %s importing %s once the path is resolved", async (file, source) => {
     expect(await lint(file, `import { x } from "${source}";\n\nexport const y = x;\n`)).toEqual([
       internalImport,
@@ -120,8 +121,8 @@ describe("isolated module lint gates", () => {
 
   it.each([
     ["src/routes/fixture.ts", "@/events"],
-    ["src/events/parsers/fixture.js", "../internal/normalize"],
-    ["src/events/parsers/fixture.js", "@/events/internal/normalize"],
+    ["src/lib/parsers/fixture.ts", "../internal/normalize"],
+    ["src/lib/parsers/fixture.ts", "@/lib/internal/normalize"],
     ["src/routes/fixture.ts", "../internal/x"],
     ["src/routes/fixture.ts", "./internal/x"],
     ["src/routes/fixture.ts", "@/lib/internals"],
@@ -129,6 +130,21 @@ describe("isolated module lint gates", () => {
     expect(await lint(file, `import { x } from "${source}";\n\nexport const y = x;\n`)).toEqual([]);
     expect(await lint(file, `export const load = () => import("${source}");\n`)).toEqual([]);
   });
+
+  it("allows new.target.glob, which is not a Vite glob", async () => {
+    const code =
+      "export class Loader {\n  constructor(name: string) {\n    new.target.glob(name);\n  }\n}\n";
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
+  });
+
+  it.each(["src/events/fixture.js", "src/boundary/fixture.mjs", "src/platform/fixture.cjs"])(
+    "rejects JavaScript in the strict module %s",
+    async (file) => {
+      expect(await lint(file, "globalThis.x = 1;\n")).toEqual([
+        "no-restricted-syntax: Write src/events, src/boundary and src/platform in TypeScript so the strict typecheck and lint cover them.",
+      ]);
+    },
+  );
 
   it("keeps the server-only import ban", async () => {
     expect(await lint("src/routes/fixture.ts", 'import "server-only";\n')).toEqual([
@@ -171,6 +187,9 @@ describe("isolated module lint gates", () => {
     'import type { CanonicalEvent } from "@/events";\n\nexport type Event = { value: CanonicalEvent }["value"];\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Event = ReturnType<() => CanonicalEvent>;\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Events = [CanonicalEvent?];\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Event<T = CanonicalEvent> = T;\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Event<T extends CanonicalEvent> = T;\n',
+    'import * as Events from "@/events";\n\nimport Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Events = [...CanonicalEvent[]];\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects renaming CanonicalEvent: %s", async (code) => {

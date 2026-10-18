@@ -48,6 +48,19 @@ export default defineConfig(
     rules: { "isolated/internal-imports": "error" },
   },
   {
+    files: ["src/{events,boundary,platform}/**/*.{js,jsx,mjs,cjs}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Program",
+          message:
+            "Write src/events, src/boundary and src/platform in TypeScript so the strict typecheck and lint cover them.",
+        },
+      ],
+    },
+  },
+  {
     files: ["src/{events,boundary,platform}/**/*.{ts,tsx,mts,cts}"],
     extends: [...tseslint.configs.strictTypeChecked],
     languageOptions: {
