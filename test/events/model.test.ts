@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   applyCorrection,
+  dates,
   httpsUrl,
   isoDay,
   isoInstant,
@@ -8,7 +9,10 @@ import {
   schedule,
   text,
   type CanonicalEvent,
+  type Dates,
   type Field,
+  type Notice,
+  type Registration,
   type Result,
   type Schedule,
 } from "../../src/events/model";
@@ -59,18 +63,21 @@ function schedules(rng: Random) {
   const attempts = DAYS.map(() => {
     const start = rng.pick(DAYS);
     const end = rng.pick(DAYS);
-    return { start, end, result: schedule({ kind: "range", start, end }) };
+    return { start, end, result: dates({ start, end }) };
   });
-  const built = attempts.flatMap(({ result }) => (result.ok ? [result.value] : []));
-  built.push(
-    unwrap(schedule({ kind: "day", day: rng.pick(DAYS) })),
-    unwrap(schedule({ kind: "postponed", previous: rng.pick(DAYS), replacement: null })),
-    unwrap(schedule({ kind: "cancelled", day: null })),
-  );
+  const day = rng.pick(DAYS);
+  const ranges = [unwrap(dates({ start: day, end: day }))];
+  for (const { result } of attempts) if (result.ok) ranges.push(result.value);
+  const built = ranges.flatMap((range) => [
+    unwrap(schedule({ kind: "scheduled", dates: range })),
+    unwrap(schedule({ kind: "cancelled", dates: rng.pick([range, null]) })),
+    unwrap(schedule({ kind: "postponed", previous: null, dates: rng.pick([range, null]) })),
+  ]);
   return { attempts, built };
 }
 
-const notice = { kind: "venue", text: "Moved.", evidenceUrl: EVIDENCE, verifiedAt: JAN } as const;
+const notice: Notice = { kind: "venue", text: A, evidenceUrl: EVIDENCE, verifiedAt: JAN };
+const open: Registration = { state: "open", url: null, evidenceUrl: EVIDENCE, verifiedAt: FEB };
 
 function event(rng: Random): CanonicalEvent {
   return {
@@ -79,13 +86,14 @@ function event(rng: Random): CanonicalEvent {
     schedule: field(rng, schedules(rng).built),
     location: field(rng, [...TEXTS, null]),
     attendance: field(rng, [null, { policy: "public", note: "Open." }]),
-    registration: field(rng, [null, { state: "unknown" }]),
+    registration: field(rng, [null, { state: "unknown", url: EVIDENCE }, open]),
     notices: field(rng, [[], [notice]]),
   };
 }
 
-const ordered = (value: Schedule) => value.kind !== "range" || value.start <= value.end;
-const orderedField = (value: Field<Schedule>) => value.kind === "cleared" || ordered(value.value);
+const ordered = (value: Dates | null) => value === null || value.start <= value.end;
+const orderedField = (value: Field<Schedule>) =>
+  value.kind === "cleared" || ordered(value.value.dates);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 describe("parsers", () => {
@@ -107,7 +115,7 @@ describe("parsers", () => {
   });
 });
 
-describe("schedule", () => {
+describe("dates and schedule", () => {
   it("rejects exactly the ranges that end before they start, over 20,000 random draws", () => {
     const rng = random(12345);
     const wrong: string[] = [];
@@ -119,10 +127,43 @@ describe("schedule", () => {
       }
     expect(wrong).toEqual([]);
     expect(rejected).toBeGreaterThan(10_000);
-    expect(schedule({ kind: "range", start: MARCH_5, end: MARCH_1 })).toEqual({
+    expect(dates({ start: MARCH_5, end: MARCH_1 })).toEqual({
       ok: false,
       error: "end-before-start",
     });
+  });
+
+  it("keeps a cancelled or postponed event's whole date range", () => {
+    const range = unwrap(dates({ start: MARCH_1, end: MARCH_5 }));
+    expect(unwrap(schedule({ kind: "cancelled", dates: range })).dates).toEqual(range);
+    const later = unwrap(dates({ start: APRIL_10, end: APRIL_10 }));
+    expect(unwrap(schedule({ kind: "postponed", previous: MARCH_1, dates: later }))).toEqual({
+      kind: "postponed",
+      previous: MARCH_1,
+      dates: later,
+    });
+  });
+
+  it("rejects a postponement to the day it already had", () => {
+    const range = unwrap(dates({ start: MARCH_1, end: MARCH_5 }));
+    expect(schedule({ kind: "postponed", previous: MARCH_1, dates: range })).toEqual({
+      ok: false,
+      error: "postponed-to-same-day",
+    });
+  });
+});
+
+describe("nested facts", () => {
+  it("require evidence for a known registration state and https evidence on notices", () => {
+    expectTypeOf<{ state: "open"; url: null }>().not.toExtend<Registration>();
+    expectTypeOf<{ state: "unknown"; url: null }>().toExtend<Registration>();
+    expectTypeOf<{
+      kind: "venue";
+      text: string;
+      evidenceUrl: string;
+      verifiedAt: string;
+    }>().not.toExtend<Notice>();
+    expectTypeOf(open).toExtend<Registration>();
   });
 });
 
@@ -143,12 +184,16 @@ describe("join", () => {
 
   it("keeps an older reviewed range over a newer upstream start day", () => {
     const base = event(random(1));
-    const range = unwrap(schedule({ kind: "range", start: MARCH_1, end: MARCH_5 }));
+    const range = unwrap(
+      schedule({ kind: "scheduled", dates: unwrap(dates({ start: MARCH_1, end: MARCH_5 })) }),
+    );
     const reviewed: CanonicalEvent = {
       ...base,
       schedule: { kind: "reviewed", value: range, at: FEB, evidence: EVIDENCE },
     };
-    const moved = unwrap(schedule({ kind: "day", day: APRIL_10 }));
+    const moved = unwrap(
+      schedule({ kind: "scheduled", dates: unwrap(dates({ start: APRIL_10, end: APRIL_10 })) }),
+    );
     const upstream: CanonicalEvent = {
       ...base,
       schedule: { kind: "upstream", value: moved, seen: MAR },
@@ -173,7 +218,11 @@ describe("applyCorrection", () => {
   const base: CanonicalEvent = {
     title: { kind: "reviewed", value: A, at: FEB, evidence: EVIDENCE },
     description: seen(B),
-    schedule: seen(unwrap(schedule({ kind: "day", day: MARCH_1 }))),
+    schedule: seen(
+      unwrap(
+        schedule({ kind: "scheduled", dates: unwrap(dates({ start: MARCH_1, end: MARCH_1 })) }),
+      ),
+    ),
     location: seen(C),
     attendance: seen(null),
     registration: seen(null),

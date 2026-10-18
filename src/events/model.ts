@@ -1,4 +1,8 @@
-import type { Event, EventNotice, EventRegistration } from "@/data/events/types";
+import type {
+  ATTENDANCE_POLICIES,
+  EVENT_NOTICE_KINDS,
+  REGISTRATION_STATES,
+} from "@/data/events/types";
 
 declare const brand: unique symbol;
 type Brand<T, B extends string> = T & { readonly [brand]: B };
@@ -12,54 +16,53 @@ export type Result<T, E> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: E };
 
-function parser<T extends string, E extends string>(
-  valid: (value: string) => value is T,
-  error: E,
-) {
-  return (value: string): Result<T, E> =>
-    valid(value) ? { ok: true, value } : { ok: false, error };
+function refine<S, T extends S, E extends string>(valid: (value: S) => value is T, error: E) {
+  return (value: S): Result<T, E> => (valid(value) ? { ok: true, value } : { ok: false, error });
 }
 
 const roundTrips = (value: string, length: number) =>
   !Number.isNaN(Date.parse(value)) && new Date(value).toISOString().slice(0, length) === value;
 
-export const isoDay = parser(
-  (value): value is IsoDay => /^\d{4}-\d{2}-\d{2}$/.test(value) && roundTrips(value, 10),
+export const isoDay = refine(
+  (value: string): value is IsoDay => /^\d{4}-\d{2}-\d{2}$/.test(value) && roundTrips(value, 10),
   "invalid-day",
 );
 
-export const isoInstant = parser(
-  (value): value is IsoInstant =>
+export const isoInstant = refine(
+  (value: string): value is IsoInstant =>
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && roundTrips(value, 24),
   "invalid-instant",
 );
 
-export const httpsUrl = parser((value): value is HttpsUrl => {
+export const httpsUrl = refine((value: string): value is HttpsUrl => {
   if (!URL.canParse(value)) return false;
   const url = new URL(value);
   return url.protocol === "https:" && !url.username && !url.password;
 }, "invalid-url");
 
-export const text = parser((value): value is Text => value.trim() !== "", "blank-text");
+export const text = refine((value: string): value is Text => value.trim() !== "", "blank-text");
+
+type DatesShape = { readonly start: IsoDay; readonly end: IsoDay };
+
+export type Dates = Brand<DatesShape, "Dates">;
+
+export const dates = refine(
+  (shape: DatesShape): shape is Dates => shape.start <= shape.end,
+  "end-before-start",
+);
 
 type ScheduleShape =
-  | { readonly kind: "day"; readonly day: IsoDay }
-  | { readonly kind: "range"; readonly start: IsoDay; readonly end: IsoDay }
-  | {
-      readonly kind: "postponed";
-      readonly previous: IsoDay | null;
-      readonly replacement: IsoDay | null;
-    }
-  | { readonly kind: "cancelled"; readonly day: IsoDay | null };
+  | { readonly kind: "scheduled"; readonly dates: Dates }
+  | { readonly kind: "postponed"; readonly previous: IsoDay | null; readonly dates: Dates | null }
+  | { readonly kind: "cancelled"; readonly dates: Dates | null };
 
 export type Schedule = Brand<ScheduleShape, "Schedule">;
 
-const ordered = (shape: ScheduleShape): shape is Schedule =>
-  shape.kind !== "range" || shape.start <= shape.end;
-
-export function schedule(shape: ScheduleShape): Result<Schedule, "end-before-start"> {
-  return ordered(shape) ? { ok: true, value: shape } : { ok: false, error: "end-before-start" };
-}
+export const schedule = refine(
+  (shape: ScheduleShape): shape is Schedule =>
+    shape.kind !== "postponed" || shape.previous !== shape.dates?.start,
+  "postponed-to-same-day",
+);
 
 export type Field<T> =
   | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }
@@ -71,9 +74,24 @@ export type Field<T> =
     }
   | { readonly kind: "cleared"; readonly at: IsoInstant; readonly evidence: HttpsUrl };
 
-export type Attendance = Readonly<NonNullable<Event["attendance"]>>;
-export type Registration = Readonly<EventRegistration>;
-export type Notice = Readonly<EventNotice>;
+type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: IsoInstant };
+
+export type Attendance = {
+  readonly policy: (typeof ATTENDANCE_POLICIES)[number];
+  readonly note: string;
+};
+
+export type Registration =
+  | { readonly state: "unknown"; readonly url: HttpsUrl | null }
+  | ({
+      readonly state: Exclude<(typeof REGISTRATION_STATES)[number], "unknown">;
+      readonly url: HttpsUrl | null;
+    } & Verified);
+
+export type Notice = {
+  readonly kind: (typeof EVENT_NOTICE_KINDS)[number];
+  readonly text: Text;
+} & Verified;
 
 type Values = {
   title: Text;
