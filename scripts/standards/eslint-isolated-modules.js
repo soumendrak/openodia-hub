@@ -90,8 +90,16 @@ function target(specifier, importer) {
   return undefined;
 }
 
+function decoded(path) {
+  try {
+    return decodeURIComponent(path);
+  } catch {
+    return path;
+  }
+}
+
 function outsideOwner(specifier, importer) {
-  const segments = target(specifier, importer)?.split("/") ?? [];
+  const segments = target(decoded(specifier), importer)?.split("/") ?? [];
   const index = segments.lastIndexOf("internal");
   return index > 0 && !importer.startsWith(`${segments.slice(0, index).join("/")}/`);
 }

@@ -101,6 +101,7 @@ describe("isolated module lint gates", () => {
     ["scripts/fixture.js", 'export const load = () => import("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = module.require("../src/events/internal/x");\n'],
+    ["scripts/fixture.mjs", 'export { x } from "../src/events/%69nternal/x.ts";\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/in" + "ternal/x");\n'],
     ["src/fixture.jsx", 'export { x } from "./events/internal/x";\n'],
   ])("rejects the JavaScript consumer %s", async (file, code) => {
@@ -126,6 +127,7 @@ describe("isolated module lint gates", () => {
     ["src/routes/fixture.ts", "../internal/x"],
     ["src/routes/fixture.ts", "./internal/x"],
     ["src/routes/fixture.ts", "@/lib/internals"],
+    ["src/routes/fixture.ts", "@/lib/100%"],
   ])("allows %s importing %s", async (file, source) => {
     expect(await lint(file, `import { x } from "${source}";\n\nexport const y = x;\n`)).toEqual([]);
     expect(await lint(file, `export const load = () => import("${source}");\n`)).toEqual([]);
