@@ -130,6 +130,7 @@ const flagged: Record<string, string> = {
   R48: "function fake(): never {\n  return undefined!;\n}\nexport const e: CanonicalEvent = fake();",
   R49: 'import { make } from "fake-lib";\nfunction bad<T>(seed: T): T {\n  void seed;\n  return make<T>();\n}\nexport const e = bad(event);',
   R50: "export class Registry {\n  static event: CanonicalEvent;\n}",
+  R51: 'import { seeded } from "fake-lib";\nexport const e = seeded<CanonicalEvent>(undefined);',
   R35: `type Many = ${Array.from({ length: 2600 }, (_, i) => `{ a${i}: ${i} }`).join(" | ")} | { last: CanonicalEvent };\nexport const e = raw as Many;`,
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",

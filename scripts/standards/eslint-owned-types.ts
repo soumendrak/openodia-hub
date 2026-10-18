@@ -173,9 +173,9 @@ export const ownedTypes = {
       );
       const container = checker.isArrayType(type) || checker.isTupleType(type) || !local(type);
       if (library && empty && container && type.getSymbol()) return;
-      const into = args.map((a) => checker.getContextualType(nodes.get(a) as ts.Expression));
-      const passed = [...receiver.map(typeOf), ...into.filter((t) => t !== undefined)];
-      const carried = new Set([declared, ...passed].flatMap((t) => (t ? brands(t) : [])));
+      const to = args.map((a) => checker.getContextualType(nodes.get(a) as ts.Expression));
+      const via = [...receiver.map(typeOf), ...to.filter((_, i) => brands(typeOf(args[i]!))[0])];
+      const carried = new Set([declared, ...via].flatMap((t) => (t ? brands(t) : [])));
       const missing = result.filter((m) => !carried.has(m));
       const cast = declared && generic(declared) && owner && laundered(owner);
       const here = cast && context.sourceCode.parserServices?.tsNodeToESTreeNodeMap?.get(cast);
