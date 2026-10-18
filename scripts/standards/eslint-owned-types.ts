@@ -211,14 +211,14 @@ export const ownedTypes = {
         report(node, "declared", brands(declaredReturn(signature as ts.SignatureDeclaration)));
       },
       ":expression"(node: TSESTree.Expression) {
-        const type = typeOf(node);
-        const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
-        if (wrapper || !hollow(type)) return;
         const tsNode = nodes.get(node);
         const target = ts.isExpression(tsNode) && sink(node, tsNode);
+        const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
+        const type = !wrapper && target && brands(target).length && typeOf(node);
+        if (!target || !type || !hollow(type)) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const throws = type.flags & Never && call && "body" in call && call.body;
-        if (target && !throws) report(node, "unsafe", brands(target));
+        if (!throws) report(node, "unsafe", brands(target));
       },
     } satisfies TSESLint.RuleListener;
   },
