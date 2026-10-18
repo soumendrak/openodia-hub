@@ -37,7 +37,7 @@ function decoded(path: string) {
 }
 
 const resolved = (specifier: string, importer: string) =>
-  target(decoded(specifier.split(/[?#]/)[0] ?? ""), importer) ?? "";
+  target(decoded(specifier.split(/[?#]/)[0] ?? "").replaceAll("\\", "/"), importer) ?? "";
 
 function outsideOwner(specifier: string, importer: string) {
   const segments = resolved(specifier, importer).split("/");
@@ -180,6 +180,7 @@ const ownedTypes = {
       VariableDeclarator(node) {
         declare(node);
         const { id, init } = node;
+        sink(node, id.typeAnnotation, init);
         if (id.type !== "Identifier" || !init) return;
         aliases.set(id.name, () => relays(init));
         check(node, "relay", () => exported(node.parent) && exposes(id.name));
@@ -189,8 +190,6 @@ const ownedTypes = {
       },
       Identifier(node) {
         if (node.typeAnnotation) declarations.push([[node.name], node.typeAnnotation]);
-        if (node.parent.type === "VariableDeclarator" && node.parent.id === node)
-          sink(node.parent, node.typeAnnotation, node.parent.init);
       },
       ReturnStatement: (node) => sink(node, enclosing(node), node.argument),
       "ArrowFunctionExpression[expression=true]": (node: TSESTree.ArrowFunctionExpression) =>
@@ -205,9 +204,12 @@ const ownedTypes = {
         if (node.typeArguments)
           check(node.typeArguments, "typeArgument", () => mentions(node.typeArguments));
       },
-      "TSAsExpression, TSTypeAssertion"(node: TSESTree.TSAsExpression | TSESTree.TSTypeAssertion) {
+      "TSAsExpression, TSTypeAssertion, TSTypePredicate"(
+        node: TSESTree.TSAsExpression | TSESTree.TSTypeAssertion | TSESTree.TSTypePredicate,
+      ) {
         check(node, "assertion", () => mentions(node.typeAnnotation));
       },
+      TSSatisfiesExpression: (node) => sink(node, node.typeAnnotation, node.expression),
       ExportNamedDeclaration(node) {
         check(node, "relay", () => owned(node.source?.value));
       },
