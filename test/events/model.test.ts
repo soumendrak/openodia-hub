@@ -287,6 +287,12 @@ describe("nested facts", () => {
     expect(() => Reflect.construct(ExactDates, [MARCH_5, MARCH_1, null])).toThrow(TypeError);
   });
 
+  it("copies notices by index, rejecting empty slots and ignoring a list's own iterator", () => {
+    const skipping = Object.assign([venue], { *[Symbol.iterator]() {} });
+    expect(notices(new Array<Notice>(1))).toEqual({ ok: false, error: "missing-notice" });
+    expect(unwrap(notices(skipping))).toEqual([venue]);
+  });
+
   it("keeps a branded notice list independent of the array it was built from", () => {
     const source = Array.from({ length: 20 }, () => venue);
     const branded = unwrap(notices(source));

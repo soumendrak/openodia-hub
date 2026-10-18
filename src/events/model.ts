@@ -192,12 +192,17 @@ export const notice = ({
 
 export type Notices = Brand<readonly Notice[], "Notices">;
 
-const checkNotices = refine(
-  (list: readonly Notice[]): list is Notices => list.length <= 20,
-  "too-many-notices",
+const listed = refine(
+  (list: readonly (Notice | undefined)[]): list is Notices =>
+    list.every((entry) => entry instanceof NoticeRecord),
+  "missing-notice",
 );
 
-export const notices = (list: readonly Notice[]) => checkNotices(Object.freeze([...list]));
+export function notices(list: readonly Notice[]) {
+  const { length } = list;
+  if (length > 20) return fail("too-many-notices");
+  return listed(Object.freeze(Array.from({ length }, (_, index) => list[index])));
+}
 
 type Values = {
   title: Text;
