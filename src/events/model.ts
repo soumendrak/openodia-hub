@@ -141,8 +141,12 @@ const checkNotices = refine(
   "too-many-notices",
 );
 
-export const notices = (list: readonly Notice[]) =>
-  checkNotices(Object.freeze(list.map((entry) => Object.freeze({ ...entry }))));
+export const notices = (
+  list: readonly Notice[],
+): Result<Notices, "too-many-notices" | "sparse-notices"> =>
+  list.reduce((count) => count + 1, 0) < list.length
+    ? { ok: false, error: "sparse-notices" }
+    : checkNotices(Object.freeze(list.map((entry) => Object.freeze({ ...entry }))));
 
 type Values = {
   title: Text;

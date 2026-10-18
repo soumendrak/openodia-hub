@@ -245,6 +245,13 @@ describe("nested facts", () => {
     });
   });
 
+  it("rejects a notice list with empty slots", () => {
+    const holed = new Array<Notice>(2);
+    holed[1] = notice;
+    for (const list of [new Array<Notice>(1), holed])
+      expect(notices(list)).toEqual({ ok: false, error: "sparse-notices" });
+  });
+
   it("keeps a branded notice list independent of the array it was built from", () => {
     const source = Array.from({ length: 20 }, () => notice);
     const branded = unwrap(notices(source));
