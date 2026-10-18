@@ -439,16 +439,17 @@ describe("applyCorrection", () => {
     expect(cancelled.dates.value).toEqual(moved);
   });
 
-  it("lets a correction's own dates win over its rescheduled range", () => {
+  it("keeps one range when a correction sets both dates and a rescheduled lifecycle", () => {
+    const moved = range(APRIL_10, APRIL_10, MARCH_1);
     const corrected = applyCorrection(base, {
       at: MAR,
       evidence: EVIDENCE,
       patch: {
         dates: range(MARCH_5, APRIL_10),
-        lifecycle: { kind: "rescheduled", dates: range(APRIL_10, APRIL_10, MARCH_1), ...checked },
+        lifecycle: { kind: "rescheduled", dates: moved, ...checked },
       },
     });
-    expect(corrected.dates.value).toEqual(range(MARCH_5, APRIL_10));
+    expect(corrected.dates.value).toEqual(moved);
   });
 
   it("does not let an older correction overwrite a newer review", () => {

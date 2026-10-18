@@ -181,7 +181,7 @@ export function applyCorrection(event: CanonicalEvent, correction: Correction): 
   return {
     title: review(event.title, patch.title),
     description: review(event.description, patch.description),
-    dates: review(event.dates, patch.dates ?? moved),
+    dates: review(event.dates, moved ?? patch.dates),
     lifecycle: review(event.lifecycle, patch.lifecycle),
     location: review(event.location, patch.location),
     attendance: review(event.attendance, patch.attendance),
