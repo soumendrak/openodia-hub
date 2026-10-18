@@ -7,7 +7,7 @@ import config from "../../eslint.config.js";
 
 const MODULE = "src/events";
 const FIXTURES = `src/lib/guard-fixture-${String(process.pid)}`;
-const UNBRANDED = ["Attendance", "Field", "Result"];
+const UNBRANDED = ["Result"];
 
 const files = readdirSync(MODULE, { recursive: true, encoding: "utf8" })
   .filter((file) => /\.tsx?$/.test(file) && !file.includes("guard-fixture-"))
@@ -34,16 +34,20 @@ const exports = files.flatMap((file) => {
       ts.isClassDeclaration(statement) ||
       ts.isEnumDeclaration(statement);
     const value = ts.isFunctionDeclaration(statement) || ts.isVariableStatement(statement);
-    return names.map((name) => ({ name, specifier, type, value }));
+    const generics = "typeParameters" in statement ? (statement.typeParameters?.length ?? 0) : 0;
+    const args = generics
+      ? `<${Array.from({ length: generics }, () => "unknown").join(", ")}>`
+      : "";
+    return names.map((name) => ({ name, specifier, type, value, args }));
   });
 });
 
 const probes = new Map<string, string>([
   ...exports
     .filter(({ type, name }) => type && !UNBRANDED.includes(name))
-    .map(({ name, specifier }): [string, string] => [
+    .map(({ name, specifier, args }): [string, string] => [
       `type-${name}`,
-      `import type { ${name} } from "${specifier}";\n\ndeclare const raw: unknown;\n\nexport const value = raw as ${name};\n`,
+      `import type { ${name} } from "${specifier}";\n\ndeclare const raw: unknown;\n\nexport const value = raw as ${name}${args};\n`,
     ]),
   ...exports
     .filter(({ value }) => value)
@@ -53,7 +57,7 @@ const probes = new Map<string, string>([
     ]),
   [
     "merge-exact-dates",
-    'import { dates, isoDay } from "@/events/model";\n\nconst day = isoDay("2026-04-10");\nconst range = day.ok ? dates({ start: day.value, end: day.value, previous: null }) : undefined;\n\nexport const forged = range?.ok && Object.assign({}, range.value, { start: "2026-03-05" });\n',
+    'import { ExactDates, isoDay } from "@/events/model";\n\nconst day = isoDay("2026-04-10");\nconst range = day.ok ? ExactDates.of({ start: day.value, end: day.value, previous: null }) : undefined;\n\nexport const forged = range?.ok && Object.assign({}, range.value, { start: "2026-03-05" });\n',
   ],
 ]);
 

@@ -1,16 +1,19 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   applyCorrection,
-  dates,
+  attendance,
   ExactDates,
   httpsUrl,
   isoDay,
   isoInstant,
   join,
+  notice,
   notices,
   noticeText,
+  reviewed,
   text,
   timestamp,
+  upstream,
   type CanonicalEvent,
   type Attendance,
   type Correction,
@@ -61,9 +64,8 @@ function random(seed: number) {
 type Random = ReturnType<typeof random>;
 
 function field<T>(rng: Random, values: readonly T[]): Field<T> {
-  if (rng.next() < 0.45)
-    return { kind: "upstream", value: rng.pick(values), seen: rng.pick(TIMES) };
-  return { kind: "reviewed", value: rng.pick(values), at: rng.pick(TIMES), evidence: EVIDENCE };
+  if (rng.next() < 0.45) return upstream(rng.pick(values), rng.pick(TIMES));
+  return reviewed(rng.pick(values), rng.pick(TIMES), EVIDENCE);
 }
 
 function ranges(rng: Random) {
@@ -71,10 +73,13 @@ function ranges(rng: Random) {
     const start = rng.pick(DAYS);
     const end = rng.pick(DAYS);
     const previous = rng.next() < 0.5 ? null : rng.pick(DAYS);
-    return { start, end, previous, result: dates({ start, end, previous }) };
+    return { start, end, previous, result: ExactDates.of({ start, end, previous }) };
   });
   const day = rng.pick(DAYS);
-  const built: Dates[] = [unwrap(dates({ start: day, end: day, previous: null })), LATE_2025];
+  const built: Dates[] = [
+    unwrap(ExactDates.of({ start: day, end: day, previous: null })),
+    LATE_2025,
+  ];
   for (const { result } of attempts) if (result.ok) built.push(result.value);
   return { attempts, built };
 }
@@ -85,7 +90,7 @@ const range = (
   start: typeof MARCH_1,
   end: typeof MARCH_1,
   previous: typeof MARCH_1 | null = null,
-) => unwrap(dates({ start, end, previous }));
+) => unwrap(ExactDates.of({ start, end, previous }));
 const LIFECYCLES: (Lifecycle | null)[] = [
   null,
   { kind: "scheduled", ...checked },
@@ -93,13 +98,14 @@ const LIFECYCLES: (Lifecycle | null)[] = [
   { kind: "rescheduled", ...checked },
   { kind: "cancelled", ...checked },
 ];
-const notice: Notice = {
+const MOVED = {
   kind: "venue",
   text: unwrap(noticeText("Moved.")),
   evidenceUrl: EVIDENCE,
   verifiedAt: VERIFIED,
-};
-const NOTICES = [unwrap(notices([])), unwrap(notices([notice]))];
+} as const;
+const venue = notice(MOVED);
+const NOTICES = [unwrap(notices([])), unwrap(notices([venue]))];
 const open: Registration = {
   state: "open",
   url: null,
@@ -120,7 +126,7 @@ function event(rng: Random): CanonicalEvent {
     dates: field(rng, ranges(rng).built),
     lifecycle: field(rng, LIFECYCLES),
     location: field(rng, [...TEXTS, null]),
-    attendance: field(rng, [null, { policy: "public", note: "Open." }]),
+    attendance: field(rng, [null, attendance("public", "Open.")]),
     registration: field(rng, [null, unknown, open]),
     notices: field(rng, NOTICES),
   };
@@ -174,11 +180,11 @@ describe("dates", () => {
       }
     expect(wrong).toEqual([]);
     expect(rejected).toBeGreaterThan(10_000);
-    expect(dates({ start: MARCH_5, end: MARCH_1, previous: null })).toEqual({
+    expect(ExactDates.of({ start: MARCH_5, end: MARCH_1, previous: null })).toEqual({
       ok: false,
       error: "end-before-start",
     });
-    expect(dates({ start: MARCH_1, end: MARCH_5, previous: MARCH_1 })).toEqual({
+    expect(ExactDates.of({ start: MARCH_1, end: MARCH_5, previous: MARCH_1 })).toEqual({
       ok: false,
       error: "moved-to-same-day",
     });
@@ -186,35 +192,33 @@ describe("dates", () => {
 
   it("keeps branded dates independent of the object they were built from", () => {
     const source = { start: MARCH_1, end: MARCH_5, previous: null };
-    const branded = unwrap(dates(source));
+    const branded = unwrap(ExactDates.of(source));
     source.end = MARCH_1;
     expect(branded.end).toBe(MARCH_5);
   });
 
   it("freezes a branded notice list so a mutable alias cannot grow it past 20", () => {
     const alias: { [index: number]: Notice } = unwrap(
-      notices(Array.from({ length: 20 }, () => notice)),
+      notices(Array.from({ length: 20 }, () => venue)),
     );
-    expect(() => (alias[20] = notice)).toThrow(TypeError);
+    expect(() => (alias[20] = venue)).toThrow(TypeError);
   });
 
-  it("copies and freezes each notice so neither its source nor a mutable alias can change it", () => {
-    const source = { ...notice };
-    const [entry] = unwrap(notices([source]));
+  it("builds each notice as a frozen copy that neither its source nor a mutable alias can change", () => {
+    const source = { ...MOVED };
+    const built = notice(source);
     source.text = unwrap(noticeText("Changed."));
-    const alias: { text: string } | undefined = entry;
-    expect(entry?.text).toBe("Moved.");
-    expect(() => alias && (alias.text = "")).toThrow(TypeError);
+    const alias: { text: string } = built;
+    expect(built.text).toBe("Moved.");
+    expect(() => (alias.text = "")).toThrow(TypeError);
   });
 
   it("only lets nullable fields be cleared, and only by a reviewed null", () => {
-    type Cleared = { kind: "reviewed"; value: null; at: typeof MAR; evidence: typeof EVIDENCE };
-    type Tombstone = { kind: "cleared"; at: typeof MAR; evidence: typeof EVIDENCE };
-    expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["title"]>();
-    expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["dates"]>();
-    expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["notices"]>();
-    expectTypeOf<Cleared>().toExtend<CanonicalEvent["location"]>();
-    expectTypeOf<Tombstone>().not.toExtend<CanonicalEvent["location"]>();
+    const cleared = reviewed(null, MAR, EVIDENCE);
+    expectTypeOf(cleared).not.toExtend<CanonicalEvent["title"]>();
+    expectTypeOf(cleared).not.toExtend<CanonicalEvent["dates"]>();
+    expectTypeOf(cleared).not.toExtend<CanonicalEvent["notices"]>();
+    expectTypeOf(cleared).toExtend<CanonicalEvent["location"]>();
   });
 
   it("freezes branded dates so a mutable alias cannot put the end before the start", () => {
@@ -230,82 +234,53 @@ describe("dates", () => {
     const checkedRange = range(MARCH_1, MARCH_5);
     expectTypeOf({ ...checkedRange, start: APRIL_10 }).not.toExtend<ExactDates>();
     expectTypeOf({ ...checkedRange }).not.toExtend<Dates>();
-    const merged: object = Object.assign({}, checkedRange, { start: APRIL_10 });
-    expect(ExactDates.has(merged)).toBe(false);
-    expect(ExactDates.has(checkedRange)).toBe(true);
-    expect(ExactDates.has(LATE_2025)).toBe(false);
   });
 });
 
 describe("nested facts", () => {
   it("caps notices at 20", () => {
-    expect(notices(Array.from({ length: 20 }, () => notice)).ok).toBe(true);
-    expect(notices(Array.from({ length: 21 }, () => notice))).toEqual({
+    expect(notices(Array.from({ length: 20 }, () => venue)).ok).toBe(true);
+    expect(notices(Array.from({ length: 21 }, () => venue))).toEqual({
       ok: false,
       error: "too-many-notices",
     });
   });
 
-  it("rejects a notice list with empty slots", () => {
-    const holed = new Array<Notice>(2);
-    holed[1] = notice;
-    for (const list of [new Array<Notice>(1), holed])
-      expect(notices(list)).toEqual({ ok: false, error: "sparse-notices" });
+  it("builds fields, attendance and notices only through their constructors, frozen", () => {
+    expectTypeOf<{ kind: "upstream"; value: typeof A; seen: typeof JAN }>().not.toExtend<
+      Field<typeof A>
+    >();
+    expectTypeOf<{
+      kind: "reviewed";
+      value: typeof A;
+      at: typeof JAN;
+      evidence: typeof EVIDENCE;
+    }>().not.toExtend<Field<typeof A>>();
+    expectTypeOf({ ...upstream(A, JAN) }).not.toExtend<Field<typeof A>>();
+    expectTypeOf<{ policy: "public"; note: string }>().not.toExtend<Attendance>();
+    expectTypeOf([{ ...MOVED }]).not.toExtend<Parameters<typeof notices>[0]>();
+    const field: { value: unknown } = upstream(A, JAN);
+    const review: { value: unknown } = reviewed(A, JAN, EVIDENCE);
+    const policy: { note: string } = attendance("public", "Open.");
+    expect(() => (field.value = B)).toThrow(TypeError);
+    expect(() => (review.value = B)).toThrow(TypeError);
+    expect(() => (policy.note = "")).toThrow(TypeError);
   });
 
-  it("brands a plain array even when the input array's species is something else", () => {
-    class Odd extends Array<Notice> {}
-    Object.defineProperty(Odd, Symbol.species, { value: class {} });
-    expect(unwrap(notices(Odd.from([notice])))).toEqual([notice]);
+  it("takes review and correction times only as canonical instants", () => {
+    expectTypeOf<typeof VERIFIED>().not.toExtend<Parameters<typeof reviewed>[1]>();
+    expectTypeOf<typeof VERIFIED>().not.toExtend<Correction["at"]>();
+    expectTypeOf<typeof JAN>().toExtend<Correction["at"]>();
   });
 
   it("builds exact dates only through ExactDates.of, even reflectively", () => {
     expect(() => Reflect.construct(ExactDates, [MARCH_5, MARCH_1, null])).toThrow(TypeError);
   });
 
-  it("rejects an oversized notice list without reading its entries", () => {
-    const read: number[] = [];
-    const list = new Proxy(new Array<Notice>(21).fill(notice), {
-      get: (target, key, receiver) => {
-        if (typeof key === "string" && /^\d+$/.test(key)) read.push(Number(key));
-        return Reflect.get(target, key, receiver);
-      },
-    });
-    expect(notices(list)).toEqual({ ok: false, error: "too-many-notices" });
-    expect(read).toEqual([]);
-  });
-
-  it("copies every notice even when the input array's iterator skips them", () => {
-    class Hiding extends Array<Notice> {
-      override [Symbol.iterator]() {
-        return [][Symbol.iterator]();
-      }
-    }
-    expect(unwrap(notices(Hiding.from([notice])))).toEqual([notice]);
-  });
-
-  it("copies a notice's declared fields even when they are getters", () => {
-    class Getters {
-      get kind() {
-        return notice.kind;
-      }
-      get text() {
-        return notice.text;
-      }
-      get evidenceUrl() {
-        return notice.evidenceUrl;
-      }
-      get verifiedAt() {
-        return notice.verifiedAt;
-      }
-    }
-    expect(unwrap(notices([new Getters()]))).toEqual([notice]);
-  });
-
   it("keeps a branded notice list independent of the array it was built from", () => {
-    const source = Array.from({ length: 20 }, () => notice);
+    const source = Array.from({ length: 20 }, () => venue);
     const branded = unwrap(notices(source));
-    source.push(notice);
+    source.push(venue);
     expect(branded).toHaveLength(20);
   });
 
@@ -314,25 +289,15 @@ describe("nested facts", () => {
     const moved = range(APRIL_10, APRIL_10, MARCH_1);
     const curated: CanonicalEvent = {
       ...event(random(5)),
-      dates: { kind: "upstream", value: LATE_2025, seen: JAN },
+      dates: upstream(LATE_2025, JAN),
     };
     const corrected = applyCorrection(curated, {
       at: MAR,
       evidence: EVIDENCE,
       patch: { lifecycle: rescheduled, dates: moved },
     });
-    expect(corrected.lifecycle).toEqual({
-      kind: "reviewed",
-      value: rescheduled,
-      at: MAR,
-      evidence: EVIDENCE,
-    });
-    expect(corrected.dates).toEqual({
-      kind: "reviewed",
-      value: moved,
-      at: MAR,
-      evidence: EVIDENCE,
-    });
+    expect(corrected.lifecycle).toEqual(reviewed(rescheduled, MAR, EVIDENCE));
+    expect(corrected.dates).toEqual(reviewed(moved, MAR, EVIDENCE));
     expectTypeOf<{ kind: "cancelled" }>().not.toExtend<Lifecycle>();
     expectTypeOf<{
       kind: "rescheduled";
@@ -369,7 +334,8 @@ describe("nested facts", () => {
     }>().not.toExtend<Notice>();
     expectTypeOf(open).toExtend<Registration>();
     expectTypeOf({ ...open, verifiedAt: VERIFIED_DAY }).toExtend<Registration>();
-    expectTypeOf({ ...notice, verifiedAt: VERIFIED_DAY }).toExtend<Notice>();
+    expectTypeOf({ ...MOVED, verifiedAt: VERIFIED_DAY }).toExtend<Parameters<typeof notice>[0]>();
+    expectTypeOf({ ...venue }).not.toExtend<Notice>();
     expectTypeOf<{
       kind: "cancelled";
       evidenceUrl: typeof OFFICIAL;
@@ -393,51 +359,10 @@ describe("join", () => {
     expect(broken).toEqual([]);
   });
 
-  it("ranks a value that refers to itself", () => {
-    const looped: { policy: "public"; note: string; self?: object } = {
-      policy: "public",
-      note: "Open.",
-    };
-    looped.self = looped;
-    const looping: CanonicalEvent = {
-      ...event(random(11)),
-      attendance: { kind: "upstream", value: looped, seen: MAR },
-    };
-    expect(join(looping, looping)).toEqual(looping);
-  });
-
-  it("ranks a field whose declared value refers back to the field", () => {
-    const looping: Field<Attendance> & Attendance = {
-      kind: "upstream",
-      seen: MAR,
-      policy: "public",
-      note: "Open.",
-      get value() {
-        return looping;
-      },
-    };
-    const holding: CanonicalEvent = { ...event(random(16)), attendance: looping };
-    expect(join(holding, holding)).toEqual(holding);
-  });
-
-  it("orders fields that are callable objects by their declared properties", () => {
-    const shared = event(random(17));
-    const holding = (note: string): CanonicalEvent => ({
-      ...shared,
-      attendance: Object.assign(() => undefined, {
-        kind: "upstream" as const,
-        value: { policy: "public" as const, note },
-        seen: MAR,
-      }),
-    });
-    const [a, b] = [holding("Open."), holding("Closed.")];
-    expect(join(a, b).attendance).toBe(join(b, a).attendance);
-  });
-
   it("keeps parsed values from changing through a widened mutable alias", () => {
     const widened: { ok: boolean; value?: unknown }[] = [
       text("Valid"),
-      dates({ start: MARCH_1, end: MARCH_5, previous: null }),
+      ExactDates.of({ start: MARCH_1, end: MARCH_5, previous: null }),
     ];
     for (const alias of widened)
       expect(() => {
@@ -448,10 +373,9 @@ describe("join", () => {
   it("keeps rejected parses from turning into successes through a widened mutable alias", () => {
     const widened: { ok: boolean }[] = [
       text(""),
-      dates({ start: MARCH_5, end: MARCH_1, previous: null }),
-      dates({ start: MARCH_1, end: MARCH_5, previous: MARCH_1 }),
-      notices(new Array<Notice>(1)),
-      notices(Array.from({ length: 21 }, () => notice)),
+      ExactDates.of({ start: MARCH_5, end: MARCH_1, previous: null }),
+      ExactDates.of({ start: MARCH_1, end: MARCH_5, previous: MARCH_1 }),
+      notices(Array.from({ length: 21 }, () => venue)),
     ];
     for (const alias of widened)
       expect(() => {
@@ -459,60 +383,29 @@ describe("join", () => {
       }).toThrow(TypeError);
   });
 
-  it("ranks values that hold a bigint", () => {
-    const counted: CanonicalEvent = {
-      ...event(random(12)),
-      attendance: {
-        kind: "upstream",
-        value: Object.assign({ policy: "public" as const, note: "Open." }, { extra: 1n }),
-        seen: MAR,
-      },
-    };
-    expect(join(counted, counted)).toEqual(counted);
-  });
-
   it("orders notice lists by an encoding that no notice text can imitate", () => {
-    const second: Notice = { ...notice, text: unwrap(noticeText("Second.")) };
-    const spelled = `${notice.text},verifiedAt=string:${notice.verifiedAt}},1={evidenceUrl=string:${notice.evidenceUrl},kind=string:${notice.kind},text=string:${second.text}`;
-    const single: Notice = { ...notice, text: unwrap(noticeText(spelled)) };
+    const second = notice({ ...MOVED, text: unwrap(noticeText("Second.")) });
+    const spelled = `${venue.text}","evidenceUrl":"${venue.evidenceUrl}","verifiedAt":"${venue.verifiedAt}"},{"kind":"${venue.kind}","text":"${second.text}`;
+    const single = notice({ ...MOVED, text: unwrap(noticeText(spelled)) });
     const shared = event(random(9));
     const listing = (list: readonly Notice[]): CanonicalEvent => ({
       ...shared,
-      notices: { kind: "upstream", value: unwrap(notices(list)), seen: MAR },
+      notices: upstream(unwrap(notices(list)), MAR),
     });
-    const [a, b] = [listing([single]), listing([notice, second])];
+    const [a, b] = [listing([single]), listing([venue, second])];
     expect(join(a, b)).toEqual(join(b, a));
   });
 
-  it("orders review times by instant, including legacy second and day precision", () => {
-    const [day, second, later] = [
-      stamp("2026-03-01"),
-      stamp("2026-03-01T00:00:00Z"),
-      stamp("2026-03-01T00:00:00.500Z"),
-    ];
-    const review = (at: typeof VERIFIED, title: typeof A): Correction => ({
-      at,
-      evidence: EVIDENCE,
-      patch: { title },
-    });
-    const shared = event(random(10));
-    for (const order of [
-      [review(day, A), review(second, B), review(later, C)],
-      [review(later, C), review(second, B), review(day, A)],
-    ])
-      expect(order.reduce(applyCorrection, shared).title.value).toBe(C);
-  });
-
-  it("orders review times before 1970 and below a millisecond", () => {
-    const review = (at: typeof VERIFIED, title: typeof A): Correction => ({
+  it("orders review times by instant, before 1970 and within a second", () => {
+    const review = (at: typeof JAN, title: typeof A): Correction => ({
       at,
       evidence: EVIDENCE,
       patch: { title },
     });
     const shared = event(random(14));
     for (const [older, newer] of [
-      [stamp("1800-01-01"), stamp("1900-01-01")],
-      [stamp("2026-03-01T00:00:00.100Z"), stamp("2026-03-01T00:00:00.1001Z")],
+      [instant("1800-01-01T00:00:00.000Z"), instant("1900-01-01T00:00:00.000Z")],
+      [instant("2026-03-01T00:00:00.100Z"), instant("2026-03-01T00:00:00.101Z")],
     ] as const)
       for (const order of [
         [review(older, A), review(newer, B)],
@@ -521,85 +414,31 @@ describe("join", () => {
         expect(order.reduce(applyCorrection, shared).title.value).toBe(B);
   });
 
-  it("orders values by properties their prototype exposes", () => {
-    class Getters {
-      get policy() {
-        return "public" as const;
-      }
-      readonly #text: string;
-      constructor(text: string) {
-        this.#text = text;
-      }
-      get note() {
-        return this.#text;
-      }
-    }
-    const shared = event(random(15));
-    const holding = (note: string): CanonicalEvent => ({
-      ...shared,
-      attendance: { kind: "upstream", value: new Getters(note), seen: MAR },
-    });
-    const [a, b] = [holding("Open."), holding("Closed.")];
-    expect(join(a, b).attendance).toBe(join(b, a).attendance);
-  });
-
-  it("orders values by their own fields, not by a toJSON they carry", () => {
-    class Masked {
-      readonly policy = "public";
-      constructor(readonly note: string) {}
-      toJSON() {
-        return { policy: this.policy };
-      }
-    }
-    class Throwing extends Masked {
-      override toJSON(): never {
-        throw new Error("toJSON");
-      }
-    }
-    const shared = event(random(8));
-    const own = (note: string) => ({ policy: "public" as const, note, toJSON: () => ({}) });
-    const at = (value: Attendance): CanonicalEvent => ({
-      ...shared,
-      attendance: { kind: "upstream", value, seen: MAR },
-    });
-    for (const [a, b] of [
-      [at(new Masked("Open.")), at(new Masked("Members only."))],
-      [at(new Throwing("Open.")), at(new Throwing("Members only."))],
-      [at(own("Open.")), at(own("Members only."))],
-    ] as const)
-      expect(join(a, b)).toEqual(join(b, a));
-  });
-
   it("keeps an older reviewed range over a newer upstream start day", () => {
     const base = event(random(1));
-    const reviewed: CanonicalEvent = {
+    const vetted: CanonicalEvent = {
       ...base,
-      dates: { kind: "reviewed", value: range(MARCH_1, MARCH_5), at: FEB, evidence: EVIDENCE },
+      dates: reviewed(range(MARCH_1, MARCH_5), FEB, EVIDENCE),
     };
-    const upstream: CanonicalEvent = {
+    const listedUpstream: CanonicalEvent = {
       ...base,
-      dates: { kind: "upstream", value: range(APRIL_10, APRIL_10), seen: MAR },
+      dates: upstream(range(APRIL_10, APRIL_10), MAR),
     };
-    expect(join(reviewed, upstream).dates).toEqual(reviewed.dates);
-    expect(join(upstream, reviewed).dates).toEqual(reviewed.dates);
+    expect(join(vetted, listedUpstream).dates).toEqual(vetted.dates);
+    expect(join(listedUpstream, vetted).dates).toEqual(vetted.dates);
   });
 
   it("lets newer upstream dates through after a lifecycle-only review", () => {
     const base = event(random(4));
     const cancelled: CanonicalEvent = {
       ...base,
-      lifecycle: {
-        kind: "reviewed",
-        value: { kind: "cancelled", ...checked },
-        at: FEB,
-        evidence: EVIDENCE,
-      },
-      dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
+      lifecycle: reviewed({ kind: "cancelled", ...checked }, FEB, EVIDENCE),
+      dates: upstream(range(MARCH_1, MARCH_1), JAN),
     };
     const moved: CanonicalEvent = {
       ...base,
-      lifecycle: { kind: "upstream", value: { kind: "scheduled", ...checked }, seen: MAR },
-      dates: { kind: "upstream", value: range(MARCH_1, MARCH_5), seen: MAR },
+      lifecycle: upstream({ kind: "scheduled", ...checked }, MAR),
+      dates: upstream(range(MARCH_1, MARCH_5), MAR),
     };
     const joined = join(cancelled, moved);
     expect(joined.lifecycle).toEqual(cancelled.lifecycle);
@@ -609,20 +448,20 @@ describe("join", () => {
   it("keeps one current range when a rescheduled review meets older upstream dates", () => {
     const base: CanonicalEvent = {
       ...event(random(7)),
-      lifecycle: { kind: "upstream", value: null, seen: JAN },
-      dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
+      lifecycle: upstream(null, JAN),
+      dates: upstream(range(MARCH_1, MARCH_1), JAN),
     };
-    const upstream: CanonicalEvent = {
+    const listedUpstream: CanonicalEvent = {
       ...base,
-      lifecycle: { kind: "upstream", value: { kind: "scheduled", ...checked }, seen: MAR },
-      dates: { kind: "upstream", value: range(MARCH_5, MARCH_5), seen: MAR },
+      lifecycle: upstream({ kind: "scheduled", ...checked }, MAR),
+      dates: upstream(range(MARCH_5, MARCH_5), MAR),
     };
     const rescheduled = applyCorrection(base, {
       at: FEB,
       evidence: EVIDENCE,
       patch: { lifecycle: { kind: "rescheduled", ...checked }, dates: range(APRIL_10, APRIL_10) },
     });
-    for (const joined of [join(rescheduled, upstream), join(upstream, rescheduled)]) {
+    for (const joined of [join(rescheduled, listedUpstream), join(listedUpstream, rescheduled)]) {
       expect(joined.lifecycle.value?.kind).toBe("rescheduled");
       expect(joined.dates.value).toEqual(range(APRIL_10, APRIL_10));
     }
@@ -632,47 +471,43 @@ describe("join", () => {
     const base = event(random(6));
     const curated: CanonicalEvent = {
       ...base,
-      dates: { kind: "upstream", value: LATE_2025, seen: MAR },
+      dates: upstream(LATE_2025, MAR),
     };
-    const reviewed: CanonicalEvent = {
+    const vetted: CanonicalEvent = {
       ...base,
-      dates: { kind: "reviewed", value: range(MARCH_1, MARCH_5), at: JAN, evidence: EVIDENCE },
+      dates: reviewed(range(MARCH_1, MARCH_5), JAN, EVIDENCE),
     };
     expect(join(curated, curated).dates).toEqual(curated.dates);
-    expect(join(curated, reviewed).dates).toEqual(reviewed.dates);
+    expect(join(curated, vetted).dates).toEqual(vetted.dates);
   });
 
   it("lets a newer clear beat an older review and a newer review beat an older clear", () => {
     const base = event(random(3));
     const at = (location: CanonicalEvent["location"]) => ({ ...base, location });
-    const reviewed = at({ kind: "reviewed", value: A, at: FEB, evidence: EVIDENCE });
-    const cleared = at({ kind: "reviewed", value: null, at: MAR, evidence: EVIDENCE });
-    const older = at({ kind: "reviewed", value: null, at: JAN, evidence: EVIDENCE });
-    expect(join(reviewed, cleared).location).toEqual(cleared.location);
-    expect(join(cleared, reviewed).location).toEqual(cleared.location);
-    expect(join(older, reviewed).location).toEqual(reviewed.location);
-    expect(join(reviewed, older).location).toEqual(reviewed.location);
+    const vetted = at(reviewed(A, FEB, EVIDENCE));
+    const cleared = at(reviewed(null, MAR, EVIDENCE));
+    const older = at(reviewed(null, JAN, EVIDENCE));
+    expect(join(vetted, cleared).location).toEqual(cleared.location);
+    expect(join(cleared, vetted).location).toEqual(cleared.location);
+    expect(join(older, vetted).location).toEqual(vetted.location);
+    expect(join(vetted, older).location).toEqual(vetted.location);
   });
 
   it("lets a newer upstream value replace an older one but never fill it with null", () => {
     const base = event(random(2));
     const at = (location: CanonicalEvent["location"]) => ({ ...base, location });
-    const old = at({ kind: "upstream", value: A, seen: JAN });
-    const newer = at({ kind: "upstream", value: B, seen: FEB });
-    const empty = at({ kind: "upstream", value: null, seen: MAR });
+    const old = at(upstream(A, JAN));
+    const newer = at(upstream(B, FEB));
+    const empty = at(upstream(null, MAR));
     expect(join(old, newer).location).toEqual(newer.location);
     expect(join(newer, empty).location).toEqual(newer.location);
   });
 });
 
 describe("applyCorrection", () => {
-  const seen = <T>(value: T): Field<T> => ({
-    kind: "upstream",
-    value,
-    seen: JAN,
-  });
+  const seen = <T>(value: T): Field<T> => upstream(value, JAN);
   const base: CanonicalEvent = {
-    title: { kind: "reviewed", value: A, at: FEB, evidence: EVIDENCE },
+    title: reviewed(A, FEB, EVIDENCE),
     description: seen(null),
     dates: seen(range(MARCH_1, MARCH_1)),
     lifecycle: seen<Lifecycle | null>(null),
@@ -688,13 +523,8 @@ describe("applyCorrection", () => {
       evidence: EVIDENCE,
       patch: { title: B, location: null },
     });
-    expect(corrected.title).toEqual({ kind: "reviewed", value: B, at: MAR, evidence: EVIDENCE });
-    expect(corrected.location).toEqual({
-      kind: "reviewed",
-      value: null,
-      at: MAR,
-      evidence: EVIDENCE,
-    });
+    expect(corrected.title).toEqual(reviewed(B, MAR, EVIDENCE));
+    expect(corrected.location).toEqual(reviewed(null, MAR, EVIDENCE));
     expect({ ...corrected, title: base.title, location: base.location }).toEqual(base);
   });
 
@@ -716,8 +546,8 @@ describe("applyCorrection", () => {
   it("lets newer reviewed dates outrank a stale reschedule's range, whether applied or joined", () => {
     const listed: CanonicalEvent = {
       ...base,
-      lifecycle: { kind: "upstream", value: { kind: "scheduled", ...checked }, seen: JAN },
-      dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
+      lifecycle: upstream({ kind: "scheduled", ...checked }, JAN),
+      dates: upstream(range(MARCH_1, MARCH_1), JAN),
     };
     const curated = applyCorrection(listed, {
       at: MAR,
@@ -745,16 +575,11 @@ describe("applyCorrection", () => {
     };
     const newer: CanonicalEvent = {
       ...base,
-      dates: { kind: "upstream", value: range(MARCH_5, APRIL_10), seen: MAR },
+      dates: upstream(range(MARCH_5, APRIL_10), MAR),
     };
     const after = applyCorrection(join(base, newer), postpone);
     expect(after).toEqual(join(applyCorrection(base, postpone), newer));
-    expect(after.dates).toEqual({
-      kind: "reviewed",
-      value: range(MARCH_1, MARCH_1),
-      at: FEB,
-      evidence: EVIDENCE,
-    });
+    expect(after.dates).toEqual(reviewed(range(MARCH_1, MARCH_1), FEB, EVIDENCE));
     expectTypeOf<{
       at: typeof FEB;
       evidence: typeof EVIDENCE;
@@ -770,7 +595,7 @@ describe("applyCorrection", () => {
   it("keeps the dates a stale postponement reviewed, whether applied or joined, under a newer cancellation", () => {
     const listed: CanonicalEvent = {
       ...base,
-      dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
+      dates: upstream(range(MARCH_1, MARCH_1), JAN),
     };
     const cancelled = applyCorrection(listed, {
       at: MAR,
@@ -784,12 +609,7 @@ describe("applyCorrection", () => {
     };
     const applied = applyCorrection(cancelled, stale);
     expect(applied.lifecycle).toEqual(cancelled.lifecycle);
-    expect(applied.dates).toEqual({
-      kind: "reviewed",
-      value: range(MARCH_1, MARCH_1),
-      at: FEB,
-      evidence: EVIDENCE,
-    });
+    expect(applied.dates).toEqual(reviewed(range(MARCH_1, MARCH_1), FEB, EVIDENCE));
     expect(join(cancelled, applyCorrection(listed, stale))).toEqual(applied);
   });
 

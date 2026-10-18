@@ -63,7 +63,7 @@ type DateParts = {
 const minting: unique symbol = Symbol("ExactDates.of");
 
 export class ExactDates implements DateParts {
-  readonly #checked = true;
+  readonly #checked: boolean;
   readonly kind = "exact";
 
   private constructor(
@@ -72,12 +72,9 @@ export class ExactDates implements DateParts {
     readonly end: IsoDay,
     readonly previous: IsoDay | null,
   ) {
-    if (key !== minting) throw new TypeError("Build ExactDates with ExactDates.of");
+    this.#checked = key === minting;
+    if (!this.#checked) throw new TypeError("Build ExactDates with ExactDates.of");
     Object.freeze(this);
-  }
-
-  static has(value: object): value is ExactDates {
-    return #checked in value;
   }
 
   static of({
@@ -93,16 +90,37 @@ export class ExactDates implements DateParts {
 
 export type Dates = ExactDates | { readonly kind: "approximate"; readonly label: Text };
 
-export const dates = (parts: DateParts) => ExactDates.of(parts);
+class Upstream<T> {
+  declare private readonly [brand]: "Field";
+  readonly kind = "upstream";
 
-export type Field<T> =
-  | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }
-  | {
-      readonly kind: "reviewed";
-      readonly value: T;
-      readonly at: IsoInstant | Timestamp;
-      readonly evidence: HttpsUrl;
-    };
+  constructor(
+    readonly value: T,
+    readonly seen: IsoInstant,
+  ) {
+    Object.freeze(this);
+  }
+}
+
+class Reviewed<T> {
+  declare private readonly [brand]: "Field";
+  readonly kind = "reviewed";
+
+  constructor(
+    readonly value: T,
+    readonly at: IsoInstant,
+    readonly evidence: HttpsUrl,
+  ) {
+    Object.freeze(this);
+  }
+}
+
+export type Field<T> = Upstream<T> | Reviewed<T>;
+
+export const upstream = <T>(value: T, seen: IsoInstant): Field<T> => new Upstream(value, seen);
+
+export const reviewed = <T>(value: T, at: IsoInstant, evidence: HttpsUrl): Field<T> =>
+  new Reviewed(value, at, evidence);
 
 type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: Timestamp };
 
@@ -112,10 +130,21 @@ type Moved = { readonly kind: "rescheduled" } & Verified;
 
 export type Lifecycle = Status | Paused | Moved;
 
-export type Attendance = {
-  readonly policy: (typeof ATTENDANCE_POLICIES)[number];
-  readonly note: string;
-};
+class AttendanceRecord {
+  declare private readonly [brand]: "Attendance";
+
+  constructor(
+    readonly policy: (typeof ATTENDANCE_POLICIES)[number],
+    readonly note: string,
+  ) {
+    Object.freeze(this);
+  }
+}
+
+export type Attendance = AttendanceRecord;
+
+export const attendance = (policy: Attendance["policy"], note: string): Attendance =>
+  new AttendanceRecord(policy, note);
 
 export type Registration =
   | {
@@ -136,10 +165,28 @@ export const noticeText = refine(
   "invalid-notice-text",
 );
 
-export type Notice = {
-  readonly kind: (typeof EVENT_NOTICE_KINDS)[number];
-  readonly text: NoticeText;
-} & Verified;
+class NoticeRecord {
+  declare private readonly [brand]: "Notice";
+
+  constructor(
+    readonly kind: (typeof EVENT_NOTICE_KINDS)[number],
+    readonly text: NoticeText,
+    readonly evidenceUrl: HttpsUrl,
+    readonly verifiedAt: Timestamp,
+  ) {
+    Object.freeze(this);
+  }
+}
+
+export type Notice = NoticeRecord;
+
+export const notice = ({
+  kind,
+  text,
+  evidenceUrl,
+  verifiedAt,
+}: Pick<Notice, "kind" | "text"> & Verified): Notice =>
+  new NoticeRecord(kind, text, evidenceUrl, verifiedAt);
 
 export type Notices = Brand<readonly Notice[], "Notices">;
 
@@ -148,19 +195,7 @@ const checkNotices = refine(
   "too-many-notices",
 );
 
-export function notices(
-  list: readonly Notice[],
-): Result<Notices, "too-many-notices" | "sparse-notices"> {
-  if (list.length > 20) return fail("too-many-notices");
-  const copy: Notice[] = [];
-  for (let index = 0; index < list.length; index += 1) {
-    const item = list[index];
-    if (item === undefined) return fail("sparse-notices");
-    const { kind, text, evidenceUrl, verifiedAt } = item;
-    copy.push(Object.freeze({ kind, text, evidenceUrl, verifiedAt }));
-  }
-  return checkNotices(Object.freeze(copy));
-}
+export const notices = (list: readonly Notice[]) => checkNotices(Object.freeze([...list]));
 
 type Values = {
   title: Text;
@@ -178,7 +213,7 @@ export type CanonicalEvent = { readonly [K in keyof Values]: Field<Values[K]> };
 type Patch = { readonly [K in keyof Values]?: Values[K] };
 
 export type Correction = {
-  readonly at: IsoInstant | Timestamp;
+  readonly at: IsoInstant;
   readonly evidence: HttpsUrl;
   readonly patch:
     | (Patch & { readonly lifecycle?: Status | null })
@@ -186,47 +221,9 @@ export type Correction = {
     | (Patch & { readonly lifecycle: Moved; readonly dates: ExactDates });
 };
 
-type Keys<T> = T extends string ? never : T extends readonly (infer I)[] ? Keys<I> : keyof T;
-type Declared = Extract<Keys<Field<Values[keyof Values]> | Values[keyof Values]>, string>;
-
-const declared: Record<Declared, null> = {
-  kind: null,
-  value: null,
-  seen: null,
-  at: null,
-  evidence: null,
-  start: null,
-  end: null,
-  previous: null,
-  label: null,
-  evidenceUrl: null,
-  verifiedAt: null,
-  policy: null,
-  note: null,
-  state: null,
-  url: null,
-  text: null,
-};
-const DECLARED = Object.keys(declared).sort();
-
-const plain = (value: unknown, path: readonly unknown[] = []): unknown => {
-  if ((typeof value !== "object" && typeof value !== "function") || value === null) return value;
-  if (path.includes(value)) return ["cycle", path.indexOf(value)];
-  const next = [...path, value];
-  if (Array.isArray(value))
-    return Array.from({ length: value.length }, (_, index) => plain(value[index], next));
-  return DECLARED.map((key) => plain(Reflect.get(value, key), next));
-};
-
-const instant = (at: IsoInstant | Timestamp) => {
-  const seconds = Date.parse(at.replace(/\.\d+/, "")) / 1000 + 8.64e12;
-  const fraction = /\.(\d+)/.exec(at)?.[1]?.replace(/0+$/, "") ?? "";
-  return `${String(seconds).padStart(14, "0")}${fraction} `;
-};
-
 function rank(field: Field<unknown>) {
-  const encoded = JSON.stringify(plain(field));
-  if (field.kind !== "upstream") return `2${instant(field.at)}${encoded}`;
+  const encoded = JSON.stringify(field);
+  if (field.kind !== "upstream") return `2${field.at}${encoded}`;
   return `${field.value === null ? "0" : "1"}${field.seen}${encoded}`;
 }
 
@@ -250,7 +247,7 @@ export function join(a: CanonicalEvent, b: CanonicalEvent): CanonicalEvent {
 export function applyCorrection(event: CanonicalEvent, correction: Correction): CanonicalEvent {
   const { at, evidence, patch } = correction;
   const review = <T>(field: Field<T>, value: T | undefined) =>
-    value === undefined ? field : later(field, { kind: "reviewed", value, at, evidence });
+    value === undefined ? field : later(field, reviewed(value, at, evidence));
   return {
     title: review(event.title, patch.title),
     description: review(event.description, patch.description),
