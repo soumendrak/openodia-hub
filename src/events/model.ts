@@ -46,10 +46,12 @@ type DatesShape = { readonly start: IsoDay; readonly end: IsoDay };
 
 export type Dates = Brand<DatesShape, "Dates">;
 
-export const dates = refine(
+const checkDates = refine(
   (shape: DatesShape): shape is Dates => shape.start <= shape.end,
   "end-before-start",
 );
+
+export const dates = ({ start, end }: DatesShape) => checkDates({ start, end });
 
 export type Field<T> =
   | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }

@@ -152,6 +152,13 @@ describe("dates", () => {
       error: "end-before-start",
     });
   });
+
+  it("keeps branded dates independent of the object they were built from", () => {
+    const source = { start: MARCH_1, end: MARCH_5 };
+    const branded = unwrap(dates(source));
+    source.end = MARCH_1;
+    expect(branded.end).toBe(MARCH_5);
+  });
 });
 
 describe("nested facts", () => {
