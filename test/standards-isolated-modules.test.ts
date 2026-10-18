@@ -326,6 +326,8 @@ describe("isolated module lint gates", () => {
     'import { join } from "@/events";\n\nexport default join;\n',
     'import { join } from "@/events";\n\nconst make = join;\n\nexport { make };\n',
     'import * as Events from "@/events";\nimport Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
+    'import * as Events from "@/events";\n\nexport import Event = Events.CanonicalEvent;\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport declare class Event implements CanonicalEvent {}\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport default interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects passing a src/events type on under another module: %s", async (code) => {
     expect(await lint("src/lib/fixture.ts", code)).toEqual([relay]);
