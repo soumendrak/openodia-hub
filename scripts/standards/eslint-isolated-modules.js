@@ -70,7 +70,14 @@ const canonicalEvent = {
         check(node, nameOf(node.imported) === EVENT && nameOf(node.local) !== EVENT, "renamed"),
       ExportSpecifier: (node) =>
         check(node, nameOf(node.local) === EVENT && nameOf(node.exported) !== EVENT, "renamed"),
-      TSTypeAliasDeclaration: (node) => check(node, exposes(node.typeAnnotation), "renamed"),
+      TSTypeAliasDeclaration: (node) =>
+        check(
+          node,
+          exposes(node.typeAnnotation) || (node.typeParameters && mentions(node.typeParameters)),
+          "renamed",
+        ),
+      TSImportEqualsDeclaration: (node) =>
+        check(node, named(node.moduleReference) && nameOf(node.id) !== EVENT, "renamed"),
       TSInterfaceHeritage: (node) => check(node, mentions(node), "renamed"),
     };
   },
@@ -105,7 +112,7 @@ const internalImports = {
     schema: [],
     messages: {
       internal:
-        "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
+        "Import from src/events (or whichever module owns this internal/ folder), not from its internal/ files.",
       computed:
         "Load modules by plain string paths with no wildcard directories so the internal/ fence can check them.",
     },
@@ -139,7 +146,7 @@ const internalImports = {
       CallExpression(node) {
         const { callee } = node;
         const member = callee.type === "MemberExpression" && !callee.computed;
-        if (member && callee.object.type === "MetaProperty" && callee.property.name === "glob")
+        if (member && callee.object.meta?.name === "import" && callee.property.name === "glob")
           glob(node);
         else if (
           (callee.type === "Identifier" && callee.name === "require") ||
