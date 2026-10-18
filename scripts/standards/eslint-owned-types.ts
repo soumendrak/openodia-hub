@@ -161,8 +161,7 @@ export const ownedTypes = {
       );
       const container = checker.isArrayType(type) || checker.isTupleType(type) || !local(type);
       if (library && empty && container && type.getSymbol()) return;
-      const trusted = owner && !(ts.isClassLike(owner) && ambient(owner)) && declared;
-      const carried = new Set([...(trusted ? brands(trusted) : []), ...inputs]);
+      const carried = new Set([...(declared ? brands(declared) : []), ...inputs]);
       const missing = result.filter((m) => !carried.has(m));
       report(node, "forged", missing);
     };
