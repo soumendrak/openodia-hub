@@ -12,6 +12,7 @@ import {
   text,
   timestamp,
   type CanonicalEvent,
+  type Attendance,
   type Correction,
   type Dates,
   type Field,
@@ -341,6 +342,31 @@ describe("join", () => {
       if (!orderedField(ab)) broken.push(`end before start ${String(i)}`);
     }
     expect(broken).toEqual([]);
+  });
+
+  it("orders values by their own fields, not by a toJSON they carry", () => {
+    class Masked {
+      readonly policy = "public";
+      constructor(readonly note: string) {}
+      toJSON() {
+        return { policy: this.policy };
+      }
+    }
+    class Throwing extends Masked {
+      override toJSON(): never {
+        throw new Error("toJSON");
+      }
+    }
+    const shared = event(random(8));
+    const at = (value: Attendance): CanonicalEvent => ({
+      ...shared,
+      attendance: { kind: "upstream", value, seen: MAR },
+    });
+    for (const [a, b] of [
+      [at(new Masked("Open.")), at(new Masked("Members only."))],
+      [at(new Throwing("Open.")), at(new Throwing("Members only."))],
+    ] as const)
+      expect(join(a, b)).toEqual(join(b, a));
   });
 
   it("keeps an older reviewed range over a newer upstream start day", () => {

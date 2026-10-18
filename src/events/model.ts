@@ -172,9 +172,17 @@ export type Correction = {
     | (Patch & { readonly lifecycle: Moved; readonly dates: ExactDates });
 };
 
+const canonical = (value: unknown): string =>
+  typeof value === "object" && value !== null
+    ? `${Array.isArray(value) ? "[" : "{"}${Object.entries(value)
+        .map(([key, item]) => `${key}=${canonical(item)}`)
+        .sort()
+        .join(",")}}`
+    : `${typeof value}:${String(value)}`;
+
 function rank(field: Field<unknown>) {
-  if (field.kind !== "upstream") return `2${field.at}${JSON.stringify(field)}`;
-  return `${field.value === null ? "0" : "1"}${field.seen}${JSON.stringify(field)}`;
+  if (field.kind !== "upstream") return `2${field.at}${canonical(field)}`;
+  return `${field.value === null ? "0" : "1"}${field.seen}${canonical(field)}`;
 }
 
 function later<F extends Field<unknown>>(a: F, b: F): F {
