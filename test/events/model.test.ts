@@ -253,6 +253,12 @@ describe("nested facts", () => {
       expect(notices(list)).toEqual({ ok: false, error: "sparse-notices" });
   });
 
+  it("brands a plain array even when the input array's species is something else", () => {
+    class Odd extends Array<Notice> {}
+    Object.defineProperty(Odd, Symbol.species, { value: class {} });
+    expect(unwrap(notices(Odd.from([notice])))).toEqual([notice]);
+  });
+
   it("copies a notice's declared fields even when they are getters", () => {
     class Getters {
       get kind() {
@@ -360,6 +366,30 @@ describe("join", () => {
       if (!orderedField(ab)) broken.push(`end before start ${String(i)}`);
     }
     expect(broken).toEqual([]);
+  });
+
+  it("ranks a value that refers to itself", () => {
+    const looped: { policy: "public"; note: string; self?: object } = {
+      policy: "public",
+      note: "Open.",
+    };
+    looped.self = looped;
+    const looping: CanonicalEvent = {
+      ...event(random(11)),
+      attendance: { kind: "upstream", value: looped, seen: MAR },
+    };
+    expect(join(looping, looping)).toEqual(looping);
+  });
+
+  it("keeps parsed values from changing through a widened mutable alias", () => {
+    const widened: { ok: boolean; value?: unknown }[] = [
+      text("Valid"),
+      dates({ start: MARCH_1, end: MARCH_5, previous: null }),
+    ];
+    for (const alias of widened)
+      expect(() => {
+        alias.value = "";
+      }).toThrow(TypeError);
   });
 
   it("orders notice lists by an encoding that no notice text can imitate", () => {

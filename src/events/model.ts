@@ -17,8 +17,10 @@ export type Result<T, E> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: E };
 
+const ok = <T>(value: T): Result<T, never> => Object.freeze({ ok: true, value });
+
 function refine<S, T extends S, E extends string>(valid: (value: S) => value is T, error: E) {
-  return (value: S): Result<T, E> => (valid(value) ? { ok: true, value } : { ok: false, error });
+  return (value: S): Result<T, E> => (valid(value) ? ok(value) : { ok: false, error });
 }
 
 const roundTrips = (value: string, length: number) =>
@@ -80,7 +82,7 @@ export class ExactDates implements DateParts {
   }: DateParts): Result<ExactDates, "end-before-start" | "moved-to-same-day"> {
     if (end < start) return { ok: false, error: "end-before-start" };
     if (previous === start) return { ok: false, error: "moved-to-same-day" };
-    return { ok: true, value: new ExactDates(start, end, previous) };
+    return ok(new ExactDates(start, end, previous));
   }
 }
 
@@ -148,7 +150,7 @@ export const notices = (
     ? { ok: false, error: "sparse-notices" }
     : checkNotices(
         Object.freeze(
-          list.map(({ kind, text, evidenceUrl, verifiedAt }) =>
+          Array.from(list, ({ kind, text, evidenceUrl, verifiedAt }) =>
             Object.freeze({ kind, text, evidenceUrl, verifiedAt }),
           ),
         ),
@@ -178,12 +180,14 @@ export type Correction = {
     | (Patch & { readonly lifecycle: Moved; readonly dates: ExactDates });
 };
 
-const plain = (value: unknown): unknown => {
+const plain = (value: unknown, seen: readonly object[] = []): unknown => {
   if (typeof value === "function") return undefined;
   if (typeof value !== "object" || value === null) return value;
-  if (Array.isArray(value)) return value.map(plain);
+  if (seen.includes(value)) return { "#cycle": seen.indexOf(value) };
+  const path = [...seen, value];
+  if (Array.isArray(value)) return value.map((item) => plain(item, path));
   const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1));
-  return Object.fromEntries(entries.map(([key, item]) => [key, plain(item)]));
+  return Object.fromEntries(entries.map(([key, item]) => [key, plain(item, path)]));
 };
 
 const instant = (at: IsoInstant | Timestamp) => String(Date.parse(at)).padStart(16, "0");
