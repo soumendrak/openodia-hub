@@ -60,15 +60,19 @@ type DateParts = {
   readonly previous: IsoDay | null;
 };
 
+const minting: unique symbol = Symbol("ExactDates.of");
+
 export class ExactDates implements DateParts {
   readonly #checked = true;
   readonly kind = "exact";
 
   private constructor(
+    key: typeof minting,
     readonly start: IsoDay,
     readonly end: IsoDay,
     readonly previous: IsoDay | null,
   ) {
+    if (key !== minting) throw new TypeError("Build ExactDates with ExactDates.of");
     Object.freeze(this);
   }
 
@@ -83,7 +87,7 @@ export class ExactDates implements DateParts {
   }: DateParts): Result<ExactDates, "end-before-start" | "moved-to-same-day"> {
     if (end < start) return fail("end-before-start");
     if (previous === start) return fail("moved-to-same-day");
-    return ok(new ExactDates(start, end, previous));
+    return ok(new ExactDates(minting, start, end, previous));
   }
 }
 
@@ -147,6 +151,7 @@ const checkNotices = refine(
 export function notices(
   list: readonly Notice[],
 ): Result<Notices, "too-many-notices" | "sparse-notices"> {
+  if (list.length > 20) return fail("too-many-notices");
   const copy: Notice[] = [];
   for (let index = 0; index < list.length; index += 1) {
     const item = list[index];

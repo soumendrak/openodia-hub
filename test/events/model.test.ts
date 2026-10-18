@@ -259,6 +259,22 @@ describe("nested facts", () => {
     expect(unwrap(notices(Odd.from([notice])))).toEqual([notice]);
   });
 
+  it("builds exact dates only through ExactDates.of, even reflectively", () => {
+    expect(() => Reflect.construct(ExactDates, [MARCH_5, MARCH_1, null])).toThrow(TypeError);
+  });
+
+  it("rejects an oversized notice list without reading its entries", () => {
+    const read: number[] = [];
+    const list = new Proxy(new Array<Notice>(21).fill(notice), {
+      get: (target, key, receiver) => {
+        if (typeof key === "string" && /^\d+$/.test(key)) read.push(Number(key));
+        return Reflect.get(target, key, receiver);
+      },
+    });
+    expect(notices(list)).toEqual({ ok: false, error: "too-many-notices" });
+    expect(read).toEqual([]);
+  });
+
   it("copies every notice even when the input array's iterator skips them", () => {
     class Hiding extends Array<Notice> {
       override [Symbol.iterator]() {
