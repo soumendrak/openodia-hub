@@ -54,18 +54,10 @@ function random(seed: number) {
 
 type Random = ReturnType<typeof random>;
 
-function kept<T>(rng: Random, values: readonly T[]): Exclude<Field<T>, { kind: "cleared" }> {
+function field<T>(rng: Random, values: readonly T[]): Field<T> {
   if (rng.next() < 0.45)
     return { kind: "upstream", value: rng.pick(values), seen: rng.pick(TIMES) };
   return { kind: "reviewed", value: rng.pick(values), at: rng.pick(TIMES), evidence: EVIDENCE };
-}
-
-function field<T>(rng: Random, values: readonly T[]): Field<T> {
-  const roll = rng.next();
-  if (roll < 0.4) return { kind: "upstream", value: rng.pick(values), seen: rng.pick(TIMES) };
-  if (roll < 0.9)
-    return { kind: "reviewed", value: rng.pick(values), at: rng.pick(TIMES), evidence: EVIDENCE };
-  return { kind: "cleared", at: rng.pick(TIMES), evidence: EVIDENCE };
 }
 
 function ranges(rng: Random) {
@@ -112,14 +104,14 @@ const unknown: Registration = {
 
 function event(rng: Random): CanonicalEvent {
   return {
-    title: kept(rng, TEXTS),
+    title: field(rng, TEXTS),
     description: field(rng, [...TEXTS, null]),
-    dates: kept(rng, ranges(rng).built),
+    dates: field(rng, ranges(rng).built),
     lifecycle: field(rng, LIFECYCLES),
     location: field(rng, [...TEXTS, null]),
     attendance: field(rng, [null, { policy: "public", note: "Open." }]),
     registration: field(rng, [null, unknown, open]),
-    notices: kept(rng, NOTICES),
+    notices: field(rng, NOTICES),
   };
 }
 
@@ -139,6 +131,8 @@ describe("parsers", () => {
     [httpsUrl, "https://x.org/e", true],
     [httpsUrl, "http://x.org/e", false],
     [httpsUrl, "https://user:pw@x.org/e", false],
+    [httpsUrl, "https://:pw@x.org/e", false],
+    [httpsUrl, "https://user@x.org/e", false],
     [httpsUrl, "not a url", false],
     [text, "Odia meetup", true],
     [text, "  ", false],
@@ -186,12 +180,14 @@ describe("dates", () => {
     expect(() => (alias[20] = notice)).toThrow(TypeError);
   });
 
-  it("only lets nullable fields be cleared", () => {
-    type Cleared = { kind: "cleared"; at: typeof MAR; evidence: typeof EVIDENCE };
+  it("only lets nullable fields be cleared, and only by a reviewed null", () => {
+    type Cleared = { kind: "reviewed"; value: null; at: typeof MAR; evidence: typeof EVIDENCE };
+    type Tombstone = { kind: "cleared"; at: typeof MAR; evidence: typeof EVIDENCE };
     expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["title"]>();
     expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["dates"]>();
     expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["notices"]>();
     expectTypeOf<Cleared>().toExtend<CanonicalEvent["location"]>();
+    expectTypeOf<Tombstone>().not.toExtend<CanonicalEvent["location"]>();
   });
 
   it("freezes branded dates so a mutable alias cannot put the end before the start", () => {
@@ -342,6 +338,18 @@ describe("join", () => {
     expect(join(curated, reviewed).dates).toEqual(reviewed.dates);
   });
 
+  it("lets a newer clear beat an older review and a newer review beat an older clear", () => {
+    const base = event(random(3));
+    const at = (location: CanonicalEvent["location"]) => ({ ...base, location });
+    const reviewed = at({ kind: "reviewed", value: A, at: FEB, evidence: EVIDENCE });
+    const cleared = at({ kind: "reviewed", value: null, at: MAR, evidence: EVIDENCE });
+    const older = at({ kind: "reviewed", value: null, at: JAN, evidence: EVIDENCE });
+    expect(join(reviewed, cleared).location).toEqual(cleared.location);
+    expect(join(cleared, reviewed).location).toEqual(cleared.location);
+    expect(join(older, reviewed).location).toEqual(reviewed.location);
+    expect(join(reviewed, older).location).toEqual(reviewed.location);
+  });
+
   it("lets a newer upstream value replace an older one but never fill it with null", () => {
     const base = event(random(2));
     const at = (location: CanonicalEvent["location"]) => ({ ...base, location });
@@ -354,7 +362,7 @@ describe("join", () => {
 });
 
 describe("applyCorrection", () => {
-  const seen = <T>(value: T): Exclude<Field<T>, { kind: "cleared" }> => ({
+  const seen = <T>(value: T): Field<T> => ({
     kind: "upstream",
     value,
     seen: JAN,
