@@ -9,10 +9,13 @@ async function lint(filePath: string, code: string) {
 }
 
 const internalImport =
-  "no-restricted-imports: 'IMPORT' import is restricted from being used by a pattern. Import from src/events, src/boundary or src/platform, not from their internal/ files.";
+  "no-restricted-syntax: Import from src/events, src/boundary or src/platform, not from their internal/ files.";
 
 const assertion =
   "no-restricted-syntax: Build a CanonicalEvent with the functions in src/events, never with a type assertion.";
+
+const renamed =
+  "no-restricted-syntax: Use CanonicalEvent under its own name so the type assertion ban can see it.";
 
 describe("isolated module lint gates", () => {
   it.each([
@@ -22,10 +25,24 @@ describe("isolated module lint gates", () => {
     ["src/routes/api/fixture.ts", "../../platform/internal/kv"],
     ["src/fixture.ts", "./boundary/internal/gdg"],
   ])("rejects %s importing %s", async (file, source) => {
-    const code = `import { x } from "${source}";\n\nexport const y = x;\n`;
-    expect(await lint(file, code)).toEqual([internalImport.replace("IMPORT", source)]);
-    const reexport = `export { x } from "${source}";\n`;
-    expect(await lint(file, reexport)).toEqual([internalImport.replace("IMPORT", source)]);
+    for (const code of [
+      `import { x } from "${source}";\n\nexport const y = x;\n`,
+      `export { x } from "${source}";\n`,
+      `export * from "${source}";\n`,
+      `export const load = () => import("${source}");\n`,
+      `export type X = import("${source}").X;\n`,
+    ])
+      expect(await lint(file, code)).toEqual([internalImport]);
+  });
+
+  it("rejects a template-literal dynamic import of an internal file", async () => {
+    const code = "export const load = (name: string) => import(`@/events/internal/${name}`);\n";
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([internalImport]);
+  });
+
+  it("allows internal-looking strings that are not imports", async () => {
+    const code = "export const path = (name: string) => `@/events/internal/${name}`;\n";
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
   });
 
   it.each([
@@ -34,17 +51,7 @@ describe("isolated module lint gates", () => {
     ["src/routes/fixture.ts", "@/lib/internals"],
   ])("allows %s importing %s", async (file, source) => {
     expect(await lint(file, `import { x } from "${source}";\n\nexport const y = x;\n`)).toEqual([]);
-  });
-
-  it("allows CanonicalEvent outside the asserted type", async () => {
-    const code = [
-      'import type { CanonicalEvent } from "@/events";',
-      "",
-      "declare function load<T>(): T;",
-      "export const count = load<CanonicalEvent>() as unknown as number;",
-      "",
-    ].join("\n");
-    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
+    expect(await lint(file, `export const load = () => import("${source}");\n`)).toEqual([]);
   });
 
   it("keeps the server-only import ban", async () => {
@@ -59,14 +66,35 @@ describe("isolated module lint gates", () => {
     "<CanonicalEvent>raw",
     "raw as readonly CanonicalEvent[]",
     "raw as Partial<CanonicalEvent>",
+    "raw as Events.CanonicalEvent",
+    "raw as Readonly<Events.CanonicalEvent>",
   ])("rejects %s outside src/events", async (expression) => {
     const code = [
       'import type { CanonicalEvent } from "@/events";',
+      'import type * as Events from "@/events";',
       "",
       "declare const raw: unknown;",
       `export const event = ${expression};`,
       "",
     ].join("\n");
     expect(await lint("src/routes/fixture.ts", code)).toEqual([assertion]);
+  });
+
+  it.each([
+    'import type { CanonicalEvent as Event } from "@/events";\n',
+    'export type { CanonicalEvent as Event } from "@/events";\n',
+  ])("rejects renaming CanonicalEvent: %s", async (code) => {
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([renamed]);
+  });
+
+  it("allows CanonicalEvent outside the asserted type", async () => {
+    const code = [
+      'import type { CanonicalEvent } from "@/events";',
+      "",
+      "declare function load<T>(): T;",
+      "export const count = load<CanonicalEvent>() as unknown as number;",
+      "",
+    ].join("\n");
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
   });
 });

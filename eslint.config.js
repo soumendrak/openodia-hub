@@ -5,6 +5,12 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
+const internalPath = "^(?:@/|\\.\\./|\\./[^/]+/)(?:[^/]+/)*?internal(?:/|$)".replaceAll(
+  "/",
+  "\\x2F",
+);
+const canonical = ":matches([name='CanonicalEvent'], [right.name='CanonicalEvent'])";
+
 export default tseslint.config(
   // `.lavish` is the gitignored design scratch directory — mockups, not source.
   { ignores: ["dist", ".output", ".vinxi", ".lavish"] },
@@ -31,22 +37,27 @@ export default tseslint.config(
                 "TanStack Start does not use the Next.js `server-only` package. Rename the module to `*.server.ts` or mark it with `@tanstack/react-start/server-only`.",
             },
           ],
-          patterns: [
-            {
-              regex: "^(?:@/|\\.\\./|\\./[^/]+/)(?:[^/]+/)*?internal(?:/|$)",
-              message:
-                "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
-            },
-          ],
         },
       ],
       "no-restricted-syntax": [
         "error",
         {
-          selector:
-            ":matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation:matches([typeName.name='CanonicalEvent'], :has([typeName.name='CanonicalEvent']))",
+          selector: [
+            `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression, TSImportType) > Literal.source[value=/${internalPath}/]`,
+            `ImportExpression > TemplateLiteral.source > TemplateElement:first-child[value.raw=/${internalPath}/]`,
+          ].join(", "),
+          message:
+            "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
+        },
+        {
+          selector: `:matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation:matches(TSTypeReference > ${canonical}.typeName, :has(TSTypeReference > ${canonical}.typeName))`,
           message:
             "Build a CanonicalEvent with the functions in src/events, never with a type assertion.",
+        },
+        {
+          selector:
+            "ImportSpecifier[imported.name='CanonicalEvent'][local.name!='CanonicalEvent'], ExportSpecifier[local.name='CanonicalEvent'][exported.name!='CanonicalEvent']",
+          message: "Use CanonicalEvent under its own name so the type assertion ban can see it.",
         },
       ],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
