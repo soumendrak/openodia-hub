@@ -267,6 +267,16 @@ describe("nested facts", () => {
     expect(() => (policy.note = "")).toThrow(TypeError);
   });
 
+  it("freezes the value a field admits, so a mutable alias cannot change the fact afterwards", () => {
+    const late = { kind: "approximate" as const, label: A };
+    const cancelled = { kind: "cancelled" as const, ...checked };
+    const fields = [reviewed<Dates>(late, MAR, EVIDENCE), upstream<Lifecycle>(cancelled, MAR)];
+    const aliases: [{ label: string }, { kind: string }] = [late, cancelled];
+    expect(() => (aliases[0].label = "B")).toThrow(TypeError);
+    expect(() => (aliases[1].kind = "scheduled")).toThrow(TypeError);
+    expect(fields.map((field) => field.value)).toEqual([late, cancelled]);
+  });
+
   it("takes review and correction times only as canonical instants", () => {
     expectTypeOf<typeof VERIFIED>().not.toExtend<Parameters<typeof reviewed>[1]>();
     expectTypeOf<typeof VERIFIED>().not.toExtend<Correction["at"]>();

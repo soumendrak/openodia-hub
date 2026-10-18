@@ -98,6 +98,7 @@ class Upstream<T> {
     readonly value: T,
     readonly seen: IsoInstant,
   ) {
+    Object.freeze(value);
     Object.freeze(this);
   }
 }
@@ -111,6 +112,7 @@ class Reviewed<T> {
     readonly at: IsoInstant,
     readonly evidence: HttpsUrl,
   ) {
+    Object.freeze(value);
     Object.freeze(this);
   }
 }
