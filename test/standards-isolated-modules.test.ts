@@ -11,6 +11,9 @@ async function lint(filePath: string, code: string) {
 const internalImport =
   "no-restricted-syntax: Import from src/events, src/boundary or src/platform, not from their internal/ files.";
 
+const literalOnly =
+  "no-restricted-syntax: Load modules with a plain string literal so the internal/ fence can check the path.";
+
 const assertion =
   "no-restricted-syntax: Build a CanonicalEvent with the functions in src/events, never with a type assertion.";
 
@@ -28,6 +31,8 @@ describe("isolated module lint gates", () => {
     ["src/routes/fixture.cts", "@/events/internal/x"],
     ["src/routes/fixture.ts", "../events//internal/x"],
     ["src/routes/fixture.ts", "../events/./internal/x"],
+    ["src/routes/fixture.ts", "@/events/internal?raw"],
+    ["src/routes/fixture.ts", "@/events/internal#x"],
   ])("rejects %s importing %s", async (file, source) => {
     for (const code of [
       `import { x } from "${source}";\n\nexport const y = x;\n`,
@@ -50,13 +55,14 @@ describe("isolated module lint gates", () => {
   it.each([
     "import(`@/events/internal/${name}`)",
     "import(`../events/${name}/internal/x`)",
-    "import(`@/${name}/internal`)",
     "import(`../events/int\\u0065rnal/x`)",
+    "import(`./internal/x`)",
     'import("../events/" + "internal/x")',
-    'import("../events/" + name + "/internal/x")',
-  ])("rejects the dynamic import %s", async (expression) => {
+    'import("../events/in" + "ternal/x")',
+    "import(name)",
+  ])("rejects the computed dynamic import %s", async (expression) => {
     const code = `export const load = (name: string) => ${expression};\n`;
-    expect(await lint("src/routes/fixture.ts", code)).toEqual([internalImport]);
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([literalOnly]);
   });
 
   it.each([
@@ -66,14 +72,12 @@ describe("isolated module lint gates", () => {
     ],
     ["scripts/fixture.js", 'export const load = () => import("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/internal/x");\n'],
+    ["scripts/fixture.cjs", 'module.exports = require("../src/events/in" + "ternal/x");\n'],
     ["src/fixture.jsx", 'export { x } from "./events/internal/x";\n'],
   ])("rejects the JavaScript consumer %s", async (file, code) => {
-    expect(await lint(file, code)).toContain(internalImport);
-  });
-
-  it("allows a module to load its own internal files with a template literal", async () => {
-    const code = "export const load = (name: string) => import(`./internal/${name}`);\n";
-    expect(await lint("src/events/fixture.ts", code)).not.toContain(internalImport);
+    expect(await lint(file, code)).toEqual(
+      expect.arrayContaining([expect.stringMatching(/internal\/ (files|fence)/)]),
+    );
   });
 
   it.each([
@@ -133,6 +137,7 @@ describe("isolated module lint gates", () => {
       "export type Props = { readonly event: CanonicalEvent };",
       "export type Render = (event: CanonicalEvent) => string;",
       "export type EventField = keyof CanonicalEvent;",
+      'export const unrelated = JSON.parse("{}") as { CanonicalEvent: string; CanonicalEvent2(): void };',
       'export type Title = CanonicalEvent["title"];',
       "",
     ].join("\n");

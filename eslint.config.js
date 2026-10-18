@@ -5,19 +5,23 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
-const slashes = (pattern) => pattern.replaceAll("/", "\\x2F");
-const internalPath = slashes("^(?:@/+|\\.\\./+|\\./+[^/]+/+)(?:[^/]*/+)*?internal(?:/|$)");
-const internalSegment = slashes("^(?!\\./+internal(?:/|$)).*(?:^|/)internal(?:/|$)");
+const internalPath = "^(?:@/+|\\.\\./+|\\./+[^/]+/+)(?:[^/]*/+)*?internal(?:[/?#]|$)".replaceAll(
+  "/",
+  "\\x2F",
+);
 const loader = ":matches(ImportExpression, CallExpression[callee.name='require'])";
 
-const internalFence = {
-  selector: [
-    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, TSImportType, TSExternalModuleReference) > Literal[value=/${internalPath}/]`,
-    `${loader} Literal[value=/${internalSegment}/]`,
-    `${loader} TemplateElement[value.cooked=/${internalSegment}/]`,
-  ].join(", "),
-  message: "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
-};
+const internalFence = [
+  {
+    selector: `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, TSImportType, TSExternalModuleReference, ${loader}) > Literal[value=/${internalPath}/]`,
+    message:
+      "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
+  },
+  {
+    selector: `ImportExpression > :not(Literal).source, CallExpression[callee.name='require'] > :not(Literal).arguments:first-child`,
+    message: "Load modules with a plain string literal so the internal/ fence can check the path.",
+  },
+];
 
 export default tseslint.config(
   // `.lavish` is the gitignored design scratch directory — mockups, not source.
@@ -49,10 +53,10 @@ export default tseslint.config(
       ],
       "no-restricted-syntax": [
         "error",
-        internalFence,
+        ...internalFence,
         {
           selector:
-            ":matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation Identifier[name='CanonicalEvent']",
+            ":matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation Identifier[name='CanonicalEvent']:not(TSPropertySignature > .key, TSMethodSignature > .key)",
           message:
             "Build a CanonicalEvent with the functions in src/events, never with a type assertion.",
         },
@@ -72,7 +76,7 @@ export default tseslint.config(
   },
   {
     files: ["**/*.{js,jsx,mjs,cjs}"],
-    rules: { "no-restricted-syntax": ["error", internalFence] },
+    rules: { "no-restricted-syntax": ["error", ...internalFence] },
   },
   {
     files: ["src/{events,boundary,platform}/**/*.{ts,tsx,mts,cts}"],
