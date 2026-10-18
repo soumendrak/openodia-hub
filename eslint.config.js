@@ -57,7 +57,7 @@ export default defineConfig(
     rules: { "isolated/owned-types": ["error", { modules: ["src/events"] }] },
   },
   {
-    files: ["src/{events,boundary,platform}/**/*.{js,jsx,mjs,cjs}"],
+    files: ["src/**/*.{js,jsx,mjs,cjs}"],
     rules: {
       "no-restricted-syntax": [
         "error",

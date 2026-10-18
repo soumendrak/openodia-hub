@@ -179,14 +179,17 @@ describe("isolated module lint gates", () => {
     expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
   });
 
-  it.each(["src/events/fixture.js", "src/boundary/fixture.mjs", "src/platform/fixture.cjs"])(
-    "rejects JavaScript in the strict module %s",
-    async (file) => {
-      expect(await lint(file, "globalThis.x = 1;\n")).toEqual([
-        "no-restricted-syntax: Use TypeScript so the strict checks cover this file.",
-      ]);
-    },
-  );
+  it.each([
+    "src/events/fixture.js",
+    "src/boundary/fixture.mjs",
+    "src/platform/fixture.cjs",
+    "src/routes/fixture.js",
+    "src/lib/fixture.jsx",
+  ])("rejects JavaScript anywhere in src: %s", async (file) => {
+    expect(await lint(file, "globalThis.x = 1;\n")).toEqual([
+      "no-restricted-syntax: Use TypeScript so the strict checks cover this file.",
+    ]);
+  });
 
   it("keeps the server-only import ban", async () => {
     expect(await lint("src/routes/fixture.ts", 'import "server-only";\n')).toEqual([
