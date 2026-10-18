@@ -42,26 +42,14 @@ export const httpsUrl = refine((value: string): value is HttpsUrl => {
 
 export const text = refine((value: string): value is Text => value.trim() !== "", "blank-text");
 
-type DatesShape = {
-  readonly start: IsoDay;
-  readonly end: IsoDay;
-  readonly previous: IsoDay | null;
-};
+type DatesShape = { readonly start: IsoDay; readonly end: IsoDay };
 
 export type Dates = Brand<DatesShape, "Dates">;
 
-const validDates = (shape: DatesShape): shape is Dates =>
-  shape.start <= shape.end && shape.previous !== shape.start;
-
-export function dates(shape: DatesShape): Result<Dates, "end-before-start" | "moved-to-same-day"> {
-  if (validDates(shape)) return { ok: true, value: shape };
-  return { ok: false, error: shape.start > shape.end ? "end-before-start" : "moved-to-same-day" };
-}
-
-export type Lifecycle =
-  | { readonly kind: "scheduled" }
-  | { readonly kind: "postponed"; readonly rescheduled: boolean }
-  | { readonly kind: "cancelled" };
+export const dates = refine(
+  (shape: DatesShape): shape is Dates => shape.start <= shape.end,
+  "end-before-start",
+);
 
 export type Field<T> =
   | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }
@@ -74,6 +62,13 @@ export type Field<T> =
   | { readonly kind: "cleared"; readonly at: IsoInstant; readonly evidence: HttpsUrl };
 
 type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: IsoInstant };
+
+export type Lifecycle = (
+  | { readonly kind: "scheduled" }
+  | { readonly kind: "postponed"; readonly previous: IsoDay | null; readonly rescheduled: boolean }
+  | { readonly kind: "cancelled" }
+) &
+  Verified;
 
 export type Attendance = {
   readonly policy: (typeof ATTENDANCE_POLICIES)[number];
@@ -106,16 +101,18 @@ export type Notice = {
 
 export type Notices = Brand<readonly Notice[], "Notices">;
 
-export const notices = refine(
+const checkNotices = refine(
   (list: readonly Notice[]): list is Notices => list.length <= 20,
   "too-many-notices",
 );
+
+export const notices = (list: readonly Notice[]) => checkNotices([...list]);
 
 type Values = {
   title: Text;
   description: Text;
   dates: Dates;
-  lifecycle: Lifecycle;
+  lifecycle: Lifecycle | null;
   location: Text | null;
   attendance: Attendance | null;
   registration: Registration | null;
