@@ -57,24 +57,36 @@ type DateParts = {
   readonly previous: IsoDay | null;
 };
 
-type ExactShape = { readonly kind: "exact" } & DateParts;
+export class ExactDates implements DateParts {
+  readonly #checked = true;
+  readonly kind = "exact";
 
-export type ExactDates = Brand<ExactShape, "ExactDates">;
+  private constructor(
+    readonly start: IsoDay,
+    readonly end: IsoDay,
+    readonly previous: IsoDay | null,
+  ) {
+    Object.freeze(this);
+  }
+
+  static has(value: object): value is ExactDates {
+    return #checked in value;
+  }
+
+  static of({
+    start,
+    end,
+    previous,
+  }: DateParts): Result<ExactDates, "end-before-start" | "moved-to-same-day"> {
+    if (end < start) return { ok: false, error: "end-before-start" };
+    if (previous === start) return { ok: false, error: "moved-to-same-day" };
+    return { ok: true, value: new ExactDates(start, end, previous) };
+  }
+}
 
 export type Dates = ExactDates | { readonly kind: "approximate"; readonly label: Text };
 
-const isExactDates = (shape: ExactShape): shape is ExactDates =>
-  shape.start <= shape.end && shape.previous !== shape.start;
-
-export function dates({
-  start,
-  end,
-  previous,
-}: DateParts): Result<ExactDates, "end-before-start" | "moved-to-same-day"> {
-  const shape: ExactShape = Object.freeze({ kind: "exact", start, end, previous });
-  if (isExactDates(shape)) return { ok: true, value: shape };
-  return { ok: false, error: end < start ? "end-before-start" : "moved-to-same-day" };
-}
+export const dates = (parts: DateParts) => ExactDates.of(parts);
 
 export type Field<T> =
   | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }
@@ -87,11 +99,10 @@ export type Field<T> =
 
 type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: Timestamp };
 
-export type Lifecycle = (
-  | { readonly kind: "scheduled" | "postponed" | "cancelled" }
-  | { readonly kind: "rescheduled"; readonly dates: ExactDates }
-) &
-  Verified;
+type Status = { readonly kind: "scheduled" | "postponed" | "cancelled" } & Verified;
+type Moved = { readonly kind: "rescheduled" } & Verified;
+
+export type Lifecycle = Status | Moved;
 
 export type Attendance = {
   readonly policy: (typeof ATTENDANCE_POLICIES)[number];
@@ -145,10 +156,14 @@ type Values = {
 
 export type CanonicalEvent = { readonly [K in keyof Values]: Field<Values[K]> };
 
+type Patch = { readonly [K in keyof Values]?: Values[K] };
+
 export type Correction = {
   readonly at: IsoInstant;
   readonly evidence: HttpsUrl;
-  readonly patch: { readonly [K in keyof Values]?: Values[K] };
+  readonly patch:
+    | (Patch & { readonly lifecycle?: Status | null })
+    | (Patch & { readonly lifecycle: Moved; readonly dates: ExactDates });
 };
 
 function rank(field: Field<unknown>) {
@@ -175,13 +190,13 @@ export function join(a: CanonicalEvent, b: CanonicalEvent): CanonicalEvent {
 
 export function applyCorrection(event: CanonicalEvent, correction: Correction): CanonicalEvent {
   const { at, evidence, patch } = correction;
-  const moved = patch.lifecycle?.kind === "rescheduled" ? patch.lifecycle.dates : undefined;
+  const pinned = patch.lifecycle?.kind === "postponed" ? event.dates.value : undefined;
   const review = <T>(field: Field<T>, value: T | undefined) =>
     value === undefined ? field : later(field, { kind: "reviewed", value, at, evidence });
   return {
     title: review(event.title, patch.title),
     description: review(event.description, patch.description),
-    dates: review(event.dates, moved ?? patch.dates),
+    dates: review(event.dates, patch.dates ?? pinned),
     lifecycle: review(event.lifecycle, patch.lifecycle),
     location: review(event.location, patch.location),
     attendance: review(event.attendance, patch.attendance),

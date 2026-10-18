@@ -2,6 +2,7 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   applyCorrection,
   dates,
+  ExactDates,
   httpsUrl,
   isoDay,
   isoInstant,
@@ -11,8 +12,8 @@ import {
   text,
   timestamp,
   type CanonicalEvent,
+  type Correction,
   type Dates,
-  type ExactDates,
   type Field,
   type Lifecycle,
   type Notice,
@@ -88,7 +89,7 @@ const LIFECYCLES: (Lifecycle | null)[] = [
   null,
   { kind: "scheduled", ...checked },
   { kind: "postponed", ...checked },
-  { kind: "rescheduled", dates: range(APRIL_10, APRIL_10, MARCH_1), ...checked },
+  { kind: "rescheduled", ...checked },
   { kind: "cancelled", ...checked },
 ];
 const notice: Notice = {
@@ -223,6 +224,16 @@ describe("dates", () => {
     expect(() => (alias.end = MARCH_1)).toThrow(TypeError);
     expectTypeOf<{ kind: "exact"; start: string; end: string }>().not.toExtend<ExactDates>();
   });
+
+  it("cannot be forged by spreading or merging a checked range", () => {
+    const checkedRange = range(MARCH_1, MARCH_5);
+    expectTypeOf({ ...checkedRange, start: APRIL_10 }).not.toExtend<ExactDates>();
+    expectTypeOf({ ...checkedRange }).not.toExtend<Dates>();
+    const merged: object = Object.assign({}, checkedRange, { start: APRIL_10 });
+    expect(ExactDates.has(merged)).toBe(false);
+    expect(ExactDates.has(checkedRange)).toBe(true);
+    expect(ExactDates.has(LATE_2025)).toBe(false);
+  });
 });
 
 describe("nested facts", () => {
@@ -242,11 +253,8 @@ describe("nested facts", () => {
   });
 
   it("moves a rescheduled event's dates to its exact new range, keeping the original day", () => {
-    const rescheduled: Lifecycle = {
-      kind: "rescheduled",
-      dates: range(APRIL_10, APRIL_10, MARCH_1),
-      ...checked,
-    };
+    const rescheduled: Lifecycle = { kind: "rescheduled", ...checked };
+    const moved = range(APRIL_10, APRIL_10, MARCH_1);
     const curated: CanonicalEvent = {
       ...event(random(5)),
       dates: { kind: "upstream", value: LATE_2025, seen: JAN },
@@ -254,7 +262,7 @@ describe("nested facts", () => {
     const corrected = applyCorrection(curated, {
       at: MAR,
       evidence: EVIDENCE,
-      patch: { lifecycle: rescheduled },
+      patch: { lifecycle: rescheduled, dates: moved },
     });
     expect(corrected.lifecycle).toEqual({
       kind: "reviewed",
@@ -264,22 +272,32 @@ describe("nested facts", () => {
     });
     expect(corrected.dates).toEqual({
       kind: "reviewed",
-      value: rescheduled.dates,
+      value: moved,
       at: MAR,
       evidence: EVIDENCE,
     });
     expectTypeOf<{ kind: "cancelled" }>().not.toExtend<Lifecycle>();
     expectTypeOf<{
       kind: "rescheduled";
+      dates: typeof moved;
       evidenceUrl: typeof OFFICIAL;
       verifiedAt: typeof VERIFIED;
-    }>().not.toExtend<Lifecycle>();
+    }>().not.toEqualTypeOf<Lifecycle>();
     expectTypeOf<{
-      kind: "rescheduled";
-      dates: typeof LATE_2025;
-      evidenceUrl: typeof OFFICIAL;
-      verifiedAt: typeof VERIFIED;
-    }>().not.toExtend<Lifecycle>();
+      at: typeof MAR;
+      evidence: typeof EVIDENCE;
+      patch: { lifecycle: typeof rescheduled & { kind: "rescheduled" } };
+    }>().not.toExtend<Correction>();
+    expectTypeOf<{
+      at: typeof MAR;
+      evidence: typeof EVIDENCE;
+      patch: { lifecycle: typeof rescheduled & { kind: "rescheduled" }; dates: typeof LATE_2025 };
+    }>().not.toExtend<Correction>();
+    expectTypeOf<{
+      at: typeof MAR;
+      evidence: typeof EVIDENCE;
+      patch: { lifecycle: typeof rescheduled & { kind: "rescheduled" }; dates: typeof moved };
+    }>().toExtend<Correction>();
   });
 
   it("require evidence for a known registration state and https evidence on notices", () => {
@@ -352,6 +370,28 @@ describe("join", () => {
     const joined = join(cancelled, moved);
     expect(joined.lifecycle).toEqual(cancelled.lifecycle);
     expect(joined.dates).toEqual(moved.dates);
+  });
+
+  it("keeps one current range when a rescheduled review meets older upstream dates", () => {
+    const base: CanonicalEvent = {
+      ...event(random(7)),
+      lifecycle: { kind: "upstream", value: null, seen: JAN },
+      dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
+    };
+    const upstream: CanonicalEvent = {
+      ...base,
+      lifecycle: { kind: "upstream", value: { kind: "scheduled", ...checked }, seen: MAR },
+      dates: { kind: "upstream", value: range(MARCH_5, MARCH_5), seen: MAR },
+    };
+    const rescheduled = applyCorrection(base, {
+      at: FEB,
+      evidence: EVIDENCE,
+      patch: { lifecycle: { kind: "rescheduled", ...checked }, dates: range(APRIL_10, APRIL_10) },
+    });
+    for (const joined of [join(rescheduled, upstream), join(upstream, rescheduled)]) {
+      expect(joined.lifecycle.value?.kind).toBe("rescheduled");
+      expect(joined.dates.value).toEqual(range(APRIL_10, APRIL_10));
+    }
   });
 
   it("keeps an imprecisely dated event until a review gives it exact days", () => {
@@ -429,7 +469,7 @@ describe("applyCorrection", () => {
     const rescheduled = applyCorrection(base, {
       at: FEB,
       evidence: EVIDENCE,
-      patch: { lifecycle: { kind: "rescheduled", dates: moved, ...checked } },
+      patch: { lifecycle: { kind: "rescheduled", ...checked }, dates: moved },
     });
     const cancelled = applyCorrection(rescheduled, {
       at: MAR,
@@ -439,17 +479,33 @@ describe("applyCorrection", () => {
     expect(cancelled.dates.value).toEqual(moved);
   });
 
-  it("keeps one range when a correction sets both dates and a rescheduled lifecycle", () => {
-    const moved = range(APRIL_10, APRIL_10, MARCH_1);
+  it("pins the current dates when a correction postpones the event", () => {
+    const postponed = applyCorrection(base, {
+      at: FEB,
+      evidence: EVIDENCE,
+      patch: { lifecycle: { kind: "postponed", ...checked } },
+    });
+    expect(postponed.dates).toEqual({
+      kind: "reviewed",
+      value: base.dates.value,
+      at: FEB,
+      evidence: EVIDENCE,
+    });
+    const newer: CanonicalEvent = {
+      ...base,
+      dates: { kind: "upstream", value: range(MARCH_5, APRIL_10), seen: MAR },
+    };
+    expect(join(postponed, newer).dates).toEqual(postponed.dates);
+    expect(join(newer, postponed).dates.value).toEqual(range(MARCH_1, MARCH_1));
+  });
+
+  it("takes a postponement's own dates when it gives them", () => {
     const corrected = applyCorrection(base, {
       at: MAR,
       evidence: EVIDENCE,
-      patch: {
-        dates: range(MARCH_5, APRIL_10),
-        lifecycle: { kind: "rescheduled", dates: moved, ...checked },
-      },
+      patch: { lifecycle: { kind: "postponed", ...checked }, dates: LATE_2025 },
     });
-    expect(corrected.dates.value).toEqual(moved);
+    expect(corrected.dates.value).toEqual(LATE_2025);
   });
 
   it("does not let an older correction overwrite a newer review", () => {
