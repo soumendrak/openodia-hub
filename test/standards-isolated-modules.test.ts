@@ -44,9 +44,18 @@ describe("isolated module lint gates", () => {
       ]);
   });
 
-  it("rejects a template-literal dynamic import of an internal file", async () => {
-    const code = "export const load = (name: string) => import(`@/events/internal/${name}`);\n";
+  it.each([
+    "import(`@/events/internal/${name}`)",
+    "import(`../events/${name}/internal/x`)",
+    "import(`@/${name}/internal`)",
+  ])("rejects the template-literal dynamic import %s", async (expression) => {
+    const code = `export const load = (name: string) => ${expression};\n`;
     expect(await lint("src/routes/fixture.ts", code)).toEqual([internalImport]);
+  });
+
+  it("allows a module to load its own internal files with a template literal", async () => {
+    const code = "export const load = (name: string) => import(`./internal/${name}`);\n";
+    expect(await lint("src/events/fixture.ts", code)).not.toContain(internalImport);
   });
 
   it.each([
@@ -90,6 +99,9 @@ describe("isolated module lint gates", () => {
     'export type { CanonicalEvent as Event } from "@/events";\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Event = CanonicalEvent;\n',
     'export type Event = import("@/events").CanonicalEvent;\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Event = Partial<CanonicalEvent>;\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Events = readonly CanonicalEvent[];\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Event = CanonicalEvent & { readonly extra: true };\n',
     'import type * as Events from "@/events";\n\ntype Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects renaming CanonicalEvent: %s", async (code) => {
@@ -101,6 +113,7 @@ describe("isolated module lint gates", () => {
       'import type { CanonicalEvent } from "@/events";',
       "",
       "export type Props = { readonly event: CanonicalEvent };",
+      "export type Render = (event: CanonicalEvent) => string;",
       "",
     ].join("\n");
     expect(await lint("src/routes/fixture.ts", code)).toEqual([]);

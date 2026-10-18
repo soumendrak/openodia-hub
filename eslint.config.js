@@ -9,8 +9,7 @@ const internalPath = "^(?:@/|\\.\\./|\\./[^/]+/)(?:[^/]+/)*?internal(?:/|$)".rep
   "/",
   "\\x2F",
 );
-const canonical =
-  ":matches([name='CanonicalEvent'], [right.name='CanonicalEvent'], [property.name='CanonicalEvent'])";
+const internalSegment = "^(?!\\./internal(?:/|$)).*(?:^|/)internal(?:/|$)".replaceAll("/", "\\x2F");
 
 export default tseslint.config(
   // `.lavish` is the gitignored design scratch directory — mockups, not source.
@@ -45,7 +44,7 @@ export default tseslint.config(
         {
           selector: [
             `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression, TSImportType) > Literal.source[value=/${internalPath}/]`,
-            `ImportExpression > TemplateLiteral.source > TemplateElement:first-child[value.raw=/${internalPath}/]`,
+            `ImportExpression > TemplateLiteral.source > TemplateElement[value.raw=/${internalSegment}/]`,
           ].join(", "),
           message:
             "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
@@ -60,9 +59,8 @@ export default tseslint.config(
           selector: [
             "ImportSpecifier[imported.name='CanonicalEvent'][local.name!='CanonicalEvent']",
             "ExportSpecifier[local.name='CanonicalEvent'][exported.name!='CanonicalEvent']",
-            `TSTypeAliasDeclaration > TSTypeReference.typeAnnotation > ${canonical}.typeName`,
-            `TSTypeAliasDeclaration > TSImportType.typeAnnotation > ${canonical}.qualifier`,
-            `TSInterfaceHeritage > ${canonical}.expression`,
+            "TSTypeAliasDeclaration > .typeAnnotation Identifier[name='CanonicalEvent']:not(TSTypeLiteral Identifier, TSFunctionType Identifier)",
+            "TSInterfaceHeritage Identifier[name='CanonicalEvent']",
           ].join(", "),
           message: "Use CanonicalEvent under its own name so the type assertion ban can see it.",
         },
