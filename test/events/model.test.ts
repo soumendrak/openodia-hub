@@ -77,11 +77,16 @@ function ranges(rng: Random) {
 
 const OFFICIAL = unwrap(httpsUrl("https://x.org/official"));
 const checked = { evidenceUrl: OFFICIAL, verifiedAt: JAN };
+const range = (
+  start: typeof MARCH_1,
+  end: typeof MARCH_1,
+  previous: typeof MARCH_1 | null = null,
+) => unwrap(dates({ start, end, previous }));
 const LIFECYCLES: (Lifecycle | null)[] = [
   null,
   { kind: "scheduled", ...checked },
   { kind: "postponed", ...checked },
-  { kind: "rescheduled", ...checked },
+  { kind: "rescheduled", dates: range(APRIL_10, APRIL_10, MARCH_1), ...checked },
   { kind: "cancelled", ...checked },
 ];
 const notice: Notice = {
@@ -98,11 +103,6 @@ const unknown: Registration = {
   evidenceUrl: EVIDENCE,
   verifiedAt: null,
 };
-const range = (
-  start: typeof MARCH_1,
-  end: typeof MARCH_1,
-  previous: typeof MARCH_1 | null = null,
-) => unwrap(dates({ start, end, previous }));
 
 function event(rng: Random): CanonicalEvent {
   return {
@@ -200,13 +200,20 @@ describe("nested facts", () => {
     expect(branded).toHaveLength(20);
   });
 
-  it("keeps a rescheduled event's original day on its dates and its official evidence on its lifecycle", () => {
-    const rescheduled: Lifecycle = { kind: "rescheduled", ...checked };
-    const moved = range(APRIL_10, APRIL_10, MARCH_1);
-    const corrected = applyCorrection(event(random(5)), {
+  it("carries a rescheduled event's exact new range and original day on its lifecycle", () => {
+    const rescheduled: Lifecycle = {
+      kind: "rescheduled",
+      dates: range(APRIL_10, APRIL_10, MARCH_1),
+      ...checked,
+    };
+    const curated: CanonicalEvent = {
+      ...event(random(5)),
+      dates: { kind: "upstream", value: LATE_2025, seen: JAN },
+    };
+    const corrected = applyCorrection(curated, {
       at: MAR,
       evidence: EVIDENCE,
-      patch: { dates: moved, lifecycle: rescheduled },
+      patch: { lifecycle: rescheduled },
     });
     expect(corrected.lifecycle).toEqual({
       kind: "reviewed",
@@ -214,8 +221,19 @@ describe("nested facts", () => {
       at: MAR,
       evidence: EVIDENCE,
     });
-    expect(corrected.dates).toMatchObject({ value: { start: APRIL_10, previous: MARCH_1 } });
+    expect(corrected.dates).toEqual(curated.dates);
     expectTypeOf<{ kind: "cancelled" }>().not.toExtend<Lifecycle>();
+    expectTypeOf<{
+      kind: "rescheduled";
+      evidenceUrl: typeof OFFICIAL;
+      verifiedAt: typeof JAN;
+    }>().not.toExtend<Lifecycle>();
+    expectTypeOf<{
+      kind: "rescheduled";
+      dates: typeof LATE_2025;
+      evidenceUrl: typeof OFFICIAL;
+      verifiedAt: typeof JAN;
+    }>().not.toExtend<Lifecycle>();
   });
 
   it("require evidence for a known registration state and https evidence on notices", () => {

@@ -79,9 +79,11 @@ export type Field<T> =
 
 type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: IsoDay | IsoInstant };
 
-export type Lifecycle = {
-  readonly kind: "scheduled" | "postponed" | "rescheduled" | "cancelled";
-} & Verified;
+export type Lifecycle = (
+  | { readonly kind: "scheduled" | "postponed" | "cancelled" }
+  | { readonly kind: "rescheduled"; readonly dates: ExactDates }
+) &
+  Verified;
 
 export type Attendance = {
   readonly policy: (typeof ATTENDANCE_POLICIES)[number];
