@@ -7,7 +7,7 @@ type Messages = "assertion" | "unsafe" | "forged" | "laundered" | "declared" | "
 
 const ROOT = resolve(import.meta.dirname, "../..");
 export const fromRoot = (file: string) => relative(ROOT, file).split(sep).join("/");
-const { Any, Never, TypeParameter, Object: Structure, Null, Undefined, Void } = ts.TypeFlags;
+const { Any, Never, TypeParameter: Param, Object: Shape, Null, Undefined, Void } = ts.TypeFlags;
 const { Private, Protected } = ts.ModifierFlags;
 const Declare = ts.SyntaxKind.DeclareKeyword;
 
@@ -52,7 +52,7 @@ export const ownedTypes = {
       if (type.isUnionOrIntersection()) return type.types;
       const base = type.flags & ts.TypeFlags.Instantiable && checker.getBaseConstraintOfType(type);
       if (base) return [base];
-      if (!(type.flags & Structure)) return [];
+      if (!(type.flags & Shape)) return [];
       const object = type as ts.TypeReference;
       const mapped = object.objectFlags & ts.ObjectFlags.Mapped;
       const args =
@@ -86,7 +86,7 @@ export const ownedTypes = {
     }
 
     const seals = (type: ts.Type) =>
-      (type.flags & Structure ? checker.getPropertiesOfType(type) : []).flatMap((property) => {
+      (type.flags & Shape ? checker.getPropertiesOfType(type) : []).flatMap((property) => {
         const [declaration] = property.declarations ?? [];
         const key = declaration && ts.getNameOfDeclaration(declaration);
         const slot = key && ts.isComputedPropertyName(key) ? key.expression : undefined;
@@ -100,7 +100,7 @@ export const ownedTypes = {
     const brands = closure("brands", seals);
     const holds = (flags: ts.TypeFlags, deep?: boolean) => (type: ts.Type) =>
       closure(String(flags), (t) => (t.flags & flags ? ["held"] : []), deep)(type).length > 0;
-    const [hollow, generic] = [holds(Any | Never, true), holds(TypeParameter)];
+    const [hollow, generic] = [holds(Any | Never, true), holds(Param)];
 
     const signatureOf = (node: ts.CallLikeExpression) => {
       const declaration = checker.getResolvedSignature(node)?.declaration;
@@ -126,8 +126,9 @@ export const ownedTypes = {
         const contextual = sunk && checker.getContextualType(n);
         if (contextual && generic(contextual)) return n;
         const callee = ts.isCallLikeExpression(n) && signatureOf(n);
+        const made = callee && ambient(callee) && checker.getTypeAtLocation(n).flags & Param;
         const inner = callee && !seen.has(callee) && laundered(callee, seen.add(callee));
-        return inner || ts.forEachChild(n, find);
+        return made ? n : inner || ts.forEachChild(n, find);
       };
       return ts.forEachChild(fn, find);
     };
@@ -156,7 +157,7 @@ export const ownedTypes = {
         return report(node, "merged", inputs);
       const type = typeOf(node);
       const result = brands(type);
-      const objects = type.isIntersection() ? type.types.filter((t) => t.flags & Structure) : [];
+      const objects = type.isIntersection() ? type.types.filter((t) => t.flags & Shape) : [];
       const owned = objects.filter((part) => brands(part).length);
       const names = new Set(owned.flatMap((part) => part.getProperties().map((p) => p.name)));
       const overwrites = objects.some(
@@ -183,8 +184,7 @@ export const ownedTypes = {
 
     function sink(node: TSESTree.Expression, tsNode: ts.Expression) {
       const { parent } = node;
-      if (parent.type === "ForOfStatement" && parent.right === node)
-        return parent.left.type === "VariableDeclaration" ? undefined : typeOf(parent.left);
+      if (parent.type === "ForOfStatement" && parent.right === node) return typeOf(parent.left);
       const named = "name" in tsNode.parent && tsNode.parent.name === tsNode;
       const element = ts.isSpreadElement(tsNode.parent) ? tsNode.parent : tsNode;
       return named ? undefined : checker.getContextualType(element);
@@ -220,7 +220,8 @@ export const ownedTypes = {
         const type = !wrapper && target && brands(target).length && typeOf(node);
         if (!target || !type || !hollow(type)) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
-        const throws = type.flags & Never && call && "body" in call && call.body;
+        const body = type.flags & Never && call && "body" in call && call.body;
+        const throws = body && ts.isBlock(body) && body.statements.every(ts.isThrowStatement);
         if (!throws) report(node, "unsafe", brands(target));
       },
     } satisfies TSESLint.RuleListener;
