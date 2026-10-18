@@ -241,7 +241,7 @@ describe("nested facts", () => {
     expect(branded).toHaveLength(20);
   });
 
-  it("carries a rescheduled event's exact new range and original day on its lifecycle", () => {
+  it("moves a rescheduled event's dates to its exact new range, keeping the original day", () => {
     const rescheduled: Lifecycle = {
       kind: "rescheduled",
       dates: range(APRIL_10, APRIL_10, MARCH_1),
@@ -262,7 +262,12 @@ describe("nested facts", () => {
       at: MAR,
       evidence: EVIDENCE,
     });
-    expect(corrected.dates).toEqual(curated.dates);
+    expect(corrected.dates).toEqual({
+      kind: "reviewed",
+      value: rescheduled.dates,
+      at: MAR,
+      evidence: EVIDENCE,
+    });
     expectTypeOf<{ kind: "cancelled" }>().not.toExtend<Lifecycle>();
     expectTypeOf<{
       kind: "rescheduled";
@@ -417,6 +422,33 @@ describe("applyCorrection", () => {
       evidence: EVIDENCE,
     });
     expect({ ...corrected, title: base.title, location: base.location }).toEqual(base);
+  });
+
+  it("keeps a rescheduled range when a later correction cancels the event", () => {
+    const moved = range(APRIL_10, APRIL_10, MARCH_1);
+    const rescheduled = applyCorrection(base, {
+      at: FEB,
+      evidence: EVIDENCE,
+      patch: { lifecycle: { kind: "rescheduled", dates: moved, ...checked } },
+    });
+    const cancelled = applyCorrection(rescheduled, {
+      at: MAR,
+      evidence: EVIDENCE,
+      patch: { lifecycle: { kind: "cancelled", ...checked } },
+    });
+    expect(cancelled.dates.value).toEqual(moved);
+  });
+
+  it("lets a correction's own dates win over its rescheduled range", () => {
+    const corrected = applyCorrection(base, {
+      at: MAR,
+      evidence: EVIDENCE,
+      patch: {
+        dates: range(MARCH_5, APRIL_10),
+        lifecycle: { kind: "rescheduled", dates: range(APRIL_10, APRIL_10, MARCH_1), ...checked },
+      },
+    });
+    expect(corrected.dates.value).toEqual(range(MARCH_5, APRIL_10));
   });
 
   it("does not let an older correction overwrite a newer review", () => {
