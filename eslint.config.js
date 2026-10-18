@@ -5,21 +5,30 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
-const internalPath = "^(?:@/+|\\.\\./+|\\./+[^/]+/+)(?:[^/]*/+)*?internal(?:[/?#]|$)".replaceAll(
+const internalPath = "^(?:@/+|/+|\\.\\./+|\\./+[^/]+/+)(?:[^/]*/+)*?internal(?:[/?#]|$)".replaceAll(
   "/",
   "\\x2F",
 );
 const loader = ":matches(ImportExpression, CallExpression[callee.name='require'])";
+const glob = "CallExpression[callee.object.meta.name='import'][callee.property.name='glob']";
+const globPattern = `:matches(${glob} > Literal.arguments:first-child, ${glob} > ArrayExpression.arguments:first-child > Literal)`;
 
 const internalFence = [
   {
-    selector: `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, TSImportType, TSExternalModuleReference, ${loader}) > Literal[value=/${internalPath}/]`,
+    selector: `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, TSImportType, TSExternalModuleReference, ${loader}) > Literal[value=/${internalPath}/], ${globPattern}[value=/${internalPath}/]`,
     message:
       "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
   },
   {
-    selector: `ImportExpression > :not(Literal).source, CallExpression[callee.name='require'] > :not(Literal).arguments:first-child`,
-    message: "Load modules with a plain string literal so the internal/ fence can check the path.",
+    selector: [
+      "ImportExpression > :not(Literal).source",
+      "CallExpression[callee.name='require'] > :not(Literal).arguments:first-child",
+      `${glob} > :not(Literal, ArrayExpression).arguments:first-child`,
+      `${glob} > ArrayExpression.arguments:first-child > :not(Literal)`,
+      `${globPattern}[value=/\\*.*\\x2F/]`,
+    ].join(", "),
+    message:
+      "Load modules by plain string paths with no wildcard directories so the internal/ fence can check them.",
   },
 ];
 
@@ -64,7 +73,7 @@ export default tseslint.config(
           selector: [
             "ImportSpecifier[imported.name='CanonicalEvent'][local.name!='CanonicalEvent']",
             "ExportSpecifier[local.name='CanonicalEvent'][exported.name!='CanonicalEvent']",
-            "TSTypeAliasDeclaration > .typeAnnotation Identifier[name='CanonicalEvent']:not(TSTypeLiteral Identifier, TSFunctionType Identifier, TSTypeOperator[operator='keyof'] Identifier, TSIndexedAccessType Identifier)",
+            "TSTypeAliasDeclaration > .typeAnnotation Identifier[name='CanonicalEvent']:not(TSTypeAliasDeclaration > TSTypeLiteral Identifier, TSTypeAliasDeclaration > TSFunctionType Identifier, TSTypeAliasDeclaration > TSTypeOperator[operator='keyof'] Identifier, TSTypeAliasDeclaration > TSIndexedAccessType > TSTypeReference.objectType Identifier)",
             "TSInterfaceHeritage Identifier[name='CanonicalEvent']",
           ].join(", "),
           message: "Use CanonicalEvent under its own name so the type assertion ban can see it.",
