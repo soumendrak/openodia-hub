@@ -50,8 +50,8 @@ export const ownedTypes = {
 
     function parts(type: ts.Type, deep: boolean): readonly ts.Type[] {
       if (type.isUnionOrIntersection()) return type.types;
-      const constraint = type.flags & TypeParameter && checker.getBaseConstraintOfType(type);
-      if (constraint) return [constraint];
+      const base = type.flags & ts.TypeFlags.Instantiable && checker.getBaseConstraintOfType(type);
+      if (base) return [base];
       if (!(type.flags & Structure)) return [];
       const object = type as ts.TypeReference;
       const mapped = object.objectFlags & ts.ObjectFlags.Mapped;
@@ -89,11 +89,11 @@ export const ownedTypes = {
       (type.flags & Structure ? checker.getPropertiesOfType(type) : []).flatMap((property) => {
         const [declaration] = property.declarations ?? [];
         const key = declaration && ts.getNameOfDeclaration(declaration);
-        const computed = key && ts.isComputedPropertyName(key) ? key.expression : undefined;
+        const slot = key && ts.isComputedPropertyName(key) ? key.expression : undefined;
         const sealed =
           String(property.escapedName).startsWith("__#") ||
           (!!declaration && ts.getCombinedModifierFlags(declaration) & (Private | Protected)) ||
-          (computed && checker.getSymbolAtLocation(computed)?.declarations?.some(guarded));
+          (slot && checker.getTypeAtLocation(slot).getSymbol()?.declarations?.some(guarded));
         const module = sealed && declaration && moduleOf(declaration.getSourceFile().fileName);
         return module ? [module] : [];
       });
@@ -120,7 +120,8 @@ export const ownedTypes = {
     const laundered = (fn: ts.Node, seen = new Set([fn])): ts.Node | undefined => {
       const find = (n: ts.Node): ts.Node | undefined => {
         const cast = ts.isAsExpression(n) || ts.isTypeAssertionExpression(n);
-        if (cast && generic(checker.getTypeAtLocation(n.type))) return n;
+        const definite = "exclamationToken" in n && !!n.exclamationToken;
+        if ((cast || definite) && generic(checker.getTypeAtLocation(cast ? n.type : n))) return n;
         const sunk = ts.isExpression(n) && checker.getTypeAtLocation(n).flags & (Any | Never);
         const contextual = sunk && checker.getContextualType(n);
         if (contextual && generic(contextual)) return n;
@@ -171,7 +172,9 @@ export const ownedTypes = {
       );
       const container = checker.isArrayType(type) || checker.isTupleType(type) || !local(type);
       if (library && empty && container && type.getSymbol()) return;
-      const carried = new Set([...(declared ? brands(declared) : []), ...inputs]);
+      const into = args.map((a) => checker.getContextualType(nodes.get(a) as ts.Expression));
+      const passed = [...receiver.map(typeOf), ...into.filter((t) => t !== undefined)];
+      const carried = new Set([declared, ...passed].flatMap((t) => (t ? brands(t) : [])));
       const missing = result.filter((m) => !carried.has(m));
       const cast = declared && generic(declared) && owner && laundered(owner);
       const here = cast && context.sourceCode.parserServices?.tsNodeToESTreeNodeMap?.get(cast);

@@ -34,6 +34,10 @@ export type Dates = ExactDates | { readonly kind: "approximate"; readonly month:
 export type CanonicalEvent = { readonly title: Text; readonly dates: Dates; readonly id: string };
 export const join = (title: Text, dates: Dates): CanonicalEvent => ({ title, dates, id: "x" });
 export const save = (event: CanonicalEvent) => event.id;
+const key = "id" as const;
+export interface Ref {
+  [key]: string;
+}
 `;
 
 const HEADER = `import type { CanonicalEvent, Dates, IsoDay, Text } from "../events";
@@ -119,6 +123,10 @@ const flagged: Record<string, string> = {
   R42: "function relabel<T>(seed: T, x: unknown): T {\n  return seed && (x as T);\n}\nexport const e = relabel(event, raw);",
   R43: 'import { relabel } from "../lib/relabel";\nexport const e = relabel(event, raw);',
   R41: "export function process<T extends CanonicalEvent>(event: T = JSON.parse(s)) {\n  return save(event);\n}",
+  R44: 'import { morph } from "fake-lib";\nexport const e = morph<CanonicalEvent>(JSON.parse(s), isoDay(s)!);',
+  R45: "declare function morph<T>(value: unknown, proof: unknown): T;\nexport const e = morph<CanonicalEvent>(raw, isoDay(s)!);",
+  R46: "function bad<T>(seed: T): T {\n  let result!: T;\n  return seed && result;\n}\nexport const e = bad(event);",
+  R47: 'export function process<T extends { event: CanonicalEvent }>(event: T["event"] = JSON.parse(s)) {\n  return save(event);\n}',
   R35: `type Many = ${Array.from({ length: 2600 }, (_, i) => `{ a${i}: ${i} }`).join(" | ")} | { last: CanonicalEvent };\nexport const e = raw as Many;`,
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",
@@ -157,6 +165,7 @@ const clean: Record<string, string> = {
   L29: 'const memo = new Map<string, Promise<unknown>>();\nfunction cachedJson<T>(key: string, load: () => Promise<T>): Promise<T> {\n  const run = load();\n  memo.set(key, run);\n  return run;\n}\nexport const e = cachedJson("k", async () => event);',
   L30: "function walk<T>(x: T, n: number): T {\n  return n ? walk(x, n - 1) : x;\n}\nexport const e = walk(event, 3);",
   L31: "function keepOne(e: CanonicalEvent) {\n  const cast = <T,>(x: unknown) => x as T;\n  return cast<string>(e.id) ? e : e;\n}\nexport const e = keepOne(event);",
+  L32: 'import type { Ref } from "../events";\nexport const r = raw as Ref;',
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -178,6 +187,7 @@ beforeAll(async () => {
     "node_modules/fake-lib/index.d.ts",
     [
       "export declare function make<T>(): T;",
+      "export declare function morph<T>(value: unknown, proof: unknown): T;",
       "export declare function box<T>(items?: readonly T[]): T[];",
       "export declare function seeded<T>(seed?: T): T;",
       "export declare function tag<T>(strings: TemplateStringsArray): T;",
