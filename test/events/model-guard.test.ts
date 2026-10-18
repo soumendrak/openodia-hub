@@ -10,7 +10,7 @@ const FIXTURES = `src/lib/guard-fixture-${String(process.pid)}`;
 const UNBRANDED = ["Attendance", "Field", "Result"];
 
 const files = readdirSync(MODULE, { recursive: true, encoding: "utf8" })
-  .filter((file) => /\.tsx?$/.test(file))
+  .filter((file) => /\.tsx?$/.test(file) && !file.includes("guard-fixture-"))
   .map((file) => `${MODULE}/${file}`);
 
 const exports = files.flatMap((file) => {
