@@ -479,19 +479,28 @@ describe("applyCorrection", () => {
     expect(cancelled.dates.value).toEqual(moved);
   });
 
-  it("declines a reschedule whose exact range is outranked by newer reviewed dates", () => {
-    const curated: CanonicalEvent = {
+  it("lets newer reviewed dates outrank a stale reschedule's range, whether applied or joined", () => {
+    const listed: CanonicalEvent = {
       ...base,
       lifecycle: { kind: "upstream", value: { kind: "scheduled", ...checked }, seen: JAN },
-      dates: { kind: "reviewed", value: LATE_2025, at: MAR, evidence: EVIDENCE },
+      dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
     };
-    const stale = applyCorrection(curated, {
+    const curated = applyCorrection(listed, {
+      at: MAR,
+      evidence: EVIDENCE,
+      patch: { dates: LATE_2025 },
+    });
+    const stale: Correction = {
       at: FEB,
       evidence: EVIDENCE,
       patch: { lifecycle: { kind: "rescheduled", ...checked }, dates: range(APRIL_10, APRIL_10) },
-    });
-    expect(stale.dates).toEqual(curated.dates);
-    expect(stale.lifecycle).toEqual(curated.lifecycle);
+    };
+    const moved = applyCorrection(listed, stale);
+    const applied = applyCorrection(curated, stale);
+    expect(applied.lifecycle.value?.kind).toBe("rescheduled");
+    expect(applied.dates.value).toEqual(LATE_2025);
+    expect(join(curated, moved)).toEqual(applied);
+    expect(join(moved, curated)).toEqual(applied);
   });
 
   it("pins the current dates when a correction postpones the event", () => {
