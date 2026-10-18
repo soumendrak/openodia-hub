@@ -23,6 +23,12 @@ export class ExactDates {
     return this.#sealed;
   }
 }
+export class Sealed {
+  private sealed = true;
+  get open() {
+    return !this.sealed;
+  }
+}
 export type Dates = ExactDates | { readonly kind: "approximate"; readonly month: number };
 export type CanonicalEvent = { readonly title: Text; readonly dates: Dates; readonly id: string };
 export const join = (title: Text, dates: Dates): CanonicalEvent => ({ title, dates, id: "x" });
@@ -95,6 +101,10 @@ const flagged: Record<string, string> = {
   R22: 'function readStore<T>(key: string): T | undefined {\n  return key ? JSON.parse(key) : undefined;\n}\nasync function cachedJson<T>(key: string, load: () => Promise<T>) {\n  return readStore<T>(key) ?? (await load());\n}\nexport const e = cachedJson("k", async () => event);',
   R23: "const pick = <T,>(xs: readonly T[]) => xs[0];\nexport const e = pick([event]);",
   R24: "export const e = Object.assign({ ...event }, { title: s });",
+  R25: "declare const Factory: new () => ExactDates;\nexport const d = new Factory();",
+  R26: "export const Factory = raw as new () => ExactDates;",
+  R27: 'import type { Sealed } from "../events";\nexport const x = raw as Sealed;',
+  R28: 'import { make } from "fake-lib";\nexport const e = make<CanonicalEvent>();',
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",
   C03: 'export async function load() {\n  const Events = await import("../events");\n  return raw as ReturnType<typeof Events.join>;\n}',
@@ -117,6 +127,7 @@ const clean: Record<string, string> = {
   L14: "export function f() {\n  type Text = { value: string };\n  return raw as Text;\n}",
   L15: "export const list = Promise.resolve<IsoDay[]>([]);\nexport const day = Object.freeze(isoDay(s));",
   L16: "export function read(cache: { json(): CanonicalEvent }) {\n  const e: CanonicalEvent = cache.json();\n  return e;\n}",
+  L17: 'import { box } from "fake-lib";\nexport const days = box<IsoDay>();',
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -133,6 +144,11 @@ beforeAll(async () => {
     writeFileSync(join(root, file), code);
   };
   write("events/model.ts", MODEL);
+  write("node_modules/fake-lib/package.json", '{"name":"fake-lib","types":"index.d.ts"}');
+  write(
+    "node_modules/fake-lib/index.d.ts",
+    "export declare function make<T>(): T;\nexport declare function box<T>(items?: readonly T[]): T[];\n",
+  );
   write("events/index.ts", 'export * from "./model";\n');
   write(
     "events/own.ts",

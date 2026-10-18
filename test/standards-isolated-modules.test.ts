@@ -1,3 +1,4 @@
+import { rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
@@ -193,6 +194,23 @@ describe("isolated module lint gates", () => {
     expect(options.languageOptions.parserOptions.project).toBe("./tsconfig.json");
     const tests = await real.calculateConfigForFile("test/fixture.test.ts");
     expect(tests.rules["isolated/owned-types"]).toBeUndefined();
+  });
+
+  it.each(["mts", "cts"])("type-checks src .%s files with the root project", async (extension) => {
+    const file = resolve(
+      import.meta.dirname,
+      `../src/routes/guard-fixture-${process.pid}.${extension}`,
+    );
+    writeFileSync(file, "export const x = [1];\n");
+    try {
+      const [result] = await new ESLint({
+        overrideConfigFile: true,
+        overrideConfig: config,
+      }).lintFiles([file]);
+      expect(result?.messages).toEqual([]);
+    } finally {
+      rmSync(file);
+    }
   });
 
   it("refuses to run owned-types without type information", async () => {
