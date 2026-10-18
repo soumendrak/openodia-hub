@@ -24,6 +24,8 @@ describe("isolated module lint gates", () => {
     ["src/routes/fixture.ts", "../events/internal/x"],
     ["src/routes/api/fixture.ts", "../../platform/internal/kv"],
     ["src/fixture.ts", "./boundary/internal/gdg"],
+    ["src/routes/fixture.mts", "@/events/internal/x"],
+    ["src/routes/fixture.cts", "@/events/internal/x"],
   ])("rejects %s importing %s", async (file, source) => {
     for (const code of [
       `import { x } from "${source}";\n\nexport const y = x;\n`,
@@ -83,8 +85,21 @@ describe("isolated module lint gates", () => {
   it.each([
     'import type { CanonicalEvent as Event } from "@/events";\n',
     'export type { CanonicalEvent as Event } from "@/events";\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Event = CanonicalEvent;\n',
+    'import type * as Events from "@/events";\n\ntype Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects renaming CanonicalEvent: %s", async (code) => {
     expect(await lint("src/routes/fixture.ts", code)).toEqual([renamed]);
+  });
+
+  it("allows types that hold a CanonicalEvent", async () => {
+    const code = [
+      'import type { CanonicalEvent } from "@/events";',
+      "",
+      "export type Props = { readonly event: CanonicalEvent };",
+      "",
+    ].join("\n");
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
   });
 
   it("allows CanonicalEvent outside the asserted type", async () => {
