@@ -100,7 +100,6 @@ const flagged: Record<string, string> = {
   R20: "export const e: CanonicalEvent = { title: s, dates: raw, id: s } as any;",
   R21: "export const e: CanonicalEvent = (raw as { [key: string]: never }).k;",
   R22: 'function readStore<T>(key: string): T | undefined {\n  return key ? JSON.parse(key) : undefined;\n}\nasync function cachedJson<T>(key: string, load: () => Promise<T>) {\n  return readStore<T>(key) ?? (await load());\n}\nexport const e = cachedJson("k", async () => event);',
-  R23: "const pick = <T,>(xs: readonly T[]) => xs[0];\nexport const e = pick([event]);",
   R24: "export const e = Object.assign({ ...event }, { title: s });",
   R25: "declare const Factory: new () => ExactDates;\nexport const d = new Factory();",
   R26: "export const Factory = raw as new () => ExactDates;",
@@ -117,6 +116,8 @@ const flagged: Record<string, string> = {
   R38: "export const events: CanonicalEvent[] = [...JSON.parse(s)];",
   R39: "declare function saveAll(...events: CanonicalEvent[]): void;\nsaveAll(...JSON.parse(s));",
   R40: "declare class Registry {\n  static event: CanonicalEvent;\n}\nexport const e = Registry.event;",
+  R42: "function relabel<T>(seed: T, x: unknown): T {\n  return seed && (x as T);\n}\nexport const e = relabel(event, raw);",
+  R43: 'import { relabel } from "../lib/relabel";\nexport const e = relabel(event, raw);',
   R41: "export function process<T extends CanonicalEvent>(event: T = JSON.parse(s)) {\n  return save(event);\n}",
   R35: `type Many = ${Array.from({ length: 2600 }, (_, i) => `{ a${i}: ${i} }`).join(" | ")} | { last: CanonicalEvent };\nexport const e = raw as Many;`,
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
@@ -147,6 +148,15 @@ const clean: Record<string, string> = {
   L21: 'import type { Tagged } from "../events";\nexport const t = raw as Tagged;',
   L22: 'import { pass } from "fake-lib";\nexport const e = pass`x${event}`;',
   L20: 'import { isDefined } from "fake-lib";\nexport const out = (maybe?: CanonicalEvent) => (isDefined(maybe) ? save(maybe) : null);',
+  L23: "const pick = <T,>(xs: readonly T[]) => xs[0];\nexport const e = pick([event]);",
+  L24: 'function settledValues<T>(results: PromiseSettledResult<T>[]): T[] {\n  const values: T[] = [];\n  for (const r of results) if (r.status === "fulfilled") values.push(r.value);\n  return values;\n}\nexport const es = settledValues([{ status: "fulfilled", value: event }]);',
+  L25: "async function mapWithConcurrency<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>) {\n  const results = new Array<R>(items.length);\n  let cursor = 0;\n  async function worker() {\n    while (cursor < items.length) {\n      const index = cursor++;\n      results[index] = await fn(items[index]!);\n    }\n  }\n  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));\n  return results;\n}\nexport const es = await mapWithConcurrency([s], 2, async () => event);",
+  L26: "function withDeadline<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T> {\n  return Promise.race([promise.catch(() => fallback), new Promise<T>((resolve) => setTimeout(() => resolve(fallback), ms))]);\n}\nexport const e = withDeadline(Promise.resolve(event), 10, event);",
+  L27: 'function mergeNonEmpty<T extends object>(prev: T, next: Partial<T>): T {\n  const merged = { ...prev };\n  for (const [key, value] of Object.entries(next)) {\n    if (value === undefined || value === null || value === "") continue;\n    Object.assign(merged, { [key]: value });\n  }\n  return merged;\n}\nexport const e = mergeNonEmpty(event, { id: s });',
+  L28: "function g<T>(x: T): T {\n  return x;\n}\nclass Box<T> {\n  constructor(readonly value: T) {}\n}\nexport const out = [g(event), new Box(event)];",
+  L29: 'const memo = new Map<string, Promise<unknown>>();\nfunction cachedJson<T>(key: string, load: () => Promise<T>): Promise<T> {\n  const run = load();\n  memo.set(key, run);\n  return run;\n}\nexport const e = cachedJson("k", async () => event);',
+  L30: "function walk<T>(x: T, n: number): T {\n  return n ? walk(x, n - 1) : x;\n}\nexport const e = walk(event, 3);",
+  L31: "function keepOne(e: CanonicalEvent) {\n  const cast = <T,>(x: unknown) => x as T;\n  return cast<string>(e.id) ? e : e;\n}\nexport const e = keepOne(event);",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -178,6 +188,10 @@ beforeAll(async () => {
       "export declare const payload: Payload;",
       "export declare function isDefined<T>(value: T | undefined): value is T;",
     ].join("\n"),
+  );
+  write(
+    "lib/relabel.ts",
+    "export function relabel<T>(seed: T, x: unknown): T {\n  return seed && (x as T);\n}\n",
   );
   write("events/index.ts", 'export * from "./model";\n');
   write(
@@ -226,7 +240,7 @@ beforeAll(async () => {
       },
     ],
   });
-  const results = await eslint.lintFiles(["probes", "events"]);
+  const results = await eslint.lintFiles(["probes", "events", "lib"]);
   messages = new Map(
     results.map((result) => [
       relative(root, result.filePath).replace(/\.tsx?$/, ""),
@@ -250,6 +264,14 @@ describe("isolated/owned-types", () => {
 
   it.each(Object.keys(clean))("passes %s", (name) => {
     expect(messages.get(`probes/${name}`)).toEqual([]);
+  });
+
+  it("reports a generic helper's cast where the helper casts, not where an honest caller passes a real value", () => {
+    expect(messages.get("probes/R13")).toEqual([expect.stringMatching(/^9 /)]);
+    expect(messages.get("probes/R22")).toEqual([expect.stringMatching(/^8 /)]);
+    expect(messages.get("probes/R42")).toEqual([expect.stringMatching(/^8 /)]);
+    expect(messages.get("probes/R43")).toEqual([expect.stringMatching(/^8 /)]);
+    expect(messages.get("lib/relabel")).toEqual([]);
   });
 
   it("lets the guarded module build its own values", () => {
