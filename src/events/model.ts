@@ -9,6 +9,7 @@ type Brand<T, B extends string> = T & { readonly [brand]: B };
 
 export type IsoDay = Brand<string, "IsoDay">;
 export type IsoInstant = Brand<string, "IsoInstant">;
+export type Timestamp = Brand<string, "Timestamp">;
 export type HttpsUrl = Brand<string, "HttpsUrl">;
 export type Text = Brand<string, "Text">;
 
@@ -32,6 +33,14 @@ export const isoInstant = refine(
   (value: string): value is IsoInstant =>
     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) && roundTrips(value, 24),
   "invalid-instant",
+);
+
+export const timestamp = refine(
+  (value: string): value is Timestamp =>
+    /^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2}:\d{2}(\.\d+)?Z)?$/.test(value) &&
+    isoDay(value.slice(0, 10)).ok &&
+    !Number.isNaN(Date.parse(value)),
+  "invalid-timestamp",
 );
 
 export const httpsUrl = refine((value: string): value is HttpsUrl => {
@@ -76,7 +85,7 @@ export type Field<T> =
       readonly evidence: HttpsUrl;
     };
 
-type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: IsoDay | IsoInstant };
+type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: Timestamp };
 
 export type Lifecycle = (
   | { readonly kind: "scheduled" | "postponed" | "cancelled" }
@@ -94,7 +103,7 @@ export type Registration =
       readonly state: "unknown";
       readonly url: HttpsUrl | null;
       readonly evidenceUrl: HttpsUrl | null;
-      readonly verifiedAt: IsoDay | IsoInstant | null;
+      readonly verifiedAt: Timestamp | null;
     }
   | ({
       readonly state: Exclude<(typeof REGISTRATION_STATES)[number], "unknown">;

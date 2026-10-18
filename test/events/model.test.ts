@@ -9,6 +9,7 @@ import {
   notices,
   noticeText,
   text,
+  timestamp,
   type CanonicalEvent,
   type Dates,
   type ExactDates,
@@ -26,6 +27,9 @@ function unwrap<T, E>(result: Result<T, E>): T {
 
 const day = (value: string) => unwrap(isoDay(value));
 const instant = (value: string) => unwrap(isoInstant(value));
+const stamp = (value: string) => unwrap(timestamp(value));
+const VERIFIED = stamp("2026-01-01T00:00:00Z");
+const VERIFIED_DAY = stamp("2026-03-01");
 const MARCH_1 = day("2026-03-01");
 const MARCH_5 = day("2026-03-05");
 const APRIL_10 = day("2026-04-10");
@@ -74,7 +78,7 @@ function ranges(rng: Random) {
 }
 
 const OFFICIAL = unwrap(httpsUrl("https://x.org/official"));
-const checked = { evidenceUrl: OFFICIAL, verifiedAt: JAN };
+const checked = { evidenceUrl: OFFICIAL, verifiedAt: VERIFIED };
 const range = (
   start: typeof MARCH_1,
   end: typeof MARCH_1,
@@ -91,10 +95,15 @@ const notice: Notice = {
   kind: "venue",
   text: unwrap(noticeText("Moved.")),
   evidenceUrl: EVIDENCE,
-  verifiedAt: JAN,
+  verifiedAt: VERIFIED,
 };
 const NOTICES = [unwrap(notices([])), unwrap(notices([notice]))];
-const open: Registration = { state: "open", url: null, evidenceUrl: EVIDENCE, verifiedAt: FEB };
+const open: Registration = {
+  state: "open",
+  url: null,
+  evidenceUrl: EVIDENCE,
+  verifiedAt: stamp("2026-02-01T00:00:00.000Z"),
+};
 const unknown: Registration = {
   state: "unknown",
   url: null,
@@ -128,6 +137,13 @@ describe("parsers", () => {
     [isoInstant, "2026-01-01T00:00:00.000Z", true],
     [isoInstant, "2026-01-01T00:00:00Z", false],
     [isoInstant, "2026-13-01T00:00:00.000Z", false],
+    [timestamp, "2026-01-01T00:00:00Z", true],
+    [timestamp, "2026-01-01T00:00:00.5Z", true],
+    [timestamp, "2026-03-01", true],
+    [timestamp, "2026-02-30", false],
+    [timestamp, "2026-01-01T25:00:00Z", false],
+    [timestamp, "2026-01-01 00:00:00Z", false],
+    [timestamp, "2026-01-01T00:00:00+05:30", false],
     [httpsUrl, "https://x.org/e", true],
     [httpsUrl, "http://x.org/e", false],
     [httpsUrl, "https://user:pw@x.org/e", false],
@@ -242,13 +258,13 @@ describe("nested facts", () => {
     expectTypeOf<{
       kind: "rescheduled";
       evidenceUrl: typeof OFFICIAL;
-      verifiedAt: typeof JAN;
+      verifiedAt: typeof VERIFIED;
     }>().not.toExtend<Lifecycle>();
     expectTypeOf<{
       kind: "rescheduled";
       dates: typeof LATE_2025;
       evidenceUrl: typeof OFFICIAL;
-      verifiedAt: typeof JAN;
+      verifiedAt: typeof VERIFIED;
     }>().not.toExtend<Lifecycle>();
   });
 
@@ -263,12 +279,12 @@ describe("nested facts", () => {
       verifiedAt: string;
     }>().not.toExtend<Notice>();
     expectTypeOf(open).toExtend<Registration>();
-    expectTypeOf({ ...open, verifiedAt: MARCH_1 }).toExtend<Registration>();
-    expectTypeOf({ ...notice, verifiedAt: MARCH_1 }).toExtend<Notice>();
+    expectTypeOf({ ...open, verifiedAt: VERIFIED_DAY }).toExtend<Registration>();
+    expectTypeOf({ ...notice, verifiedAt: VERIFIED_DAY }).toExtend<Notice>();
     expectTypeOf<{
       kind: "cancelled";
       evidenceUrl: typeof OFFICIAL;
-      verifiedAt: typeof MARCH_1;
+      verifiedAt: typeof VERIFIED_DAY;
     }>().toExtend<Lifecycle>();
   });
 });
