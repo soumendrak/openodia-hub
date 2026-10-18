@@ -42,16 +42,19 @@ export const httpsUrl = refine((value: string): value is HttpsUrl => {
 
 export const text = refine((value: string): value is Text => value.trim() !== "", "blank-text");
 
-type DatesShape = { readonly start: IsoDay; readonly end: IsoDay };
+type ExactShape = { readonly kind: "exact"; readonly start: IsoDay; readonly end: IsoDay };
 
-export type Dates = Brand<DatesShape, "Dates">;
+export type ExactDates = Brand<ExactShape, "ExactDates">;
+
+export type Dates = ExactDates | { readonly kind: "approximate"; readonly label: Text };
 
 const checkDates = refine(
-  (shape: DatesShape): shape is Dates => shape.start <= shape.end,
+  (shape: ExactShape): shape is ExactDates => shape.start <= shape.end,
   "end-before-start",
 );
 
-export const dates = ({ start, end }: DatesShape) => checkDates({ start, end });
+export const dates = ({ start, end }: { readonly start: IsoDay; readonly end: IsoDay }) =>
+  checkDates({ kind: "exact", start, end });
 
 export type Field<T> =
   | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }
@@ -112,7 +115,7 @@ export const notices = (list: readonly Notice[]) => checkNotices([...list]);
 
 type Values = {
   title: Text;
-  description: Text;
+  description: Text | null;
   dates: Dates;
   lifecycle: Lifecycle | null;
   location: Text | null;
@@ -123,11 +126,31 @@ type Values = {
 
 export type CanonicalEvent = { readonly [K in keyof Values]: Field<Values[K]> };
 
-export type Correction = {
+type CorrectionShape = {
   readonly at: IsoInstant;
   readonly evidence: HttpsUrl;
   readonly patch: { readonly [K in keyof Values]?: Values[K] };
 };
+
+export type Correction = Brand<CorrectionShape, "Correction">;
+
+const isCorrection = (shape: CorrectionShape): shape is Correction => {
+  const { dates, lifecycle } = shape.patch;
+  if (lifecycle?.kind !== "postponed" || !lifecycle.rescheduled) return true;
+  return dates?.kind === "exact" && dates.start !== lifecycle.previous;
+};
+
+export function correction({
+  at,
+  evidence,
+  patch,
+}: CorrectionShape): Result<Correction, "rescheduled-without-dates" | "moved-to-same-day"> {
+  const shape = { at, evidence, patch: { ...patch } };
+  if (isCorrection(shape)) return { ok: true, value: shape };
+  const error =
+    shape.patch.dates?.kind === "exact" ? "moved-to-same-day" : "rescheduled-without-dates";
+  return { ok: false, error };
+}
 
 function rank<T>(field: Field<T>) {
   if (field.kind !== "upstream") return `2${field.at}${JSON.stringify(field)}`;

@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from "vitest";
 import {
   applyCorrection,
+  correction,
   dates,
   httpsUrl,
   isoDay,
@@ -10,6 +11,8 @@ import {
   noticeText,
   text,
   type CanonicalEvent,
+  type Correction,
+  type Dates,
   type Field,
   type Lifecycle,
   type Notice,
@@ -37,6 +40,7 @@ const A = unwrap(text("A"));
 const B = unwrap(text("B"));
 const C = unwrap(text("C"));
 const TEXTS = [A, B, C];
+const LATE_2025: Dates = { kind: "approximate", label: unwrap(text("Oct–Nov 2025")) };
 
 function random(seed: number) {
   let state = seed;
@@ -66,7 +70,7 @@ function ranges(rng: Random) {
     return { start, end, result: dates({ start, end }) };
   });
   const day = rng.pick(DAYS);
-  const built = [unwrap(dates({ start: day, end: day }))];
+  const built: Dates[] = [unwrap(dates({ start: day, end: day })), LATE_2025];
   for (const { result } of attempts) if (result.ok) built.push(result.value);
   return { attempts, built };
 }
@@ -99,7 +103,7 @@ const range = (start: typeof MARCH_1, end: typeof MARCH_1) => unwrap(dates({ sta
 function event(rng: Random): CanonicalEvent {
   return {
     title: field(rng, TEXTS),
-    description: field(rng, TEXTS),
+    description: field(rng, [...TEXTS, null]),
     dates: field(rng, ranges(rng).built),
     lifecycle: field(rng, LIFECYCLES),
     location: field(rng, [...TEXTS, null]),
@@ -110,7 +114,9 @@ function event(rng: Random): CanonicalEvent {
 }
 
 const orderedField = ({ dates: value }: CanonicalEvent) =>
-  value.kind === "cleared" || value.value.start <= value.value.end;
+  value.kind === "cleared" ||
+  value.value.kind === "approximate" ||
+  value.value.start <= value.value.end;
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
 describe("parsers", () => {
@@ -184,11 +190,16 @@ describe("nested facts", () => {
       rescheduled: false,
       ...checked,
     };
-    const corrected = applyCorrection(event(random(5)), {
-      at: MAR,
-      evidence: EVIDENCE,
-      patch: { dates: range(MARCH_1, MARCH_1), lifecycle: postponed },
-    });
+    const corrected = applyCorrection(
+      event(random(5)),
+      unwrap(
+        correction({
+          at: MAR,
+          evidence: EVIDENCE,
+          patch: { dates: range(MARCH_1, MARCH_1), lifecycle: postponed },
+        }),
+      ),
+    );
     expect(corrected.lifecycle).toEqual({
       kind: "reviewed",
       value: postponed,
@@ -197,6 +208,41 @@ describe("nested facts", () => {
     });
     expect(corrected.dates).toMatchObject({ value: { start: MARCH_1 } });
     expectTypeOf<{ kind: "cancelled" }>().not.toExtend<Lifecycle>();
+  });
+
+  it("rejects a rescheduled postponement unless the same correction moves the start to a different exact day", () => {
+    const moved = (previous: typeof MARCH_1): Lifecycle => ({
+      kind: "postponed",
+      previous,
+      rescheduled: true,
+      ...checked,
+    });
+    const fix = (patch: Correction["patch"]) => correction({ at: MAR, evidence: EVIDENCE, patch });
+    expect(fix({ lifecycle: moved(MARCH_1) })).toEqual({
+      ok: false,
+      error: "rescheduled-without-dates",
+    });
+    expect(fix({ lifecycle: moved(MARCH_1), dates: LATE_2025 })).toEqual({
+      ok: false,
+      error: "rescheduled-without-dates",
+    });
+    expect(fix({ lifecycle: moved(MARCH_1), dates: range(MARCH_1, MARCH_5) })).toEqual({
+      ok: false,
+      error: "moved-to-same-day",
+    });
+    expect(fix({ lifecycle: moved(MARCH_1), dates: range(APRIL_10, APRIL_10) }).ok).toBe(true);
+    expectTypeOf<{
+      at: typeof MAR;
+      evidence: typeof EVIDENCE;
+      patch: object;
+    }>().not.toExtend<Correction>();
+  });
+
+  it("keeps a correction independent of the patch it was built from", () => {
+    const patch: { title?: typeof A } = { title: A };
+    const built = unwrap(correction({ at: MAR, evidence: EVIDENCE, patch }));
+    patch.title = B;
+    expect(built.patch.title).toBe(A);
   });
 
   it("require evidence for a known registration state and https evidence on notices", () => {
@@ -264,6 +310,20 @@ describe("join", () => {
     expect(joined.dates).toEqual(moved.dates);
   });
 
+  it("keeps an imprecisely dated event until a review gives it exact days", () => {
+    const base = event(random(6));
+    const curated: CanonicalEvent = {
+      ...base,
+      dates: { kind: "upstream", value: LATE_2025, seen: MAR },
+    };
+    const reviewed: CanonicalEvent = {
+      ...base,
+      dates: { kind: "reviewed", value: range(MARCH_1, MARCH_5), at: JAN, evidence: EVIDENCE },
+    };
+    expect(join(curated, curated).dates).toEqual(curated.dates);
+    expect(join(curated, reviewed).dates).toEqual(reviewed.dates);
+  });
+
   it("lets a newer upstream value replace an older one but never fill it with null", () => {
     const base = event(random(2));
     const at = (location: CanonicalEvent["location"]) => ({ ...base, location });
@@ -279,7 +339,7 @@ describe("applyCorrection", () => {
   const seen = <T>(value: T): Field<T> => ({ kind: "upstream", value, seen: JAN });
   const base: CanonicalEvent = {
     title: { kind: "reviewed", value: A, at: FEB, evidence: EVIDENCE },
-    description: seen(B),
+    description: seen(null),
     dates: seen(range(MARCH_1, MARCH_1)),
     lifecycle: seen<Lifecycle | null>(null),
     location: seen(C),
@@ -289,11 +349,10 @@ describe("applyCorrection", () => {
   };
 
   it("stamps each patched field with the correction's time and evidence", () => {
-    const corrected = applyCorrection(base, {
-      at: MAR,
-      evidence: EVIDENCE,
-      patch: { title: B, location: null },
-    });
+    const corrected = applyCorrection(
+      base,
+      unwrap(correction({ at: MAR, evidence: EVIDENCE, patch: { title: B, location: null } })),
+    );
     expect(corrected.title).toEqual({ kind: "reviewed", value: B, at: MAR, evidence: EVIDENCE });
     expect(corrected.location).toEqual({
       kind: "reviewed",
@@ -305,7 +364,10 @@ describe("applyCorrection", () => {
   });
 
   it("does not let an older correction overwrite a newer review", () => {
-    const corrected = applyCorrection(base, { at: JAN, evidence: EVIDENCE, patch: { title: C } });
+    const corrected = applyCorrection(
+      base,
+      unwrap(correction({ at: JAN, evidence: EVIDENCE, patch: { title: C } })),
+    );
     expect(corrected.title).toEqual(base.title);
   });
 });
