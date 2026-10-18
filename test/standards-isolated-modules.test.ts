@@ -122,6 +122,12 @@ describe("isolated module lint gates", () => {
     expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
   });
 
+  it("allows a glob that excludes a module's internal files", async () => {
+    const code =
+      'export const load = import.meta.glob(["@/events/*.ts", "!@/events/internal/*.ts"]);\n';
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
+  });
+
   it.each([
     [
       "scripts/fixture.mjs",

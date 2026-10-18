@@ -77,7 +77,7 @@ const internalImports = {
         const path = pattern.value.replace(/^!/, "");
         const directory = path.slice(path.startsWith("@/") ? 2 : 0, path.lastIndexOf("/") + 1);
         if (GLOB_DIRECTORY.test(directory) || path.includes("**")) computed(pattern);
-        else fence(pattern, path);
+        else if (path === pattern.value) fence(pattern, path);
       }
     };
     const literal = (node: { source: TSESTree.StringLiteral | null }) =>

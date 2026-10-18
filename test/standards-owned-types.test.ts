@@ -105,6 +105,13 @@ const flagged: Record<string, string> = {
   R26: "export const Factory = raw as new () => ExactDates;",
   R27: 'import type { Sealed } from "../events";\nexport const x = raw as Sealed;',
   R28: 'import { make } from "fake-lib";\nexport const e = make<CanonicalEvent>();',
+  R29: 'import { seeded } from "fake-lib";\nexport const e = seeded<CanonicalEvent>();',
+  R30: 'import { tag } from "fake-lib";\nexport const e = tag<CanonicalEvent>`x`;',
+  R31: "Object.assign(event, JSON.parse(s));",
+  R32: 'import { is } from "fake-lib";\nexport const out = is<CanonicalEvent>(raw) ? save(raw) : null;',
+  R33: 'import { assertIs } from "fake-lib";\nassertIs<CanonicalEvent>(raw);\nexport const out = save(raw);',
+  R34: "declare const key: unique symbol;\nexport class Store {\n  [key]!: CanonicalEvent;\n}",
+  R35: `type Many = ${Array.from({ length: 2600 }, (_, i) => `{ a${i}: ${i} }`).join(" | ")} | { last: CanonicalEvent };\nexport const e = raw as Many;`,
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",
   C03: 'export async function load() {\n  const Events = await import("../events");\n  return raw as ReturnType<typeof Events.join>;\n}',
@@ -128,6 +135,9 @@ const clean: Record<string, string> = {
   L15: "export const list = Promise.resolve<IsoDay[]>([]);\nexport const day = Object.freeze(isoDay(s));",
   L16: "export function read(cache: { json(): CanonicalEvent }) {\n  const e: CanonicalEvent = cache.json();\n  return e;\n}",
   L17: 'import { box } from "fake-lib";\nexport const days = box<IsoDay>();',
+  L18: 'export const id = raw as Pick<CanonicalEvent, "id">;',
+  L19: "console.log(event, JSON.parse(s));",
+  L20: 'import { isDefined } from "fake-lib";\nexport const out = (maybe?: CanonicalEvent) => (isDefined(maybe) ? save(maybe) : null);',
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -147,7 +157,15 @@ beforeAll(async () => {
   write("node_modules/fake-lib/package.json", '{"name":"fake-lib","types":"index.d.ts"}');
   write(
     "node_modules/fake-lib/index.d.ts",
-    "export declare function make<T>(): T;\nexport declare function box<T>(items?: readonly T[]): T[];\n",
+    [
+      "export declare function make<T>(): T;",
+      "export declare function box<T>(items?: readonly T[]): T[];",
+      "export declare function seeded<T>(seed?: T): T;",
+      "export declare function tag<T>(strings: TemplateStringsArray): T;",
+      "export declare function is<T>(value: unknown): value is T;",
+      "export declare function assertIs<T>(value: unknown): asserts value is T;",
+      "export declare function isDefined<T>(value: T | undefined): value is T;",
+    ].join("\n"),
   );
   write("events/index.ts", 'export * from "./model";\n');
   write(
