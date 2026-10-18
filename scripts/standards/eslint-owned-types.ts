@@ -204,7 +204,7 @@ export const ownedTypes = {
           report(node, "declared", brands(typeOf(node.id)));
       },
       PropertyDefinition(node) {
-        if (!node.value && (node.definite || ambient(nodes.get(node))))
+        if (!node.value && (node.definite || node.static || ambient(nodes.get(node))))
           report(node, "declared", brands(typeOf(node)));
       },
       "TSDeclareFunction, TSEmptyBodyFunctionExpression"(
