@@ -4,11 +4,7 @@ import { fromRoot, ownedTypes } from "./eslint-owned-types.ts";
 
 type Node = TSESTree.Node;
 
-type Context<Message> = {
-  readonly filename: string;
-  report(descriptor: { node: Node; messageId: Message }): void;
-};
-
+const VITEST_LOADERS = /^(importActual|importMock|mock|doMock|unmock|doUnmock)$/;
 const GLOB_DIRECTORY = /[*?[\]{}()!+@]/;
 
 const nameOf = (node: Node | null | undefined) =>
@@ -60,7 +56,7 @@ const internalImports = {
         "Load modules by plain string paths with no wildcard directories so the internal/ fence can check them.",
     },
   } satisfies TSESLint.RuleMetaData<"internal" | "computed">,
-  create(context: Context<"internal" | "computed">) {
+  create(context: TSESLint.RuleContext<"internal" | "computed", []>) {
     const importer = fromRoot(context.filename);
     const fence = (node: Node, specifier: string) =>
       outsideOwner(specifier, importer) && context.report({ node, messageId: "internal" });
@@ -93,19 +89,14 @@ const internalImports = {
         const { callee } = node;
         const member = callee.type === "MemberExpression" ? callee : undefined;
         const object = member?.object;
-        if (
-          object?.type === "MetaProperty" &&
-          object.meta.name === "import" &&
-          nameOf(member?.property) === "glob"
-        )
+        const property = nameOf(member?.property);
+        if (object?.type === "MetaProperty" && object.meta.name === "import" && property === "glob")
           glob(node);
         else if (
           nameOf(callee) === "require" ||
-          (nameOf(object) === "module" && nameOf(member?.property) === "require") ||
+          (nameOf(object) === "module" && property === "require") ||
           (nameOf(object) === "vi" &&
-            /^(importActual|importMock|mock|doMock|unmock|doUnmock)$/.test(
-              nameOf(member?.property),
-            ) &&
+            VITEST_LOADERS.test(property) &&
             node.arguments[0]?.type !== "ImportExpression")
         )
           load(node.arguments[0], node);
