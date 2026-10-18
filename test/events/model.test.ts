@@ -54,6 +54,12 @@ function random(seed: number) {
 
 type Random = ReturnType<typeof random>;
 
+function kept<T>(rng: Random, values: readonly T[]): Exclude<Field<T>, { kind: "cleared" }> {
+  if (rng.next() < 0.45)
+    return { kind: "upstream", value: rng.pick(values), seen: rng.pick(TIMES) };
+  return { kind: "reviewed", value: rng.pick(values), at: rng.pick(TIMES), evidence: EVIDENCE };
+}
+
 function field<T>(rng: Random, values: readonly T[]): Field<T> {
   const roll = rng.next();
   if (roll < 0.4) return { kind: "upstream", value: rng.pick(values), seen: rng.pick(TIMES) };
@@ -106,19 +112,18 @@ const unknown: Registration = {
 
 function event(rng: Random): CanonicalEvent {
   return {
-    title: field(rng, TEXTS),
+    title: kept(rng, TEXTS),
     description: field(rng, [...TEXTS, null]),
-    dates: field(rng, ranges(rng).built),
+    dates: kept(rng, ranges(rng).built),
     lifecycle: field(rng, LIFECYCLES),
     location: field(rng, [...TEXTS, null]),
     attendance: field(rng, [null, { policy: "public", note: "Open." }]),
     registration: field(rng, [null, unknown, open]),
-    notices: field(rng, NOTICES),
+    notices: kept(rng, NOTICES),
   };
 }
 
 const orderedField = ({ dates: value }: CanonicalEvent) =>
-  value.kind === "cleared" ||
   value.value.kind === "approximate" ||
   (value.value.start <= value.value.end && value.value.previous !== value.value.start);
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -172,6 +177,21 @@ describe("dates", () => {
     const branded = unwrap(dates(source));
     source.end = MARCH_1;
     expect(branded.end).toBe(MARCH_5);
+  });
+
+  it("freezes a branded notice list so a mutable alias cannot grow it past 20", () => {
+    const alias: { [index: number]: Notice } = unwrap(
+      notices(Array.from({ length: 20 }, () => notice)),
+    );
+    expect(() => (alias[20] = notice)).toThrow(TypeError);
+  });
+
+  it("only lets nullable fields be cleared", () => {
+    type Cleared = { kind: "cleared"; at: typeof MAR; evidence: typeof EVIDENCE };
+    expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["title"]>();
+    expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["dates"]>();
+    expectTypeOf<Cleared>().not.toExtend<CanonicalEvent["notices"]>();
+    expectTypeOf<Cleared>().toExtend<CanonicalEvent["location"]>();
   });
 
   it("freezes branded dates so a mutable alias cannot put the end before the start", () => {
@@ -334,7 +354,11 @@ describe("join", () => {
 });
 
 describe("applyCorrection", () => {
-  const seen = <T>(value: T): Field<T> => ({ kind: "upstream", value, seen: JAN });
+  const seen = <T>(value: T): Exclude<Field<T>, { kind: "cleared" }> => ({
+    kind: "upstream",
+    value,
+    seen: JAN,
+  });
   const base: CanonicalEvent = {
     title: { kind: "reviewed", value: A, at: FEB, evidence: EVIDENCE },
     description: seen(null),
