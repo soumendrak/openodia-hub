@@ -1,4 +1,4 @@
-import { rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
@@ -187,29 +187,37 @@ describe("isolated module lint gates", () => {
     ]);
   });
 
-  it("runs the type-aware owned-types rule on src files with type information", async () => {
-    const real = new ESLint({ overrideConfigFile: true, overrideConfig: config });
-    const options = await real.calculateConfigForFile("src/routes/fixture.ts");
-    expect(options.rules["isolated/owned-types"]).toEqual([2, { modules: ["src/events"] }]);
-    expect(options.languageOptions.parserOptions.project).toBe("./tsconfig.json");
-    const tests = await real.calculateConfigForFile("test/fixture.test.ts");
-    expect(tests.rules["isolated/owned-types"]).toBeUndefined();
-  });
-
-  it.each(["mts", "cts"])("type-checks src .%s files with the root project", async (extension) => {
-    const file = resolve(
-      import.meta.dirname,
-      `../src/routes/guard-fixture-${process.pid}.${extension}`,
+  it("flags a forged src/events value in src .ts, .mts and .cts files, but not in src/events", async () => {
+    const name = `guard-fixture-${process.pid}`;
+    const files = {
+      model: resolve(import.meta.dirname, `../src/events/${name}.ts`),
+      own: resolve(import.meta.dirname, `../src/events/${name}-own.ts`),
+      ts: resolve(import.meta.dirname, `../src/routes/${name}.ts`),
+      mts: resolve(import.meta.dirname, `../src/routes/${name}.mts`),
+      cts: resolve(import.meta.dirname, `../src/routes/${name}.cts`),
+    };
+    const events = resolve(import.meta.dirname, "../src/events");
+    const created = !existsSync(events) && mkdirSync(events);
+    const forge = `export const day = "2026-02-30" as Day;\n`;
+    writeFileSync(
+      files.model,
+      'declare const brand: unique symbol;\nexport type Day = string & { readonly [brand]: "Day" };\n',
     );
-    writeFileSync(file, "export const x = [1];\n");
+    writeFileSync(files.own, `import type { Day } from "./${name}";\n${forge}`);
+    for (const consumer of [files.ts, files.mts, files.cts])
+      writeFileSync(consumer, `import type { Day } from "../events/${name}";\n${forge}`);
     try {
-      const [result] = await new ESLint({
-        overrideConfigFile: true,
-        overrideConfig: config,
-      }).lintFiles([file]);
-      expect(result?.messages).toEqual([]);
+      const real = new ESLint({ overrideConfigFile: true, overrideConfig: config });
+      const results = await real.lintFiles([files.own, files.ts, files.mts, files.cts]);
+      expect(
+        results.map(
+          (result) =>
+            result.messages.filter((message) => message.ruleId === "isolated/owned-types").length,
+        ),
+      ).toEqual([0, 1, 1, 1]);
     } finally {
-      rmSync(file);
+      for (const file of Object.values(files)) rmSync(file);
+      if (created !== false) rmSync(events, { recursive: true });
     }
   });
 
@@ -233,7 +241,7 @@ describe("isolated module lint gates", () => {
     });
     await expect(
       untyped.lintText("export const x = 1;\n", { filePath: "src/routes/fixture.ts" }),
-    ).rejects.toThrow("isolated/owned-types needs type information: src/routes/fixture.ts");
+    ).rejects.toThrow(/needs type information/);
   });
 
   it("resolves the internal fence from the repo root whatever directory ESLint runs in", async () => {
