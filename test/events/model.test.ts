@@ -196,6 +196,15 @@ describe("dates", () => {
     expect(() => (alias[20] = notice)).toThrow(TypeError);
   });
 
+  it("copies and freezes each notice so neither its source nor a mutable alias can change it", () => {
+    const source = { ...notice };
+    const [entry] = unwrap(notices([source]));
+    source.text = unwrap(noticeText("Changed."));
+    const alias: { text: string } | undefined = entry;
+    expect(entry?.text).toBe("Moved.");
+    expect(() => alias && (alias.text = "")).toThrow(TypeError);
+  });
+
   it("only lets nullable fields be cleared, and only by a reviewed null", () => {
     type Cleared = { kind: "reviewed"; value: null; at: typeof MAR; evidence: typeof EVIDENCE };
     type Tombstone = { kind: "cleared"; at: typeof MAR; evidence: typeof EVIDENCE };

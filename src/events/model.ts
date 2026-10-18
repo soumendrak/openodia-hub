@@ -129,7 +129,8 @@ const checkNotices = refine(
   "too-many-notices",
 );
 
-export const notices = (list: readonly Notice[]) => checkNotices(Object.freeze([...list]));
+export const notices = (list: readonly Notice[]) =>
+  checkNotices(Object.freeze(list.map((entry) => Object.freeze({ ...entry }))));
 
 type Values = {
   title: Text;
