@@ -4,8 +4,13 @@ import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
+import { createJiti } from "jiti";
 import tseslint from "typescript-eslint";
-import isolated from "./scripts/standards/eslint-isolated-modules.js";
+
+const isolated = await createJiti(import.meta.url).import(
+  "./scripts/standards/eslint-isolated-modules.ts",
+  { default: true },
+);
 
 export default defineConfig(
   // `.lavish` is the gitignored design scratch directory — mockups, not source.
@@ -37,7 +42,7 @@ export default defineConfig(
         },
       ],
       "isolated/internal-imports": "error",
-      "isolated/canonical-event": "error",
+      "isolated/owned-types": "error",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
     },
@@ -46,6 +51,19 @@ export default defineConfig(
     files: ["**/*.{js,jsx,mjs,cjs}"],
     plugins: { isolated },
     rules: { "isolated/internal-imports": "error" },
+  },
+  {
+    files: ["{src,scripts}/**/*.{ts,tsx,mts,cts}"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: ":matches(TSAsExpression, TSTypeAssertion) > TSNeverKeyword.typeAnnotation",
+          message:
+            "Never assert to never: it fits every type, including the src/events types that only their functions may build.",
+        },
+      ],
+    },
   },
   {
     files: ["src/{events,boundary,platform}/**/*.{js,jsx,mjs,cjs}"],

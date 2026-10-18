@@ -85,6 +85,7 @@
         "eslint-plugin-react-hooks": "^5.2.0",
         "eslint-plugin-react-refresh": "^0.4.20",
         "globals": "^15.15.0",
+        "jiti": "^2.6.1",
         "jsdom": "^29.1.1",
         "miniflare": "4.20260421.0",
         "prettier": "^3.7.3",
