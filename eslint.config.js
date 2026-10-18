@@ -9,14 +9,15 @@ const internalPath = "^(?:@/|\\.\\./|\\./[^/]+/)(?:[^/]+/)*?internal(?:/|$)".rep
   "/",
   "\\x2F",
 );
-const canonical = ":matches([name='CanonicalEvent'], [right.name='CanonicalEvent'])";
+const canonical =
+  ":matches([name='CanonicalEvent'], [right.name='CanonicalEvent'], [property.name='CanonicalEvent'])";
 
 export default tseslint.config(
   // `.lavish` is the gitignored design scratch directory — mockups, not source.
   { ignores: ["dist", ".output", ".vinxi", ".lavish"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
-    files: ["**/*.{ts,tsx}"],
+    files: ["**/*.{ts,tsx,mts,cts}"],
     languageOptions: {
       ecmaVersion: 2020,
       globals: globals.browser,
@@ -55,8 +56,12 @@ export default tseslint.config(
             "Build a CanonicalEvent with the functions in src/events, never with a type assertion.",
         },
         {
-          selector:
-            "ImportSpecifier[imported.name='CanonicalEvent'][local.name!='CanonicalEvent'], ExportSpecifier[local.name='CanonicalEvent'][exported.name!='CanonicalEvent']",
+          selector: [
+            "ImportSpecifier[imported.name='CanonicalEvent'][local.name!='CanonicalEvent']",
+            "ExportSpecifier[local.name='CanonicalEvent'][exported.name!='CanonicalEvent']",
+            `TSTypeAliasDeclaration > TSTypeReference.typeAnnotation > ${canonical}.typeName`,
+            `TSInterfaceHeritage > ${canonical}.expression`,
+          ].join(", "),
           message: "Use CanonicalEvent under its own name so the type assertion ban can see it.",
         },
       ],
@@ -65,7 +70,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/{events,boundary,platform}/**/*.{ts,tsx}"],
+    files: ["src/{events,boundary,platform}/**/*.{ts,tsx,mts,cts}"],
     extends: [...tseslint.configs.strictTypeChecked],
     languageOptions: {
       parserOptions: { project: "./tsconfig.strict.json", tsconfigRootDir: import.meta.dirname },
