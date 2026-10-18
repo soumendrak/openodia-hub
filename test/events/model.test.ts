@@ -392,6 +392,48 @@ describe("join", () => {
       }).toThrow(TypeError);
   });
 
+  it("keeps rejected parses from turning into successes through a widened mutable alias", () => {
+    const widened: { ok: boolean }[] = [
+      text(""),
+      dates({ start: MARCH_5, end: MARCH_1, previous: null }),
+      dates({ start: MARCH_1, end: MARCH_5, previous: MARCH_1 }),
+      notices(new Array<Notice>(1)),
+      notices(Array.from({ length: 21 }, () => notice)),
+    ];
+    for (const alias of widened)
+      expect(() => {
+        alias.ok = true;
+      }).toThrow(TypeError);
+  });
+
+  it("ranks values that hold a bigint", () => {
+    const counted: CanonicalEvent = {
+      ...event(random(12)),
+      attendance: {
+        kind: "upstream",
+        value: Object.assign({ policy: "public" as const, note: "Open." }, { extra: 1n }),
+        seen: MAR,
+      },
+    };
+    expect(join(counted, counted)).toEqual(counted);
+  });
+
+  it("orders a value that refers to itself apart from one that spells out a marker", () => {
+    const looped: { policy: "public"; note: string; self?: object } = {
+      policy: "public",
+      note: "Open.",
+    };
+    looped.self = looped;
+    const spelled = { policy: "public" as const, note: "Open.", self: { "#cycle": 1 } };
+    const shared = event(random(13));
+    const holding = (value: CanonicalEvent["attendance"]["value"]): CanonicalEvent => ({
+      ...shared,
+      attendance: { kind: "upstream", value, seen: MAR },
+    });
+    const [a, b] = [holding(looped), holding(spelled)];
+    expect(join(a, b).attendance).toBe(join(b, a).attendance);
+  });
+
   it("orders notice lists by an encoding that no notice text can imitate", () => {
     const second: Notice = { ...notice, text: unwrap(noticeText("Second.")) };
     const spelled = `${notice.text},verifiedAt=string:${notice.verifiedAt}},1={evidenceUrl=string:${notice.evidenceUrl},kind=string:${notice.kind},text=string:${second.text}`;

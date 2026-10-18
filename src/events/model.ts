@@ -18,9 +18,10 @@ export type Result<T, E> =
   | { readonly ok: false; readonly error: E };
 
 const ok = <T>(value: T): Result<T, never> => Object.freeze({ ok: true, value });
+const fail = <E>(error: E): Result<never, E> => Object.freeze({ ok: false, error });
 
 function refine<S, T extends S, E extends string>(valid: (value: S) => value is T, error: E) {
-  return (value: S): Result<T, E> => (valid(value) ? ok(value) : { ok: false, error });
+  return (value: S): Result<T, E> => (valid(value) ? ok(value) : fail(error));
 }
 
 const roundTrips = (value: string, length: number) =>
@@ -80,8 +81,8 @@ export class ExactDates implements DateParts {
     end,
     previous,
   }: DateParts): Result<ExactDates, "end-before-start" | "moved-to-same-day"> {
-    if (end < start) return { ok: false, error: "end-before-start" };
-    if (previous === start) return { ok: false, error: "moved-to-same-day" };
+    if (end < start) return fail("end-before-start");
+    if (previous === start) return fail("moved-to-same-day");
     return ok(new ExactDates(start, end, previous));
   }
 }
@@ -147,7 +148,7 @@ export const notices = (
   list: readonly Notice[],
 ): Result<Notices, "too-many-notices" | "sparse-notices"> =>
   list.reduce((count) => count + 1, 0) < list.length
-    ? { ok: false, error: "sparse-notices" }
+    ? fail("sparse-notices")
     : checkNotices(
         Object.freeze(
           Array.from(list, ({ kind, text, evidenceUrl, verifiedAt }) =>
@@ -181,13 +182,16 @@ export type Correction = {
 };
 
 const plain = (value: unknown, seen: readonly object[] = []): unknown => {
-  if (typeof value === "function") return undefined;
-  if (typeof value !== "object" || value === null) return value;
-  if (seen.includes(value)) return { "#cycle": seen.indexOf(value) };
+  if (typeof value === "string" || typeof value === "boolean" || value === null) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "number" || typeof value === "bigint")
+    return [typeof value, value.toString()];
+  if (typeof value !== "object") return [typeof value];
+  if (seen.includes(value)) return ["cycle", seen.indexOf(value)];
   const path = [...seen, value];
-  if (Array.isArray(value)) return value.map((item) => plain(item, path));
+  if (Array.isArray(value)) return ["array", ...value.map((item) => plain(item, path))];
   const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1));
-  return Object.fromEntries(entries.map(([key, item]) => [key, plain(item, path)]));
+  return ["object", ...entries.map(([key, item]) => [key, plain(item, path)])];
 };
 
 const instant = (at: IsoInstant | Timestamp) => String(Date.parse(at)).padStart(16, "0");
