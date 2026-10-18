@@ -4,23 +4,16 @@ import ts from "typescript";
 
 type Node = TSESTree.Node;
 type Messages = "assertion" | "unsafe" | "forged" | "declared" | "merged";
-type Context = TSESLint.RuleContext<Messages, [{ modules?: string[] }?]>;
 
 const ROOT = resolve(import.meta.dirname, "../..");
 export const fromRoot = (file: string) => relative(ROOT, file).split(sep).join("/");
 const { Any, Never, TypeParameter, Object: Structure, Null, Undefined, Void } = ts.TypeFlags;
-const Declare = ts.SyntaxKind.DeclareKeyword;
+const { Private, Protected } = ts.ModifierFlags;
+const declares = (node: ts.Node) =>
+  ts.canHaveModifiers(node) &&
+  !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword);
 
-function memo<T>(fallback: T, compute: (type: ts.Type, self: (type: ts.Type) => T) => T) {
-  const cache = new Map<ts.Type, T>();
-  return function run(type: ts.Type): T {
-    if (cache.has(type)) return cache.get(type) ?? fallback;
-    cache.set(type, fallback);
-    cache.set(type, compute(type, run));
-    return cache.get(type) ?? fallback;
-  };
-}
-
+const shared = new Map<string, WeakMap<ts.Type, readonly string[]>>();
 const build = (what: string) => `${what}. Build it with the functions in {{module}}.`;
 
 export const ownedTypes = {
@@ -37,9 +30,10 @@ export const ownedTypes = {
       merged: build("Merging into a {{module}} value skips its checks"),
     },
   } satisfies TSESLint.RuleMetaData<Messages>,
-  create(context: Context) {
+  create(context: TSESLint.RuleContext<Messages, [{ modules?: string[] }?]>) {
     const modules = context.options[0]?.modules ?? ["src/events"];
     const moduleOf = (file: string) => modules.find((m) => fromRoot(file).startsWith(`${m}/`));
+    const guarded = (node: ts.Node) => !!moduleOf(node.getSourceFile().fileName);
     const importer = fromRoot(context.filename);
     const owners = modules.flatMap((m) => [m, m.replace(/^src\//, "test/")]);
     if (owners.some((owner) => importer.startsWith(`${owner}/`))) return {};
@@ -55,7 +49,7 @@ export const ownedTypes = {
     const report = (node: Node, messageId: Messages, [module]: readonly string[]) =>
       module && context.report({ node, messageId, data: { module } });
 
-    function parts(type: ts.Type): readonly ts.Type[] {
+    function parts(type: ts.Type, deep: boolean): readonly ts.Type[] {
       if (type.isUnionOrIntersection()) return type.types;
       if (!(type.flags & Structure)) return [];
       const object = type as ts.TypeReference;
@@ -63,10 +57,11 @@ export const ownedTypes = {
       const args =
         object.objectFlags & ts.ObjectFlags.Reference ? checker.getTypeArguments(object) : [];
       const found = [...args, ...(mapped ? [] : (type.aliasTypeArguments ?? []))];
-      if (!mapped && !local(type)) return found;
+      const fields = checker.getPropertiesOfType(type).map((p) => checker.getTypeOfSymbol(p));
+      if (!mapped && !local(type)) return deep ? [...found, ...fields] : found;
       return [
         ...found,
-        ...checker.getPropertiesOfType(type).map((p) => checker.getTypeOfSymbol(p)),
+        ...fields,
         ...[...type.getCallSignatures(), ...type.getConstructSignatures()].map((signature) =>
           signature.getReturnType(),
         ),
@@ -74,28 +69,46 @@ export const ownedTypes = {
       ];
     }
 
-    const hidden = ts.ModifierFlags.Private | ts.ModifierFlags.Protected;
+    function closure(name: string, own: (type: ts.Type) => readonly string[], deep = false) {
+      const key = `${name} ${modules.join()}`;
+      const done = shared.get(key) ?? new WeakMap<ts.Type, readonly string[]>();
+      shared.set(key, done);
+      const stack: ts.Type[] = [];
+      function visit(type: ts.Type): readonly [readonly string[], number] {
+        const finished = done.get(type);
+        if (finished) return [finished, Infinity];
+        if (stack.includes(type)) return [[], stack.indexOf(type)];
+        const at = stack.push(type) - 1;
+        const reached = parts(type, deep).map(visit);
+        const result = [...new Set([...own(type), ...reached.flatMap(([values]) => values)])];
+        const low = Math.min(at, ...reached.map(([, reach]) => reach));
+        if (low === at) for (const member of stack.splice(at)) done.set(member, result);
+        return [result, low];
+      }
+      return (type: ts.Type) => visit(type)[0];
+    }
+
     const seals = (type: ts.Type) =>
       (type.flags & Structure ? checker.getPropertiesOfType(type) : []).flatMap((property) => {
         const [declaration] = property.declarations ?? [];
+        const key = declaration && ts.getNameOfDeclaration(declaration);
+        const computed = key && ts.isComputedPropertyName(key) ? key.expression : undefined;
         const sealed =
-          /^__[@#]/.test(String(property.escapedName)) ||
-          (!!declaration && ts.getCombinedModifierFlags(declaration) & hidden);
+          String(property.escapedName).startsWith("__#") ||
+          (!!declaration && ts.getCombinedModifierFlags(declaration) & (Private | Protected)) ||
+          (computed && checker.getSymbolAtLocation(computed)?.declarations?.some(guarded));
         const module = sealed && declaration && moduleOf(declaration.getSourceFile().fileName);
         return module ? [module] : [];
       });
-    const brands = memo([], (t): string[] => [...seals(t), ...parts(t).flatMap(brands)]);
-    const holds = (flags: ts.TypeFlags) =>
-      memo(false, (t, self): boolean => !!(t.flags & flags) || parts(t).some(self));
-    const hollow = holds(Any | Never);
-    const generic = holds(TypeParameter);
+    const brands = closure("brands", seals);
+    const holds = (flags: ts.TypeFlags, deep?: boolean) => (type: ts.Type) =>
+      closure(String(flags), (t) => (t.flags & flags ? ["held"] : []), deep)(type).length > 0;
+    const [hollow, generic] = [holds(Any | Never, true), holds(TypeParameter)];
 
     const signatureOf = (node: ts.CallLikeExpression) => {
       const declaration = checker.getResolvedSignature(node)?.declaration;
       return declaration && !ts.isJSDocSignature(declaration) ? declaration : undefined;
     };
-    const declares = (node: ts.Node) =>
-      ts.canHaveModifiers(node) && !!ts.getModifiers(node)?.some((m) => m.kind === Declare);
     const ambient = (node: ts.Node) =>
       !!ts.findAncestor(node, (n) =>
         ts.isSourceFile(n) ? n.isDeclarationFile || "quit" : declares(n),
@@ -116,22 +129,17 @@ export const ownedTypes = {
       const created = ts.isNewExpression(tsNode) && checker.getTypeAtLocation(tsNode).getSymbol();
       const owner =
         signatureOf(tsNode) ?? (created || undefined)?.declarations?.find(ts.isClassLike);
-      if (owner && moduleOf(owner.getSourceFile().fileName)) return;
+      if (owner && guarded(owner)) return;
       const resolved = checker.getResolvedSignature(tsNode);
       const predicate = resolved && checker.getTypePredicateOfSignature(resolved)?.type;
-      const narrowed = predicate ? brands(predicate) : [];
-      report(
-        node,
-        "assertion",
-        narrowed.filter((m) => !inputs.includes(m)),
-      );
+      const narrowed = predicate ? brands(predicate).filter((m) => !inputs.includes(m)) : [];
+      report(node, "assertion", narrowed);
       const library = !!owner && external(owner.getSourceFile());
       const declared = owner && declaredReturn(owner);
       if (library && declared?.isIntersection() && args.some((a) => hollow(typeOf(a))))
         return report(node, "merged", inputs);
       const type = typeOf(node);
       const result = brands(type);
-      if (!result.length) return;
       if (!library && declared && generic(declared)) return report(node, "forged", result);
       const objects = type.isIntersection() ? type.types.filter((t) => t.flags & Structure) : [];
       const owned = objects.filter((part) => brands(part).length);
@@ -160,7 +168,8 @@ export const ownedTypes = {
       if (parent.type === "ForOfStatement" && parent.right === node)
         return parent.left.type === "VariableDeclaration" ? undefined : typeOf(parent.left);
       const named = "name" in tsNode.parent && tsNode.parent.name === tsNode;
-      return named ? undefined : checker.getContextualType(tsNode);
+      const element = ts.isSpreadElement(tsNode.parent) ? tsNode.parent : tsNode;
+      return named ? undefined : checker.getContextualType(element);
     }
 
     return {
@@ -177,7 +186,7 @@ export const ownedTypes = {
           report(node, "declared", brands(typeOf(node.id)));
       },
       PropertyDefinition(node) {
-        if (!node.value && (node.definite || node.declare))
+        if (!node.value && (node.definite || ambient(nodes.get(node))))
           report(node, "declared", brands(typeOf(node)));
       },
       "TSDeclareFunction, TSEmptyBodyFunctionExpression"(

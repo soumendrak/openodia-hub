@@ -25,7 +25,6 @@ export default defineConfig(
     plugins: {
       "react-hooks": reactHooks,
       "react-refresh": reactRefresh,
-      isolated,
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
@@ -41,13 +40,12 @@ export default defineConfig(
           ],
         },
       ],
-      "isolated/internal-imports": "error",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
     },
   },
   {
-    files: ["**/*.{js,jsx,mjs,cjs}"],
+    files: ["**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts}"],
     plugins: { isolated },
     rules: { "isolated/internal-imports": "error" },
   },
