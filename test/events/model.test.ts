@@ -287,6 +287,16 @@ describe("nested facts", () => {
     expect(() => Reflect.construct(ExactDates, [MARCH_5, MARCH_1, null])).toThrow(TypeError);
   });
 
+  it("freezes the events join and applyCorrection return, so a widened alias cannot clear a title", () => {
+    const shared = event(random(9));
+    const correction: Correction = { at: JAN, evidence: EVIDENCE, patch: {} };
+    const widened: { title: unknown }[] = [
+      join(shared, shared),
+      applyCorrection(shared, correction),
+    ];
+    for (const alias of widened) expect(() => (alias.title = null)).toThrow(TypeError);
+  });
+
   it("copies notices by index, rejecting empty slots and ignoring a list's own iterator", () => {
     const skipping = Object.assign([venue], { *[Symbol.iterator]() {} });
     expect(notices(new Array<Notice>(1))).toEqual({ ok: false, error: "missing-notice" });

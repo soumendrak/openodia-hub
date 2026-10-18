@@ -239,7 +239,7 @@ function later<F extends Field<unknown>>(a: F, b: F): F {
 }
 
 export function join(a: CanonicalEvent, b: CanonicalEvent): CanonicalEvent {
-  return {
+  return Object.freeze({
     title: later(a.title, b.title),
     description: later(a.description, b.description),
     dates: later(a.dates, b.dates),
@@ -248,14 +248,14 @@ export function join(a: CanonicalEvent, b: CanonicalEvent): CanonicalEvent {
     attendance: later(a.attendance, b.attendance),
     registration: later(a.registration, b.registration),
     notices: later(a.notices, b.notices),
-  };
+  });
 }
 
 export function applyCorrection(event: CanonicalEvent, correction: Correction): CanonicalEvent {
   const { at, evidence, patch } = correction;
   const review = <T>(field: Field<T>, value: T | undefined) =>
     value === undefined ? field : later(field, reviewed(value, at, evidence));
-  return {
+  return Object.freeze({
     title: review(event.title, patch.title),
     description: review(event.description, patch.description),
     dates: review(event.dates, patch.dates),
@@ -264,5 +264,5 @@ export function applyCorrection(event: CanonicalEvent, correction: Correction): 
     attendance: review(event.attendance, patch.attendance),
     registration: review(event.registration, patch.registration),
     notices: review(event.notices, patch.notices),
-  };
+  });
 }
