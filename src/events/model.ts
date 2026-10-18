@@ -42,27 +42,26 @@ export const httpsUrl = refine((value: string): value is HttpsUrl => {
 
 export const text = refine((value: string): value is Text => value.trim() !== "", "blank-text");
 
-type DatesShape = { readonly start: IsoDay; readonly end: IsoDay };
+type DatesShape = {
+  readonly start: IsoDay;
+  readonly end: IsoDay;
+  readonly previous: IsoDay | null;
+};
 
 export type Dates = Brand<DatesShape, "Dates">;
 
-export const dates = refine(
-  (shape: DatesShape): shape is Dates => shape.start <= shape.end,
-  "end-before-start",
-);
+const validDates = (shape: DatesShape): shape is Dates =>
+  shape.start <= shape.end && shape.previous !== shape.start;
 
-type ScheduleShape =
-  | { readonly kind: "scheduled"; readonly dates: Dates }
-  | { readonly kind: "postponed"; readonly previous: IsoDay | null; readonly dates: Dates | null }
-  | { readonly kind: "cancelled"; readonly dates: Dates | null };
+export function dates(shape: DatesShape): Result<Dates, "end-before-start" | "moved-to-same-day"> {
+  if (validDates(shape)) return { ok: true, value: shape };
+  return { ok: false, error: shape.start > shape.end ? "end-before-start" : "moved-to-same-day" };
+}
 
-export type Schedule = Brand<ScheduleShape, "Schedule">;
-
-export const schedule = refine(
-  (shape: ScheduleShape): shape is Schedule =>
-    shape.kind !== "postponed" || shape.previous !== shape.dates?.start,
-  "postponed-to-same-day",
-);
+export type Lifecycle =
+  | { readonly kind: "scheduled" }
+  | { readonly kind: "postponed"; readonly rescheduled: boolean }
+  | { readonly kind: "cancelled" };
 
 export type Field<T> =
   | { readonly kind: "upstream"; readonly value: T; readonly seen: IsoInstant }
@@ -82,25 +81,45 @@ export type Attendance = {
 };
 
 export type Registration =
-  | { readonly state: "unknown"; readonly url: HttpsUrl | null }
+  | {
+      readonly state: "unknown";
+      readonly url: HttpsUrl | null;
+      readonly evidenceUrl: HttpsUrl | null;
+      readonly verifiedAt: IsoInstant | null;
+    }
   | ({
       readonly state: Exclude<(typeof REGISTRATION_STATES)[number], "unknown">;
       readonly url: HttpsUrl | null;
     } & Verified);
 
+export type NoticeText = Brand<string, "NoticeText">;
+
+export const noticeText = refine(
+  (value: string): value is NoticeText => value.trim() !== "" && value.length <= 1000,
+  "invalid-notice-text",
+);
+
 export type Notice = {
   readonly kind: (typeof EVENT_NOTICE_KINDS)[number];
-  readonly text: Text;
+  readonly text: NoticeText;
 } & Verified;
+
+export type Notices = Brand<readonly Notice[], "Notices">;
+
+export const notices = refine(
+  (list: readonly Notice[]): list is Notices => list.length <= 20,
+  "too-many-notices",
+);
 
 type Values = {
   title: Text;
   description: Text;
-  schedule: Schedule;
+  dates: Dates;
+  lifecycle: Lifecycle;
   location: Text | null;
   attendance: Attendance | null;
   registration: Registration | null;
-  notices: readonly Notice[];
+  notices: Notices;
 };
 
 export type CanonicalEvent = { readonly [K in keyof Values]: Field<Values[K]> };
@@ -124,7 +143,8 @@ export function join(a: CanonicalEvent, b: CanonicalEvent): CanonicalEvent {
   return {
     title: later(a.title, b.title),
     description: later(a.description, b.description),
-    schedule: later(a.schedule, b.schedule),
+    dates: later(a.dates, b.dates),
+    lifecycle: later(a.lifecycle, b.lifecycle),
     location: later(a.location, b.location),
     attendance: later(a.attendance, b.attendance),
     registration: later(a.registration, b.registration),
@@ -139,7 +159,8 @@ export function applyCorrection(event: CanonicalEvent, correction: Correction): 
   return {
     title: review(event.title, patch.title),
     description: review(event.description, patch.description),
-    schedule: review(event.schedule, patch.schedule),
+    dates: review(event.dates, patch.dates),
+    lifecycle: review(event.lifecycle, patch.lifecycle),
     location: review(event.location, patch.location),
     attendance: review(event.attendance, patch.attendance),
     registration: review(event.registration, patch.registration),
