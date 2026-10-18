@@ -204,11 +204,13 @@ const declared: Record<Declared, null> = {
 };
 const DECLARED = Object.keys(declared).sort();
 
-const plain = (value: unknown): unknown => {
-  if (typeof value !== "object" || value === null) return value;
+const plain = (value: unknown, path: readonly unknown[] = []): unknown => {
+  if ((typeof value !== "object" && typeof value !== "function") || value === null) return value;
+  if (path.includes(value)) return ["cycle", path.indexOf(value)];
+  const next = [...path, value];
   if (Array.isArray(value))
-    return Array.from({ length: value.length }, (_, index) => plain(value[index]));
-  return DECLARED.map((key) => plain(Reflect.get(value, key)));
+    return Array.from({ length: value.length }, (_, index) => plain(value[index], next));
+  return DECLARED.map((key) => plain(Reflect.get(value, key), next));
 };
 
 const instant = (at: IsoInstant | Timestamp) => {

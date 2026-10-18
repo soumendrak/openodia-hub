@@ -390,6 +390,34 @@ describe("join", () => {
     expect(join(looping, looping)).toEqual(looping);
   });
 
+  it("ranks a field whose declared value refers back to the field", () => {
+    const looping: Field<Attendance> & Attendance = {
+      kind: "upstream",
+      seen: MAR,
+      policy: "public",
+      note: "Open.",
+      get value() {
+        return looping;
+      },
+    };
+    const holding: CanonicalEvent = { ...event(random(16)), attendance: looping };
+    expect(join(holding, holding)).toEqual(holding);
+  });
+
+  it("orders fields that are callable objects by their declared properties", () => {
+    const shared = event(random(17));
+    const holding = (note: string): CanonicalEvent => ({
+      ...shared,
+      attendance: Object.assign(() => undefined, {
+        kind: "upstream" as const,
+        value: { policy: "public" as const, note },
+        seen: MAR,
+      }),
+    });
+    const [a, b] = [holding("Open."), holding("Closed.")];
+    expect(join(a, b).attendance).toBe(join(b, a).attendance);
+  });
+
   it("keeps parsed values from changing through a widened mutable alias", () => {
     const widened: { ok: boolean; value?: unknown }[] = [
       text("Valid"),
