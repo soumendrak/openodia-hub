@@ -61,11 +61,7 @@ export default defineConfig(
     rules: {
       "no-restricted-syntax": [
         "error",
-        {
-          selector: "Program",
-          message:
-            "Write src/events, src/boundary and src/platform in TypeScript so the strict typecheck and lint cover them.",
-        },
+        { selector: "Program", message: "Use TypeScript so the strict checks cover this file." },
       ],
     },
   },

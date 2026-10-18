@@ -182,7 +182,7 @@ describe("isolated module lint gates", () => {
     "rejects JavaScript in the strict module %s",
     async (file) => {
       expect(await lint(file, "globalThis.x = 1;\n")).toEqual([
-        "no-restricted-syntax: Write src/events, src/boundary and src/platform in TypeScript so the strict typecheck and lint cover them.",
+        "no-restricted-syntax: Use TypeScript so the strict checks cover this file.",
       ]);
     },
   );
