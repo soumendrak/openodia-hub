@@ -132,6 +132,8 @@ const flagged: Record<string, string> = {
   R50: "export class Registry {\n  static event: CanonicalEvent;\n}",
   R51: 'import { seeded } from "fake-lib";\nexport const e = seeded<CanonicalEvent>(undefined);',
   R52: 'function fake(): never {\n  return undefined!;\n  throw new Error("unreachable");\n}\nexport const e: CanonicalEvent = fake();',
+  R53: 'import { is } from "fake-lib";\nconst list = [event];\nexport const out = is<CanonicalEvent>(list) ? save(list) : null;',
+  R54: "interface Source {\n  make<T>(): T;\n}\nfunction bad<T>(seed: T, source: Source): T {\n  void seed;\n  return source.make<T>();\n}\nexport const e = (source: Source) => bad(event, source);",
   R35: `type Many = ${Array.from({ length: 2600 }, (_, i) => `{ a${i}: ${i} }`).join(" | ")} | { last: CanonicalEvent };\nexport const e = raw as Many;`,
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",
@@ -171,6 +173,7 @@ const clean: Record<string, string> = {
   L30: "function walk<T>(x: T, n: number): T {\n  return n ? walk(x, n - 1) : x;\n}\nexport const e = walk(event, 3);",
   L31: "function keepOne(e: CanonicalEvent) {\n  const cast = <T,>(x: unknown) => x as T;\n  return cast<string>(e.id) ? e : e;\n}\nexport const e = keepOne(event);",
   L32: 'import type { Ref } from "../events";\nexport const r = raw as Ref;',
+  L33: "interface Holder<T> {\n  get(): T;\n}\nfunction read<T>(holder: Holder<T>): T {\n  return holder.get();\n}\nexport const e = (holder: Holder<CanonicalEvent>) => read(holder);",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
