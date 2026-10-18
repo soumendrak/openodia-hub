@@ -51,7 +51,8 @@ export default tseslint.config(
             "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
         },
         {
-          selector: `:matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation:matches(TSTypeReference > ${canonical}.typeName, :has(TSTypeReference > ${canonical}.typeName))`,
+          selector:
+            ":matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation Identifier[name='CanonicalEvent']",
           message:
             "Build a CanonicalEvent with the functions in src/events, never with a type assertion.",
         },
@@ -60,6 +61,7 @@ export default tseslint.config(
             "ImportSpecifier[imported.name='CanonicalEvent'][local.name!='CanonicalEvent']",
             "ExportSpecifier[local.name='CanonicalEvent'][exported.name!='CanonicalEvent']",
             `TSTypeAliasDeclaration > TSTypeReference.typeAnnotation > ${canonical}.typeName`,
+            `TSTypeAliasDeclaration > TSImportType.typeAnnotation > ${canonical}.qualifier`,
             `TSInterfaceHeritage > ${canonical}.expression`,
           ].join(", "),
           message: "Use CanonicalEvent under its own name so the type assertion ban can see it.",
