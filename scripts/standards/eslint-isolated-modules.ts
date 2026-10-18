@@ -81,7 +81,7 @@ const isJson = (node: Node | undefined): boolean =>
 
 const CARRIERS = new Set([
   ...["ArrayExpression", "ObjectExpression", "Property", "SpreadElement", "AwaitExpression"],
-  ...["ConditionalExpression", "LogicalExpression", "TSNonNullExpression"],
+  ...["ConditionalExpression", "LogicalExpression", "TSNonNullExpression", "MemberExpression"],
 ]);
 
 function untyped(node: Node | null | undefined): boolean {
