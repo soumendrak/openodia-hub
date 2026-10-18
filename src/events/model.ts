@@ -144,18 +144,18 @@ const checkNotices = refine(
   "too-many-notices",
 );
 
-export const notices = (
+export function notices(
   list: readonly Notice[],
-): Result<Notices, "too-many-notices" | "sparse-notices"> =>
-  list.reduce((count) => count + 1, 0) < list.length
-    ? fail("sparse-notices")
-    : checkNotices(
-        Object.freeze(
-          Array.from(list, ({ kind, text, evidenceUrl, verifiedAt }) =>
-            Object.freeze({ kind, text, evidenceUrl, verifiedAt }),
-          ),
-        ),
-      );
+): Result<Notices, "too-many-notices" | "sparse-notices"> {
+  const copy: Notice[] = [];
+  for (let index = 0; index < list.length; index += 1) {
+    const item = list[index];
+    if (item === undefined) return fail("sparse-notices");
+    const { kind, text, evidenceUrl, verifiedAt } = item;
+    copy.push(Object.freeze({ kind, text, evidenceUrl, verifiedAt }));
+  }
+  return checkNotices(Object.freeze(copy));
+}
 
 type Values = {
   title: Text;
@@ -181,20 +181,41 @@ export type Correction = {
     | (Patch & { readonly lifecycle: Moved; readonly dates: ExactDates });
 };
 
-const plain = (value: unknown, seen: readonly object[] = []): unknown => {
-  if (typeof value === "string" || typeof value === "boolean" || value === null) return value;
-  if (typeof value === "number" && Number.isFinite(value)) return value;
-  if (typeof value === "number" || typeof value === "bigint")
-    return [typeof value, value.toString()];
-  if (typeof value !== "object") return [typeof value];
-  if (seen.includes(value)) return ["cycle", seen.indexOf(value)];
-  const path = [...seen, value];
-  if (Array.isArray(value)) return ["array", ...value.map((item) => plain(item, path))];
-  const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1));
-  return ["object", ...entries.map(([key, item]) => [key, plain(item, path)])];
+type Keys<T> = T extends string ? never : T extends readonly (infer I)[] ? Keys<I> : keyof T;
+type Declared = Extract<Keys<Field<Values[keyof Values]> | Values[keyof Values]>, string>;
+
+const declared: Record<Declared, null> = {
+  kind: null,
+  value: null,
+  seen: null,
+  at: null,
+  evidence: null,
+  start: null,
+  end: null,
+  previous: null,
+  label: null,
+  evidenceUrl: null,
+  verifiedAt: null,
+  policy: null,
+  note: null,
+  state: null,
+  url: null,
+  text: null,
+};
+const DECLARED = Object.keys(declared).sort();
+
+const plain = (value: unknown): unknown => {
+  if (typeof value !== "object" || value === null) return value;
+  if (Array.isArray(value))
+    return Array.from({ length: value.length }, (_, index) => plain(value[index]));
+  return DECLARED.map((key) => plain(Reflect.get(value, key)));
 };
 
-const instant = (at: IsoInstant | Timestamp) => String(Date.parse(at)).padStart(16, "0");
+const instant = (at: IsoInstant | Timestamp) => {
+  const seconds = Date.parse(at.replace(/\.\d+/, "")) / 1000 + 8.64e12;
+  const fraction = /\.(\d+)/.exec(at)?.[1]?.replace(/0+$/, "") ?? "";
+  return `${String(seconds).padStart(14, "0")}${fraction} `;
+};
 
 function rank(field: Field<unknown>) {
   const encoded = JSON.stringify(plain(field));

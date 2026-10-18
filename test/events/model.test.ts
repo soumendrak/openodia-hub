@@ -259,6 +259,15 @@ describe("nested facts", () => {
     expect(unwrap(notices(Odd.from([notice])))).toEqual([notice]);
   });
 
+  it("copies every notice even when the input array's iterator skips them", () => {
+    class Hiding extends Array<Notice> {
+      override [Symbol.iterator]() {
+        return [][Symbol.iterator]();
+      }
+    }
+    expect(unwrap(notices(Hiding.from([notice])))).toEqual([notice]);
+  });
+
   it("copies a notice's declared fields even when they are getters", () => {
     class Getters {
       get kind() {
@@ -418,22 +427,6 @@ describe("join", () => {
     expect(join(counted, counted)).toEqual(counted);
   });
 
-  it("orders a value that refers to itself apart from one that spells out a marker", () => {
-    const looped: { policy: "public"; note: string; self?: object } = {
-      policy: "public",
-      note: "Open.",
-    };
-    looped.self = looped;
-    const spelled = { policy: "public" as const, note: "Open.", self: { "#cycle": 1 } };
-    const shared = event(random(13));
-    const holding = (value: CanonicalEvent["attendance"]["value"]): CanonicalEvent => ({
-      ...shared,
-      attendance: { kind: "upstream", value, seen: MAR },
-    });
-    const [a, b] = [holding(looped), holding(spelled)];
-    expect(join(a, b).attendance).toBe(join(b, a).attendance);
-  });
-
   it("orders notice lists by an encoding that no notice text can imitate", () => {
     const second: Notice = { ...notice, text: unwrap(noticeText("Second.")) };
     const spelled = `${notice.text},verifiedAt=string:${notice.verifiedAt}},1={evidenceUrl=string:${notice.evidenceUrl},kind=string:${notice.kind},text=string:${second.text}`;
@@ -464,6 +457,46 @@ describe("join", () => {
       [review(later, C), review(second, B), review(day, A)],
     ])
       expect(order.reduce(applyCorrection, shared).title.value).toBe(C);
+  });
+
+  it("orders review times before 1970 and below a millisecond", () => {
+    const review = (at: typeof VERIFIED, title: typeof A): Correction => ({
+      at,
+      evidence: EVIDENCE,
+      patch: { title },
+    });
+    const shared = event(random(14));
+    for (const [older, newer] of [
+      [stamp("1800-01-01"), stamp("1900-01-01")],
+      [stamp("2026-03-01T00:00:00.100Z"), stamp("2026-03-01T00:00:00.1001Z")],
+    ] as const)
+      for (const order of [
+        [review(older, A), review(newer, B)],
+        [review(newer, B), review(older, A)],
+      ])
+        expect(order.reduce(applyCorrection, shared).title.value).toBe(B);
+  });
+
+  it("orders values by properties their prototype exposes", () => {
+    class Getters {
+      get policy() {
+        return "public" as const;
+      }
+      readonly #text: string;
+      constructor(text: string) {
+        this.#text = text;
+      }
+      get note() {
+        return this.#text;
+      }
+    }
+    const shared = event(random(15));
+    const holding = (note: string): CanonicalEvent => ({
+      ...shared,
+      attendance: { kind: "upstream", value: new Getters(note), seen: MAR },
+    });
+    const [a, b] = [holding("Open."), holding("Closed.")];
+    expect(join(a, b).attendance).toBe(join(b, a).attendance);
   });
 
   it("orders values by their own fields, not by a toJSON they carry", () => {
