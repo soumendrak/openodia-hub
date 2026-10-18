@@ -114,8 +114,13 @@ export const ownedTypes = {
       const declared = owner && declaredReturn(owner);
       if (!library && declared && generic(declared)) return report(node, "forged", result);
       const objects = type.isIntersection() ? type.types.filter((t) => t.flags & Structure) : [];
-      const sealed = objects.map((part) => !!seals(part).length);
-      if (library && sealed.includes(true) && sealed.includes(false))
+      const owned = objects.filter((part) => brands(part).length);
+      const names = new Set(owned.flatMap((part) => part.getProperties().map((p) => p.name)));
+      const overwrites = objects.some(
+        (part) => !owned.includes(part) && part.getProperties().some((p) => names.has(p.name)),
+      );
+      const sealed = objects.filter((part) => seals(part).length).length;
+      if (library && (overwrites || (sealed && objects.length > sealed)))
         return report(node, "merged", result);
       const empty = node.arguments.every((input) =>
         input.type === "ArrayExpression"
