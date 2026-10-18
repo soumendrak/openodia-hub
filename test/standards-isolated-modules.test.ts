@@ -275,6 +275,7 @@ describe("isolated module lint gates", () => {
     "export const { event }: { event: CanonicalEvent } = JSON.parse(s);\n",
     "export const [event]: CanonicalEvent[] = JSON.parse(s);\n",
     "export const event = JSON.parse(s) satisfies CanonicalEvent;\n",
+    "export class Store {\n  event: CanonicalEvent = JSON.parse(s);\n}\n",
     "let event: CanonicalEvent | undefined;\n\nexport function load() {\n  event = JSON.parse(s);\n  return event;\n}\n",
   ])("rejects untyped data typed as a src/events type: %s", async (code) => {
     expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([parsed]);
@@ -322,6 +323,7 @@ describe("isolated module lint gates", () => {
     'import * as Events from "@/events";\n\nexport const make = Events.join;\n',
     'import { join } from "@/events";\n\nexport default join;\n',
     'import { join } from "@/events";\n\nconst make = join;\n\nexport { make };\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport default interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects passing a src/events type on under another module: %s", async (code) => {
     expect(await lint("src/lib/fixture.ts", code)).toEqual([relay]);
   });
@@ -348,6 +350,8 @@ describe("isolated module lint gates", () => {
       'export const stored: IsoDay = store.get("k", json);',
       'export const isString = (value: unknown): value is string => typeof value === "string";',
       'export const checked = { title: "x" } satisfies { title: string };',
+      'export type ModuleId = "@/events";',
+      'export const id = s as "@/events/model";',
       "export function render(event: CanonicalEvent) {",
       "  return join(event, event);",
       "}",

@@ -138,7 +138,7 @@ const ownedTypes = {
     const mentions = (node: Node | null | undefined): boolean =>
       !!node &&
       ((node.type === "Identifier" && guarded.has(node.name)) ||
-        (node.type === "Literal" && owned(node.value)) ||
+        (node.type === "TSImportType" && owned(node.source.value)) ||
         children(node).some(mentions));
     const bound = (node: Node): string[] =>
       node.type === "Identifier" ? [node.name] : children(node).flatMap(bound);
@@ -146,7 +146,7 @@ const ownedTypes = {
       checks.push([node, messageId, bad]);
     const declare = (node: Node & { id?: Node | null }) =>
       node.id && declarations.push([bound(node.id), node]);
-    const exported = (node: Node) => node.parent?.type === "ExportNamedDeclaration";
+    const exported = (node: Node) => !!node.parent?.type.startsWith("Export");
     const sink = (node: Node, type: Node | null | undefined, value: Node | null | undefined) =>
       check(node, "parsed", () => mentions(type) && untyped(value));
     return {
@@ -185,9 +185,7 @@ const ownedTypes = {
         aliases.set(id.name, () => relays(init));
         check(node, "relay", () => exported(node.parent) && exposes(id.name));
       },
-      ExportDefaultDeclaration(node) {
-        check(node, "relay", () => relays(node.declaration));
-      },
+      ExportDefaultDeclaration: (node) => check(node, "relay", () => relays(node.declaration)),
       Identifier(node) {
         if (node.typeAnnotation) declarations.push([[node.name], node.typeAnnotation]);
       },
@@ -210,6 +208,7 @@ const ownedTypes = {
         check(node, "assertion", () => mentions(node.typeAnnotation));
       },
       TSSatisfiesExpression: (node) => sink(node, node.typeAnnotation, node.expression),
+      PropertyDefinition: (node) => sink(node, node.typeAnnotation, node.value),
       ExportNamedDeclaration(node) {
         check(node, "relay", () => owned(node.source?.value));
       },
