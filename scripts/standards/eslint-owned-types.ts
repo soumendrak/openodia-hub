@@ -82,15 +82,9 @@ export const ownedTypes = {
         const module = sealed && declaration && moduleOf(declaration.getSourceFile().fileName);
         return module ? [module] : [];
       });
-    const brands: (type: ts.Type) => string[] = memo([], (t) => [
-      ...seals(t),
-      ...parts(t).flatMap(brands),
-    ]);
+    const brands = memo([], (t): string[] => [...seals(t), ...parts(t).flatMap(brands)]);
     const holds = (flags: ts.TypeFlags) => {
-      const run: (type: ts.Type) => boolean = memo(
-        false,
-        (t) => !!(t.flags & flags) || parts(t).some(run),
-      );
+      const run = memo(false, (t): boolean => !!(t.flags & flags) || parts(t).some(run));
       return run;
     };
     const reaches = (type: ts.Type, target: ts.Type, seen = new Set<ts.Type>()): boolean =>
@@ -136,25 +130,18 @@ export const ownedTypes = {
           ? !input.elements.length
           : typeOf(input).flags & (Null | Undefined | Void),
       );
-      const unbound = owner && !ts.isClassLike(owner) && checker.getSignatureFromDeclaration(owner);
-      const free =
-        unbound &&
-        unbound
-          .getTypeParameters()
-          ?.some(
-            (parameter) =>
-              !unbound.parameters.some((p) => reaches(checker.getTypeOfSymbol(p), parameter)),
-          );
-      if (library && empty && !free) return;
+      const signature =
+        owner && !ts.isClassLike(owner) && checker.getSignatureFromDeclaration(owner);
+      const bound = (t: ts.Type) =>
+        !!signature && signature.parameters.some((p) => reaches(checker.getTypeOfSymbol(p), t));
+      if (library && empty && (signature ? (signature.getTypeParameters() ?? []) : []).every(bound))
+        return;
       const receiver = node.callee.type === "MemberExpression" ? [node.callee.object] : [];
       const inputs = [...node.arguments, ...receiver].flatMap((input) => brands(typeOf(input)));
       const trusted = owner && !(ts.isClassLike(owner) && ambient(owner)) && declared;
       const carried = new Set([...(trusted ? brands(trusted) : []), ...inputs]);
-      report(
-        node,
-        "forged",
-        result.filter((m) => !carried.has(m)),
-      );
+      const missing = result.filter((m) => !carried.has(m));
+      report(node, "forged", missing);
     };
 
     function ambient(node: ts.Node | undefined): boolean {
