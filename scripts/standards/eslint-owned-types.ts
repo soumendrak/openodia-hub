@@ -37,8 +37,7 @@ export const ownedTypes = {
     const owners = modules.flatMap((m) => [m, m.replace(/^src\//, "test/")]);
     if (owners.some((owner) => importer.startsWith(`${owner}/`))) return {};
     const { program, esTreeNodeToTSNodeMap: nodes } = context.sourceCode.parserServices ?? {};
-    if (!program || !nodes)
-      throw new Error(`isolated/owned-types needs type information: ${importer}`);
+    if (!program || !nodes) throw new Error(`owned-types needs type information: ${importer}`);
     const checker = program.getTypeChecker();
     const external = (file: ts.SourceFile) =>
       program.isSourceFileDefaultLibrary(file) || program.isSourceFileFromExternalLibrary(file);
@@ -126,7 +125,8 @@ export const ownedTypes = {
         const contextual = sunk && checker.getContextualType(n);
         if (contextual && generic(contextual)) return n;
         const callee = ts.isCallLikeExpression(n) && signatureOf(n);
-        const made = callee && ambient(callee) && checker.getTypeAtLocation(n).flags & Param;
+        const source = callee && !("body" in callee && callee.body) && callee.typeParameters;
+        const made = source && checker.getTypeAtLocation(n).flags & Param;
         const inner = callee && !seen.has(callee) && laundered(callee, seen.add(callee));
         return made ? n : inner || ts.forEachChild(n, find);
       };
@@ -147,12 +147,15 @@ export const ownedTypes = {
       const owner =
         signatureOf(tsNode) ?? (created || undefined)?.declarations?.find(ts.isClassLike);
       if (owner && guarded(owner)) return;
+      const declared = owner && declaredReturn(owner);
+      const to = args.map((a) => checker.getContextualType(nodes.get(a) as ts.Expression));
+      const via = [...receiver.map(typeOf), ...to.filter((_, i) => brands(typeOf(args[i]!))[0])];
+      const carried = new Set([declared, ...via].flatMap((t) => (t ? brands(t) : [])));
       const resolved = checker.getResolvedSignature(tsNode);
       const predicate = resolved && checker.getTypePredicateOfSignature(resolved)?.type;
-      const narrowed = predicate ? brands(predicate).filter((m) => !inputs.includes(m)) : [];
+      const narrowed = predicate ? brands(predicate).filter((m) => !carried.has(m)) : [];
       report(node, "assertion", narrowed);
       const library = !!owner && external(owner.getSourceFile());
-      const declared = owner && declaredReturn(owner);
       if (library && declared?.isIntersection() && args.some((a) => hollow(typeOf(a))))
         return report(node, "merged", inputs);
       const type = typeOf(node);
@@ -173,9 +176,6 @@ export const ownedTypes = {
       );
       const container = checker.isArrayType(type) || checker.isTupleType(type) || !local(type);
       if (library && empty && container && type.getSymbol()) return;
-      const to = args.map((a) => checker.getContextualType(nodes.get(a) as ts.Expression));
-      const via = [...receiver.map(typeOf), ...to.filter((_, i) => brands(typeOf(args[i]!))[0])];
-      const carried = new Set([declared, ...via].flatMap((t) => (t ? brands(t) : [])));
       const missing = result.filter((m) => !carried.has(m));
       const cast = declared && generic(declared) && owner && laundered(owner);
       const here = cast && context.sourceCode.parserServices?.tsNodeToESTreeNodeMap?.get(cast);
