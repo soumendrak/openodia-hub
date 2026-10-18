@@ -150,6 +150,7 @@ describe("isolated module lint gates", () => {
     ["scripts/fixture.mjs", 'export { x } from "../src/events/%69nternal/x.ts";\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/in" + "ternal/x");\n'],
     ["src/fixture.jsx", 'export { x } from "./events/internal/x";\n'],
+    ["scripts/fixture.cjs", 'module.exports = require("..\\\\src\\\\events\\\\internal\\\\x");\n'],
   ])("rejects the JavaScript consumer %s", async (file, code) => {
     expect(await lint(file, code)).toEqual(
       expect.arrayContaining([expect.stringMatching(/internal\/ (files|fence)/)]),
@@ -225,6 +226,14 @@ describe("isolated module lint gates", () => {
   });
 
   it.each([
+    "export function isEvent(value: unknown): value is CanonicalEvent {\n  return value !== null;\n}\n",
+    "export function assertDay(value: string): asserts value is IsoDay {\n  if (!value) throw new Error(value);\n}\n",
+    'export const isDay = (value: unknown): value is Events.IsoDay => typeof value === "string";\n',
+  ])("rejects a type predicate to a src/events type: %s", async (code) => {
+    expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([assertion]);
+  });
+
+  it.each([
     'import type { IsoDay as Day } from "@/events";\n\nexport const day = "2026-02-30" as Day;\n',
     'import type { IsoDay } from "../events/model";\n\nexport const day = "2026-02-30" as IsoDay;\n',
     'import Events = require("@/events");\n\nexport const day = "2026-02-30" as Events.IsoDay;\n',
@@ -263,6 +272,9 @@ describe("isolated module lint gates", () => {
     "export const holder: { event: CanonicalEvent } = { event: JSON.parse(s) };\n",
     "export const event: CanonicalEvent | null = s ? JSON.parse(s) : null;\n",
     "export const event: CanonicalEvent | null = (s && JSON.parse(s)) || null;\n",
+    "export const { event }: { event: CanonicalEvent } = JSON.parse(s);\n",
+    "export const [event]: CanonicalEvent[] = JSON.parse(s);\n",
+    "export const event = JSON.parse(s) satisfies CanonicalEvent;\n",
     "let event: CanonicalEvent | undefined;\n\nexport function load() {\n  event = JSON.parse(s);\n  return event;\n}\n",
   ])("rejects untyped data typed as a src/events type: %s", async (code) => {
     expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([parsed]);
@@ -334,6 +346,8 @@ describe("isolated module lint gates", () => {
       "declare const json: string;",
       "declare const store: { get(key: string, type: string): IsoDay };",
       'export const stored: IsoDay = store.get("k", json);',
+      'export const isString = (value: unknown): value is string => typeof value === "string";',
+      'export const checked = { title: "x" } satisfies { title: string };',
       "export function render(event: CanonicalEvent) {",
       "  return join(event, event);",
       "}",
