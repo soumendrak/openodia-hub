@@ -51,6 +51,8 @@ export const ownedTypes = {
 
     function parts(type: ts.Type, deep: boolean): readonly ts.Type[] {
       if (type.isUnionOrIntersection()) return type.types;
+      const constraint = type.flags & TypeParameter && checker.getBaseConstraintOfType(type);
+      if (constraint) return [constraint];
       if (!(type.flags & Structure)) return [];
       const object = type as ts.TypeReference;
       const mapped = object.objectFlags & ts.ObjectFlags.Mapped;
@@ -122,7 +124,9 @@ export const ownedTypes = {
       node: TSESTree.CallExpression | TSESTree.NewExpression | TSESTree.TaggedTemplateExpression,
     ) => {
       const tagged = node.type === "TaggedTemplateExpression";
-      const [args, callee] = tagged ? [[], node.tag] : [node.arguments, node.callee];
+      const [args, callee] = tagged
+        ? [node.quasi.expressions, node.tag]
+        : [node.arguments, node.callee];
       const receiver = callee.type === "MemberExpression" ? [callee.object] : [];
       const inputs = [...args, ...receiver].flatMap((input) => brands(typeOf(input)));
       const tsNode = nodes.get(node);
