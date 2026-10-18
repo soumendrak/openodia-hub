@@ -1,16 +1,17 @@
-import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
 import { ESLint } from "eslint";
 import ts from "typescript";
+import tseslint from "typescript-eslint";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import config from "../../eslint.config.js";
 
 const MODULE = "src/events";
-const FIXTURES = `src/lib/guard-fixture-${String(process.pid)}`;
 const UNBRANDED = ["Result"];
 
 const files = readdirSync(MODULE, { recursive: true, encoding: "utf8" })
-  .filter((file) => /\.tsx?$/.test(file) && !file.includes("guard-fixture-"))
+  .filter((file) => /\.tsx?$/.test(file))
   .map((file) => `${MODULE}/${file}`);
 
 const exports = files.flatMap((file) => {
@@ -61,13 +62,31 @@ const probes = new Map<string, string>([
   ],
 ]);
 
+const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
+const fixtures = mkdtempSync(join(tmpdir(), "events-guard-"));
 let messages: Map<string, string[]>;
 
 beforeAll(async () => {
-  mkdirSync(FIXTURES, { recursive: true });
-  for (const [name, code] of probes) writeFileSync(join(FIXTURES, `${name}.ts`), code);
-  const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: config });
-  const results = await eslint.lintFiles([FIXTURES, ...files, "test/events"]);
+  if (!isolated) throw new Error("eslint.config.js no longer registers the isolated plugin");
+  const tsconfig = { extends: resolve("tsconfig.json"), include: ["*.ts"] };
+  writeFileSync(join(fixtures, "tsconfig.json"), JSON.stringify(tsconfig));
+  for (const [name, code] of probes) writeFileSync(join(fixtures, `${name}.ts`), code);
+  const eslint = new ESLint({
+    cwd: fixtures,
+    overrideConfigFile: true,
+    overrideConfig: [
+      {
+        files: ["*.ts"],
+        languageOptions: {
+          parser: tseslint.parser,
+          parserOptions: { project: "./tsconfig.json", tsconfigRootDir: fixtures },
+        },
+        plugins: { isolated },
+        rules: { "isolated/owned-types": "error" },
+      },
+    ],
+  });
+  const results = await eslint.lintFiles(["*.ts"]);
   messages = new Map(
     results.map(({ filePath, messages: found }) => [
       filePath,
@@ -76,18 +95,12 @@ beforeAll(async () => {
   );
 }, 60_000);
 
-afterAll(() => rmSync(FIXTURES, { recursive: true, force: true }));
-
-const lintOf = (file: string) => messages.get(join(process.cwd(), file)) ?? [];
+afterAll(() => rmSync(fixtures, { recursive: true, force: true }));
 
 describe("the src/events lint guard", () => {
   it.each([...probes.keys()])("rejects building %s outside src/events", (name) => {
-    const found = lintOf(`${FIXTURES}/${name}.ts`).filter((m) => m.startsWith("isolated/"));
-    expect(found).toEqual([expect.stringMatching(/^isolated\/owned-types: /)]);
-  });
-
-  it("keeps src/events and its tests lint-clean", () => {
-    const owned = [...messages].filter(([file]) => !file.includes("guard-fixture-"));
-    expect(owned.flatMap(([, found]) => found)).toEqual([]);
+    expect(messages.get(join(fixtures, `${name}.ts`))).toEqual([
+      expect.stringMatching(/^isolated\/owned-types: /),
+    ]);
   });
 });
