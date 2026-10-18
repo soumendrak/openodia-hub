@@ -1,9 +1,19 @@
 import { resolve } from "node:path";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
+import tseslint from "typescript-eslint";
 import config from "../eslint.config.js";
 
-const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: config });
+const fence = [
+  ...config,
+  {
+    files: ["src/**/*.{ts,tsx,mts,cts}"],
+    ...tseslint.configs.disableTypeChecked,
+    rules: { ...tseslint.configs.disableTypeChecked.rules, "isolated/owned-types": "off" as const },
+  },
+];
+
+const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: fence });
 
 async function lint(filePath: string, code: string) {
   const [result] = await eslint.lintText(code, { filePath });
@@ -15,32 +25,6 @@ const internalImport =
 
 const literalOnly =
   "isolated/internal-imports: Load modules by plain string paths with no wildcard directories so the internal/ fence can check them.";
-
-const assertion =
-  "isolated/owned-types: Build src/events values with the functions in src/events, never with a type assertion.";
-
-const typeArgument =
-  "isolated/owned-types: Let TypeScript infer src/events types instead of passing one as a type argument, which can skip their checks.";
-
-const parsed =
-  "isolated/owned-types: Parse untyped data with the functions in src/events instead of typing it as a src/events type.";
-
-const relay =
-  "isolated/owned-types: Import src/events types from src/events itself so the type assertion ban can see them.";
-
-const never =
-  "no-restricted-syntax: Never assert to never or name it as a type: it fits every type, including the src/events types that only their functions may build.";
-
-const header = [
-  'import type { CanonicalEvent, Dates, ExactDates, IsoDay, Text } from "@/events";',
-  'import type * as Events from "@/events";',
-  'import { join, save } from "@/events";',
-  "",
-  "declare const raw: unknown;",
-  "declare const s: string;",
-  "export const keep = [join, save, s];",
-  "",
-].join("\n");
 
 describe("isolated module lint gates", () => {
   it.each([
@@ -64,9 +48,7 @@ describe("isolated module lint gates", () => {
       `export const load = () => import("${source}");\n`,
       `export type X = import("${source}").X;\n`,
     ])
-      expect((await lint(file, code))?.filter((message) => message !== relay)).toEqual([
-        internalImport,
-      ]);
+      expect(await lint(file, code)).toEqual([internalImport]);
     for (const code of [
       `import x = require("${source}");\n\nexport const y = [x];\n`,
       `export const load = () => require("${source}");\n`,
@@ -204,184 +186,26 @@ describe("isolated module lint gates", () => {
     ]);
   });
 
-  it.each([
-    "raw as CanonicalEvent",
-    "raw as unknown as CanonicalEvent",
-    "<CanonicalEvent>raw",
-    "raw as readonly CanonicalEvent[]",
-    "raw as Partial<CanonicalEvent>",
-    "raw as Events.CanonicalEvent",
-    "raw as Readonly<Events.CanonicalEvent>",
-    'raw as import("@/events").CanonicalEvent',
-    "raw as ReturnType<typeof join>",
-    "raw as Parameters<typeof join>[0]",
-    '{ kind: "exact", end: "2026-03-05" } as unknown as ExactDates',
-    '"2026-02-30" as IsoDay',
-    '"" as Text',
-    "raw as Dates",
-    'raw as import("../events/model").IsoDay',
-    'raw as import("/src/events/model").IsoDay',
-  ])("rejects %s outside src/events", async (expression) => {
-    const code = `${header}export const value = ${expression};\n`;
-    expect(await lint("src/routes/fixture.ts", code)).toEqual([assertion]);
+  it("runs the type-aware owned-types rule on src files with type information", async () => {
+    const real = new ESLint({ overrideConfigFile: true, overrideConfig: config });
+    const options = await real.calculateConfigForFile("src/routes/fixture.ts");
+    expect(options.rules["isolated/owned-types"]).toEqual([2, { modules: ["src/events"] }]);
+    expect(options.languageOptions.parserOptions.project).toBe("./tsconfig.json");
+    const tests = await real.calculateConfigForFile("test/fixture.test.ts");
+    expect(tests.rules["isolated/owned-types"]).toBeUndefined();
   });
 
-  it.each([
-    "export function isEvent(value: unknown): value is CanonicalEvent {\n  return value !== null;\n}\n",
-    "export function assertDay(value: string): asserts value is IsoDay {\n  if (!value) throw new Error(value);\n}\n",
-    'export const isDay = (value: unknown): value is Events.IsoDay => typeof value === "string";\n',
-  ])("rejects a type predicate to a src/events type: %s", async (code) => {
-    expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([assertion]);
-  });
-
-  it.each([
-    'import type { IsoDay as Day } from "@/events";\n\nexport const day = "2026-02-30" as Day;\n',
-    'import type { IsoDay } from "../events/model";\n\nexport const day = "2026-02-30" as IsoDay;\n',
-    'import Events = require("@/events");\n\nexport const day = "2026-02-30" as Events.IsoDay;\n',
-    `${header}type Day = IsoDay;\n\nexport const day = "2026-02-30" as Day;\n`,
-    `${header}type Box = { value: CanonicalEvent };\n\nexport const event = raw as Box["value"];\n`,
-    `${header}interface Holder {\n  readonly event: CanonicalEvent;\n}\n\nexport const holder = raw as Holder;\n`,
-    `${header}declare const x: CanonicalEvent;\n\nexport const event = raw as typeof x & {};\n`,
-    `${header}const merged = join;\n\nexport const event = raw as ReturnType<typeof merged>;\n`,
-    `${header}export function first(events: readonly CanonicalEvent[]) {\n  return raw as typeof events;\n}\n`,
-  ])("rejects an assertion to a src/events type through a local name: %s", async (code) => {
-    expect((await lint("src/routes/fixture.ts", code))?.filter((m) => m !== never)).toEqual(
-      expect.arrayContaining([assertion]),
-    );
-  });
-
-  it.each([
-    "declare function cast<T>(value: unknown): T;\n\nexport const event = cast<CanonicalEvent>(raw);\n",
-    'declare const kv: { get<T>(key: string, type: "json"): Promise<T | null> };\n\nexport const event = kv.get<CanonicalEvent>("k", "json");\n',
-    "export const days = new Map<string, IsoDay>();\n",
-    "declare function cast<T>(value: unknown): T;\n\nexport const toDay = cast<Events.IsoDay>;\n",
-  ])("rejects a src/events type as a type argument: %s", async (code) => {
-    expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([typeArgument]);
-  });
-
-  it.each([
-    "export const event: CanonicalEvent = JSON.parse(s);\n",
-    "export function load(): CanonicalEvent {\n  return JSON.parse(s);\n}\n",
-    "export const load = (): CanonicalEvent => JSON.parse(s);\n",
-    "export async function load(response: Response) {\n  const event: CanonicalEvent = await response.json();\n  return event;\n}\n",
-    'declare const kv: { get(key: string, type: "json"): Promise<unknown> };\n\nexport async function load() {\n  const event: CanonicalEvent | null = await kv.get("k", "json");\n  return event;\n}\n',
-    'declare const kv: { get(key: string, options: { type: "json" }): Promise<unknown> };\n\nexport async function load() {\n  const event: CanonicalEvent | null = await kv.get("k", { type: "json" });\n  return event;\n}\n',
-    "export const saved = save(JSON.parse(s));\n",
-    "export const event: CanonicalEvent = JSON.parse(s)!;\n",
-    "export const events: CanonicalEvent[] = [JSON.parse(s)];\n",
-    "export const events: CanonicalEvent[] = [...JSON.parse(s)];\n",
-    "export const holder: { event: CanonicalEvent } = { event: JSON.parse(s) };\n",
-    "export const event: CanonicalEvent | null = s ? JSON.parse(s) : null;\n",
-    "export const event: CanonicalEvent | null = (s && JSON.parse(s)) || null;\n",
-    "export const { event }: { event: CanonicalEvent } = JSON.parse(s);\n",
-    "export const [event]: CanonicalEvent[] = JSON.parse(s);\n",
-    "export const event = JSON.parse(s) satisfies CanonicalEvent;\n",
-    "export const event: CanonicalEvent = JSON.parse(s).event;\n",
-    "export class Store {\n  event: CanonicalEvent = JSON.parse(s);\n}\n",
-    "export function handle(event: CanonicalEvent = JSON.parse(s)) {\n  return event;\n}\n",
-    "let event: CanonicalEvent | undefined;\n\nexport function load() {\n  event = JSON.parse(s);\n  return event;\n}\n",
-  ])("rejects untyped data typed as a src/events type: %s", async (code) => {
-    expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([parsed]);
-  });
-
-  it.each([
-    ["src/routes/fixture.ts", "export const event: CanonicalEvent = raw as never;\n"],
-    ["src/routes/fixture.ts", "export const event: CanonicalEvent = <never>raw;\n"],
-    ["src/routes/fixture.ts", "export const event = raw as never satisfies CanonicalEvent;\n"],
-    ["scripts/fixture.ts", "export const event: CanonicalEvent = raw as never;\n"],
-    [
-      "src/routes/fixture.ts",
-      "type Bottom = never;\n\nexport const event: CanonicalEvent = raw as Bottom;\n",
-    ],
-    [
-      "src/routes/fixture.ts",
-      "export const event: CanonicalEvent = raw as never & { id: string };\n",
-    ],
-  ])("rejects asserting to never in %s: %s", async (file, code) => {
-    expect(await lint(file, `${header}${code}`)).toEqual([never]);
-  });
-
-  it.each([
-    'export type { IsoDay } from "@/events";\n',
-    'export { join } from "@/events";\n',
-    'export * from "@/events";\n',
-    'export * as Events from "@/events";\n',
-    'import type { IsoDay } from "@/events";\n\nexport type { IsoDay };\n',
-    'import type { IsoDay as Day } from "@/events";\n\nexport type { Day };\n',
-    'import type { IsoDay } from "@/events";\n\nexport type Day = IsoDay;\n',
-    'import type { IsoDay } from "@/events";\n\ntype Day = IsoDay;\n\nexport type { Day };\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Event = Partial<CanonicalEvent>;\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Events = readonly CanonicalEvent[];\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Event = CanonicalEvent & { readonly extra: true };\n',
-    'export type Event = import("@/events").CanonicalEvent;\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Event = { value: CanonicalEvent }["value"];\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Event = ReturnType<() => CanonicalEvent>;\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Events = [CanonicalEvent?];\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Event<T = CanonicalEvent> = T;\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Event<T extends CanonicalEvent> = T;\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport type Events = [...CanonicalEvent[]];\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
-    'import type { CanonicalEvent } from "@/events";\n\ndeclare const event: CanonicalEvent;\n\nexport type Event = typeof event;\n',
-    'import { join } from "@/events";\n\nexport const make = join;\n',
-    'import * as Events from "@/events";\n\nexport const make = Events.join;\n',
-    'import { join } from "@/events";\n\nexport default join;\n',
-    'import { join } from "@/events";\n\nconst make = join;\n\nexport { make };\n',
-    'import * as Events from "@/events";\nimport Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
-    'import * as Events from "@/events";\n\nexport import Event = Events.CanonicalEvent;\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport declare class Event implements CanonicalEvent {}\n',
-    'import type { CanonicalEvent } from "@/events";\n\nexport default interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
-  ])("rejects passing a src/events type on under another module: %s", async (code) => {
-    expect(await lint("src/lib/fixture.ts", code)).toEqual([relay]);
-  });
-
-  it("allows types and values that hold or use src/events types", async () => {
-    const code = [
-      header,
-      "export type Props = { readonly event: CanonicalEvent };",
-      "export type Render = (event: CanonicalEvent) => string;",
-      "export type EventField = keyof CanonicalEvent;",
-      "export type State = { readonly event: CanonicalEvent } | null;",
-      "export type Pair = readonly [{ readonly event: CanonicalEvent }, (event: CanonicalEvent) => void];",
-      'export type Title = CanonicalEvent["title"];',
-      'export const unrelated = JSON.parse("{}") as { CanonicalEvent: string; IsoDay(): void };',
-      "export const count = raw as number;",
-      "export const names = new Set<string>();",
-      "export const loaded: unknown = JSON.parse(s);",
-      "export const day: IsoDay | null = null;",
-      "export const days: Map<string, IsoDay> = new Map();",
-      "declare const cache: { get(key: string): CanonicalEvent | undefined };",
-      'export const cached: CanonicalEvent | undefined = cache.get("json");',
-      "declare const json: string;",
-      "declare const store: { get(key: string, type: string): IsoDay };",
-      'export const stored: IsoDay = store.get("k", json);',
-      'export const isString = (value: unknown): value is string => typeof value === "string";',
-      'export const checked = { title: "x" } satisfies { title: string };',
-      'export type ModuleId = "@/events";',
-      'export const id = s as "@/events/model";',
-      "export const stored = save(String(JSON.parse(s).id));",
-      "export function render(event: CanonicalEvent) {",
-      "  return join(event, event);",
-      "}",
-      "",
-    ].join("\n");
-    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
-  });
-
-  it("allows src/events tests to name its types anywhere", async () => {
-    const code = [
-      'import type { IsoDay } from "@/events/model";',
-      "",
-      "declare function cast<T>(value: unknown): T;",
-      'export const day = cast<IsoDay>("2026-02-30");',
-      'export const days = new Set<IsoDay>(["2026-02-30" as IsoDay]);',
-      'export type { IsoDay } from "@/events/model";',
-      "",
-    ].join("\n");
-    expect(await lint("test/events/fixture.test.ts", code)).toEqual([]);
-  });
-
-  it("allows asserting to never in tests", async () => {
-    expect(await lint("test/fixture.test.ts", "export const value = null as never;\n")).toEqual([]);
+  it("refuses to run owned-types without type information", async () => {
+    const untyped = new ESLint({
+      overrideConfigFile: true,
+      overrideConfig: [
+        ...config,
+        { files: ["src/**/*.ts"], languageOptions: { parserOptions: { project: false } } },
+      ],
+    });
+    await expect(
+      untyped.lintText("export const x = 1;\n", { filePath: "src/routes/fixture.ts" }),
+    ).rejects.toThrow("isolated/owned-types needs type information: src/routes/fixture.ts");
   });
 
   it("resolves the internal fence from the repo root whatever directory ESLint runs in", async () => {
@@ -389,7 +213,7 @@ describe("isolated module lint gates", () => {
     const nested = new ESLint({
       cwd: resolve(root, "src"),
       overrideConfigFile: true,
-      overrideConfig: config,
+      overrideConfig: fence,
     });
     const code = 'import { x } from "@/events/internal/x";\n\nexport const y = [x];\n';
     const lintFrom = async (file: string) =>
