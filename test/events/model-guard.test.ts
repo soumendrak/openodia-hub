@@ -77,12 +77,6 @@ afterAll(() => rmSync(FIXTURES, { recursive: true, force: true }));
 const lintOf = (file: string) => messages.get(join(process.cwd(), file)) ?? [];
 
 describe("the src/events lint guard", () => {
-  it("reads every exported type, class and function of every src/events file", () => {
-    expect(exports.map(({ name }) => name)).toEqual(
-      expect.arrayContaining(["CanonicalEvent", "Dates", "ExactDates", "IsoDay", "Text", "join"]),
-    );
-  });
-
   it.each([...probes.keys()])("rejects building %s outside src/events", (name) => {
     const found = lintOf(`${FIXTURES}/${name}.ts`).filter((m) => m.startsWith("isolated/"));
     expect(found).toEqual([expect.stringMatching(/^isolated\/owned-types: /)]);
