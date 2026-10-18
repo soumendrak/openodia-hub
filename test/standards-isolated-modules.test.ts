@@ -29,7 +29,7 @@ const relay =
   "isolated/owned-types: Import src/events types from src/events itself so the type assertion ban can see them.";
 
 const never =
-  "no-restricted-syntax: Never assert to never: it fits every type, including the src/events types that only their functions may build.";
+  "no-restricted-syntax: Never assert to never or name it as a type: it fits every type, including the src/events types that only their functions may build.";
 
 const header = [
   'import type { CanonicalEvent, Dates, ExactDates, IsoDay, Text } from "@/events";',
@@ -58,7 +58,7 @@ describe("isolated module lint gates", () => {
     ["src/routes/fixture.ts", "/src/events/internal/x"],
   ])("rejects %s importing %s", async (file, source) => {
     for (const code of [
-      `import { x } from "${source}";\n\nexport const y = x;\n`,
+      `import { x } from "${source}";\n\nexport const y = [x];\n`,
       `export { x } from "${source}";\n`,
       `export * from "${source}";\n`,
       `export const load = () => import("${source}");\n`,
@@ -68,7 +68,7 @@ describe("isolated module lint gates", () => {
         internalImport,
       ]);
     for (const code of [
-      `import x = require("${source}");\n\nexport const y = x;\n`,
+      `import x = require("${source}");\n\nexport const y = [x];\n`,
       `export const load = () => require("${source}");\n`,
     ])
       expect((await lint(file, code))?.sort()).toEqual([
@@ -102,6 +102,29 @@ describe("isolated module lint gates", () => {
   });
 
   it.each([
+    'vi.importActual("@/events/internal/x")',
+    'vi.importMock("../events/internal/x")',
+    'vi.mock("@/events/internal/x")',
+    'vi.doMock("@/events/internal/x", () => ({}))',
+    'vi.unmock("@/events/internal/x")',
+    'vi.doUnmock("@/events/internal/x")',
+  ])("rejects the Vitest loader %s", async (expression) => {
+    const code = `import { vi } from "vitest";\n\nexport const load = () => ${expression};\n`;
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([internalImport]);
+  });
+
+  it("rejects a Vitest loader with a computed path", async () => {
+    const code =
+      'import { vi } from "vitest";\n\nexport const load = (name: string) => vi.importActual(name);\n';
+    expect(await lint("src/routes/fixture.ts", code)).toEqual([literalOnly]);
+  });
+
+  it("allows a Vitest mock of an import() of a public file", async () => {
+    const code = 'import { vi } from "vitest";\n\nvi.mock(import("@/events/model"));\n';
+    expect(await lint("test/routes/fixture.test.ts", code)).toEqual([]);
+  });
+
+  it.each([
     'import.meta.glob("@/events/internal/*.ts")',
     'import.meta.glob(["@/events/*.ts", "../platform/internal/*.ts"])',
   ])("rejects the glob import %s", async (expression) => {
@@ -119,7 +142,7 @@ describe("isolated module lint gates", () => {
   it.each([
     [
       "scripts/fixture.mjs",
-      'import { x } from "../src/events/internal/x";\n\nexport const y = x;\n',
+      'import { x } from "../src/events/internal/x";\n\nexport const y = [x];\n',
     ],
     ["scripts/fixture.js", 'export const load = () => import("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/internal/x");\n'],
@@ -138,7 +161,7 @@ describe("isolated module lint gates", () => {
     ["src/lib/parsers/fixture.ts", "../../boundary/internal/x"],
     ["src/routes/fixture.ts", "@/lib/internal/x"],
   ])("rejects %s importing %s once the path is resolved", async (file, source) => {
-    expect(await lint(file, `import { x } from "${source}";\n\nexport const y = x;\n`)).toEqual([
+    expect(await lint(file, `import { x } from "${source}";\n\nexport const y = [x];\n`)).toEqual([
       internalImport,
     ]);
   });
@@ -152,7 +175,9 @@ describe("isolated module lint gates", () => {
     ["src/routes/fixture.ts", "@/lib/internals"],
     ["src/routes/fixture.ts", "@/lib/100%"],
   ])("allows %s importing %s", async (file, source) => {
-    expect(await lint(file, `import { x } from "${source}";\n\nexport const y = x;\n`)).toEqual([]);
+    expect(await lint(file, `import { x } from "${source}";\n\nexport const y = [x];\n`)).toEqual(
+      [],
+    );
     expect(await lint(file, `export const load = () => import("${source}");\n`)).toEqual([]);
   });
 
@@ -233,6 +258,11 @@ describe("isolated module lint gates", () => {
     'declare const kv: { get(key: string, options: { type: "json" }): Promise<unknown> };\n\nexport async function load() {\n  const event: CanonicalEvent | null = await kv.get("k", { type: "json" });\n  return event;\n}\n',
     "export const saved = save(JSON.parse(s));\n",
     "export const event: CanonicalEvent = JSON.parse(s)!;\n",
+    "export const events: CanonicalEvent[] = [JSON.parse(s)];\n",
+    "export const events: CanonicalEvent[] = [...JSON.parse(s)];\n",
+    "export const holder: { event: CanonicalEvent } = { event: JSON.parse(s) };\n",
+    "export const event: CanonicalEvent | null = s ? JSON.parse(s) : null;\n",
+    "export const event: CanonicalEvent | null = (s && JSON.parse(s)) || null;\n",
     "let event: CanonicalEvent | undefined;\n\nexport function load() {\n  event = JSON.parse(s);\n  return event;\n}\n",
   ])("rejects untyped data typed as a src/events type: %s", async (code) => {
     expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([parsed]);
@@ -243,6 +273,14 @@ describe("isolated module lint gates", () => {
     ["src/routes/fixture.ts", "export const event: CanonicalEvent = <never>raw;\n"],
     ["src/routes/fixture.ts", "export const event = raw as never satisfies CanonicalEvent;\n"],
     ["scripts/fixture.ts", "export const event: CanonicalEvent = raw as never;\n"],
+    [
+      "src/routes/fixture.ts",
+      "type Bottom = never;\n\nexport const event: CanonicalEvent = raw as Bottom;\n",
+    ],
+    [
+      "src/routes/fixture.ts",
+      "export const event: CanonicalEvent = raw as never & { id: string };\n",
+    ],
   ])("rejects asserting to never in %s: %s", async (file, code) => {
     expect(await lint(file, `${header}${code}`)).toEqual([never]);
   });
@@ -268,6 +306,10 @@ describe("isolated module lint gates", () => {
     'import type { CanonicalEvent } from "@/events";\n\nexport type Events = [...CanonicalEvent[]];\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
     'import type { CanonicalEvent } from "@/events";\n\ndeclare const event: CanonicalEvent;\n\nexport type Event = typeof event;\n',
+    'import { join } from "@/events";\n\nexport const make = join;\n',
+    'import * as Events from "@/events";\n\nexport const make = Events.join;\n',
+    'import { join } from "@/events";\n\nexport default join;\n',
+    'import { join } from "@/events";\n\nconst make = join;\n\nexport { make };\n',
   ])("rejects passing a src/events type on under another module: %s", async (code) => {
     expect(await lint("src/lib/fixture.ts", code)).toEqual([relay]);
   });
@@ -287,6 +329,14 @@ describe("isolated module lint gates", () => {
       "export const loaded: unknown = JSON.parse(s);",
       "export const day: IsoDay | null = null;",
       "export const days: Map<string, IsoDay> = new Map();",
+      "declare const cache: { get(key: string): CanonicalEvent | undefined };",
+      'export const cached: CanonicalEvent | undefined = cache.get("json");',
+      "declare const json: string;",
+      "declare const store: { get(key: string, type: string): IsoDay };",
+      'export const stored: IsoDay = store.get("k", json);',
+      "export function render(event: CanonicalEvent) {",
+      "  return join(event, event);",
+      "}",
       "",
     ].join("\n");
     expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
@@ -316,7 +366,7 @@ describe("isolated module lint gates", () => {
       overrideConfigFile: true,
       overrideConfig: config,
     });
-    const code = 'import { x } from "@/events/internal/x";\n\nexport const y = x;\n';
+    const code = 'import { x } from "@/events/internal/x";\n\nexport const y = [x];\n';
     const lintFrom = async (file: string) =>
       (await nested.lintText(code, { filePath: resolve(root, file) }))[0]?.messages.map(
         ({ ruleId, message }) => `${ruleId ?? "fatal"}: ${message}`,

@@ -58,9 +58,10 @@ export default defineConfig(
       "no-restricted-syntax": [
         "error",
         {
-          selector: ":matches(TSAsExpression, TSTypeAssertion) > TSNeverKeyword.typeAnnotation",
+          selector:
+            ":matches(TSAsExpression, TSTypeAssertion, TSTypeAliasDeclaration) > :matches(TSNeverKeyword, TSIntersectionType:has(> TSNeverKeyword)).typeAnnotation",
           message:
-            "Never assert to never: it fits every type, including the src/events types that only their functions may build.",
+            "Never assert to never or name it as a type: it fits every type, including the src/events types that only their functions may build.",
         },
       ],
     },

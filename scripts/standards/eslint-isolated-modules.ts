@@ -72,21 +72,26 @@ function holds(node: Node, holder: (node: Node) => boolean): boolean {
   return holder(node);
 }
 
+const isJson = (node: Node | undefined): boolean =>
+  (node?.type === "Literal" && node.value === "json") ||
+  (node?.type === "ObjectExpression" &&
+    node.properties.some(
+      (p) => p.type === "Property" && nameOf(p.key) === "type" && isJson(p.value),
+    ));
+
+const CARRIERS = new Set([
+  ...["ArrayExpression", "ObjectExpression", "Property", "SpreadElement", "AwaitExpression"],
+  ...["ConditionalExpression", "LogicalExpression", "TSNonNullExpression"],
+]);
+
 function untyped(node: Node | null | undefined): boolean {
-  if (node?.type === "AwaitExpression") return untyped(node.argument);
-  if (node?.type === "TSNonNullExpression") return untyped(node.expression);
-  if (node?.type !== "CallExpression" || node.callee.type !== "MemberExpression") return false;
+  if (node?.type !== "CallExpression" || node.callee.type !== "MemberExpression")
+    return !!node && CARRIERS.has(node.type) && children(node).some(untyped);
   const method = nameOf(node.callee.property);
-  const json = (arg: Node) =>
-    nameOf(arg) === "json" ||
-    (arg.type === "ObjectExpression" &&
-      arg.properties.some(
-        (p) => p.type === "Property" && nameOf(p.key) === "type" && nameOf(p.value) === "json",
-      ));
   return (
     (nameOf(node.callee.object) === "JSON" && method === "parse") ||
     method === "json" ||
-    (/^get(WithMetadata)?$/.test(method) && node.arguments.some(json))
+    (/^get(WithMetadata)?$/.test(method) && isJson(node.arguments[1]))
   );
 }
 
@@ -124,6 +129,10 @@ const ownedTypes = {
     const guarded = new Set<string>();
     const aliases = new Map<string, () => boolean>();
     const exposes = (name: string) => imported.has(name) || !!aliases.get(name)?.();
+    const relays = (node: Node): boolean =>
+      node.type === "Identifier"
+        ? exposes(node.name)
+        : node.type === "MemberExpression" && imported.has(nameOf(node.object));
     const declarations: [string[], Node][] = [];
     const checks: [Node, Messages, () => boolean][] = [];
     const mentions = (node: Node | null | undefined): boolean =>
@@ -153,7 +162,7 @@ const ownedTypes = {
         )
           imported.add(node.id.name);
       },
-      "VariableDeclarator, ClassDeclaration, FunctionDeclaration, TSDeclareFunction, TSEnumDeclaration, TSModuleDeclaration":
+      "ClassDeclaration, FunctionDeclaration, TSDeclareFunction, TSEnumDeclaration, TSModuleDeclaration":
         declare,
       TSTypeAliasDeclaration(node) {
         declare(node);
@@ -167,6 +176,16 @@ const ownedTypes = {
         declare(node);
         aliases.set(node.id.name, () => node.extends.some(mentions));
         check(node, "relay", () => exported(node) && exposes(node.id.name));
+      },
+      VariableDeclarator(node) {
+        declare(node);
+        const { id, init } = node;
+        if (id.type !== "Identifier" || !init) return;
+        aliases.set(id.name, () => relays(init));
+        check(node, "relay", () => exported(node.parent) && exposes(id.name));
+      },
+      ExportDefaultDeclaration(node) {
+        check(node, "relay", () => relays(node.declaration));
       },
       Identifier(node) {
         if (node.typeAnnotation) declarations.push([[node.name], node.typeAnnotation]);
@@ -284,7 +303,12 @@ const internalImports = {
           glob(node);
         else if (
           nameOf(callee) === "require" ||
-          (nameOf(object) === "module" && nameOf(member?.property) === "require")
+          (nameOf(object) === "module" && nameOf(member?.property) === "require") ||
+          (nameOf(object) === "vi" &&
+            /^(importActual|importMock|mock|doMock|unmock|doUnmock)$/.test(
+              nameOf(member?.property),
+            ) &&
+            node.arguments[0]?.type !== "ImportExpression")
         )
           load(node.arguments[0], node);
       },
