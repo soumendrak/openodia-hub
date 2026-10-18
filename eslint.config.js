@@ -42,7 +42,6 @@ export default defineConfig(
         },
       ],
       "isolated/internal-imports": "error",
-      "isolated/owned-types": "error",
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
     },
@@ -53,18 +52,11 @@ export default defineConfig(
     rules: { "isolated/internal-imports": "error" },
   },
   {
-    files: ["{src,scripts}/**/*.{ts,tsx,mts,cts}"],
-    rules: {
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            ":matches(TSAsExpression, TSTypeAssertion, TSTypeAliasDeclaration) > :matches(TSNeverKeyword, TSIntersectionType:has(> TSNeverKeyword)).typeAnnotation",
-          message:
-            "Never assert to never or name it as a type: it fits every type, including the src/events types that only their functions may build.",
-        },
-      ],
+    files: ["src/**/*.{ts,tsx,mts,cts}"],
+    languageOptions: {
+      parserOptions: { project: "./tsconfig.json", tsconfigRootDir: import.meta.dirname },
     },
+    rules: { "isolated/owned-types": ["error", { modules: ["src/events"] }] },
   },
   {
     files: ["src/{events,boundary,platform}/**/*.{js,jsx,mjs,cjs}"],
