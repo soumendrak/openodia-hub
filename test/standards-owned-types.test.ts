@@ -94,6 +94,7 @@ const flagged: Record<string, string> = {
   R21: "export const e: CanonicalEvent = (raw as { [key: string]: never }).k;",
   R22: 'function readStore<T>(key: string): T | undefined {\n  return key ? JSON.parse(key) : undefined;\n}\nasync function cachedJson<T>(key: string, load: () => Promise<T>) {\n  return readStore<T>(key) ?? (await load());\n}\nexport const e = cachedJson("k", async () => event);',
   R23: "const pick = <T,>(xs: readonly T[]) => xs[0];\nexport const e = pick([event]);",
+  R24: "export const e = Object.assign({ ...event }, { title: s });",
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",
   C03: 'export async function load() {\n  const Events = await import("../events");\n  return raw as ReturnType<typeof Events.join>;\n}',
