@@ -31,10 +31,37 @@ export default tseslint.config(
                 "TanStack Start does not use the Next.js `server-only` package. Rename the module to `*.server.ts` or mark it with `@tanstack/react-start/server-only`.",
             },
           ],
+          patterns: [
+            {
+              regex: "^(?:@/|\\.\\./|\\./[^/]+/)(?:[^/]+/)*?internal(?:/|$)",
+              message:
+                "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
+            },
+          ],
+        },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            ":matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation:matches([typeName.name='CanonicalEvent'], :has([typeName.name='CanonicalEvent']))",
+          message:
+            "Build a CanonicalEvent with the functions in src/events, never with a type assertion.",
         },
       ],
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+    },
+  },
+  {
+    files: ["src/{events,boundary,platform}/**/*.{ts,tsx}"],
+    extends: [...tseslint.configs.strictTypeChecked],
+    languageOptions: {
+      parserOptions: { project: "./tsconfig.strict.json", tsconfigRootDir: import.meta.dirname },
+    },
+    rules: {
+      "@typescript-eslint/switch-exhaustiveness-check": "error",
+      "@typescript-eslint/consistent-type-assertions": ["error", { assertionStyle: "never" }],
     },
   },
   eslintPluginPrettier,

@@ -21,6 +21,11 @@ export default defineConfig({
       // assert nothing real. Run it with `just check-pattachitra`.
       exclude: ["scripts/check-pattachitra.mjs"],
       reporter: ["text", "html", "json"],
+      thresholds: {
+        "src/events/**": { 100: true },
+        "src/boundary/**": { 100: true },
+        "src/platform/**": { 100: true },
+      },
     },
   },
 });
