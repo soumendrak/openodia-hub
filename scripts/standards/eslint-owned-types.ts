@@ -65,15 +65,21 @@ export const ownedTypes = {
       return [
         ...found,
         ...checker.getPropertiesOfType(type).map((p) => checker.getTypeOfSymbol(p)),
-        ...type.getCallSignatures().map((signature) => signature.getReturnType()),
+        ...[...type.getCallSignatures(), ...type.getConstructSignatures()].map((signature) =>
+          signature.getReturnType(),
+        ),
         ...checker.getIndexInfosOfType(type).map((info) => info.type),
       ];
     }
 
+    const hidden = ts.ModifierFlags.Private | ts.ModifierFlags.Protected;
     const seals = (type: ts.Type) =>
       (type.flags & Structure ? checker.getPropertiesOfType(type) : []).flatMap((property) => {
-        const file = property.declarations?.[0]?.getSourceFile().fileName ?? "";
-        const module = /^__[@#]/.test(String(property.escapedName)) && moduleOf(file);
+        const [declaration] = property.declarations ?? [];
+        const sealed =
+          /^__[@#]/.test(String(property.escapedName)) ||
+          (!!declaration && ts.getCombinedModifierFlags(declaration) & hidden);
+        const module = sealed && declaration && moduleOf(declaration.getSourceFile().fileName);
         return module ? [module] : [];
       });
     const brands: (type: ts.Type) => string[] = memo([], (t) => [
@@ -87,6 +93,9 @@ export const ownedTypes = {
       );
       return run;
     };
+    const reaches = (type: ts.Type, target: ts.Type, seen = new Set<ts.Type>()): boolean =>
+      type === target ||
+      (!seen.has(type) && !!seen.add(type) && parts(type).some((t) => reaches(t, target, seen)));
     const hollow = holds(Any | Never);
     const generic = holds(TypeParameter);
 
@@ -127,7 +136,16 @@ export const ownedTypes = {
           ? !input.elements.length
           : typeOf(input).flags & (Null | Undefined | Void),
       );
-      if (library && empty) return;
+      const unbound = owner && !ts.isClassLike(owner) && checker.getSignatureFromDeclaration(owner);
+      const free =
+        unbound &&
+        unbound
+          .getTypeParameters()
+          ?.some(
+            (parameter) =>
+              !unbound.parameters.some((p) => reaches(checker.getTypeOfSymbol(p), parameter)),
+          );
+      if (library && empty && !free) return;
       const receiver = node.callee.type === "MemberExpression" ? [node.callee.object] : [];
       const inputs = [...node.arguments, ...receiver].flatMap((input) => brands(typeOf(input)));
       const trusted = owner && !(ts.isClassLike(owner) && ambient(owner)) && declared;
