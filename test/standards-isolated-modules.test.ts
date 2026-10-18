@@ -1,7 +1,8 @@
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
+import config from "../eslint.config.js";
 
-const eslint = new ESLint();
+const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: config });
 
 async function lint(filePath: string, code: string) {
   const [result] = await eslint.lintText(code, { filePath });
@@ -9,16 +10,16 @@ async function lint(filePath: string, code: string) {
 }
 
 const internalImport =
-  "no-restricted-syntax: Import from src/events, src/boundary or src/platform, not from their internal/ files.";
+  "isolated/internal-imports: Import from src/events, src/boundary or src/platform, not from their internal/ files.";
 
 const literalOnly =
-  "no-restricted-syntax: Load modules by plain string paths with no wildcard directories so the internal/ fence can check them.";
+  "isolated/internal-imports: Load modules by plain string paths with no wildcard directories so the internal/ fence can check them.";
 
 const assertion =
-  "no-restricted-syntax: Build a CanonicalEvent with the functions in src/events, never with a type assertion.";
+  "isolated/canonical-event: Build a CanonicalEvent with the functions in src/events, never with a type assertion.";
 
 const renamed =
-  "no-restricted-syntax: Use CanonicalEvent under its own name so the type assertion ban can see it.";
+  "isolated/canonical-event: Use CanonicalEvent under its own name so the type assertion ban can see it.";
 
 describe("isolated module lint gates", () => {
   it.each([
@@ -62,9 +63,16 @@ describe("isolated module lint gates", () => {
     'import("../events/in" + "ternal/x")',
     "import(name)",
     "import.meta.glob(name)",
+    'import.meta.glob("@/events/i[n]ternal/*.ts")',
+    'import.meta.glob("@/events/{internal,public}/*.ts")',
     'import.meta.glob(["@/events/*.ts", name])',
     'import.meta.glob("@/events/**/*.ts")',
     'import.meta.glob("@/*/internal.ts")',
+    'import.meta.glob("@/events/**")',
+    'import.meta.glob("./*.ts", { base: "../events/internal" })',
+    'import.meta.glob("@/events/*.ts", { [name]: true })',
+    'import.meta.glob("@/events/*.ts", { ...{ base: name } })',
+    'import.meta.glob("@/events/*.ts", name)',
   ])("rejects the computed dynamic import %s", async (expression) => {
     const code = `export const load = (name: string) => ${expression};\n`;
     expect(await lint("src/routes/fixture.ts", code)).toEqual([literalOnly]);
@@ -80,7 +88,8 @@ describe("isolated module lint gates", () => {
   });
 
   it("allows a glob over a module's public files", async () => {
-    const code = 'export const load = import.meta.glob(["@/events/*.ts", "./internal/*.ts"]);\n';
+    const code =
+      'export const load = import.meta.glob(["@/events/*.ts", "./internal/*.ts"], { eager: true });\n';
     expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
   });
 
@@ -91,6 +100,7 @@ describe("isolated module lint gates", () => {
     ],
     ["scripts/fixture.js", 'export const load = () => import("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/internal/x");\n'],
+    ["scripts/fixture.cjs", 'module.exports = module.require("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/in" + "ternal/x");\n'],
     ["src/fixture.jsx", 'export { x } from "./events/internal/x";\n'],
   ])("rejects the JavaScript consumer %s", async (file, code) => {
@@ -100,7 +110,19 @@ describe("isolated module lint gates", () => {
   });
 
   it.each([
+    ["src/routes/fixture.ts", "../events/parsers/../internal/x"],
+    ["src/events/parsers/fixture.js", "../../boundary/internal/x"],
+  ])("rejects %s importing %s once the path is resolved", async (file, source) => {
+    expect(await lint(file, `import { x } from "${source}";\n\nexport const y = x;\n`)).toEqual([
+      internalImport,
+    ]);
+  });
+
+  it.each([
     ["src/routes/fixture.ts", "@/events"],
+    ["src/events/parsers/fixture.js", "../internal/normalize"],
+    ["src/events/parsers/fixture.js", "@/events/internal/normalize"],
+    ["src/routes/fixture.ts", "../internal/x"],
     ["src/routes/fixture.ts", "./internal/x"],
     ["src/routes/fixture.ts", "@/lib/internals"],
   ])("allows %s importing %s", async (file, source) => {
@@ -137,6 +159,8 @@ describe("isolated module lint gates", () => {
 
   it.each([
     'import type { CanonicalEvent as Event } from "@/events";\n',
+    'import type { "CanonicalEvent" as Event } from "@/events";\n',
+    'export type { "CanonicalEvent" as Event } from "@/events";\n',
     'export type { CanonicalEvent as Event } from "@/events";\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Event = CanonicalEvent;\n',
     'export type Event = import("@/events").CanonicalEvent;\n',
@@ -146,6 +170,8 @@ describe("isolated module lint gates", () => {
     'import type * as Events from "@/events";\n\ntype Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Event = { value: CanonicalEvent }["value"];\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Event = ReturnType<() => CanonicalEvent>;\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Events = [CanonicalEvent?];\n',
+    'import type { CanonicalEvent } from "@/events";\n\nexport type Events = [...CanonicalEvent[]];\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects renaming CanonicalEvent: %s", async (code) => {
     expect(await lint("src/routes/fixture.ts", code)).toEqual([renamed]);
@@ -158,6 +184,8 @@ describe("isolated module lint gates", () => {
       "export type Props = { readonly event: CanonicalEvent };",
       "export type Render = (event: CanonicalEvent) => string;",
       "export type EventField = keyof CanonicalEvent;",
+      "export type State = { readonly event: CanonicalEvent } | null;",
+      "export type Pair = readonly [{ readonly event: CanonicalEvent }, (event: CanonicalEvent) => void];",
       'export const unrelated = JSON.parse("{}") as { CanonicalEvent: string; CanonicalEvent2(): void };',
       'export type Title = CanonicalEvent["title"];',
       "",

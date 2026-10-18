@@ -13,6 +13,7 @@
   ],
   "compilerOptions": {
     "types": ["vite/client", "node"],
+    "allowJs": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitReturns": true,
