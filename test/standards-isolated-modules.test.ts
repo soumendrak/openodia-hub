@@ -1,5 +1,6 @@
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
 import tseslint from "typescript-eslint";
@@ -194,27 +195,55 @@ describe("isolated module lint gates", () => {
   });
 
   it("flags a forged src/events value in src .ts, .mts and .cts files, but not in src/events", async () => {
-    const name = `guard-fixture-${process.pid}`;
-    const files = {
-      model: resolve(import.meta.dirname, `../src/events/${name}.ts`),
-      own: resolve(import.meta.dirname, `../src/events/${name}-own.ts`),
-      ts: resolve(import.meta.dirname, `../src/routes/${name}.ts`),
-      mts: resolve(import.meta.dirname, `../src/routes/${name}.mts`),
-      cts: resolve(import.meta.dirname, `../src/routes/${name}.cts`),
+    const root = mkdtempSync(join(tmpdir(), "isolated-guard-"));
+    const write = (file: string, code: string) => {
+      mkdirSync(dirname(join(root, file)), { recursive: true });
+      writeFileSync(join(root, file), code);
     };
-    const events = resolve(import.meta.dirname, "../src/events");
-    const created = !existsSync(events) && mkdirSync(events);
     const forge = `export const day = "2026-02-30" as Day;\n`;
-    writeFileSync(
-      files.model,
+    write(
+      "src/events/model.ts",
       'declare const brand: unique symbol;\nexport type Day = string & { readonly [brand]: "Day" };\n',
     );
-    writeFileSync(files.own, `import type { Day } from "./${name}";\n${forge}`);
-    for (const consumer of [files.ts, files.mts, files.cts])
-      writeFileSync(consumer, `import type { Day } from "../events/${name}";\n${forge}`);
+    write("src/events/own.ts", `import type { Day } from "./model";\n${forge}`);
+    const consumers = ["src/routes/forge.ts", "src/routes/forge.mts", "src/routes/forge.cts"];
+    for (const file of consumers)
+      write(file, `import type { Day } from "../events/model";\n${forge}`);
+    write(
+      "tsconfig.json",
+      JSON.stringify({
+        compilerOptions: {
+          strict: true,
+          module: "ESNext",
+          moduleResolution: "Bundler",
+          noEmit: true,
+        },
+        include: ["src/**/*"],
+      }),
+    );
     try {
-      const real = new ESLint({ overrideConfigFile: true, overrideConfig: config });
-      const results = await real.lintFiles([files.own, files.ts, files.mts, files.cts]);
+      const real = new ESLint({
+        cwd: root,
+        overrideConfigFile: true,
+        overrideConfig: [
+          ...config,
+          {
+            files: ["src/**/*.{ts,tsx,mts,cts}"],
+            languageOptions: {
+              parserOptions: { project: "./tsconfig.json", tsconfigRootDir: root },
+            },
+            rules: {
+              "isolated/owned-types": [
+                "error",
+                {
+                  modules: [relative(resolve(import.meta.dirname, ".."), join(root, "src/events"))],
+                },
+              ],
+            },
+          },
+        ],
+      });
+      const results = await real.lintFiles(["src/events/own.ts", ...consumers]);
       expect(
         results.map(
           (result) =>
@@ -222,8 +251,7 @@ describe("isolated module lint gates", () => {
         ),
       ).toEqual([0, 1, 1, 1]);
     } finally {
-      for (const file of Object.values(files)) rmSync(file);
-      if (created !== false) rmSync(events, { recursive: true });
+      rmSync(root, { recursive: true });
     }
   }, 60_000);
 
