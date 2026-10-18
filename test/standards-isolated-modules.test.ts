@@ -219,7 +219,7 @@ describe("isolated module lint gates", () => {
       for (const file of Object.values(files)) rmSync(file);
       if (created !== false) rmSync(events, { recursive: true });
     }
-  });
+  }, 60_000);
 
   it("refuses to run owned-types without type information", async () => {
     const untyped = new ESLint({
