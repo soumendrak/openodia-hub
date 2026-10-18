@@ -99,10 +99,11 @@ export type Field<T> =
 
 type Verified = { readonly evidenceUrl: HttpsUrl; readonly verifiedAt: Timestamp };
 
-type Status = { readonly kind: "scheduled" | "postponed" | "cancelled" } & Verified;
+type Status = { readonly kind: "scheduled" | "cancelled" } & Verified;
+type Paused = { readonly kind: "postponed" } & Verified;
 type Moved = { readonly kind: "rescheduled" } & Verified;
 
-export type Lifecycle = Status | Moved;
+export type Lifecycle = Status | Paused | Moved;
 
 export type Attendance = {
   readonly policy: (typeof ATTENDANCE_POLICIES)[number];
@@ -163,6 +164,7 @@ export type Correction = {
   readonly evidence: HttpsUrl;
   readonly patch:
     | (Patch & { readonly lifecycle?: Status | null })
+    | (Patch & { readonly lifecycle: Paused; readonly dates: Dates })
     | (Patch & { readonly lifecycle: Moved; readonly dates: ExactDates });
 };
 
@@ -190,13 +192,12 @@ export function join(a: CanonicalEvent, b: CanonicalEvent): CanonicalEvent {
 
 export function applyCorrection(event: CanonicalEvent, correction: Correction): CanonicalEvent {
   const { at, evidence, patch } = correction;
-  const pinned = patch.lifecycle?.kind === "postponed" ? event.dates.value : undefined;
   const review = <T>(field: Field<T>, value: T | undefined) =>
     value === undefined ? field : later(field, { kind: "reviewed", value, at, evidence });
   return {
     title: review(event.title, patch.title),
     description: review(event.description, patch.description),
-    dates: review(event.dates, patch.dates ?? pinned),
+    dates: review(event.dates, patch.dates),
     lifecycle: review(event.lifecycle, patch.lifecycle),
     location: review(event.location, patch.location),
     attendance: review(event.attendance, patch.attendance),

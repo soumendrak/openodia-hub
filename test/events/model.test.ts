@@ -503,27 +503,37 @@ describe("applyCorrection", () => {
     expect(join(moved, curated)).toEqual(applied);
   });
 
-  it("pins the current dates when a correction postpones the event", () => {
-    const postponed = applyCorrection(base, {
+  it("keeps the dates a postponement reviewed, whether it lands before or after newer upstream dates", () => {
+    const postpone: Correction = {
       at: FEB,
       evidence: EVIDENCE,
-      patch: { lifecycle: { kind: "postponed", ...checked } },
-    });
-    expect(postponed.dates).toEqual({
-      kind: "reviewed",
-      value: base.dates.value,
-      at: FEB,
-      evidence: EVIDENCE,
-    });
+      patch: { lifecycle: { kind: "postponed", ...checked }, dates: range(MARCH_1, MARCH_1) },
+    };
     const newer: CanonicalEvent = {
       ...base,
       dates: { kind: "upstream", value: range(MARCH_5, APRIL_10), seen: MAR },
     };
-    expect(join(postponed, newer).dates).toEqual(postponed.dates);
-    expect(join(newer, postponed).dates.value).toEqual(range(MARCH_1, MARCH_1));
+    const after = applyCorrection(join(base, newer), postpone);
+    expect(after).toEqual(join(applyCorrection(base, postpone), newer));
+    expect(after.dates).toEqual({
+      kind: "reviewed",
+      value: range(MARCH_1, MARCH_1),
+      at: FEB,
+      evidence: EVIDENCE,
+    });
+    expectTypeOf<{
+      at: typeof FEB;
+      evidence: typeof EVIDENCE;
+      patch: { lifecycle: { kind: "postponed" } & typeof checked };
+    }>().not.toExtend<Correction>();
+    expectTypeOf<{
+      at: typeof FEB;
+      evidence: typeof EVIDENCE;
+      patch: { lifecycle: { kind: "postponed" } & typeof checked; dates: typeof LATE_2025 };
+    }>().toExtend<Correction>();
   });
 
-  it("pins the dates a stale postponement reviewed, whether applied or joined, under a newer cancellation", () => {
+  it("keeps the dates a stale postponement reviewed, whether applied or joined, under a newer cancellation", () => {
     const listed: CanonicalEvent = {
       ...base,
       dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
@@ -536,7 +546,7 @@ describe("applyCorrection", () => {
     const stale: Correction = {
       at: FEB,
       evidence: EVIDENCE,
-      patch: { lifecycle: { kind: "postponed", ...checked } },
+      patch: { lifecycle: { kind: "postponed", ...checked }, dates: range(MARCH_1, MARCH_1) },
     };
     const applied = applyCorrection(cancelled, stale);
     expect(applied.lifecycle).toEqual(cancelled.lifecycle);
@@ -547,15 +557,6 @@ describe("applyCorrection", () => {
       evidence: EVIDENCE,
     });
     expect(join(cancelled, applyCorrection(listed, stale))).toEqual(applied);
-  });
-
-  it("takes a postponement's own dates when it gives them", () => {
-    const corrected = applyCorrection(base, {
-      at: MAR,
-      evidence: EVIDENCE,
-      patch: { lifecycle: { kind: "postponed", ...checked }, dates: LATE_2025 },
-    });
-    expect(corrected.dates.value).toEqual(LATE_2025);
   });
 
   it("does not let an older correction overwrite a newer review", () => {
