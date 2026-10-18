@@ -174,6 +174,7 @@ const clean: Record<string, string> = {
   L31: "function keepOne(e: CanonicalEvent) {\n  const cast = <T,>(x: unknown) => x as T;\n  return cast<string>(e.id) ? e : e;\n}\nexport const e = keepOne(event);",
   L32: 'import type { Ref } from "../events";\nexport const r = raw as Ref;',
   L33: "interface Holder<T> {\n  get(): T;\n}\nfunction read<T>(holder: Holder<T>): T {\n  return holder.get();\n}\nexport const e = (holder: Holder<CanonicalEvent>) => read(holder);",
+  L34: "function apply<T, R>(value: T, fn: (item: T) => R): R {\n  return fn(value);\n}\nexport const e = apply(event, (item) => item);",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
