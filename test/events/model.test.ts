@@ -303,6 +303,11 @@ describe("nested facts", () => {
     expect(unwrap(notices(skipping))).toEqual([venue]);
   });
 
+  it("rejects a plain object shaped like a notice", () => {
+    const lookalike: unknown = { ...venue };
+    expect(notices([lookalike as Notice])).toEqual({ ok: false, error: "missing-notice" });
+  });
+
   it("keeps a branded notice list independent of the array it was built from", () => {
     const source = Array.from({ length: 20 }, () => venue);
     const branded = unwrap(notices(source));
