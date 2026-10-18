@@ -5,11 +5,19 @@ import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
-const internalPath = "^(?:@/|\\.\\./|\\./[^/]+/)(?:[^/]+/)*?internal(?:/|$)".replaceAll(
-  "/",
-  "\\x2F",
-);
-const internalSegment = "^(?!\\./internal(?:/|$)).*(?:^|/)internal(?:/|$)".replaceAll("/", "\\x2F");
+const slashes = (pattern) => pattern.replaceAll("/", "\\x2F");
+const internalPath = slashes("^(?:@/+|\\.\\./+|\\./+[^/]+/+)(?:[^/]*/+)*?internal(?:/|$)");
+const internalSegment = slashes("^(?!\\./+internal(?:/|$)).*(?:^|/)internal(?:/|$)");
+const loader = ":matches(ImportExpression, CallExpression[callee.name='require'])";
+
+const internalFence = {
+  selector: [
+    `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, TSImportType, TSExternalModuleReference) > Literal[value=/${internalPath}/]`,
+    `${loader} Literal[value=/${internalSegment}/]`,
+    `${loader} TemplateElement[value.cooked=/${internalSegment}/]`,
+  ].join(", "),
+  message: "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
+};
 
 export default tseslint.config(
   // `.lavish` is the gitignored design scratch directory — mockups, not source.
@@ -41,14 +49,7 @@ export default tseslint.config(
       ],
       "no-restricted-syntax": [
         "error",
-        {
-          selector: [
-            `:matches(ImportDeclaration, ExportNamedDeclaration, ExportAllDeclaration, ImportExpression, TSImportType) > Literal.source[value=/${internalPath}/]`,
-            `ImportExpression > TemplateLiteral.source > TemplateElement[value.raw=/${internalSegment}/]`,
-          ].join(", "),
-          message:
-            "Import from src/events, src/boundary or src/platform, not from their internal/ files.",
-        },
+        internalFence,
         {
           selector:
             ":matches(TSAsExpression, TSTypeAssertion) > .typeAnnotation Identifier[name='CanonicalEvent']",
@@ -59,7 +60,7 @@ export default tseslint.config(
           selector: [
             "ImportSpecifier[imported.name='CanonicalEvent'][local.name!='CanonicalEvent']",
             "ExportSpecifier[local.name='CanonicalEvent'][exported.name!='CanonicalEvent']",
-            "TSTypeAliasDeclaration > .typeAnnotation Identifier[name='CanonicalEvent']:not(TSTypeLiteral Identifier, TSFunctionType Identifier)",
+            "TSTypeAliasDeclaration > .typeAnnotation Identifier[name='CanonicalEvent']:not(TSTypeLiteral Identifier, TSFunctionType Identifier, TSTypeOperator[operator='keyof'] Identifier, TSIndexedAccessType Identifier)",
             "TSInterfaceHeritage Identifier[name='CanonicalEvent']",
           ].join(", "),
           message: "Use CanonicalEvent under its own name so the type assertion ban can see it.",
@@ -68,6 +69,10 @@ export default tseslint.config(
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
     },
+  },
+  {
+    files: ["**/*.{js,jsx,mjs,cjs}"],
+    rules: { "no-restricted-syntax": ["error", internalFence] },
   },
   {
     files: ["src/{events,boundary,platform}/**/*.{ts,tsx,mts,cts}"],

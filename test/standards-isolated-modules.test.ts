@@ -26,6 +26,8 @@ describe("isolated module lint gates", () => {
     ["src/fixture.ts", "./boundary/internal/gdg"],
     ["src/routes/fixture.mts", "@/events/internal/x"],
     ["src/routes/fixture.cts", "@/events/internal/x"],
+    ["src/routes/fixture.ts", "../events//internal/x"],
+    ["src/routes/fixture.ts", "../events/./internal/x"],
   ])("rejects %s importing %s", async (file, source) => {
     for (const code of [
       `import { x } from "${source}";\n\nexport const y = x;\n`,
@@ -39,8 +41,9 @@ describe("isolated module lint gates", () => {
       `import x = require("${source}");\n\nexport const y = x;\n`,
       `export const load = () => require("${source}");\n`,
     ])
-      expect(await lint(file, code)).toEqual([
+      expect((await lint(file, code))?.sort()).toEqual([
         "@typescript-eslint/no-require-imports: A `require()` style import is forbidden.",
+        internalImport,
       ]);
   });
 
@@ -48,9 +51,24 @@ describe("isolated module lint gates", () => {
     "import(`@/events/internal/${name}`)",
     "import(`../events/${name}/internal/x`)",
     "import(`@/${name}/internal`)",
-  ])("rejects the template-literal dynamic import %s", async (expression) => {
+    "import(`../events/int\\u0065rnal/x`)",
+    'import("../events/" + "internal/x")',
+    'import("../events/" + name + "/internal/x")',
+  ])("rejects the dynamic import %s", async (expression) => {
     const code = `export const load = (name: string) => ${expression};\n`;
     expect(await lint("src/routes/fixture.ts", code)).toEqual([internalImport]);
+  });
+
+  it.each([
+    [
+      "scripts/fixture.mjs",
+      'import { x } from "../src/events/internal/x";\n\nexport const y = x;\n',
+    ],
+    ["scripts/fixture.js", 'export const load = () => import("../src/events/internal/x");\n'],
+    ["scripts/fixture.cjs", 'module.exports = require("../src/events/internal/x");\n'],
+    ["src/fixture.jsx", 'export { x } from "./events/internal/x";\n'],
+  ])("rejects the JavaScript consumer %s", async (file, code) => {
+    expect(await lint(file, code)).toContain(internalImport);
   });
 
   it("allows a module to load its own internal files with a template literal", async () => {
@@ -114,6 +132,8 @@ describe("isolated module lint gates", () => {
       "",
       "export type Props = { readonly event: CanonicalEvent };",
       "export type Render = (event: CanonicalEvent) => string;",
+      "export type EventField = keyof CanonicalEvent;",
+      'export type Title = CanonicalEvent["title"];',
       "",
     ].join("\n");
     expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
