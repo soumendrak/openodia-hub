@@ -93,7 +93,7 @@ export type Field<T> =
   | {
       readonly kind: "reviewed";
       readonly value: T;
-      readonly at: IsoInstant;
+      readonly at: IsoInstant | Timestamp;
       readonly evidence: HttpsUrl;
     };
 
@@ -146,7 +146,13 @@ export const notices = (
 ): Result<Notices, "too-many-notices" | "sparse-notices"> =>
   list.reduce((count) => count + 1, 0) < list.length
     ? { ok: false, error: "sparse-notices" }
-    : checkNotices(Object.freeze(list.map((entry) => Object.freeze({ ...entry }))));
+    : checkNotices(
+        Object.freeze(
+          list.map(({ kind, text, evidenceUrl, verifiedAt }) =>
+            Object.freeze({ kind, text, evidenceUrl, verifiedAt }),
+          ),
+        ),
+      );
 
 type Values = {
   title: Text;
@@ -164,7 +170,7 @@ export type CanonicalEvent = { readonly [K in keyof Values]: Field<Values[K]> };
 type Patch = { readonly [K in keyof Values]?: Values[K] };
 
 export type Correction = {
-  readonly at: IsoInstant;
+  readonly at: IsoInstant | Timestamp;
   readonly evidence: HttpsUrl;
   readonly patch:
     | (Patch & { readonly lifecycle?: Status | null })
@@ -172,17 +178,20 @@ export type Correction = {
     | (Patch & { readonly lifecycle: Moved; readonly dates: ExactDates });
 };
 
-const canonical = (value: unknown): string =>
-  typeof value === "object" && value !== null
-    ? `${Array.isArray(value) ? "[" : "{"}${Object.entries(value)
-        .map(([key, item]) => `${key}=${canonical(item)}`)
-        .sort()
-        .join(",")}}`
-    : `${typeof value}:${String(value)}`;
+const plain = (value: unknown): unknown => {
+  if (typeof value === "function") return undefined;
+  if (typeof value !== "object" || value === null) return value;
+  if (Array.isArray(value)) return value.map(plain);
+  const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : 1));
+  return Object.fromEntries(entries.map(([key, item]) => [key, plain(item)]));
+};
+
+const instant = (at: IsoInstant | Timestamp) => String(Date.parse(at)).padStart(16, "0");
 
 function rank(field: Field<unknown>) {
-  if (field.kind !== "upstream") return `2${field.at}${canonical(field)}`;
-  return `${field.value === null ? "0" : "1"}${field.seen}${canonical(field)}`;
+  const encoded = JSON.stringify(plain(field));
+  if (field.kind !== "upstream") return `2${instant(field.at)}${encoded}`;
+  return `${field.value === null ? "0" : "1"}${field.seen}${encoded}`;
 }
 
 function later<F extends Field<unknown>>(a: F, b: F): F {

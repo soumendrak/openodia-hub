@@ -253,6 +253,24 @@ describe("nested facts", () => {
       expect(notices(list)).toEqual({ ok: false, error: "sparse-notices" });
   });
 
+  it("copies a notice's declared fields even when they are getters", () => {
+    class Getters {
+      get kind() {
+        return notice.kind;
+      }
+      get text() {
+        return notice.text;
+      }
+      get evidenceUrl() {
+        return notice.evidenceUrl;
+      }
+      get verifiedAt() {
+        return notice.verifiedAt;
+      }
+    }
+    expect(unwrap(notices([new Getters()]))).toEqual([notice]);
+  });
+
   it("keeps a branded notice list independent of the array it was built from", () => {
     const source = Array.from({ length: 20 }, () => notice);
     const branded = unwrap(notices(source));
@@ -344,6 +362,38 @@ describe("join", () => {
     expect(broken).toEqual([]);
   });
 
+  it("orders notice lists by an encoding that no notice text can imitate", () => {
+    const second: Notice = { ...notice, text: unwrap(noticeText("Second.")) };
+    const spelled = `${notice.text},verifiedAt=string:${notice.verifiedAt}},1={evidenceUrl=string:${notice.evidenceUrl},kind=string:${notice.kind},text=string:${second.text}`;
+    const single: Notice = { ...notice, text: unwrap(noticeText(spelled)) };
+    const shared = event(random(9));
+    const listing = (list: readonly Notice[]): CanonicalEvent => ({
+      ...shared,
+      notices: { kind: "upstream", value: unwrap(notices(list)), seen: MAR },
+    });
+    const [a, b] = [listing([single]), listing([notice, second])];
+    expect(join(a, b)).toEqual(join(b, a));
+  });
+
+  it("orders review times by instant, including legacy second and day precision", () => {
+    const [day, second, later] = [
+      stamp("2026-03-01"),
+      stamp("2026-03-01T00:00:00Z"),
+      stamp("2026-03-01T00:00:00.500Z"),
+    ];
+    const review = (at: typeof VERIFIED, title: typeof A): Correction => ({
+      at,
+      evidence: EVIDENCE,
+      patch: { title },
+    });
+    const shared = event(random(10));
+    for (const order of [
+      [review(day, A), review(second, B), review(later, C)],
+      [review(later, C), review(second, B), review(day, A)],
+    ])
+      expect(order.reduce(applyCorrection, shared).title.value).toBe(C);
+  });
+
   it("orders values by their own fields, not by a toJSON they carry", () => {
     class Masked {
       readonly policy = "public";
@@ -358,6 +408,7 @@ describe("join", () => {
       }
     }
     const shared = event(random(8));
+    const own = (note: string) => ({ policy: "public" as const, note, toJSON: () => ({}) });
     const at = (value: Attendance): CanonicalEvent => ({
       ...shared,
       attendance: { kind: "upstream", value, seen: MAR },
@@ -365,6 +416,7 @@ describe("join", () => {
     for (const [a, b] of [
       [at(new Masked("Open.")), at(new Masked("Members only."))],
       [at(new Throwing("Open.")), at(new Throwing("Members only."))],
+      [at(own("Open.")), at(own("Members only."))],
     ] as const)
       expect(join(a, b)).toEqual(join(b, a));
   });
