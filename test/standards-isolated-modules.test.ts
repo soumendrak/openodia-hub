@@ -35,16 +35,18 @@ describe("isolated module lint gates", () => {
       `export type X = import("${source}").X;\n`,
     ])
       expect(await lint(file, code)).toEqual([internalImport]);
+    for (const code of [
+      `import x = require("${source}");\n\nexport const y = x;\n`,
+      `export const load = () => require("${source}");\n`,
+    ])
+      expect(await lint(file, code)).toEqual([
+        "@typescript-eslint/no-require-imports: A `require()` style import is forbidden.",
+      ]);
   });
 
   it("rejects a template-literal dynamic import of an internal file", async () => {
     const code = "export const load = (name: string) => import(`@/events/internal/${name}`);\n";
     expect(await lint("src/routes/fixture.ts", code)).toEqual([internalImport]);
-  });
-
-  it("allows internal-looking strings that are not imports", async () => {
-    const code = "export const path = (name: string) => `@/events/internal/${name}`;\n";
-    expect(await lint("src/routes/fixture.ts", code)).toEqual([]);
   });
 
   it.each([
@@ -70,6 +72,7 @@ describe("isolated module lint gates", () => {
     "raw as Partial<CanonicalEvent>",
     "raw as Events.CanonicalEvent",
     "raw as Readonly<Events.CanonicalEvent>",
+    'raw as import("@/events").CanonicalEvent',
   ])("rejects %s outside src/events", async (expression) => {
     const code = [
       'import type { CanonicalEvent } from "@/events";',
@@ -86,6 +89,7 @@ describe("isolated module lint gates", () => {
     'import type { CanonicalEvent as Event } from "@/events";\n',
     'export type { CanonicalEvent as Event } from "@/events";\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport type Event = CanonicalEvent;\n',
+    'export type Event = import("@/events").CanonicalEvent;\n',
     'import type * as Events from "@/events";\n\ntype Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects renaming CanonicalEvent: %s", async (code) => {
