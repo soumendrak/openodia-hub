@@ -137,6 +137,7 @@ const clean: Record<string, string> = {
   L17: 'import { box } from "fake-lib";\nexport const days = box<IsoDay>();',
   L18: 'export const id = raw as Pick<CanonicalEvent, "id">;',
   L19: "console.log(event, JSON.parse(s));",
+  L20: 'import { isDefined } from "fake-lib";\nexport const out = (maybe?: CanonicalEvent) => (isDefined(maybe) ? save(maybe) : null);',
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -163,6 +164,7 @@ beforeAll(async () => {
       "export declare function tag<T>(strings: TemplateStringsArray): T;",
       "export declare function is<T>(value: unknown): value is T;",
       "export declare function assertIs<T>(value: unknown): asserts value is T;",
+      "export declare function isDefined<T>(value: T | undefined): value is T;",
     ].join("\n"),
   );
   write("events/index.ts", 'export * from "./model";\n');
