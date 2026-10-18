@@ -523,6 +523,32 @@ describe("applyCorrection", () => {
     expect(join(newer, postponed).dates.value).toEqual(range(MARCH_1, MARCH_1));
   });
 
+  it("pins the dates a stale postponement reviewed, whether applied or joined, under a newer cancellation", () => {
+    const listed: CanonicalEvent = {
+      ...base,
+      dates: { kind: "upstream", value: range(MARCH_1, MARCH_1), seen: JAN },
+    };
+    const cancelled = applyCorrection(listed, {
+      at: MAR,
+      evidence: EVIDENCE,
+      patch: { lifecycle: { kind: "cancelled", ...checked } },
+    });
+    const stale: Correction = {
+      at: FEB,
+      evidence: EVIDENCE,
+      patch: { lifecycle: { kind: "postponed", ...checked } },
+    };
+    const applied = applyCorrection(cancelled, stale);
+    expect(applied.lifecycle).toEqual(cancelled.lifecycle);
+    expect(applied.dates).toEqual({
+      kind: "reviewed",
+      value: range(MARCH_1, MARCH_1),
+      at: FEB,
+      evidence: EVIDENCE,
+    });
+    expect(join(cancelled, applyCorrection(listed, stale))).toEqual(applied);
+  });
+
   it("takes a postponement's own dates when it gives them", () => {
     const corrected = applyCorrection(base, {
       at: MAR,
