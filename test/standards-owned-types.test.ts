@@ -117,6 +117,7 @@ const flagged: Record<string, string> = {
   R38: "export const events: CanonicalEvent[] = [...JSON.parse(s)];",
   R39: "declare function saveAll(...events: CanonicalEvent[]): void;\nsaveAll(...JSON.parse(s));",
   R40: "declare class Registry {\n  static event: CanonicalEvent;\n}\nexport const e = Registry.event;",
+  R41: "export function process<T extends CanonicalEvent>(event: T = JSON.parse(s)) {\n  return save(event);\n}",
   R35: `type Many = ${Array.from({ length: 2600 }, (_, i) => `{ a${i}: ${i} }`).join(" | ")} | { last: CanonicalEvent };\nexport const e = raw as Many;`,
   C01: "export const load: () => CanonicalEvent = () => JSON.parse(s);",
   C02: "export class Store {\n  e: CanonicalEvent;\n  constructor() {\n    this.e = JSON.parse(s);\n  }\n}",
@@ -144,6 +145,7 @@ const clean: Record<string, string> = {
   L18: 'export const id = raw as Pick<CanonicalEvent, "id">;',
   L19: "console.log(event, JSON.parse(s));",
   L21: 'import type { Tagged } from "../events";\nexport const t = raw as Tagged;',
+  L22: 'import { pass } from "fake-lib";\nexport const e = pass`x${event}`;',
   L20: 'import { isDefined } from "fake-lib";\nexport const out = (maybe?: CanonicalEvent) => (isDefined(maybe) ? save(maybe) : null);',
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
@@ -172,6 +174,7 @@ beforeAll(async () => {
       "export declare function is<T>(value: unknown): value is T;",
       "export declare function assertIs<T>(value: unknown): asserts value is T;",
       "export interface Payload { event: any }",
+      "export declare function pass<T>(strings: TemplateStringsArray, value: T): T;",
       "export declare const payload: Payload;",
       "export declare function isDefined<T>(value: T | undefined): value is T;",
     ].join("\n"),
