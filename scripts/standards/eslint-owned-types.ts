@@ -3,15 +3,13 @@ import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
 import ts from "typescript";
 
 type Node = TSESTree.Node;
-type Messages = "assertion" | "unsafe" | "forged" | "declared" | "merged";
+type Messages = "assertion" | "unsafe" | "forged" | "laundered" | "declared" | "merged";
 
 const ROOT = resolve(import.meta.dirname, "../..");
 export const fromRoot = (file: string) => relative(ROOT, file).split(sep).join("/");
 const { Any, Never, TypeParameter, Object: Structure, Null, Undefined, Void } = ts.TypeFlags;
 const { Private, Protected } = ts.ModifierFlags;
-const declares = (node: ts.Node) =>
-  ts.canHaveModifiers(node) &&
-  !!ts.getModifiers(node)?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword);
+const Declare = ts.SyntaxKind.DeclareKeyword;
 
 const shared = new Map<string, WeakMap<ts.Type, readonly string[]>>();
 const build = (what: string) => `${what}. Build it with the functions in {{module}}.`;
@@ -26,6 +24,7 @@ export const ownedTypes = {
       assertion: build("A type assertion or predicate cannot create a {{module}} value"),
       unsafe: build("An any- or never-typed value would reach a {{module}} type unchecked"),
       forged: build("This call returns a {{module}} type that its inputs and body do not carry"),
+      laundered: build("This lets a generic helper return a {{module}} type unchecked"),
       declared: build("A declaration without a body cannot create a {{module}} value"),
       merged: build("Merging into a {{module}} value skips its checks"),
     },
@@ -61,14 +60,10 @@ export const ownedTypes = {
       const found = [...args, ...(mapped ? [] : (type.aliasTypeArguments ?? []))];
       const fields = checker.getPropertiesOfType(type).map((p) => checker.getTypeOfSymbol(p));
       if (!mapped && !local(type)) return deep ? [...found, ...fields] : found;
-      return [
-        ...found,
-        ...fields,
-        ...[...type.getCallSignatures(), ...type.getConstructSignatures()].map((signature) =>
-          signature.getReturnType(),
-        ),
-        ...checker.getIndexInfosOfType(type).map((info) => info.type),
-      ];
+      const signatures = [...type.getCallSignatures(), ...type.getConstructSignatures()];
+      const returns = signatures.map((signature) => signature.getReturnType());
+      const indexes = checker.getIndexInfosOfType(type).map((info) => info.type);
+      return [...found, ...fields, ...returns, ...indexes];
     }
 
     function closure(name: string, own: (type: ts.Type) => readonly string[], deep = false) {
@@ -113,20 +108,36 @@ export const ownedTypes = {
     };
     const ambient = (node: ts.Node) =>
       !!ts.findAncestor(node, (n) =>
-        ts.isSourceFile(n) ? n.isDeclarationFile || "quit" : declares(n),
+        ts.isSourceFile(n)
+          ? n.isDeclarationFile || "quit"
+          : ts.canHaveModifiers(n) && !!ts.getModifiers(n)?.some((m) => m.kind === Declare),
       );
     const declaredReturn = (owner: ts.SignatureDeclaration | ts.ClassLikeDeclaration) => {
       const signature = !ts.isClassLike(owner) && checker.getSignatureFromDeclaration(owner);
       return signature ? signature.getReturnType() : checker.getTypeAtLocation(owner);
     };
 
+    const laundered = (fn: ts.Node, seen = new Set([fn])): ts.Node | undefined => {
+      const find = (n: ts.Node): ts.Node | undefined => {
+        const cast = ts.isAsExpression(n) || ts.isTypeAssertionExpression(n);
+        if (cast && generic(checker.getTypeAtLocation(n.type))) return n;
+        const sunk = ts.isExpression(n) && checker.getTypeAtLocation(n).flags & (Any | Never);
+        const contextual = sunk && checker.getContextualType(n);
+        if (contextual && generic(contextual)) return n;
+        const callee = ts.isCallLikeExpression(n) && signatureOf(n);
+        const inner = callee && !seen.has(callee) && laundered(callee, seen.add(callee));
+        return inner || ts.forEachChild(n, find);
+      };
+      return ts.forEachChild(fn, find);
+    };
+
     const forged = (
       node: TSESTree.CallExpression | TSESTree.NewExpression | TSESTree.TaggedTemplateExpression,
     ) => {
-      const tagged = node.type === "TaggedTemplateExpression";
-      const [args, callee] = tagged
-        ? [node.quasi.expressions, node.tag]
-        : [node.arguments, node.callee];
+      const [args, callee] =
+        node.type === "TaggedTemplateExpression"
+          ? [node.quasi.expressions, node.tag]
+          : [node.arguments, node.callee];
       const receiver = callee.type === "MemberExpression" ? [callee.object] : [];
       const inputs = [...args, ...receiver].flatMap((input) => brands(typeOf(input)));
       const tsNode = nodes.get(node);
@@ -144,7 +155,6 @@ export const ownedTypes = {
         return report(node, "merged", inputs);
       const type = typeOf(node);
       const result = brands(type);
-      if (!library && declared && generic(declared)) return report(node, "forged", result);
       const objects = type.isIntersection() ? type.types.filter((t) => t.flags & Structure) : [];
       const owned = objects.filter((part) => brands(part).length);
       const names = new Set(owned.flatMap((part) => part.getProperties().map((p) => p.name)));
@@ -161,10 +171,11 @@ export const ownedTypes = {
       );
       const container = checker.isArrayType(type) || checker.isTupleType(type) || !local(type);
       if (library && empty && container && type.getSymbol()) return;
-      const trusted = owner && !(ts.isClassLike(owner) && ambient(owner)) && declared;
-      const carried = new Set([...(trusted ? brands(trusted) : []), ...inputs]);
+      const carried = new Set([...(declared ? brands(declared) : []), ...inputs]);
       const missing = result.filter((m) => !carried.has(m));
-      report(node, "forged", missing);
+      const cast = declared && generic(declared) && owner && laundered(owner);
+      const here = cast && context.sourceCode.parserServices?.tsNodeToESTreeNodeMap?.get(cast);
+      report(here || node, here ? "laundered" : "forged", cast ? result : missing);
     };
 
     function sink(node: TSESTree.Expression, tsNode: ts.Expression) {
@@ -200,14 +211,14 @@ export const ownedTypes = {
         report(node, "declared", brands(declaredReturn(signature as ts.SignatureDeclaration)));
       },
       ":expression"(node: TSESTree.Expression) {
-        const type = typeOf(node);
-        const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
-        if (wrapper || !hollow(type)) return;
         const tsNode = nodes.get(node);
         const target = ts.isExpression(tsNode) && sink(node, tsNode);
+        const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
+        const type = !wrapper && target && brands(target).length && typeOf(node);
+        if (!target || !type || !hollow(type)) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const throws = type.flags & Never && call && "body" in call && call.body;
-        if (target && !throws) report(node, "unsafe", brands(target));
+        if (!throws) report(node, "unsafe", brands(target));
       },
     } satisfies TSESLint.RuleListener;
   },
