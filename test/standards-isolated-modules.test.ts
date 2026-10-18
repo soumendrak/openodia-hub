@@ -147,6 +147,7 @@ describe("isolated module lint gates", () => {
     ["scripts/fixture.js", 'export const load = () => import("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/internal/x");\n'],
     ["scripts/fixture.cjs", 'module.exports = module.require("../src/events/internal/x");\n'],
+    ["scripts/fixture.cjs", 'module.exports = module["require"]("../src/events/internal/x");\n'],
     ["scripts/fixture.mjs", 'export { x } from "../src/events/%69nternal/x.ts";\n'],
     ["scripts/fixture.cjs", 'module.exports = require("../src/events/in" + "ternal/x");\n'],
     ["src/fixture.jsx", 'export { x } from "./events/internal/x";\n'],
@@ -276,6 +277,7 @@ describe("isolated module lint gates", () => {
     "export const [event]: CanonicalEvent[] = JSON.parse(s);\n",
     "export const event = JSON.parse(s) satisfies CanonicalEvent;\n",
     "export class Store {\n  event: CanonicalEvent = JSON.parse(s);\n}\n",
+    "export function handle(event: CanonicalEvent = JSON.parse(s)) {\n  return event;\n}\n",
     "let event: CanonicalEvent | undefined;\n\nexport function load() {\n  event = JSON.parse(s);\n  return event;\n}\n",
   ])("rejects untyped data typed as a src/events type: %s", async (code) => {
     expect(await lint("src/routes/fixture.ts", `${header}${code}`)).toEqual([parsed]);
@@ -323,6 +325,7 @@ describe("isolated module lint gates", () => {
     'import * as Events from "@/events";\n\nexport const make = Events.join;\n',
     'import { join } from "@/events";\n\nexport default join;\n',
     'import { join } from "@/events";\n\nconst make = join;\n\nexport { make };\n',
+    'import * as Events from "@/events";\nimport Event = Events.CanonicalEvent;\n\nexport type { Event };\n',
     'import type { CanonicalEvent } from "@/events";\n\nexport default interface Event extends CanonicalEvent {\n  readonly extra: true;\n}\n',
   ])("rejects passing a src/events type on under another module: %s", async (code) => {
     expect(await lint("src/lib/fixture.ts", code)).toEqual([relay]);

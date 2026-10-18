@@ -155,11 +155,10 @@ const ownedTypes = {
           for (const { local } of node.specifiers) imported.add(local.name);
       },
       TSImportEqualsDeclaration(node) {
+        const ref = node.moduleReference;
         declare(node);
-        if (
-          node.moduleReference.type === "TSExternalModuleReference" &&
-          owned(node.moduleReference.expression.value)
-        )
+        aliases.set(node.id.name, () => mentions(ref));
+        if (ref.type === "TSExternalModuleReference" && owned(ref.expression.value))
           imported.add(node.id.name);
       },
       "ClassDeclaration, FunctionDeclaration, TSDeclareFunction, TSEnumDeclaration, TSModuleDeclaration":
@@ -209,6 +208,7 @@ const ownedTypes = {
       },
       TSSatisfiesExpression: (node) => sink(node, node.typeAnnotation, node.expression),
       PropertyDefinition: (node) => sink(node, node.typeAnnotation, node.value),
+      AssignmentPattern: (node) => sink(node, node.left.typeAnnotation, node.right),
       ExportNamedDeclaration(node) {
         check(node, "relay", () => owned(node.source?.value));
       },
@@ -294,7 +294,7 @@ const internalImports = {
       ImportExpression: (node) => load(node.source, node),
       CallExpression(node) {
         const { callee } = node;
-        const member = callee.type === "MemberExpression" && !callee.computed ? callee : undefined;
+        const member = callee.type === "MemberExpression" ? callee : undefined;
         const object = member?.object;
         if (
           object?.type === "MetaProperty" &&
