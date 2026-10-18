@@ -7,7 +7,7 @@ type Messages = "assertion" | "unsafe" | "forged" | "declared" | "merged";
 type Context = TSESLint.RuleContext<Messages, [{ modules?: string[] }?]>;
 
 const ROOT = resolve(import.meta.dirname, "../..");
-const fromRoot = (file: string) => relative(ROOT, file).split(sep).join("/");
+export const fromRoot = (file: string) => relative(ROOT, file).split(sep).join("/");
 const { Any, Never, TypeParameter, Object: Structure, Null, Undefined, Void } = ts.TypeFlags;
 
 function memo<T>(fallback: T, compute: (type: ts.Type) => T) {
@@ -96,37 +96,10 @@ export const ownedTypes = {
     };
     const body = (node: ts.Node) =>
       "body" in node ? (node.body as ts.Node | undefined) : undefined;
-    const returned = (declaration: ts.SignatureDeclaration) => {
-      const signature = checker.getSignatureFromDeclaration(declaration);
-      return signature ? brands(checker.getReturnTypeOfSignature(signature)) : [];
+    const declaredReturn = (owner: ts.SignatureDeclaration | ts.ClassLikeDeclaration) => {
+      const signature = !ts.isClassLike(owner) && checker.getSignatureFromDeclaration(owner);
+      return signature ? signature.getReturnType() : checker.getTypeAtLocation(owner);
     };
-
-    function trusted(owner: ts.SignatureDeclaration | ts.ClassLikeDeclaration) {
-      if (ts.isClassLike(owner))
-        return declared(owner) ? [] : brands(checker.getTypeAtLocation(owner));
-      const overload =
-        (ts.isFunctionDeclaration(owner) || ts.isMethodDeclaration(owner)) && !body(owner);
-      return overload ? [] : returned(owner);
-    }
-
-    const laundering = new Map<ts.Node, boolean>();
-    function launders(declaration: ts.Node): boolean {
-      const block = body(declaration);
-      if (!block || laundering.has(declaration)) return laundering.get(declaration) ?? false;
-      laundering.set(declaration, false);
-      const visit = (node: ts.Node): boolean => {
-        const cast = ts.isAsExpression(node) || ts.isTypeAssertionExpression(node);
-        if (cast && generic(checker.getTypeFromTypeNode(node.type))) return true;
-        const callee = ts.isCallExpression(node) ? signatureOf(node) : undefined;
-        if (callee && !external(callee.getSourceFile()) && generic(checker.getTypeAtLocation(node)))
-          if (!body(callee) || launders(callee)) return true;
-        const any = ts.isExpression(node) && checker.getTypeAtLocation(node).flags & Any;
-        const target = any ? checker.getContextualType(node as ts.Expression) : undefined;
-        return (!!target && generic(target)) || !!ts.forEachChild(node, visit);
-      };
-      laundering.set(declaration, visit(block));
-      return laundering.get(declaration) ?? false;
-    }
 
     const forged = (node: TSESTree.CallExpression | TSESTree.NewExpression) => {
       const type = typeOf(node);
@@ -137,8 +110,9 @@ export const ownedTypes = {
       const owner =
         signatureOf(tsNode) ?? (created || undefined)?.declarations?.find(ts.isClassLike);
       if (owner && moduleOf(owner.getSourceFile().fileName)) return;
-      if (owner && launders(owner)) return report(node, "forged", result);
       const library = !!owner && external(owner.getSourceFile());
+      const declared = owner && declaredReturn(owner);
+      if (!library && declared && generic(declared)) return report(node, "forged", result);
       const objects = type.isIntersection() ? type.types.filter((t) => t.flags & Structure) : [];
       const sealed = objects.map((part) => !!seals(part).length);
       if (library && sealed.includes(true) && sealed.includes(false))
@@ -151,7 +125,8 @@ export const ownedTypes = {
       if (library && empty) return;
       const receiver = node.callee.type === "MemberExpression" ? [node.callee.object] : [];
       const inputs = [...node.arguments, ...receiver].flatMap((input) => brands(typeOf(input)));
-      const carried = new Set([...(owner ? trusted(owner) : []), ...inputs]);
+      const trusted = owner && !(ts.isClassLike(owner) && ambient(owner)) && declared;
+      const carried = new Set([...(trusted ? brands(trusted) : []), ...inputs]);
       report(
         node,
         "forged",
@@ -159,11 +134,11 @@ export const ownedTypes = {
       );
     };
 
-    function declared(node: ts.Node | undefined): boolean {
+    function ambient(node: ts.Node | undefined): boolean {
       if (!node || ts.isSourceFile(node)) return !!node?.isDeclarationFile;
       const modifiers = ts.canHaveModifiers(node) ? ts.getModifiers(node) : undefined;
       return (
-        !!modifiers?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword) || declared(node.parent)
+        !!modifiers?.some((m) => m.kind === ts.SyntaxKind.DeclareKeyword) || ambient(node.parent)
       );
     }
 
@@ -185,7 +160,7 @@ export const ownedTypes = {
       },
       "CallExpression, NewExpression": forged,
       VariableDeclarator(node) {
-        if (!node.init && (node.definite || declared(nodes.get(node))))
+        if (!node.init && (node.definite || ambient(nodes.get(node))))
           report(node, "declared", brands(typeOf(node.id)));
       },
       PropertyDefinition(node) {
@@ -196,7 +171,7 @@ export const ownedTypes = {
         node: TSESTree.TSDeclareFunction | TSESTree.TSEmptyBodyFunctionExpression,
       ) {
         const signature = nodes.get(node.type === "TSDeclareFunction" ? node : node.parent);
-        report(node, "declared", returned(signature as ts.SignatureDeclaration));
+        report(node, "declared", brands(declaredReturn(signature as ts.SignatureDeclaration)));
       },
       ":expression"(node: TSESTree.Expression) {
         const type = typeOf(node);

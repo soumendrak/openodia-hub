@@ -1,6 +1,6 @@
-import { posix, relative, resolve, sep } from "node:path";
+import { posix } from "node:path";
 import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
-import { ownedTypes } from "./eslint-owned-types.ts";
+import { fromRoot, ownedTypes } from "./eslint-owned-types.ts";
 
 type Node = TSESTree.Node;
 
@@ -9,10 +9,7 @@ type Context<Message> = {
   report(descriptor: { node: Node; messageId: Message }): void;
 };
 
-const ROOT = resolve(import.meta.dirname, "../..");
 const GLOB_DIRECTORY = /[*?[\]{}()!+@]/;
-
-const fromRoot = (file: string) => relative(ROOT, file).split(sep).join("/");
 
 const nameOf = (node: Node | null | undefined) =>
   node?.type === "Identifier" ? node.name : node?.type === "Literal" ? String(node.value) : "";
