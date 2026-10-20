@@ -241,6 +241,10 @@ bun run test:coverage:diff -- --staged
 
 ---
 
+## Sponsor
+
+If this project helps you, consider [sponsoring my work on GitHub](https://github.com/sponsors/soumendrak). Your support helps fund maintenance, documentation, and continued development.
+
 ## License
 
 MIT © [Soumendra Kumar Sahoo](https://github.com/soumendrak)
