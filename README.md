@@ -126,8 +126,13 @@ being listed does not certify quality, accuracy, or unrestricted use.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh)
+- [Bun](https://bun.sh) 1.3+
 - Node.js 22+
+- [just](https://just.systems) for the task recipes
+- Playwright Chromium for the browser suites: `bunx playwright install --with-deps chromium`
+- The pinned zizmor, when you change anything under `.github/` or `scripts/standards`: see [CONTRIBUTING.md](CONTRIBUTING.md#before-opening-a-pr)
+
+Run `just doctor` to check these versions.
 
 ### Install
 
@@ -149,6 +154,9 @@ The dev server starts at `http://localhost:9090`.
 | `bun run build:dev`                      | Development-mode build                             |
 | `bun run preview`                        | Serve the built Worker locally (after `build`)     |
 | `bun run lint`                           | Run ESLint                                         |
+| `bun run typecheck`                      | Type-check with the normal and strict configs      |
+| `bun run test:e2e`                       | Build, then run the Playwright suite               |
+| `just check`                             | Run every repository standard (CI's gate)          |
 | `bun run format`                         | Format with Prettier                               |
 | `bun run test`                           | Run Vitest tests                                   |
 | `bun run test:watch`                     | Watch tests                                        |
@@ -230,13 +238,12 @@ before configuring another Cloudflare account.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and where to help.
 
-Quick checklist before opening a PR:
+Quick checklist before opening a PR (stage or stash every change first):
 
 ```bash
-bun run lint
+just check
 bun run build
-bun run test
-bun run test:coverage:diff -- --staged
+just e2e
 ```
 
 ---
