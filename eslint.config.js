@@ -1,3 +1,4 @@
+import { includeIgnoreFile } from "@eslint/compat";
 import js from "@eslint/js";
 import { defineConfig } from "eslint/config";
 import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
@@ -5,6 +6,7 @@ import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";
 import reactRefresh from "eslint-plugin-react-refresh";
 import { createJiti } from "jiti";
+import { join } from "node:path";
 import tseslint from "typescript-eslint";
 
 const isolated = await createJiti(import.meta.url).import(
@@ -13,8 +15,7 @@ const isolated = await createJiti(import.meta.url).import(
 );
 
 export default defineConfig(
-  // `.lavish` is the gitignored design scratch directory — mockups, not source.
-  { ignores: ["dist", ".output", ".vinxi", ".lavish"] },
+  includeIgnoreFile(join(import.meta.dirname, ".gitignore")),
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx,mts,cts}"],
