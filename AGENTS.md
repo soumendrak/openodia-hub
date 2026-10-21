@@ -79,5 +79,6 @@ Nothing is needed for the dev server, the unit tests or the browser suites; the 
 - The `/about` page load in `test/e2e/api-contracts.spec.ts` does not block external fonts and analytics. Offline or behind a firewall it can stall; rerun with outbound network.
 - `test:e2e` and `test:a11y` rebuild `dist/` each time; `test:bilingual` uses the existing build.
 - The browser suites bind ports 9158 (bilingual), 9159 (accessibility), 9161 and 9162 (end-to-end). Two worktrees running them at once collide; set `E2E_PORT` for `test:e2e` and `test:a11y`, or run them one after the other.
+- The bilingual step that starts `just e2e` always binds 9158: `test/e2e/bilingual.mjs` defaults its origin to `127.0.0.1:9158` and starts the fixture server with `E2E_PORT=9158`, so your `E2E_PORT` does not move it. Run `just e2e` in one worktree at a time.
 - The fixtures pin the clock to 2026-10-12 and hold two or three sampled records per catalog. A page that reads a record the fixture lacks answers 404 under the e2e Worker.
 - `just check` fails on an expired entry in `scripts/standards/exceptions.json` even when your change does not touch it.
