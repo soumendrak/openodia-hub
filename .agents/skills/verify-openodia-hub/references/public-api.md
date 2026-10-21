@@ -1,30 +1,35 @@
 # Public API sweep
 
-The JSON and Markdown endpoints the Worker serves, checked against the fixture Worker from step 3 of the skill. Each request saves `<name>.headers` and `<name>.body` under `$A`. By default that is the same folder as step 3's `$E`; it is a separate variable so that setting `VERIFY_EVIDENCE` moves only the sweep's files. Every `/api/*` response and the API catalog must carry `Access-Control-Allow-Origin: *`. The sweep ends with `API SWEEP OK`, or with `API SWEEP FAIL` and a non-zero status.
+The JSON and Markdown endpoints the Worker serves, checked against the fixture Worker from step 3 of the skill. Each request saves `<name>.headers` and `<name>.body` under `$A`. By default that is the same folder as step 3's `$E`; it is a separate variable so that setting `VERIFY_EVIDENCE` moves only the sweep's files. Every `/api/*` response and the API catalog must carry exactly `Access-Control-Allow-Origin: *`; the header checks strip curl's trailing carriage return and anchor the value, so `**` or `application/jsonp` fails. `/llms.txt` and `/llms-full.txt` are checked for `text/plain` and their opening lines. The sweep ends with `API SWEEP OK`, or with `API SWEEP FAIL` and a non-zero status.
 
 ```bash
 P="${VERIFY_PORT:-9171}"; A="${VERIFY_EVIDENCE:-/tmp/verify-openodia-hub/$P}"; B="http://127.0.0.1:$P"; bad=0; mkdir -p "$A"
 get() { local want="$1" name="$2" code; shift 2; code="$(curl -sS -m 15 -D "$A/$name.headers" -o "$A/$name.body" -w '%{http_code}' "$@")" || code=000; echo "$name $code (want $want)"; [ "$code" = "$want" ] || bad=1; }
 has() { jq -e "$2" "$A/$1.body" >/dev/null 2>&1 && echo "$1 body ok" || { echo "$1 body FAIL: $2"; bad=1; }; }
-hdr() { grep -qiE "$2" "$A/$1.headers" && echo "$1 header ok" || { echo "$1 header FAIL: $2"; bad=1; }; }
+hdr() { tr -d '\r' <"$A/$1.headers" | grep -qiE "$2" && echo "$1 header ok" || { echo "$1 header FAIL: $2"; bad=1; }; }
 get 200 api-resources "$B/api/resources?q=sua"
 get 200 tools-md -H 'Accept: text/markdown' "$B/tools"
 get 200 api-health "$B/api/health"
 get 200 api-contributors "$B/api/contributors"
 get 200 api-catalog "$B/.well-known/api-catalog"
 get 200 api-openapi "$B/.well-known/openapi.json"
+get 200 llms "$B/llms.txt"
+get 200 llms-full "$B/llms-full.txt"
 for ep in awesome datasets events models pypi repos "search?q=sua" translation-status videos; do get 200 "api-$(echo "$ep" | tr -c 'a-z0-9\n' '_')" "$B/api/$ep"; done
 get 307 api-index "$B/api/"
 get 200 mcp-tools -X POST -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' "$B/mcp"
 get 405 mcp-get "$B/mcp"
-hdr api-catalog '^content-type: *application/linkset\+json'
+hdr api-catalog '^content-type: *application/linkset\+json(;.*)?$'
 for f in "$A"/api-*.headers; do
   n="$(basename "$f" .headers)"; [ "$n" = api-index ] && continue
-  hdr "$n" '^access-control-allow-origin: *\*'
-  [ "$n" = api-catalog ] || hdr "$n" '^content-type: *application/json'
+  hdr "$n" '^access-control-allow-origin: *\*$'
+  [ "$n" = api-catalog ] || hdr "$n" '^content-type: *application/json(;.*)?$'
 done
-hdr tools-md '^content-type: *text/markdown'
+hdr tools-md '^content-type: *text/markdown(;.*)?$'
+for n in llms llms-full; do hdr "$n" '^content-type: *text/plain(;.*)?$'; done
 grep -q '^# Tools · OpenOdia' "$A/tools-md.body" && ! grep -qi '<html' "$A/tools-md.body" && echo "tools-md body ok" || { echo "tools-md body FAIL"; bad=1; }
+[ "$(head -1 "$A/llms.body")" = "# OpenOdia" ] && grep -q '^## APIs' "$A/llms.body" && echo "llms body ok" || { echo "llms body FAIL"; bad=1; }
+[ "$(head -1 "$A/llms-full.body")" = "# OpenOdia — Open source for the Odia language" ] && grep -q '^Source code: ' "$A/llms-full.body" && echo "llms-full body ok" || { echo "llms-full body FAIL"; bad=1; }
 has api-resources '.total == 1 and .resources[0].name == "Sua"'
 has api-health '.status == "ok" and .scope == "liveness" and .upstreamsChecked == false'
 has api-contributors '.error == "warming_up" and .contributors == []'

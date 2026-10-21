@@ -28,10 +28,10 @@ Each page keeps its own search state. The screenshots show the `No projects`, `N
 ## Language
 
 ```bash
-drive / "click:Switch language" "attr:html|lang|or" "attr:header|lang|or" "attr:main|lang|en" "storage:locale=or" "reload" "attr:html|lang|or" "attr:header|lang|or"
+drive / "click:Switch language" "attr:html|lang|or" "attr:header|lang|or" "attr:main|lang|en" "storage:locale=or" "reload" "attr:html|lang|or" "attr:header|lang|or" "attr:main|lang|en"
 ```
 
-The run passes only when the header and `html` switch to Odia, `main` stays English, `localStorage.locale` is `or` and the choice survives a reload. Only the navigation, home hero, statistics and footer translate. Without an Odia font on the machine, Odia text renders as boxes in screenshots; the `lang` attributes are the proof.
+The run passes only when the header and `html` switch to Odia, `main` stays English, `localStorage.locale` is `or`, and after a reload the header and `html` are still Odia and `main` is still English. Only the navigation, home hero, statistics and footer translate. Without an Odia font on the machine, Odia text renders as boxes in screenshots; the `lang` attributes are the proof.
 
 ## Palette
 
