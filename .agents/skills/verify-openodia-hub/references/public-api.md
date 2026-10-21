@@ -1,6 +1,6 @@
 # Public API sweep
 
-The JSON and Markdown endpoints the Worker serves, checked against the fixture Worker from step 3 of the skill. Each request saves `<name>.headers` and `<name>.body` under `$A`. By default that is the same folder as step 3's `$E`; it is a separate variable so that setting `VERIFY_EVIDENCE` moves only the sweep's files, and step 6 still finds `server.pid`. Every `/api/*` response and the API catalog must carry `Access-Control-Allow-Origin: *`. The sweep ends with `API SWEEP OK`, or with `API SWEEP FAIL` and a non-zero status.
+The JSON and Markdown endpoints the Worker serves, checked against the fixture Worker from step 3 of the skill. Each request saves `<name>.headers` and `<name>.body` under `$A`. By default that is the same folder as step 3's `$E`; it is a separate variable so that setting `VERIFY_EVIDENCE` moves only the sweep's files. Every `/api/*` response and the API catalog must carry `Access-Control-Allow-Origin: *`. The sweep ends with `API SWEEP OK`, or with `API SWEEP FAIL` and a non-zero status.
 
 ```bash
 P="${VERIFY_PORT:-9171}"; A="${VERIFY_EVIDENCE:-/tmp/verify-openodia-hub/$P}"; B="http://127.0.0.1:$P"; bad=0; mkdir -p "$A"
