@@ -73,7 +73,8 @@ doctor:
     [ -n "$chromium" ] && [ -x "$chromium" ] && report "playwright chromium" ok || report "playwright chromium" "run bunx playwright install --with-deps chromium"
     pinned=$(sed -n 's/^export const ZIZMOR_VERSION = "\(.*\)";$/\1/p' scripts/standards/zizmor.ts)
     zizmor_version=$(zizmor --version 2>/dev/null)
-    [ "$zizmor_version" = "zizmor $pinned" ] && report "$zizmor_version" ok || report "zizmor ${zizmor_version:-missing}" "need zizmor $pinned: pip install --require-hashes -r scripts/standards/zizmor-requirements.txt"
+    zizmor_fix='python3 -m venv "$HOME/.venvs/zizmor" && "$HOME/.venvs/zizmor/bin/pip" install --require-hashes -r scripts/standards/zizmor-requirements.txt, then put $HOME/.venvs/zizmor/bin on PATH'
+    [ "$zizmor_version" = "zizmor $pinned" ] && report "$zizmor_version" ok || report "zizmor ${zizmor_version:-missing}" "need zizmor $pinned: $zizmor_fix"
     exit $status
 
 # Run all tests and generate the full-repository coverage report
@@ -88,7 +89,7 @@ hooks-install:
 test-watch:
     bun run test:watch
 
-# Run every repository standard against the merge base with origin/main (same command as CI)
+# Run every repository standard against the merge base with origin/main (CI's gate; CI diffs against the tip of main)
 check:
     bun scripts/standards.ts --base "$(git merge-base origin/main HEAD)"
 

@@ -156,7 +156,7 @@ The dev server starts at `http://localhost:9090`.
 | `bun run lint`                           | Run ESLint                                         |
 | `bun run typecheck`                      | Type-check with the normal and strict configs      |
 | `bun run test:e2e`                       | Build, then run the Playwright suite               |
-| `just check`                             | Run every repository standard, as CI does          |
+| `just check`                             | Run every repository standard (CI's gate)          |
 | `bun run format`                         | Format with Prettier                               |
 | `bun run test`                           | Run Vitest tests                                   |
 | `bun run test:watch`                     | Watch tests                                        |
