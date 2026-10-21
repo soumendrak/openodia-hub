@@ -27,7 +27,7 @@ Each step is `verb:argument`. Only the first `:` splits it, and `fill` and `stor
 | `reload`                           | Reloads the current page.                                               |
 | `storage:<key>=<value>`            | Checks a `localStorage` value.                                          |
 | `attr:<selector>\|<name>\|<value>` | Checks an attribute of the first match.                                 |
-| `h1:<prefix>`                      | Checks that the first `h1` starts with the prefix.                      |
+| `h1:<text>`                        | Checks that the first `h1` is exactly `<text>`, whitespace collapsed.   |
 
 ## What it does
 

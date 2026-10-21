@@ -181,9 +181,8 @@ const runStep = async (verb, arg) => {
     const got = await page.locator(selector).first().getAttribute(name, { timeout: 15000 });
     expectEqual(`${selector} ${name}`, got, want);
   } else if (verb === "h1") {
-    const heading = (await page.locator("h1").first().textContent({ timeout: 15000 })) ?? "";
-    if (!heading.trim().startsWith(arg))
-      throw new Error(`h1 "${heading.trim()}" does not start with "${arg}"`);
+    const heading = await page.locator("h1").first().innerText({ timeout: 15000 });
+    expectEqual("h1", heading.replace(/\s+/g, " ").trim(), arg);
   } else throw new Error(`unknown step verb "${verb}"`);
 };
 

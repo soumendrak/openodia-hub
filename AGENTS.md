@@ -38,6 +38,8 @@ export PATH="$HOME/.venvs/zizmor/bin:$PATH"
 
 `just check` compares against `git merge-base origin/main HEAD`. CI checks the pull request merged into the tip of `main`, against that tip, so a branch that is behind `main` can pass locally and fail in CI. Run `git fetch origin` and merge or rebase onto `origin/main` before trusting a local pass. The gate runs locales, lint, typecheck, the exceptions file, the no-new-comments check, zizmor and the tests with 100% changed-line coverage, and ends with `STANDARDS OK` or `STANDARDS FAIL`. The pre-commit hook runs the `--staged` form.
 
+Before you open or update a pull request, prove the change with [`.agents/skills/verify-openodia-hub`](.agents/skills/verify-openodia-hub/SKILL.md). It runs `just check`, starts the fixture Worker and drives the changed pages, keeping screenshots and responses as evidence.
+
 ## Layout
 
 - `src/routes/`: TanStack Start file routes, including `src/routes/api/` for the public API. `src/routeTree.gen.ts` is generated; do not edit it.
