@@ -58,7 +58,7 @@ e2e: build
 a11y:
     bun run test:a11y
 
-# Check the local toolchain: Bun 1.3+, Node 22+, Playwright Chromium, the pinned zizmor and ss
+# Check the local toolchain: Bun 1.3+, Node 22+, Playwright Chromium, the pinned zizmor, ss, curl and jq
 doctor:
     #!/usr/bin/env bash
     set -uo pipefail
@@ -76,6 +76,7 @@ doctor:
     zizmor_fix='python3 -m venv "$HOME/.venvs/zizmor" && "$HOME/.venvs/zizmor/bin/pip" install --require-hashes -r scripts/standards/zizmor-requirements.txt, then put $HOME/.venvs/zizmor/bin on PATH'
     [ "$zizmor_version" = "zizmor $pinned" ] && report "$zizmor_version" ok || report "zizmor ${zizmor_version:-missing}" "need zizmor $pinned: $zizmor_fix"
     command -v ss >/dev/null && report "ss (iproute2)" ok || report "ss" "install iproute2; the verify skill needs it on Linux"
+    for tool in curl jq; do command -v "$tool" >/dev/null && report "$tool" ok || report "$tool" "install $tool; the verify skill's API sweep needs it"; done
     exit $status
 
 # Run all tests and generate the full-repository coverage report
