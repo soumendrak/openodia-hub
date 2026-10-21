@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { ESLint } from "eslint";
@@ -212,6 +212,10 @@ beforeAll(async () => {
     "lib/relabel.ts",
     "export function relabel<T>(seed: T, x: unknown): T {\n  return seed && (x as T);\n}\n",
   );
+  write(
+    "lib/fetch-utils.ts",
+    readFileSync(join(import.meta.dirname, "../src/lib/fetch-utils.ts"), "utf8"),
+  );
   write("events/index.ts", 'export * from "./model";\n');
   write(
     "events/own.ts",
@@ -235,6 +239,10 @@ beforeAll(async () => {
   );
   for (const [name, code] of Object.entries({ ...flagged, ...clean }))
     write(`probes/${name}.ts`, `${HEADER}${code}\n`);
+  write(
+    "probes/S01.ts",
+    `${HEADER}import { settledValues } from "../lib/fetch-utils";\nexport const es = await settledValues([Promise.resolve(event)]);\n`,
+  );
   write(
     "probes/J01.tsx",
     `${HEADER}function Card(props: { e: CanonicalEvent }) {\n  return <p>{props.e.id}</p>;\n}\nexport const card = <Card e={JSON.parse(s)} />;\n`,
@@ -291,6 +299,11 @@ describe("isolated/owned-types", () => {
     expect(messages.get("probes/R42")).toEqual([expect.stringMatching(/^8 /)]);
     expect(messages.get("probes/R43")).toEqual([expect.stringMatching(/^8 /)]);
     expect(messages.get("lib/relabel")).toEqual([]);
+  });
+
+  it("lets a consumer collect events through the real settledValues helper", () => {
+    expect(messages.get("probes/S01")).toEqual([]);
+    expect(messages.get("lib/fetch-utils")).toEqual([]);
   });
 
   it("lets the guarded module build its own values", () => {
