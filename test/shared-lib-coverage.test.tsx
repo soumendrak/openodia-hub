@@ -195,15 +195,11 @@ describe("fetch and promise helpers", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("filters settled results and logs rejected arms", () => {
+  it("keeps fulfilled promises in order and logs rejected ones", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
-    expect(
-      settledValues([
-        { status: "fulfilled", value: 1 },
-        { status: "rejected", reason: "nope" },
-        { status: "fulfilled", value: 2 },
-      ]),
-    ).toEqual([1, 2]);
+    await expect(
+      settledValues([Promise.resolve(1), Promise.reject("nope"), Promise.resolve(2)]),
+    ).resolves.toEqual([1, 2]);
     expect(console.warn).toHaveBeenCalledWith("settled rejection:", "nope");
   });
 
