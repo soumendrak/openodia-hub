@@ -23,9 +23,9 @@ export async function fetchWithTimeout(
   }
 }
 
-export function settledValues<T>(results: PromiseSettledResult<T>[]): T[] {
+export async function settledValues<T>(promises: readonly Promise<T>[]): Promise<T[]> {
   const values: T[] = [];
-  for (const r of results) {
+  for (const r of await Promise.allSettled(promises)) {
     if (r.status === "fulfilled") {
       values.push(r.value);
     } else {
