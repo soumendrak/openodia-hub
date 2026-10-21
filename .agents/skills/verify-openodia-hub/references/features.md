@@ -1,6 +1,10 @@
 # Feature map
 
-Every journey runs against the fixture Worker from step 3 of the skill. `drive` below stands for `node .agents/skills/verify-openodia-hub/scripts/drive.mjs`.
+Every journey runs against the fixture Worker from step 3 of the skill, from the repository root. Define `drive` once in the shell first:
+
+```bash
+drive() { node .agents/skills/verify-openodia-hub/scripts/drive.mjs "$@"; }
+```
 
 | Area                         | Entry points                                  | Section                        |
 | ---------------------------- | --------------------------------------------- | ------------------------------ |

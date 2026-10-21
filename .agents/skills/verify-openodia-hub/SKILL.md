@@ -36,7 +36,7 @@ curl -sS "http://127.0.0.1:$VERIFY_PORT/__fixture-clock"
 `test/e2e/serve.mjs` runs the production build under Miniflare with local KV and D1, the seeded catalog in `test/e2e/fixtures/`, a clock fixed at 2026-10-12 and every upstream mocked, so no account or token is needed. The clock answer must show `2026-10-12`; anything else means another server owns the port. `setsid` starts the server in its own process group, whose id it writes to `server.pid`, so step 6 stops Node and its `workerd` child together.
 
 - Pick a free port. 9158, 9159, 9161 and 9162 belong to the browser suites (see Gotchas in AGENTS.md).
-- Set `E2E_UPSTREAM_FAILURE=1` before starting to get the outage variant, where nothing is seeded and every upstream fails.
+- For the outage variant, where nothing is seeded and every upstream fails, run `export E2E_UPSTREAM_FAILURE=1` before these commands and `unset E2E_UPSTREAM_FAILURE` after step 6. The server log's ready line then ends in `(upstream outage)`.
 - The Worker serves this worktree's `dist/`. To test a new edit, stop it, rebuild and start it again.
 - `bun run dev` talks to live upstreams, so it is not proof.
 
