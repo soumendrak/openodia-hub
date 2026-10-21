@@ -6,14 +6,14 @@ Every journey runs against the fixture Worker from step 3 of the skill, from the
 drive() { node .agents/skills/verify-openodia-hub/scripts/drive.mjs "$@"; }
 ```
 
-| Area                         | Entry points                                  | Section                        |
-| ---------------------------- | --------------------------------------------- | ------------------------------ |
-| Directory search and filters | `/tools`, `/models`, `/datasets`              | [Search](#search)              |
-| Language toggle              | header button on every page                   | [Language](#language)          |
-| Command palette              | Ctrl+K, header search button                  | [Palette](#palette)            |
-| Playground                   | `/playground`                                 | [Playground](#playground)      |
-| Content pages                | the routes in the table under Pages, `/r/...` | [Pages](#pages)                |
-| Public API                   | `/api/*`, `/mcp`, Markdown negotiation        | [public-api.md](public-api.md) |
+| Area                         | Entry points                            | Section                        |
+| ---------------------------- | --------------------------------------- | ------------------------------ |
+| Directory search and filters | `/tools`, `/models`, `/datasets`        | [Search](#search)              |
+| Language toggle              | header button on every page             | [Language](#language)          |
+| Command palette              | Ctrl+K, header search button            | [Palette](#palette)            |
+| Playground                   | `/playground`                           | [Playground](#playground)      |
+| Content pages                | the routes listed under Pages, `/r/...` | [Pages](#pages)                |
+| Public API                   | `/api/*`, `/mcp`, Markdown negotiation  | [public-api.md](public-api.md) |
 
 ## Search
 
@@ -53,7 +53,7 @@ Running code needs a Playwright script: fill the textbox named `Odialang code ed
 bad=""
 while IFS='|' read -r path heading; do drive "$path" "h1:$heading" || bad="$bad $path"; done <<'ROUTES'
 /events|Odia AI Events
-/tutorials|One shared idea.
+/tutorials|One shared idea. Countless beginnings.
 /communities|Communities & organizers.
 /papers|Odia NLP papers.
 /treebank|Odia treebank search.
@@ -64,7 +64,8 @@ while IFS='|' read -r path heading; do drive "$path" "h1:$heading" || bad="$bad 
 /r/gh/soumendrak/MTEnglish2Odia|MTEnglish2Odia
 ROUTES
 drive /events "link:Tools" "expect:Sua" || bad="$bad /events->/tools"
+drive /communities "expect:TFUG Bhubaneswar" || bad="$bad /communities-organizers"
 [ -z "$bad" ] || { echo "FAILED:$bad"; false; }
 ```
 
-Each run must exit 0 with status 200. When a change touches a page's data, also check the API it reads: `/events` reads `/api/events` (the recorded GDG feed), `/tutorials` reads `/api/videos`, `/translation-status` reads `/api/translation-status`, and `/communities` and `/papers` read the catalog in KV.
+Each run must exit 0 with status 200, and each `h1:` step must match the whole heading. When a change touches a page's data, also check the API it reads: `/events` reads `/api/events` (the recorded GDG feed), `/tutorials` reads `/api/videos`, `/translation-status` reads `/api/translation-status`, `/papers` reads the catalog in KV, and `/communities` renders the checked-in `src/data/organizers.ts` and `src/data/events/`, so check a changed organizer or event on the page itself, as the `TFUG Bhubaneswar` line does.
