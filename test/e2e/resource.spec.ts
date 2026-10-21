@@ -22,6 +22,9 @@ test("a GitHub detail page shows the upstream stars and license", async ({ page,
     (route) => route.abort(),
   );
   await page.goto("/r/gh/soumendrak/MTEnglish2Odia");
-  await expect(page.locator("span", { has: page.locator("svg.lucide-star") })).toHaveText("10");
-  await expect(page.getByText("GPL-3.0", { exact: true }).first()).toBeVisible();
+  const facts = page.locator("div", {
+    has: page.locator(":scope > span", { hasText: /^Jupyter Notebook$/ }),
+  });
+  await expect(facts.getByText("10", { exact: true })).toBeVisible();
+  await expect(facts.getByText("GPL-3.0", { exact: true })).toBeVisible();
 });
