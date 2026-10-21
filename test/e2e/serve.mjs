@@ -15,6 +15,21 @@ if (!outage) {
       releases: { "0.1.0": [], "0.2.0": [] },
     })
     .persist();
+  mock
+    .get("https://api.github.com")
+    .intercept({ path: "/repos/soumendrak/MTEnglish2Odia" })
+    .reply(200, {
+      name: "MTEnglish2Odia",
+      full_name: "soumendrak/MTEnglish2Odia",
+      description: "Machine Translation from English to Odia language.",
+      language: "Jupyter Notebook",
+      stargazers_count: 10,
+      topics: ["machine-translation", "odia", "parallel-corpus"],
+      license: { spdx_id: "GPL-3.0" },
+      created_at: "2018-12-03T14:32:20Z",
+      updated_at: "2024-11-12T11:45:31Z",
+    })
+    .persist();
   const event = {
     title: "Recorded Odia AI workshop",
     start_date: "2030-10-12T10:00:00Z",
