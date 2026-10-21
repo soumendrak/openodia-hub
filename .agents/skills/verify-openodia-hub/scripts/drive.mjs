@@ -14,6 +14,8 @@ const allowedFailures = new Set(
 );
 const FAILURE_PREFIXES = ["pageerror", "hydration", "httperror", "evidenceerror"];
 const HYDRATION_MESSAGE = /hydrat|react error|server rendered|did not match/i;
+const QUIET_MS = 750;
+const SETTLE_LIMIT_MS = 15000;
 
 const splitOnce = (text, separator) => {
   const at = text.indexOf(separator);
@@ -25,14 +27,16 @@ const slug = (text) => text.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "")
 const padded = (n) => String(n).padStart(2, "0");
 
 await mkdir(out, { recursive: true });
-const browser = await chromium.launch();
 const log = [];
 const navigations = [];
 const pendingSaves = [];
 let savedCount = 0;
 let shotCount = 0;
 let failed = null;
+let browser;
 let page;
+const inflight = new Set();
+let lastActivity = Date.now();
 
 const saveResponse = async (response) => {
   savedCount += 1;
@@ -98,13 +102,38 @@ const expectEqual = (what, got, want) => {
   if (got !== want) throw new Error(`${what} is "${got}", want "${want}"`);
 };
 
+const trackStart = (request) => {
+  if (!isLocal(request.url())) return;
+  inflight.add(request);
+  lastActivity = Date.now();
+};
+
+const trackEnd = (request) => {
+  if (inflight.delete(request)) lastActivity = Date.now();
+};
+
+const settle = async () => {
+  const deadline = Date.now() + SETTLE_LIMIT_MS;
+  while (inflight.size > 0 || Date.now() - lastActivity < QUIET_MS) {
+    if (Date.now() > deadline) {
+      log.push(`settle timeout: ${inflight.size} request(s) still open`);
+      return;
+    }
+    await page.waitForTimeout(100);
+  }
+};
+
 const followLink = async (name) => {
-  const before = page.url();
-  await page.getByRole("link", { name }).first().click();
-  await page.waitForLoadState("networkidle");
-  if (page.url() === before) return;
-  const served = await page.request.get(page.url());
-  navigations.push({ path: pathOf(page.url()), status: served.status(), via: "link" });
+  const link = page.getByRole("link", { name }).first();
+  const target = new URL((await link.getAttribute("href")) ?? "", page.url());
+  await link.click();
+  await settle();
+  if (target.origin !== origin) {
+    navigations.push({ path: target.href, status: "external", via: "link" });
+    return;
+  }
+  const served = await page.request.get(target.href);
+  navigations.push({ path: target.pathname, status: served.status(), via: "link" });
 };
 
 const runStep = async (verb, arg) => {
@@ -139,17 +168,28 @@ const runStep = async (verb, arg) => {
 };
 
 try {
-  page = await browser.newPage({ viewport: { width: 1280, height: 900 }, reducedMotion: "reduce" });
-  await page.route(
+  browser = await chromium.launch();
+  const context = await browser.newContext({
+    viewport: { width: 1280, height: 900 },
+    reducedMotion: "reduce",
+  });
+  await context.route(
     (url) => url.origin !== origin,
     (route) => route.abort(),
   );
+  context.on("page", (opened) => {
+    if (page && opened !== page) opened.close().catch(() => {});
+  });
+  page = await context.newPage();
+  page.on("request", trackStart);
+  page.on("requestfinished", trackEnd);
   page.on("pageerror", (error) => log.push(`pageerror ${error.message}`));
   page.on("console", (message) => {
     if (["error", "warning"].includes(message.type()) && HYDRATION_MESSAGE.test(message.text()))
       log.push(`hydration ${message.text()}`);
   });
   page.on("requestfailed", (request) => {
+    trackEnd(request);
     if (isLocal(request.url()))
       log.push(`httperror failed ${request.method()} ${pathOf(request.url())}`);
   });
@@ -160,8 +200,10 @@ try {
   for (const step of steps) {
     const [verb, arg] = splitOnce(step, ":");
     try {
+      lastActivity = Date.now();
       await runStep(verb, arg);
       await page.waitForLoadState("networkidle");
+      await settle();
       log.push(`step ok ${step}`);
       await screenshot(verb);
     } catch (error) {
@@ -179,7 +221,9 @@ try {
   const bad =
     failed !== null ||
     log.some((line) => FAILURE_PREFIXES.some((prefix) => line.startsWith(prefix))) ||
-    navigations.some(({ status }) => status === null || status >= 400);
+    navigations.some(
+      ({ status }) => status === null || (typeof status === "number" && status >= 400),
+    );
   const summary = {
     ok: !bad,
     url: page?.url() ?? null,
@@ -191,6 +235,6 @@ try {
   };
   await writeFile(`${out}/${run}-drive.json`, JSON.stringify(summary, null, 2));
   console.log(JSON.stringify(summary, null, 2));
-  await browser.close();
+  await browser?.close();
   process.exitCode = bad ? 1 : 0;
 }
