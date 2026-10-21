@@ -19,11 +19,11 @@ drive() { node .agents/skills/verify-openodia-hub/scripts/drive.mjs "$@"; }
 
 ```bash
 drive /tools "fill:Search projects, repos, datasets, models… [/]=fixture-no-match-93817" "expect:No projects match" "fill:Search projects, repos, datasets, models… [/]=" "expect:Sua"
-drive /models "fill:Search models, authors, tags… [/]=fixture-no-match-93817" "expect:No models match" "fill:Search models, authors, tags… [/]=" "expect:xlm-roberta-base"
-drive /datasets "fill:Search datasets, authors, tags… [/]=fixture-no-match-93817" "expect:No datasets match" "fill:Search datasets, authors, tags… [/]=" "expect:wikimedia/wikipedia"
+drive /models "fill:Search models, authors, tags… [/]=fixture-no-match-93817" "expect:No models match" "fill:Search models, authors, tags… [/]=" "expect:Showing 2 of 2 models"
+drive /datasets "fill:Search datasets, authors, tags… [/]=fixture-no-match-93817" "expect:No datasets match" "fill:Search datasets, authors, tags… [/]=" "expect:10M < n < 100M rows"
 ```
 
-Each page keeps its own search state. The screenshots show the `No projects`, `No models` or `No datasets match "fixture-no-match-93817".` message and then a fixture card again. The placeholder contains a Unicode ellipsis, so copy it exactly. The task filter dialogs on `/models` and `/datasets` need a Playwright script; `test/e2e/flows.spec.ts` shows the locators.
+Each page keeps its own search state. The screenshots show the `No projects`, `No models` or `No datasets match "fixture-no-match-93817".` message and then the result grid again. Featured cards stay on screen while searching, so the `/models` and `/datasets` checks look for grid-only text: the `Showing 2 of 2 models` count and a dataset's `10M < n < 100M rows` size. The placeholder contains a Unicode ellipsis, so copy it exactly. The task filter dialogs on `/models` and `/datasets` need a Playwright script; `test/e2e/flows.spec.ts` shows the locators.
 
 ## Language
 
