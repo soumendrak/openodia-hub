@@ -14,7 +14,7 @@ const isolated = await createJiti(import.meta.url).import(
 
 export default defineConfig(
   // `.lavish` is the gitignored design scratch directory — mockups, not source.
-  { ignores: ["dist", ".output", ".vinxi", ".lavish"] },
+  { ignores: ["dist", ".output", ".vinxi", ".lavish", "playwright-report", "test-results"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx,mts,cts}"],
