@@ -12,7 +12,8 @@ const allowedFailures = new Set(
     .map((entry) => entry.trim().split(/\s+/).join(" "))
     .filter((entry) => /^\d{3} [A-Z]+ \/\S*$/.test(entry)),
 );
-const FAILURE_PREFIXES = ["pageerror", "hydration", "httperror", "evidenceerror"];
+const FAILURE_PREFIXES = ["pageerror", "hydration", "httperror", "evidenceerror", "settle timeout"];
+const MAX_REDIRECTS = 5;
 const HYDRATION_MESSAGE = /hydrat|react error|server rendered|did not match/i;
 const QUIET_MS = 750;
 const SETTLE_LIMIT_MS = 15000;
@@ -123,17 +124,28 @@ const settle = async () => {
   }
 };
 
+const isRedirect = (status) => status >= 300 && status < 400;
+
+const localStatus = async (start) => {
+  let url = start;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const response = await page.request.get(url.href, { maxRedirects: 0 });
+    const location = response.headers().location;
+    if (!isRedirect(response.status()) || !location) return response.status();
+    url = new URL(location, url);
+    if (url.origin !== origin) return "external";
+  }
+  return null;
+};
+
 const followLink = async (name) => {
   const link = page.getByRole("link", { name }).first();
   const target = new URL((await link.getAttribute("href")) ?? "", page.url());
   await link.click();
   await settle();
-  if (target.origin !== origin) {
-    navigations.push({ path: target.href, status: "external", via: "link" });
-    return;
-  }
-  const served = await page.request.get(target.href);
-  navigations.push({ path: target.pathname, status: served.status(), via: "link" });
+  const status = target.origin === origin ? await localStatus(target) : "external";
+  const path = target.origin === origin ? target.pathname : target.href;
+  navigations.push({ path, status, via: "link" });
 };
 
 const runStep = async (verb, arg) => {
@@ -233,8 +245,11 @@ try {
     failed,
     log,
   };
-  await writeFile(`${out}/${run}-drive.json`, JSON.stringify(summary, null, 2));
+  await writeFile(`${out}/${run}-drive.json`, JSON.stringify(summary, null, 2)).catch((error) => {
+    summary.ok = false;
+    log.push(`evidenceerror ${error.message}`);
+  });
   console.log(JSON.stringify(summary, null, 2));
-  await browser?.close();
-  process.exitCode = bad ? 1 : 0;
+  await browser?.close().catch(() => {});
+  process.exitCode = summary.ok ? 0 : 1;
 }

@@ -33,12 +33,12 @@ Each step is `verb:argument`. Only the first `:` splits it, and `fill` and `stor
 
 - Blocks every request to another origin, in new tabs too, and fixes the page clock at 2026-10-12, the same date as the Worker.
 - Waits for the network to go idle and for React to attach its handlers before the first step and after each load.
-- After every step, waits until no same-origin request has started or finished for 750 ms (at most 15 s), so requests a step schedules on a timer, such as the palette search, are saved and checked.
-- For `link`, records the server status of a same-origin destination and marks any other destination `external`. A link that opens a new tab is handled the same way, and the tab is closed.
+- After every step, waits until no same-origin request has started or finished for 750 ms, so requests a step schedules on a timer, such as the palette search, are saved and checked. A request still open after 15 s fails the run as `settle timeout`.
+- For `link`, records the server status of a same-origin destination and marks any other destination `external`. Redirects are followed only while they stay on the Worker's origin, at most five. A link that opens a new tab is handled the same way, and the tab is closed.
 - Takes a screenshot after the load and after every step: `<run>-NN-<verb>.png`, where `<run>` is a millisecond timestamp.
 - Saves every same-origin fetch or XHR response, including `/_serverFn/*`, as `<run>-api-NN-<path>.json` (method, status, headers, request body) and `.body`.
 - Writes `<run>-drive.json` with `ok`, the last navigation `status`, every navigation, the failed step and the log, and prints it.
 
-The run exits 1, and `ok` is `false`, when a step fails, a navigation answers 4xx or 5xx, a same-origin fetch answers 4xx or 5xx outside `VERIFY_ALLOW_STATUS`, the page throws, React logs a hydration error, Chromium fails to start or evidence cannot be written. A failed step or launch still writes the summary, and a failed step also saves a `failed` screenshot.
+The run exits 1, and `ok` is `false`, when a step fails, a navigation answers 4xx or 5xx, a same-origin fetch answers 4xx or 5xx outside `VERIFY_ALLOW_STATUS`, the page throws, React logs a hydration error, Chromium fails to start or evidence cannot be written. A failed step or launch still prints the summary, writes it when it can,, and a failed step also saves a `failed` screenshot.
 
 Steps cover single-page journeys. For dialogs, checkboxes or focus order, write a short Playwright script modelled on `test/e2e/*.spec.ts` and run it against the same port.
