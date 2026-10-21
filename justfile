@@ -41,6 +41,41 @@ format:
 test:
     bun run test
 
+# Type-check with tsconfig.json and the strict tsconfig.strict.json
+typecheck:
+    bun run typecheck
+
+# Check the English and Odia locale inventory
+locales:
+    bun run check:locales
+
+# Build, then run the browser checks in the same order as CI's e2e job
+e2e: build
+    bun run test:bilingual
+    bunx playwright test
+
+# Build, then run the accessibility suite
+a11y:
+    bun run test:a11y
+
+# Check the local toolchain: Bun 1.3+, Node 22+, Playwright Chromium and the pinned zizmor
+doctor:
+    #!/usr/bin/env bash
+    set -uo pipefail
+    status=0
+    report() { if [ "$2" = ok ]; then echo "ok   $1"; else echo "FAIL $1: $2"; status=1; fi; }
+    atleast() { [[ "$1" =~ ^[0-9]+(\.[0-9]+)*$ ]] && [ "$(printf '%s\n%s\n' "$2" "$1" | sort -V | head -n1)" = "$2" ]; }
+    bun_version=$(bun --version 2>/dev/null)
+    atleast "$bun_version" 1.3 && report "bun $bun_version" ok || report "bun ${bun_version:-missing}" "install Bun 1.3+"
+    node_version=$(node --version 2>/dev/null)
+    atleast "${node_version#v}" 22 && report "node $node_version" ok || report "node ${node_version:-missing}" "install Node.js 22+"
+    chromium=$(node -e 'process.stdout.write(require("@playwright/test").chromium.executablePath())' 2>/dev/null)
+    [ -n "$chromium" ] && [ -x "$chromium" ] && report "playwright chromium" ok || report "playwright chromium" "run bunx playwright install --with-deps chromium"
+    pinned=$(sed -n 's/^export const ZIZMOR_VERSION = "\(.*\)";$/\1/p' scripts/standards/zizmor.ts)
+    zizmor_version=$(zizmor --version 2>/dev/null)
+    [ "$zizmor_version" = "zizmor $pinned" ] && report "$zizmor_version" ok || report "zizmor ${zizmor_version:-missing}" "need zizmor $pinned: pip install --require-hashes -r scripts/standards/zizmor-requirements.txt"
+    exit $status
+
 # Run all tests and generate the full-repository coverage report
 coverage:
     bun run test:coverage

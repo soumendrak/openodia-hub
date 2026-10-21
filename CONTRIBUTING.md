@@ -15,7 +15,7 @@ Open `http://localhost:9090` — you're in business.
 
 ## Things to know
 
-- **Runtime:** Bun and Node.js 22+. `bun install` also installs the repository Git hooks through `prepare`.
+- **Runtime:** Bun 1.3+ and Node.js 22+, plus [just](https://just.systems) for the recipes. `bun install` also installs the repository Git hooks through `prepare`. `just doctor` checks Bun, Node, Playwright Chromium and the pinned zizmor.
 - **Framework:** TanStack Start with file-based routes in `src/routes/`. Share upstream loading logic in `src/lib/sources/` between server loaders and API routes.
 - **Styling:** Tailwind CSS 4 and tokens in `src/styles.css`. Existing utility names such as `text-neon` now resolve to the current theme palette; do not restore the old cyan/magenta values. Pattachitra composition rules live in `src/styles/pattachitra.css` and are scoped to `.patta`.
 - **Motion:** Follow the existing CSS and `Reveal` patterns; Framer Motion is no longer a dependency. Respect reduced motion and hidden-tab behavior.
@@ -25,7 +25,7 @@ Open `http://localhost:9090` — you're in business.
 
 ## Running the suite
 
-Bun 1.3+, Node 22+ and Playwright Chromium are required. Run `bun install --frozen-lockfile`, `bunx playwright install --with-deps chromium` (`--with-deps` installs the browser's system libraries on Linux, as CI does), then `bun run test:e2e`. This builds the production Cloudflare Worker and runs it in Miniflare. CI runs the same built artifact in a dedicated `e2e` job, and deployment/preview depend on it. `bun run preview` remains the real Wrangler preview command for interactive use; the tests use Miniflare to enforce outbound-network isolation.
+Bun 1.3+, Node 22+ and Playwright Chromium are required. Run `bun install --frozen-lockfile`, `bunx playwright install --with-deps chromium` (`--with-deps` installs the browser's system libraries on Linux, as CI does), then `just e2e`. It runs the same steps as CI's `e2e` job: it builds the production Cloudflare Worker, runs the bilingual check, then runs the Playwright suite against the Worker in Miniflare. `bun run test:e2e` builds and runs only the Playwright suite. CI runs the same built artifact in a dedicated `e2e` job, and deployment/preview depend on it. `bun run preview` remains the real Wrangler preview command for interactive use; the tests use Miniflare to enforce outbound-network isolation.
 
 The Worker has local ephemeral KV/D1 bindings. Recorded catalog values exercise production cache paths. Synthetic Bevy HTML and PyPI JSON exercise production adapters. All other external Worker requests receive explicit 503 fixture responses. Most browser specs (`test/e2e/smoke.ts`, the accessibility and flow specs) also abort browser requests for external fonts, analytics, images and runtimes; one exception is the `/about` page load in `test/e2e/api-contracts.spec.ts`, which does not install that route, so the browser may still request Google Fonts and analytics there. No Cloudflare credentials or live upstream data are required, but run the full suite with outbound network available if that page load stalls offline or behind a firewall. A second cold Worker demonstrates upstream failure handling rather than a cached success.
 
@@ -37,12 +37,12 @@ Screenshot baselines are checked in and must be reviewed when deliberately updat
 
 ## Before opening a PR
 
-1. Run `bun run lint`, `bun run test`, `bun x tsc --noEmit`, and `bun run build`.
+1. Run `just check` and `bun run build`. `just check` runs every standard below; `just lint`, `just typecheck` (`bun run typecheck`, the normal and strict configs), `just locales` and `just test` run single steps.
 2. Add meaningful tests for changed executable behavior. Stage or stash every change, then run `bun scripts/standards.ts --staged`; it refuses untracked files and unstaged edits. Never commit with `--no-verify`. The pre-commit hook runs that command, and CI runs `bun scripts/standards.ts --base <sha>`. It requires 100% coverage of changed executable lines (not 100% repository-wide coverage), blocks new comments in JS and TS files, and runs zizmor (install it with `pip install --require-hashes -r scripts/standards/zizmor-requirements.txt`) when workflows or local actions change.
 3. For design changes, start the dev server and run `just check-pattachitra`. Check narrow layouts, keyboard operation, and reduced motion.
 4. Update documentation for behavior, routes, sources, or setup changes. For documentation-only edits, check formatting, links, and claims against the implementation.
 
-CI runs lint, changed-line coverage, and build; deployment waits for all three.
+CI runs three jobs: `standards` (`bun scripts/standards.ts --base <sha>`: locales, lint, typecheck, the exceptions file, no new comments, zizmor, and tests with 100% changed-line coverage), `build`, and `e2e` on the built Worker. Deployment and PR previews wait for all three.
 The broader coverage backlog is in [docs/test-coverage-plan.md](docs/test-coverage-plan.md).
 
 ## Where to help
