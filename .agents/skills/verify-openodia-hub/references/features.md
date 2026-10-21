@@ -19,9 +19,11 @@ drive() { node .agents/skills/verify-openodia-hub/scripts/drive.mjs "$@"; }
 
 ```bash
 drive /tools "fill:Search projects, repos, datasets, models… [/]=fixture-no-match-93817" "expect:No projects match" "fill:Search projects, repos, datasets, models… [/]=" "expect:Sua"
+drive /models "fill:Search models, authors, tags… [/]=fixture-no-match-93817" "expect:No models match" "fill:Search models, authors, tags… [/]=" "expect:xlm-roberta-base"
+drive /datasets "fill:Search datasets, authors, tags… [/]=fixture-no-match-93817" "expect:No datasets match" "fill:Search datasets, authors, tags… [/]=" "expect:wikimedia/wikipedia"
 ```
 
-The screenshots show `No projects match "fixture-no-match-93817".` and then the Sua card again. The placeholder contains a Unicode ellipsis, so copy it exactly. The task filter dialogs on `/models` and `/datasets` need a Playwright script; `test/e2e/flows.spec.ts` shows the locators.
+Each page keeps its own search state. The screenshots show the `No projects`, `No models` or `No datasets match "fixture-no-match-93817".` message and then a fixture card again. The placeholder contains a Unicode ellipsis, so copy it exactly. The task filter dialogs on `/models` and `/datasets` need a Playwright script; `test/e2e/flows.spec.ts` shows the locators.
 
 ## Language
 
@@ -65,7 +67,16 @@ while IFS='|' read -r path heading; do drive "$path" "h1:$heading" || bad="$bad 
 ROUTES
 drive /events "link:Tools" "expect:Sua" || bad="$bad /events->/tools"
 drive /communities "expect:TFUG Bhubaneswar" || bad="$bad /communities-organizers"
+drive /tutorials "expect:LLM Compression" || bad="$bad /tutorials-videos"
+counts="$(curl -sS "http://127.0.0.1:$VERIFY_PORT/api/translation-status" | jq -r '"\(.translated)/\(.total) ·"')"
+drive /translation-status "expect:$counts" || bad="$bad /translation-status-counts"
 [ -z "$bad" ] || { echo "FAILED:$bad"; false; }
 ```
 
-Each run must exit 0 with status 200, and each `h1:` step must match the whole heading. When a change touches a page's data, also check the API it reads: `/events` reads `/api/events` (the recorded GDG feed), `/tutorials` reads `/api/videos`, `/translation-status` reads `/api/translation-status`, `/papers` reads the catalog in KV, and `/communities` renders the checked-in `src/data/organizers.ts` and `src/data/events/`, so check a changed organizer or event on the page itself, as the `TFUG Bhubaneswar` line does.
+Each run must exit 0 with status 200, and each `h1:` step must match the whole heading. Pages load their data through their own server functions, not through the public API, so the last three checks look at rendered data:
+
+- `/communities` renders the checked-in `src/data/organizers.ts` and `src/data/events/`.
+- `/tutorials` calls `loadVideos()`. `LLM Compression` is a recorded video; when loading fails, the page falls back to channel names only.
+- `/translation-status` calls `getLocaleStatus()` and must show the same `translated/total` count that `/api/translation-status` reports.
+
+`/events` and `/papers` have only the heading check. When a change touches their data, check the rendered rows as well, not only `/api/events` or the KV catalog.

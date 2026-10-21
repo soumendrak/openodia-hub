@@ -14,7 +14,7 @@ The commands come from [AGENTS.md](../../../AGENTS.md). This skill puts them in 
 
 ## 1. Toolchain
 
-Run `just doctor` and fix every `FAIL` line before going on. It checks Bun 1.3+, Node 22+, Playwright Chromium and the pinned zizmor.
+This skill runs on Linux only: step 3 needs `setsid` and `ss` (iproute2). Run `just doctor` and fix every `FAIL` line before going on. It checks Bun 1.3+, Node 22+, Playwright Chromium, the pinned zizmor and `ss`.
 
 ## 2. Standards
 
@@ -28,7 +28,10 @@ Fix the code or add tests when it fails. Never add `eslint-disable`, `@ts-ignore
 export VERIFY_PORT=9171
 E="/tmp/verify-openodia-hub/$VERIFY_PORT"
 start_worker() {
-  if [ -n "$(ss -ltnH "sport = :$VERIFY_PORT")" ]; then
+  command -v ss >/dev/null || { echo "start_worker needs ss (iproute2)"; return 1; }
+  local listening
+  listening="$(ss -ltnH "sport = :$VERIFY_PORT")" || { echo "ss failed; nothing started"; return 1; }
+  if [ -n "$listening" ]; then
     echo "port $VERIFY_PORT is taken; nothing started, set another VERIFY_PORT"
     return 1
   fi
@@ -55,7 +58,7 @@ start_worker() {
 start_worker
 ```
 
-`test/e2e/serve.mjs` runs the production build under Miniflare with local KV and D1, the seeded catalog in `test/e2e/fixtures/`, a clock fixed at 2026-10-12 and every upstream mocked, so no account or token is needed. Go on only after `ready:`. `start_worker` refuses a port that is already listening, without touching that server or its files. It counts as started only when your own log has the ready line and the process listening on the port belongs to the process group in your `server.pid`; every fixture Worker reports the same date, so `/__fixture-clock` cannot tell them apart. Otherwise it prints the log, stops whatever it started and returns 1. `setsid` puts Node and its `workerd` child in one process group, whose id is `server.pid`, so step 6 stops both.
+`test/e2e/serve.mjs` runs the production build under Miniflare with local KV and D1, the seeded catalog in `test/e2e/fixtures/`, a clock fixed at 2026-10-12 and every upstream mocked, so no account or token is needed. Go on only after `ready:`. In a shell with `set -e`, a refusal from `start_worker` exits the shell; call it as `start_worker || echo "not started"` there. `start_worker` refuses a port that is already listening, without touching that server or its files. It returns 1 without touching any file when `ss` is missing or fails. It counts as started only when your own log has the ready line and the process listening on the port belongs to the process group in your `server.pid`; every fixture Worker reports the same date, so `/__fixture-clock` cannot tell them apart. Otherwise it prints the log, stops whatever it started and returns 1. `setsid` puts Node and its `workerd` child in one process group, whose id is `server.pid`, so step 6 stops both.
 
 - Pick a free port. 9158, 9159, 9161 and 9162 belong to the browser suites (see Gotchas in AGENTS.md).
 - For the outage variant, where nothing is seeded and every upstream fails, run `export E2E_UPSTREAM_FAILURE=1` before `start_worker` and `unset E2E_UPSTREAM_FAILURE` as soon as it prints `ready:`; the running server keeps its copy, and `just e2e` must not inherit the flag. The server log's ready line then ends in `(upstream outage)`.
