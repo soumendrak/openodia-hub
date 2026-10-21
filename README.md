@@ -130,7 +130,7 @@ being listed does not certify quality, accuracy, or unrestricted use.
 - Node.js 22+
 - [just](https://just.systems) for the task recipes
 - Playwright Chromium for the browser suites: `bunx playwright install --with-deps chromium`
-- The pinned zizmor, only when you change workflows: see [CONTRIBUTING.md](CONTRIBUTING.md#before-opening-a-pr)
+- The pinned zizmor, when you change anything under `.github/` or `scripts/standards`: see [CONTRIBUTING.md](CONTRIBUTING.md#before-opening-a-pr)
 
 Run `just doctor` to check these versions.
 
