@@ -31,7 +31,7 @@ export PATH="$HOME/.venvs/zizmor/bin:$PATH"
 | Bilingual browser check               | `bun run test:bilingual` (after `build`)  |
 | Browser end-to-end suite              | `bun run test:e2e` (builds first)         |
 | Accessibility suite                   | `bun run test:a11y` (builds first)        |
-| Every standard, as CI runs it         | `just check`                              |
+| Every standard (CI's gate)            | `just check`                              |
 | Standards on staged changes           | `bun scripts/standards.ts --staged`       |
 | Update screenshot baselines           | `bun run test:e2e -- --update-snapshots`  |
 
@@ -61,14 +61,15 @@ export PATH="$HOME/.venvs/zizmor/bin:$PATH"
 
 Nothing is needed for the dev server, the unit tests or the browser suites; the e2e Worker uses local KV and D1 and answers every unseeded upstream with a 503.
 
-| Name                                                      | Used by                                   | Without it                                                                                                                      |
-| --------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `GITHUB_TOKEN`                                            | `src/lib/sources/repos.ts`, `resource.ts` | GitHub calls are anonymous and share the 60 requests per hour limit, so the dev server's repository data can come back partial. |
-| `YOUTUBE_API_KEY`                                         | `src/lib/sources/videos.ts`               | Videos are listed from RSS without view counts.                                                                                 |
-| `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`           | CI `deploy` and `preview` jobs            | No deployment or PR preview. Fork PRs skip the preview job.                                                                     |
-| `CLOUDFLARE_KV_API_TOKEN`, `CONTRIBUTORS_KV_NAMESPACE_ID` | `sync-contributors.yml`                   | The daily contributor sync to KV fails. `scripts/sync-contributors.ts` also needs `GITHUB_TOKEN`.                               |
-| `PAT`                                                     | `crawl-events.yml`                        | The daily crawl cannot open its pull request.                                                                                   |
-| `ODIA_NATIVE_REVIEWERS` (repository variable)             | `translation-review.yml`                  | PRs that change Odia wording get a failing `native-review` status.                                                              |
+| Name                                                      | Used by                                   | Without it                                                                                                                                                               |
+| --------------------------------------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GITHUB_TOKEN`                                            | `src/lib/sources/repos.ts`, `resource.ts` | GitHub calls are anonymous and share the 60 requests per hour limit, so the dev server's repository data can come back partial.                                          |
+| `YOUTUBE_API_KEY`                                         | `src/lib/sources/videos.ts`               | Videos are listed from RSS without view counts.                                                                                                                          |
+| `CLOUDFLARE_API_TOKEN`                                    | CI `deploy` and `preview` jobs            | No deployment or PR preview. Fork PRs skip the preview job.                                                                                                              |
+| `CLOUDFLARE_ACCOUNT_ID`                                   | CI `preview` job, `sync-contributors.yml` | No PR preview, and the daily contributor sync to KV fails.                                                                                                               |
+| `CLOUDFLARE_KV_API_TOKEN`, `CONTRIBUTORS_KV_NAMESPACE_ID` | `sync-contributors.yml`                   | The daily contributor sync to KV fails. The workflow passes the token to `scripts/sync-contributors.ts` as `CLOUDFLARE_API_TOKEN`; the script also needs `GITHUB_TOKEN`. |
+| `PAT`                                                     | `crawl-events.yml`                        | The daily crawl cannot open its pull request.                                                                                                                            |
+| `ODIA_NATIVE_REVIEWERS` (repository variable)             | `translation-review.yml`                  | PRs that change Odia wording get a failing `native-review` status.                                                                                                       |
 
 `.env.example` lists the two runtime variables. Never commit a value.
 
