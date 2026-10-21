@@ -29,7 +29,8 @@ export PATH="$HOME/.venvs/zizmor/bin:$PATH"
 | Unit tests                            | `bun run test`                            |
 | One test file                         | `bun run test -- test/organizers.test.ts` |
 | Bilingual browser check               | `bun run test:bilingual` (after `build`)  |
-| Browser end-to-end suite              | `bun run test:e2e` (builds first)         |
+| Browser end-to-end suite              | `just e2e` (the same steps as CI's e2e)   |
+| Check Bun, Node, Playwright, zizmor   | `just doctor`                             |
 | Accessibility suite                   | `bun run test:a11y` (builds first)        |
 | Every standard (CI's gate)            | `just check`                              |
 | Standards on staged changes           | `bun scripts/standards.ts --staged`       |
