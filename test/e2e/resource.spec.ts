@@ -7,8 +7,21 @@ smokeRoute("/r/gh/soumendrak/MTEnglish2Odia", "MTEnglish2Odia", {
 smokeRoute("/r/invalid/nope", "404", { status: 404 });
 
 test("every resource permalink the API lists opens its detail page", async ({ request }) => {
-  const response = await request.get("/api/resources?q=sua");
-  const { resources }: { resources: { permalink: string }[] } = await response.json();
-  expect(resources.map(({ permalink }) => permalink)).toEqual(["/r/gh/soumendrak/MTEnglish2Odia"]);
-  for (const { permalink } of resources) expect((await request.get(permalink)).status()).toBe(200);
+  const response = await request.get("/api/resources");
+  const { resources }: { resources: { permalink?: string }[] } = await response.json();
+  const permalinks = resources.flatMap(({ permalink }) => (permalink ? [permalink] : []));
+  expect(permalinks).toHaveLength(7);
+  expect(permalinks).toContain("/r/gh/soumendrak/MTEnglish2Odia");
+  for (const permalink of permalinks) expect((await request.get(permalink)).status()).toBe(200);
+});
+
+test("a GitHub detail page shows the upstream stars and license", async ({ page, baseURL }) => {
+  const origin = new URL(baseURL!).origin;
+  await page.route(
+    (url) => url.origin !== origin,
+    (route) => route.abort(),
+  );
+  await page.goto("/r/gh/soumendrak/MTEnglish2Odia");
+  await expect(page.locator("span", { has: page.locator("svg.lucide-star") })).toHaveText("10");
+  await expect(page.getByText("GPL-3.0", { exact: true }).first()).toBeVisible();
 });
