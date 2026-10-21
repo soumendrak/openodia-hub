@@ -14,6 +14,7 @@ const allowedFailures = new Set(
 );
 const FAILURE_PREFIXES = ["pageerror", "hydration", "httperror", "evidenceerror", "settle timeout"];
 const MAX_REDIRECTS = 5;
+const SAVE_LIMIT_MS = 5000;
 const HYDRATION_MESSAGE = /hydrat|react error|server rendered|did not match/i;
 const QUIET_MS = 750;
 const SETTLE_LIMIT_MS = 15000;
@@ -22,22 +23,31 @@ const splitOnce = (text, separator) => {
   const at = text.indexOf(separator);
   return at < 0 ? [text, ""] : [text.slice(0, at), text.slice(at + separator.length)];
 };
+const settledWithin = (promises, ms) => {
+  let timer;
+  const expired = new Promise((resolve) => {
+    timer = setTimeout(resolve, ms, null);
+  });
+  return Promise.race([Promise.allSettled(promises), expired]).finally(() => clearTimeout(timer));
+};
 const pathOf = (url) => new URL(url).pathname;
 const isLocal = (url) => new URL(url).origin === origin;
 const slug = (text) => text.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "root";
 const padded = (n) => String(n).padStart(2, "0");
 
-await mkdir(out, { recursive: true });
 const log = [];
 const navigations = [];
 const pendingSaves = [];
 let savedCount = 0;
 let shotCount = 0;
 let failed = null;
+let phase = "launch";
 let browser;
 let page;
 const inflight = new Set();
 let lastActivity = Date.now();
+
+const isRedirect = (status) => status >= 300 && status < 400;
 
 const saveResponse = async (response) => {
   savedCount += 1;
@@ -52,7 +62,7 @@ const saveResponse = async (response) => {
     requestBody: request.postData(),
   };
   await writeFile(`${base}.json`, JSON.stringify(meta, null, 2));
-  await writeFile(`${base}.body`, await response.body());
+  await writeFile(`${base}.body`, isRedirect(meta.status) ? "" : await response.body());
   log.push(`saved ${meta.method} ${meta.url} -> ${base}.body`);
 };
 
@@ -124,8 +134,6 @@ const settle = async () => {
   }
 };
 
-const isRedirect = (status) => status >= 300 && status < 400;
-
 const localStatus = async (start) => {
   let url = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
@@ -180,7 +188,9 @@ const runStep = async (verb, arg) => {
 };
 
 try {
+  await mkdir(out, { recursive: true });
   browser = await chromium.launch();
+  phase = "setup";
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
     reducedMotion: "reduce",
@@ -207,6 +217,7 @@ try {
   });
   page.on("response", onResponse);
   await page.clock.setFixedTime(new Date("2026-10-12T00:00:00Z"));
+  phase = "load";
   await visit(startPath);
   await screenshot("loaded");
   for (const step of steps) {
@@ -226,9 +237,11 @@ try {
     }
   }
 } catch (error) {
-  failed ??= { step: "launch", error: error.message };
+  failed ??= { step: phase, error: error.message };
 } finally {
-  for (const result of await Promise.allSettled(pendingSaves))
+  const saves = await settledWithin(pendingSaves, SAVE_LIMIT_MS);
+  if (saves === null) log.push(`evidenceerror responses still unsaved after ${SAVE_LIMIT_MS} ms`);
+  for (const result of saves ?? [])
     if (result.status === "rejected") log.push(`evidenceerror ${result.reason}`);
   const bad =
     failed !== null ||
