@@ -14,7 +14,7 @@ python3 -m venv "$HOME/.venvs/zizmor"
 export PATH="$HOME/.venvs/zizmor/bin:$PATH"
 ```
 
-`bun install` also points Git at the repository hooks in `.githooks/`. The standards gate requires exactly the zizmor version pinned in `scripts/standards/zizmor.ts` and only runs it when a workflow or a standards file changes. Keep the virtualenv outside the clone: the gate refuses untracked files.
+`bun install` also points Git at the repository hooks in `.githooks/`. The standards gate requires exactly the zizmor version pinned in `scripts/standards/zizmor.ts` and runs it when any file under `.github/` or `scripts/standards`, or any `action.yml` or `action.yaml`, changes. That includes issue templates and `FUNDING.yml`. Keep the virtualenv outside the clone: the gate refuses untracked files.
 
 ## Commands
 
@@ -35,7 +35,7 @@ export PATH="$HOME/.venvs/zizmor/bin:$PATH"
 | Standards on staged changes           | `bun scripts/standards.ts --staged`       |
 | Update screenshot baselines           | `bun run test:e2e -- --update-snapshots`  |
 
-`just check` compares against `git merge-base origin/main HEAD`, so run `git fetch origin` first. It runs locales, lint, typecheck, the exceptions file, the no-new-comments check, zizmor and the tests with 100% changed-line coverage, and ends with `STANDARDS OK` or `STANDARDS FAIL`. The pre-commit hook runs the `--staged` form.
+`just check` compares against `git merge-base origin/main HEAD`. CI checks the pull request merged into the tip of `main`, against that tip, so a branch that is behind `main` can pass locally and fail in CI. Run `git fetch origin` and merge or rebase onto `origin/main` before trusting a local pass. The gate runs locales, lint, typecheck, the exceptions file, the no-new-comments check, zizmor and the tests with 100% changed-line coverage, and ends with `STANDARDS OK` or `STANDARDS FAIL`. The pre-commit hook runs the `--staged` form.
 
 ## Layout
 
