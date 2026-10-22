@@ -436,6 +436,23 @@ export const ORGANIZERS = [
       ),
     ],
   },
+  {
+    id: "nmiet-bhubaneswar",
+    canonicalName: "NMIET Bhubaneswar",
+    aliases: ["NM Institute of Engineering & Technology", "NIRMIT"],
+    description: "An engineering institute in Bhubaneswar that hosts the NIRMIT tech fest.",
+    region: "Bhubaneswar",
+    kind: "institution",
+    collectionMode: "manual",
+    officialLinks: [
+      official(
+        "Official NIRMIT 2.0 fest site",
+        "https://www.nirmit.space/",
+        "2026-10-22",
+        "The fest site names NMIET Bhubaneswar as host and publishes the NexTech 2.0 schedule.",
+      ),
+    ],
+  },
 ] as const satisfies readonly Organizer[];
 
 function normalizeIdentity(value: string): string {
