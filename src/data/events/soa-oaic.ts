@@ -21,7 +21,7 @@ export const soaOaicEvents: Omit<Event, "community">[] = [
       "A two-day inaugural Odisha AI Conference planned at Siksha 'O' Anusandhan University, covering AI research from theoretical foundations to applied, trustworthy and ethical systems.",
     attendance: {
       policy: "unknown",
-      note: "The site publishes a full-paper submission deadline (15 Sep 2026) and an EDAS submission system for authors, but the site's Register menu item does not lead to a general-attendee registration page or terms.",
+      note: "The site publishes an EDAS submission system for authors (see the official site for current dates), but the site's Register menu item does not lead to a general-attendee registration page or terms.",
     },
   },
   {
