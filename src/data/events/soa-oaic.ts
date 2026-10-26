@@ -24,4 +24,20 @@ export const soaOaicEvents: Omit<Event, "community">[] = [
       note: "The site publishes a full-paper submission deadline (15 Sep 2026) and an EDAS submission system for authors, but the site's Register menu item does not lead to a general-attendee registration page or terms.",
     },
   },
+  {
+    year: "2026",
+    date: "20 Dec 2026",
+    title: "Odisha AI Hackathon 2026",
+    url: "https://www.oaic.in/program/hackathons/",
+    type: "Hackathon",
+    location: "Siksha 'O' Anusandhan University, Bhubaneswar",
+    startDate: "2026-12-20",
+    endDate: "2026-12-20",
+    description:
+      "The grand finale of the Odisha AI Hackathon at OAIC 2026, where 12 teams from regional rounds at four nodal centres present AI solutions across infrastructure, human well-being and future-technology tracks, with prizes worth ₹3,00,000.",
+    attendance: {
+      policy: "approval",
+      note: "Teams of four apply through the nodal centre for their institute's district, and only the top 3 teams from each of the four regions advance to the finale.",
+    },
+  },
 ];
