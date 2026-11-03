@@ -14,7 +14,7 @@ VERIFY_PORT=9171 node .agents/skills/verify-openodia-hub/scripts/drive.mjs <path
 
 ## Steps
 
-Each step is `verb:argument`. Only the first `:` splits it, and `fill` and `storage` split their argument at the first `=`, so values can contain both.
+Each step is `verb:argument`. Only the first `:` splits it, and `fill` and `storage` split their argument at the first `=`, so values can contain both. `click`, `link`, `press` and `expect` need non-blank text: an empty name or text matches anything, so the run fails at once with `<verb>: needs text`, before Chromium starts.
 
 | Step                               | Does                                                                    |
 | ---------------------------------- | ----------------------------------------------------------------------- |

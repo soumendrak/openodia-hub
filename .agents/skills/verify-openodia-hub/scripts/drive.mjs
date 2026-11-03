@@ -18,6 +18,7 @@ const SAVE_LIMIT_MS = 5000;
 const HYDRATION_MESSAGE = /hydrat|react error|server rendered|did not match/i;
 const QUIET_MS = 750;
 const SETTLE_LIMIT_MS = 15000;
+const NEEDS_TEXT = new Set(["click", "link", "press", "expect"]);
 
 const splitOnce = (text, separator) => {
   const at = text.indexOf(separator);
@@ -188,6 +189,13 @@ const runStep = async (verb, arg) => {
 
 try {
   await mkdir(out, { recursive: true });
+  for (const step of steps) {
+    const [verb, arg] = splitOnce(step, ":");
+    if (NEEDS_TEXT.has(verb) && arg.trim() === "") {
+      failed = { step, error: `${verb}: needs text` };
+      throw new Error(failed.error);
+    }
+  }
   browser = await chromium.launch();
   phase = "setup";
   const context = await browser.newContext({
