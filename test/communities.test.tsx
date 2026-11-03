@@ -99,7 +99,7 @@ describe("organizer directory search", () => {
     expect(ids("TFUG BBSR")).toEqual(["tfug-bbsr"]);
     expect(ids("ocac")).toEqual(["odisha-eit"]);
     expect(ids("cuttack")).toEqual(["ravenshaw-university"]);
-    expect(ids("incubation")).toEqual(["startup-odisha"]);
+    expect(ids("incubation")).toEqual(["startup-odisha", "aic-nitf"]);
     expect(ids("government")).toContain("odisha-eit");
     expect(filterOrganizers({})).toHaveLength(ORGANIZERS.length);
   });
