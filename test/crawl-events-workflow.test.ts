@@ -21,6 +21,16 @@ const stepScript = (workflow: string, name: string) => {
 const readWorkflow = () =>
   readFile(join(process.cwd(), ".github/workflows/crawl-events.yml"), "utf8");
 
+const stepCondition = (workflow: string, name: string) => {
+  const stepStart = workflow.indexOf(`      - name: ${name}\n`);
+  const nextStep = workflow.indexOf("\n      - ", stepStart + 1);
+  const step = workflow.slice(stepStart, nextStep === -1 ? workflow.length : nextStep);
+  return step
+    .split("\n")
+    .find((line) => line.startsWith("        if:"))
+    ?.trim();
+};
+
 afterEach(async () => {
   await Promise.all(
     temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true })),
@@ -124,6 +134,17 @@ describe("crawl-events workflow", () => {
     expect(result.status, result.stderr).toBe(0);
     await expect(readFile(eventFile, "utf8")).resolves.toBe(
       `export const events = [\n  {\n    description:\n      "${"word ".repeat(30).trim()}",\n  },\n];\n`,
+    );
+  });
+
+  it("uses the pull request run condition for format and the title date", async () => {
+    const workflow = await readWorkflow();
+    const whenCrawlFinishedWithChanges =
+      "if: (success() || failure()) && steps.crawl.outputs.has_changes != '0'";
+    expect(stepCondition(workflow, "Format crawled event data")).toBe(whenCrawlFinishedWithChanges);
+    expect(stepCondition(workflow, "Date for the PR title")).toBe(whenCrawlFinishedWithChanges);
+    expect(stepCondition(workflow, "Create PR if event data changed")).toBe(
+      whenCrawlFinishedWithChanges,
     );
   });
 });
