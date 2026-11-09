@@ -504,7 +504,7 @@ describe("event crawler orchestration", () => {
 
     const written =
       crawlHarness.writes.find(([path]) => path.includes("gdg-bhubaneswar"))?.[1] ?? "";
-    expect(written).toContain("// auto-crawled");
+    expect(written).not.toMatch(/^\s*\/\//m);
     expect(written).toContain("Existing Event");
     expect(written).toContain("Bare Detail Event");
     expect(written).not.toMatch(/Bare Detail Event[\s\S]*?description:/);
