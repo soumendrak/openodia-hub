@@ -27,7 +27,7 @@ const reportSchema = z.array(
     ident: z.string(),
     desc: z.string(),
     determinations: z.object({ severity: z.string() }),
-    locations: z.array(locationSchema).nonempty(),
+    locations: z.tuple([locationSchema], locationSchema),
   }),
 );
 

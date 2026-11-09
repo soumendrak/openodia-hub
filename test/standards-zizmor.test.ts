@@ -116,6 +116,7 @@ describe("parseZizmor", () => {
 
   it("rejects output it does not recognise", () => {
     expect(() => parseZizmor([{ ident: "x" }])).toThrow();
+    expect(() => parseZizmor([report({ locations: [] })])).toThrow();
   });
 
   it("installs the checked version from a requirements file where every line carries a hash", () => {
