@@ -26,6 +26,7 @@ jobs:
             https://registry.npmjs.org/@oven/bun-linux-x64/-/bun-linux-x64-1.4.4.tgz
           echo "93ca5a2abe45f3bcac6dd55baff8bb06c4ac824b70f89650b54e5c8b80dbef18  $RUNNER_TEMP/bun.tgz" | sha256sum --check
           tar --extract --gzip --file "$RUNNER_TEMP/bun.tgz" --directory "$RUNNER_TEMP"
+          ln -s bun "$RUNNER_TEMP/package/bin/bunx"
           echo "$RUNNER_TEMP/package/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - run: python3 -m venv "$RUNNER_TEMP/zizmor" && "$RUNNER_TEMP/zizmor/bin/pip" install --require-hashes -r scripts/standards/zizmor-requirements.txt && echo "$RUNNER_TEMP/zizmor/bin" >> "$GITHUB_PATH"
@@ -83,6 +84,7 @@ jobs:
             https://registry.npmjs.org/@oven/bun-linux-x64/-/bun-linux-x64-1.4.4.tgz
           echo "93ca5a2abe45f3bcac6dd55baff8bb06c4ac824b70f89650b54e5c8b80dbef18  $RUNNER_TEMP/bun.tgz" | sha256sum --check
           tar --extract --gzip --file "$RUNNER_TEMP/bun.tgz" --directory "$RUNNER_TEMP"
+          ln -s bun "$RUNNER_TEMP/package/bin/bunx"
           echo "$RUNNER_TEMP/package/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - run: bun run build
@@ -102,6 +104,7 @@ jobs:
             https://registry.npmjs.org/@oven/bun-linux-x64/-/bun-linux-x64-1.4.4.tgz
           echo "93ca5a2abe45f3bcac6dd55baff8bb06c4ac824b70f89650b54e5c8b80dbef18  $RUNNER_TEMP/bun.tgz" | sha256sum --check
           tar --extract --gzip --file "$RUNNER_TEMP/bun.tgz" --directory "$RUNNER_TEMP"
+          ln -s bun "$RUNNER_TEMP/package/bin/bunx"
           echo "$RUNNER_TEMP/package/bin" >> "$GITHUB_PATH"
       - uses: actions/setup-node@v4
         with:
@@ -141,6 +144,7 @@ jobs:
             https://registry.npmjs.org/@oven/bun-linux-x64/-/bun-linux-x64-1.4.4.tgz
           echo "93ca5a2abe45f3bcac6dd55baff8bb06c4ac824b70f89650b54e5c8b80dbef18  $RUNNER_TEMP/bun.tgz" | sha256sum --check
           tar --extract --gzip --file "$RUNNER_TEMP/bun.tgz" --directory "$RUNNER_TEMP"
+          ln -s bun "$RUNNER_TEMP/package/bin/bunx"
           echo "$RUNNER_TEMP/package/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - run: bun run build
@@ -165,6 +169,7 @@ jobs:
             https://registry.npmjs.org/@oven/bun-linux-x64/-/bun-linux-x64-1.4.4.tgz
           echo "93ca5a2abe45f3bcac6dd55baff8bb06c4ac824b70f89650b54e5c8b80dbef18  $RUNNER_TEMP/bun.tgz" | sha256sum --check
           tar --extract --gzip --file "$RUNNER_TEMP/bun.tgz" --directory "$RUNNER_TEMP"
+          ln -s bun "$RUNNER_TEMP/package/bin/bunx"
           echo "$RUNNER_TEMP/package/bin" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
       - run: bun run build
