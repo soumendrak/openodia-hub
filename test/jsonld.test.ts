@@ -70,9 +70,36 @@ describe("eventListSchema", () => {
   it("marks an 'Online' location as an online event, not a physical Place", () => {
     const out = item({ ...base, location: " Online " });
     expect(out.eventAttendanceMode).toBe("https://schema.org/OnlineEventAttendanceMode");
-    expect(out.location).toEqual({ "@type": "VirtualLocation", url: base.url });
-    const venue = item({ ...base, location: "NIT Rourkela" });
+    expect(out.location).toEqual({ "@type": "VirtualLocation" });
+    expect(out.url).toBe(base.url);
+    const venue = item({
+      ...base,
+      location: "NIT Rourkela",
+      joinUrl: "https://meet.google.com/abc-defg-hij",
+    });
     expect(venue.eventAttendanceMode).toBe("https://schema.org/OfflineEventAttendanceMode");
+    expect(venue.location).toEqual({
+      "@type": "Place",
+      name: "NIT Rourkela",
+      address: "NIT Rourkela",
+    });
+  });
+
+  it("uses a reviewed join URL as VirtualLocation.url and never the event info page", () => {
+    const info = "https://www.nitrkl.ac.in/docs/Workshop/CS/brochure.pdf";
+    const join = "https://meet.google.com/abc-defg-hij";
+    const attended = item({ ...base, url: info, location: "Online", joinUrl: join });
+    expect(attended.url).toBe(info);
+    expect(attended.location).toEqual({ "@type": "VirtualLocation", url: join });
+    const archive = item({
+      ...base,
+      url: "https://osou.ac.in/training-programmes-fdp-workshop.html",
+      location: "Online",
+    });
+    expect(archive.url).toBe("https://osou.ac.in/training-programmes-fdp-workshop.html");
+    expect(archive.location).toEqual({ "@type": "VirtualLocation" });
+    const unspecified = item(base);
+    expect(unspecified.location).toEqual({ "@type": "VirtualLocation" });
   });
 });
 
@@ -126,6 +153,31 @@ describe("eventListSchema offers gating (lifecycle and registration)", () => {
       expect(out.isAccessibleForFree).toBe(true);
     },
   );
+});
+
+describe("eventListSchema offer expiry in IST", () => {
+  const free = {
+    name: "Workshop",
+    url: "https://example.org/event",
+    description: "d",
+    free: true as const,
+  };
+  const offer = (event: Parameters<typeof eventListSchema>[0][number], now: Date) =>
+    eventListSchema([event], now).itemListElement[0].item as Record<string, unknown>;
+
+  it("keeps a free offer through the end date in IST and drops it from 00:00 IST the next day", () => {
+    const ended = { ...free, startDate: "2026-02-07", endDate: "2026-02-16" };
+    expect(offer(ended, new Date("2026-02-16T18:00:00.000Z"))).toHaveProperty("offers");
+    expect(offer(ended, new Date("2026-02-16T18:30:00.000Z"))).not.toHaveProperty("offers");
+    expect(offer(ended, new Date("2026-02-16T23:59:00.000Z"))).not.toHaveProperty("offers");
+    expect(offer(ended, new Date("2026-02-17T00:00:00.000Z"))).not.toHaveProperty("offers");
+  });
+
+  it("judges a free event with no end date by its start date in IST", () => {
+    const oneDay = { ...free, startDate: "2026-02-16" };
+    expect(offer(oneDay, new Date("2026-02-16T18:00:00.000Z"))).toHaveProperty("offers");
+    expect(offer(oneDay, new Date("2026-02-16T18:30:00.000Z"))).not.toHaveProperty("offers");
+  });
 });
 
 describe("eventListSchema offer destination", () => {

@@ -1,4 +1,5 @@
 import { eventSchemaStatus } from "./event-lifecycle";
+import { getISTDateString } from "./ist-date";
 import type { Event } from "../data/events/types";
 import React from "react";
 
@@ -165,6 +166,7 @@ export function eventListSchema(
     startDate: string;
     endDate?: string;
     location?: string;
+    joinUrl?: string;
     organizer?: string;
     lifecycle?: Event["lifecycle"];
     previousStartDate?: string;
@@ -177,7 +179,7 @@ export function eventListSchema(
   /** Injected for tests; offers are only emitted for events not yet over. */
   now: Date = new Date(),
 ) {
-  const today = now.toISOString().slice(0, 10);
+  const today = getISTDateString(now);
   return {
     "@context": "https://schema.org",
     "@type": "ItemList",
@@ -202,7 +204,9 @@ export function eventListSchema(
             }
           : {
               eventAttendanceMode: "https://schema.org/OnlineEventAttendanceMode",
-              location: { "@type": "VirtualLocation", url: e.url },
+              location: e.joinUrl
+                ? { "@type": "VirtualLocation", url: e.joinUrl }
+                : { "@type": "VirtualLocation" },
             }),
         ...(e.organizer
           ? {

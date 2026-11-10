@@ -601,6 +601,7 @@ function EventsPage() {
             : undefined,
         endDate: e.endDate,
         location: e.location,
+        joinUrl: e.joinUrl,
         organizer: organizer?.canonicalName ?? e.community,
         organizerUrl: organizer ? organizerHomepage(organizer.officialLinks) : undefined,
         free: e.free,
