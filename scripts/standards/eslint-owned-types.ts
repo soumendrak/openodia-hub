@@ -178,9 +178,19 @@ export const ownedTypes = {
         )
           return true;
         const sourceIndexes = checker.getIndexInfosOfType(s);
+        const sourceProperties = checker.getPropertiesOfType(s);
         return checker.getIndexInfosOfType(t).some((info) => {
           const match = sourceIndexes.find((index) => index.keyType === info.keyType);
-          return !!match && visit(match.type, info.type);
+          if (match && visit(match.type, info.type)) return true;
+          return sourceProperties.some((property) => {
+            const name = ts.unescapeLeadingUnderscores(property.escapedName);
+            const numeric = typeof name === "string" && /^(?:0|[1-9]\d*)$/.test(name);
+            const covered =
+              typeof name === "string" &&
+              ((info.keyType.flags & ts.TypeFlags.String) !== 0 ||
+                ((info.keyType.flags & ts.TypeFlags.Number) !== 0 && numeric));
+            return covered && visit(checker.getTypeOfSymbol(property), info.type);
+          });
         });
       };
       return visit(source, target);

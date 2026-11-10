@@ -143,6 +143,7 @@ const flagged: Record<string, string> = {
   R55: 'type Loose = { tag: "a"; value: any } | { tag: "b"; value: string };\ntype Owned = { tag: "c"; value: CanonicalEvent } | { tag: "d"; value: CanonicalEvent };\nexport const e: Owned = raw as Loose;',
   R56: "type Source = { (): any; (x: string): any };\nconst loose = raw as Source;\nexport const make: () => CanonicalEvent = loose;",
   R57: 'type Owned = { tag: "owned"; value: CanonicalEvent };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Owned | { tag: "other"; value: string } = input;\n  return out;\n}',
+  R58: "const payload = { event: JSON.parse(s) };\nexport const events: Record<string, CanonicalEvent> = payload;",
 };
 
 const clean: Record<string, string> = {
@@ -182,6 +183,7 @@ const clean: Record<string, string> = {
   L36: 'function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(s)]));',
   L37: "function read<T extends CanonicalEvent>(value: CanonicalEvent): T {\n  return value;\n}\nexport const out = read;",
   L38: "interface A { b: B }\ninterface B { a: A; event: CanonicalEvent }\ninterface A2 { b: B2 }\ninterface B2 { a: A2; event: CanonicalEvent }\nexport function copy(value: A): A2 {\n  return value;\n}",
+  L39: "const payload = { event };\nexport const events: Record<string, CanonicalEvent> = payload;",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
