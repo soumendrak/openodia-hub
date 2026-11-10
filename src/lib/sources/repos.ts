@@ -62,7 +62,6 @@ const PINNED_REPOS: string[] = [
   // ── OCR, datasets & speech ──
   "Udayps2303/Line-Level-OCR-using-CNN-BiLSTM-CTC-loss",
   "sushantamishra79/Odia-TTS-Dataset1",
-  "saroj990/odia-hw-ocr",
   "sushantamishra79/odia-audio-processor",
   "sushantamishra79/LLM-ODIA",
   "soumyo/odia_stt_ft",
