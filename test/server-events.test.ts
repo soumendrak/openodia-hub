@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import server from "../src/server";
+import { events as curated } from "../src/data/events";
 import type { D1Like } from "../src/lib/events-store";
 
 describe("production events endpoint", () => {
@@ -38,20 +39,29 @@ describe("production events endpoint", () => {
       },
     ];
     const db: D1Like = {
-      prepare() {
+      prepare(sql) {
         return {
           bind() {
             return this;
           },
           run: async () => ({}),
-          all: async <T>() => ({ results: rows as T[] }),
+          all: async <T>() => ({
+            results: (sql.includes("event_destination_aliases")
+              ? [{ alias_url: legacy, destination_url: current, checked_at: "2026-10-13" }]
+              : sql.includes("event_reviewed_metadata")
+                ? []
+                : rows) as T[],
+          }),
         };
       },
     };
 
     globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
-      return { ok: true, url: url === legacy ? current : url } as Response;
+      return new Response(
+        null,
+        url === legacy ? { status: 302, headers: { location: current } } : { status: 200 },
+      );
     }) as typeof fetch;
 
     const response = await server.fetch(
@@ -68,5 +78,49 @@ describe("production events endpoint", () => {
     expect(payload.events.filter((event) => event.startDate === "2026-09-13")).toEqual([
       expect.objectContaining({ title: "Code for Communities 2.0", url: current }),
     ]);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+  it("does not resolve the curated archive before first-page pagination", async () => {
+    const event = curated.find((event) => event.startDate)!;
+    const db: D1Like = {
+      prepare(sql) {
+        return {
+          bind() {
+            return this;
+          },
+          run: async () => ({}),
+          all: async <T>() => ({
+            results: (sql.includes("SELECT url")
+              ? [
+                  {
+                    url: "https://example.com/persisted-single-row",
+                    title: "Persisted event",
+                    community: event.community,
+                    type: "Talk",
+                    start_date: event.startDate,
+                    end_date: null,
+                    description: "",
+                    location: null,
+                  },
+                ]
+              : []) as T[],
+          }),
+        };
+      },
+    };
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy;
+    const response = await server.fetch(
+      new Request("https://openodia.com/api/events?page=1&limit=1"),
+      { EVENTS_DB: db },
+      {},
+    );
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.events).toHaveLength(1);
+    expect(body.years).toEqual(
+      expect.arrayContaining([...new Set(curated.map((event) => event.year))]),
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import {
   eventUrlKey,
   mergeEventCollectionsByUrl,
   resolveEventDestinationUrl,
+  RESOLVE_CONCURRENCY,
 } from "../src/lib/event-url";
 
 describe("eventUrlKey", () => {
@@ -64,6 +65,67 @@ describe("redirect-aware event deduplication", () => {
     await expect(dedupeEventsByResolvedUrl([stale, latest], resolve)).resolves.toEqual([latest]);
   });
 
+  it("resolves a lone legacy row whose date matches an absent reference record", async () => {
+    const legacy = { url: "https://gdg.community.dev/events/details/old", startDate: "2025-03-01" };
+    const curatedDest = {
+      url: "https://gdg.community.dev/events/details/new",
+      startDate: "2025-03-01",
+    };
+    const resolve = vi.fn(async () => curatedDest.url);
+    await expect(
+      dedupeEventsByResolvedUrl([legacy], resolve, [
+        curatedDest,
+        { url: legacy.url, startDate: "2025-04-01" },
+        { url: "https://example.com/undated" },
+      ]),
+    ).resolves.toEqual([{ ...legacy, url: curatedDest.url }]);
+    expect(resolve).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets the reference own metadata of a lone redirected legacy row", async () => {
+    const legacy = {
+      url: "https://gdg.community.dev/events/details/learn-with-communities",
+      startDate: "2025-03-01",
+      title: "Learn with Communities",
+      type: "Workshop",
+    };
+    const curatedDest = {
+      url: "https://gdg.community.dev/events/details/code-for-communities-20",
+      startDate: "2025-03-01",
+      title: "Code for Communities 2.0",
+      type: "Hackathon",
+    };
+    await expect(
+      dedupeEventsByResolvedUrl([legacy], async () => curatedDest.url, [curatedDest]),
+    ).resolves.toEqual([curatedDest]);
+  });
+
+  it("caps concurrent redirect lookups", async () => {
+    let inFlight = 0;
+    let peak = 0;
+    const resolve = vi.fn(async (url: string) => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((done) => setTimeout(done, 1));
+      inFlight -= 1;
+      return url;
+    });
+    const rows = Array.from({ length: 12 }, (_, index) => ({
+      url: `https://example.com/same-day-${index}`,
+      startDate: "2026-05-28",
+    }));
+    await expect(dedupeEventsByResolvedUrl(rows, resolve)).resolves.toEqual(rows);
+    expect(resolve).toHaveBeenCalledTimes(12);
+    expect(peak).toBe(RESOLVE_CONCURRENCY);
+  });
+
+  it("does not resolve rows against references already present in the items", async () => {
+    const row = { url: "https://gdg.community.dev/events/details/same", startDate: "2025-03-01" };
+    const resolve = vi.fn(async (url: string) => url);
+    await expect(dedupeEventsByResolvedUrl([row], resolve, [row])).resolves.toEqual([row]);
+    expect(resolve).not.toHaveBeenCalled();
+  });
+
   it("retains distinct same-date destinations and skips lookups for unique dates", async () => {
     const resolve = vi.fn(async (url: string) => url);
     const collision = [
@@ -102,21 +164,70 @@ describe("redirect-aware event deduplication", () => {
     ]);
   });
 
+  it("resolves manual redirect locations without depending on a runtime rewriting Response.url", async () => {
+    const fetcher = vi.fn(async (url: string, _options?: RequestInit) => new Response(url));
+    // Response.url is readonly in Node; a controlled descriptor represents the final HTTP request.
+    fetcher.mockImplementation(async (url: string) => {
+      const r = new Response(
+        null,
+        url === legacy ? { status: 302, headers: { location: current } } : {},
+      );
+      Object.defineProperty(r, "url", { value: url });
+      return r;
+    });
+    expect(await resolveEventDestinationUrl(legacy, fetcher as typeof fetch)).toBe(current);
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(fetcher.mock.calls[0][1]?.signal).toBeInstanceOf(AbortSignal);
+    expect(fetcher.mock.calls[0][1]?.signal).toBe(fetcher.mock.calls[1][1]?.signal);
+  });
+  it("bounds redirect loops/chains and rejects missing or unsafe locations", async () => {
+    for (const location of [
+      null,
+      "https://[invalid",
+      "https://example.org/outside",
+      "http://gdg.community.dev/events/details/unsafe",
+      "https://user@gdg.community.dev/events/details/unsafe",
+      "https://:secret@gdg.community.dev/events/details/unsafe",
+    ]) {
+      const fetcher = vi.fn(
+        async () => new Response(null, { status: 302, headers: location ? { location } : {} }),
+      );
+      expect(await resolveEventDestinationUrl(legacy, fetcher as typeof fetch)).toBe(legacy);
+    }
+    const loop = vi.fn(
+      async () => new Response(null, { status: 302, headers: { location: legacy } }),
+    );
+    expect(await resolveEventDestinationUrl(legacy, loop as typeof fetch)).toBe(legacy);
+    expect(loop).toHaveBeenCalledTimes(1);
+    let count = 0;
+    const chain = vi.fn(
+      async () =>
+        new Response(null, {
+          status: 302,
+          headers: { location: `/events/details/hop-${++count}` },
+        }),
+    );
+    expect(await resolveEventDestinationUrl(legacy, chain as typeof fetch)).toBe(legacy);
+    expect(chain).toHaveBeenCalledTimes(5);
+  });
   it("follows only successful redirects that remain GDG event-detail URLs", async () => {
-    const fetcher = vi.fn().mockResolvedValue({ ok: true, url: current });
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: current } }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
     await expect(resolveEventDestinationUrl(legacy, fetcher as typeof fetch)).resolves.toBe(
       current,
     );
     expect(fetcher).toHaveBeenCalledWith(
       legacy,
-      expect.objectContaining({ method: "HEAD", redirect: "follow" }),
+      expect.objectContaining({ method: "HEAD", redirect: "manual" }),
     );
 
     await expect(
       resolveEventDestinationUrl(
         legacy,
         vi.fn().mockResolvedValue({
-          ok: true,
+          ok: false,
           url: "https://gdg.community.dev/gdg-bhubaneswar/",
         }) as typeof fetch,
       ),

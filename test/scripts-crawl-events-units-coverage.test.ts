@@ -9,6 +9,7 @@ import {
   inferType,
   isFatalCrawlFailure,
   isTransientFetchFailure,
+  organizerSource,
   parseDate,
   parseGDGEventCards,
   shouldSkip,
@@ -19,6 +20,12 @@ const nextDataHtml = (payload: unknown) =>
   `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify(payload)}</script>`;
 
 describe("crawl-events pure helper functions", () => {
+  it("fails loudly when an adapter requests an unregistered official link", () => {
+    expect(() =>
+      organizerSource("odishaai", "odishaai.ts", { linkLabel: "Missing destination" }),
+    ).toThrow("Organizer odishaai has no Missing destination link");
+  });
+
   describe("isTransientFetchFailure / isFatalCrawlFailure", () => {
     it("treats non-HttpError failures (network errors) as transient", () => {
       expect(isTransientFetchFailure(new Error("network down"))).toBe(true);

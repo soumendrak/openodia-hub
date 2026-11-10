@@ -2,11 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const videoHarness = vi.hoisted(() => ({ fetch: vi.fn() }));
 
-vi.mock("../src/lib/fetch-utils", () => ({
-  fetchWithTimeout: videoHarness.fetch,
-  settledValues: (results: PromiseSettledResult<unknown>[]) =>
-    results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
-}));
+vi.mock("../src/lib/fetch-utils", () => ({ fetchWithTimeout: videoHarness.fetch }));
 vi.mock("../src/lib/sources/cache", () => ({
   cachedJson: (_key: string, _ttl: number, loader: () => unknown) => loader(),
   UpstreamUnavailableError: class UpstreamUnavailableError extends Error {},

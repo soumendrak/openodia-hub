@@ -24,4 +24,21 @@ export const pmecBerhampurEvents: Omit<Event, "community">[] = [
       note: "Registration by email is advertised; attendee categories, fee and eligibility are not published.",
     },
   },
+  {
+    year: "2026",
+    date: "4–6 Oct 2026",
+    title: "IEEE Edge AI Hackathon 2026",
+    url: "https://edspmec.github.io/eds-pmec/hackathon.html",
+    type: "Hackathon",
+    location:
+      "Department of Electronics & Telecommunication Engineering, PMEC, Sitalapalli, Berhampur, Odisha",
+    startDate: "2026-10-04",
+    endDate: "2026-10-06",
+    description:
+      "The onsite final of a hardware hackathon run by the IEEE EDS PMEC Student Branch Chapter and IEEE CEDA, where shortlisted teams built edge AI solutions on FPGA, Raspberry Pi/Renesas and ESP32/Arduino TinyML tracks.",
+    attendance: {
+      policy: "approval",
+      note: "Only teams shortlisted from submitted abstracts reached the onsite final, which charged ₹1,000 per IEEE member and ₹1,200 per other participant.",
+    },
+  },
 ];

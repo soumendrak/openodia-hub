@@ -370,6 +370,23 @@ const oneChannel = [
 ];
 
 describe("tutorials route", () => {
+  it("validates, restores, and updates a linkable query", async () => {
+    const route = await loadRoute(() => import("../src/routes/tutorials"));
+    expect(route.validateSearch?.({ q: "Big Views" })).toEqual({ q: "Big Views" });
+    expect(route.validateSearch?.({ q: "x".repeat(81) })).toEqual({});
+    routeHarness.search["/tutorials"] = { q: "Big Views" };
+    routeHarness.loaderData["/tutorials"] = { channels: oneChannel };
+    renderComponent(route.component);
+    const input = screen.getByPlaceholderText(/Search videos/i);
+    expect(input).toHaveValue("Big Views");
+    fireEvent.change(input, { target: { value: "Channel A" } });
+    expect(input).toHaveValue("Channel A");
+    expect(routeHarness.navigate).toHaveBeenCalledWith({
+      search: { q: "Channel A" },
+      replace: true,
+    });
+  });
+
   it("returns loaded channels on success and an empty list on failure", async () => {
     const { loader } = await loadRoute(() => import("../src/routes/tutorials"));
     videosMocks.loadVideos.mockResolvedValueOnce(oneChannel);

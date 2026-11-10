@@ -1,0 +1,95 @@
+name: Add an organizer
+description: Propose a community, campus chapter, institution, or government body that runs Odia AI events.
+title: "[Organizer]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Publication requires maintainer review, and nothing here is published automatically. Listing an
+        organizer does not mean its events are open to everyone. Fill in only what its official pages state,
+        and choose **Unknown / not stated** for anything they do not say. Prefer to edit the data yourself?
+        Open a pull request instead; see [CONTRIBUTING.md](https://github.com/soumendrak/openodia-hub/blob/main/CONTRIBUTING.md#adding-events-or-communities).
+  - type: input
+    id: canonical_name
+    attributes:
+      label: Organizer name
+      description: The name the organizer uses for itself on its official pages. Organizers must be a community, group, or organisation, not an individual.
+    validations:
+      required: true
+  - type: textarea
+    id: aliases
+    attributes:
+      label: Other names (aliases)
+      description: Abbreviations, earlier names, or other spellings used on event pages, one per line. They match events to this organizer and never become separate organizers.
+  - type: dropdown
+    id: kind
+    attributes:
+      label: Kind of organizer
+      description: If you are not sure, choose Unknown. A maintainer then picks the kind from the official links during review.
+      options:
+        - community — community group
+        - student-community — campus chapter or student club
+        - institution — university, college, or institute
+        - government — government department or agency
+        - startup-ecosystem — startup or incubation programme
+        - conference — conference series
+        - Unknown / not stated
+    validations:
+      required: true
+  - type: input
+    id: region
+    attributes:
+      label: Region
+      description: Where it is based, e.g. "Bhubaneswar" or "Odisha / global online".
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: One sentence in your own words about what the organizer does.
+    validations:
+      required: true
+  - type: textarea
+    id: official_links
+    attributes:
+      label: Official links
+      description: One per line as "label - URL", e.g. "Official website - https://example.org/". Use only pages run by the organizer.
+    validations:
+      required: true
+  - type: textarea
+    id: relationship
+    attributes:
+      label: Relationship to listed organizers
+      description: Say if it is a chapter, co-host, or renamed version of an organizer already on /communities. Leave blank if none.
+  - type: input
+    id: suggested_id
+    attributes:
+      label: Suggested ID
+      description: Optional lowercase, hyphenated ID, e.g. "gdgoc-example". Maintainers choose the final ID.
+  - type: input
+    id: evidence_url
+    attributes:
+      label: Evidence URL
+      description: The official page where you checked these details.
+      placeholder: https://...
+    validations:
+      required: true
+  - type: input
+    id: evidence_checked_on
+    attributes:
+      label: Date you checked the evidence
+      description: YYYY-MM-DD.
+      placeholder: "2026-10-10"
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Review
+      options:
+        - label: I understand this is reviewed before anything is published, and listing an organizer does not mean its events are open.
+          required: true
+        - label: Every detail above comes from the organizer's official pages, and anything they do not state is marked unknown.
+          required: true

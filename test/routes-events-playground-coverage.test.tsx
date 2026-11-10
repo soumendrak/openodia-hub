@@ -3,12 +3,19 @@ import type { ReactNode } from "react";
 import type { Mock } from "vitest";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Event } from "../src/data/events/types";
+import { eventListSchema } from "../src/lib/jsonld";
 
 // ---------------------------------------------------------------------------
 // Shared mock state
 // ---------------------------------------------------------------------------
 
-type LiveEventsPage = { events: Event[]; total: number; nextCursor?: string };
+type LiveEventsPage = {
+  events: Event[];
+  total: number;
+  nextCursor?: string;
+  partial?: boolean;
+  years?: string[];
+};
 type InfiniteQueryOptions = {
   queryFn: (args: { pageParam: number }) => Promise<LiveEventsPage>;
   getNextPageParam: (lastPage: LiveEventsPage, allPages: unknown[]) => number | undefined;
@@ -21,17 +28,71 @@ const infiniteHarness = vi.hoisted(() => ({
   fetchNextPage: vi.fn(),
   hasNextPage: false,
   isFetchingNextPage: false,
+  isFetchNextPageError: false,
   lastOptions: undefined as InfiniteQueryOptions | undefined,
 }));
 
-vi.mock("@tanstack/react-router", () => ({
-  createFileRoute: (_path: string) => (options: Record<string, unknown>) => ({ options }),
+const routeHarness = vi.hoisted(() => ({
+  search: {} as {
+    q?: string;
+    year?: string;
+    sort?: "oldest";
+    community?: string;
+    type?: Event["type"];
+  },
+  listeners: new Set<() => void>(),
+  navigate: vi.fn(),
 }));
+
+const queryHarness = vi.hoisted(() => ({
+  data: undefined as { events: Event[] } | undefined,
+  isPending: false,
+  isError: false,
+  lastOptions: undefined as
+    | { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }
+    | undefined,
+}));
+
+vi.mock("@tanstack/react-start", () => ({
+  createServerFn: () => ({ handler: (callback: () => Promise<unknown>) => callback }),
+}));
+
+vi.mock("@tanstack/react-router", async () => {
+  const React = await import("react");
+  return {
+    Link: ({ to, hash, children, ...rest }: { to: string; hash?: string; children: ReactNode }) => (
+      <a href={`${to}${hash ? "#" + hash : ""}`} {...rest}>
+        {children}
+      </a>
+    ),
+    createFileRoute: (_path: string) => (options: Record<string, unknown>) => ({
+      options,
+      useLoaderData: () => ({ events: dataFixture.events }),
+      useSearch: () =>
+        React.useSyncExternalStore(
+          (listener) => {
+            routeHarness.listeners.add(listener);
+            return () => routeHarness.listeners.delete(listener);
+          },
+          () => routeHarness.search,
+        ),
+      useNavigate: () => routeHarness.navigate,
+    }),
+  };
+});
 
 vi.mock("@tanstack/react-query", () => ({
   useInfiniteQuery: (options: InfiniteQueryOptions) => {
     infiniteHarness.lastOptions = options;
     return infiniteHarness;
+  },
+  useQuery: (options: { queryFn: () => Promise<{ events: Event[] }>; enabled: boolean }) => {
+    queryHarness.lastOptions = options;
+    return {
+      data: queryHarness.data,
+      isPending: queryHarness.isPending,
+      isError: queryHarness.isError,
+    };
   },
 }));
 
@@ -42,7 +103,7 @@ vi.mock("../src/components/Reveal", () => ({
 vi.mock("../src/lib/jsonld", () => ({
   JsonLd: () => null,
   breadcrumbSchema: () => ({}),
-  eventListSchema: () => ({}),
+  eventListSchema: vi.fn(() => ({})),
 }));
 
 vi.mock("../src/data/events", () => ({
@@ -100,7 +161,7 @@ const PAST_2020: Event[] = [
     title: "Alpha Talk",
     url: "https://example.com/e1",
     type: "Talk",
-    community: "Comm A",
+    community: "TFUG BBSR",
     description: "Alpha description",
   },
   {
@@ -109,7 +170,7 @@ const PAST_2020: Event[] = [
     title: "Beta Workshop",
     url: "https://example.com/e2",
     type: "Workshop",
-    community: "Comm B",
+    community: "GDG Bhubaneswar",
     description: "Beta description",
   },
   {
@@ -118,7 +179,7 @@ const PAST_2020: Event[] = [
     title: "Gamma Conference",
     url: "https://example.com/e3",
     type: "Conference",
-    community: "Comm A",
+    community: "TFUG BBSR",
     description: "Gamma description",
     startDate: "2020-03-05",
     endDate: "2020-03-05",
@@ -129,7 +190,7 @@ const PAST_2020: Event[] = [
     title: "Delta Hackathon",
     url: "https://example.com/e4",
     type: "Hackathon",
-    community: "Comm C",
+    community: "OdishaAI",
     description: "Delta description",
   },
 ];
@@ -151,8 +212,19 @@ beforeEach(() => {
   infiniteHarness.data = undefined;
   infiniteHarness.hasNextPage = false;
   infiniteHarness.isFetchingNextPage = false;
+  infiniteHarness.isFetchNextPageError = false;
   infiniteHarness.lastOptions = undefined;
   infiniteHarness.fetchNextPage.mockClear();
+  routeHarness.search = {};
+  routeHarness.navigate.mockClear();
+  routeHarness.navigate.mockImplementation(({ search }) => {
+    routeHarness.search = search;
+    routeHarness.listeners.forEach((listener) => listener());
+  });
+  queryHarness.data = undefined;
+  queryHarness.isPending = false;
+  queryHarness.isError = false;
+  queryHarness.lastOptions = undefined;
 });
 
 afterEach(() => {
@@ -170,7 +242,443 @@ afterEach(() => {
 // src/routes/events.tsx
 // ---------------------------------------------------------------------------
 
+// Every element a screen reader treats as a live region, de-duplicated: the
+// implicitly live roles (status, alert, log, marquee, timer) and any explicit
+// aria-live other than "off".
+function liveRegions(root: ParentNode = document) {
+  return Array.from(
+    new Set([
+      ...root.querySelectorAll(
+        '[role="status"], [role="alert"], [role="log"], [role="marquee"], [role="timer"]',
+      ),
+      ...root.querySelectorAll('[aria-live]:not([aria-live="off"])'),
+    ]),
+  );
+}
+
 describe("events.tsx", () => {
+  it("loads reviewed initial server data without blocking on a live scrape", async () => {
+    dataFixture.events = PAST_2020;
+    globalThis.fetch = vi.fn(async () => {
+      throw new Error("no live request expected");
+    });
+    const initial = await EventsRouteAny.options.loader();
+    expect(initial.events).toHaveLength(PAST_2020.length);
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+  it("keeps cancellations and unresolved postponements visible outside active and past recommendations", () => {
+    const proof = { evidenceUrl: "https://example.com/official", verifiedAt: "2026-10-12" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        url: "https://example.com/cancelled",
+        title: "Cancelled future",
+        year: "2099",
+        startDate: "2099-01-01",
+        lifecycle: { state: "cancelled", ...proof },
+      },
+      {
+        ...PAST_2020[0],
+        url: "https://example.com/postponed",
+        title: "Unresolved future",
+        year: "2099",
+        startDate: "2099-01-01",
+        lifecycle: { state: "postponed", ...proof },
+      },
+    ];
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    const section = screen.getByRole("region", { name: "Cancelled or postponed" });
+    expect(section).toHaveTextContent("Cancelled future");
+    expect(section).toHaveTextContent("Unresolved future");
+    expect(screen.queryByRole("heading", { name: "Upcoming" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Past Events" })).not.toBeInTheDocument();
+    expect(document.querySelector("a a")).toBeNull();
+  });
+  it("uses replacement dates in active cards and preserves separate registration and eligibility", () => {
+    const proof = { evidenceUrl: "https://example.com/official", verifiedAt: "2026-10-12" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        date: "10 Jan 2027",
+        year: "2027",
+        startDate: "2027-01-10",
+        endDate: "2027-01-11",
+        lifecycle: {
+          state: "postponed",
+          previousDate: "2027-01-10",
+          replacementDate: "2099-03-01",
+          ...proof,
+        },
+        registration: { state: "closed", ...proof },
+        attendance: { policy: "public", note: "Public audience" },
+      },
+    ];
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByText(/Rescheduled/)).toHaveTextContent("2099-03-01");
+    expect(screen.getByText(/Original date:/)).toHaveTextContent("2027-01-10");
+    expect(screen.getByText(/Registration closed/)).toBeInTheDocument();
+    expect(screen.getByText("Open to all")).toBeInTheDocument();
+    expect(screen.queryByText(/free/i)).not.toBeInTheDocument();
+  });
+  it("does not invent an original date when a rescheduling notice gives only the new date", () => {
+    const proof = { evidenceUrl: "https://example.com/official", verifiedAt: "2026-10-12" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        startDate: "2099-01-10",
+        year: "2099",
+        lifecycle: { state: "postponed", replacementDate: "2099-03-01", ...proof },
+      },
+    ];
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(/Original date:/)).toHaveTextContent("unknown");
+    expect(screen.getByText(/Rescheduled/)).toHaveTextContent("2099-03-01");
+    const schemaEvents = vi.mocked(eventListSchema).mock.calls.at(-1)![0];
+    expect(schemaEvents[0].previousStartDate).toBeUndefined();
+    expect(schemaEvents[0].startDate).toBe("2099-03-01");
+  });
+  it("ignores a cached full-search corpus after filters are cleared", () => {
+    dataFixture.events = [];
+    infiniteHarness.data = { pages: [{ events: [PAST_2020[0]], total: 2, nextCursor: "2" }] };
+    infiniteHarness.hasNextPage = true;
+    queryHarness.data = { events: PAST_2020 };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
+    expect(screen.queryByText("Beta Workshop")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Load more/ })).toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+  });
+  it.each([{ year: "2020" }, { sort: "oldest" as const }, { q: "Alpha" }])(
+    "warns when the active full-corpus query fails after paginated data succeeds: %j",
+    (search) => {
+      dataFixture.events = PAST_2020;
+      routeHarness.search = search;
+      infiniteHarness.data = { pages: [{ events: [], total: 0, partial: false }] };
+      queryHarness.isError = true;
+      const Component = EventsRouteAny.options.component;
+      render(<Component />);
+      expect(queryHarness.lastOptions?.enabled).toBe(true);
+      expect(screen.getByText(/Known events remain listed/)).not.toHaveAttribute("role");
+      expect(liveRegions()).toHaveLength(1);
+      expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
+    },
+  );
+  it("does not reuse a disabled full-query error after archive filters clear", () => {
+    dataFixture.events = PAST_2020;
+    queryHarness.isError = true;
+    infiniteHarness.data = { pages: [{ events: [], total: 0, partial: false }] };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    expect(screen.queryByText(/Known events remain listed/)).not.toBeInTheDocument();
+  });
+  it("shows partial-source warnings while retaining checked-in events", () => {
+    dataFixture.events = PAST_2020;
+    infiniteHarness.data = { pages: [{ events: [], total: 0, partial: true }] };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    const warning = screen.getByText(/Known events remain listed/);
+    expect(warning).toHaveTextContent("does not confirm registration");
+    expect(warning).not.toHaveAttribute("role");
+    expect(liveRegions()).toHaveLength(1);
+    expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
+  });
+
+  it("restores canonical year/sort filters, searches all pages, and clears year state", () => {
+    dataFixture.events = [
+      ...PAST_2020,
+      {
+        ...PAST_2020[0],
+        year: "2021",
+        title: "Newer event",
+        url: "https://example.com/newer",
+        startDate: "2021-01-01",
+      },
+    ];
+    routeHarness.search = { year: "2020", sort: "oldest" };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByLabelText("Archive year")).toHaveValue("2020");
+    expect(screen.getByLabelText("Event sort")).toHaveValue("oldest");
+    expect(screen.queryByText("Newer event")).not.toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Archive year"), { target: { value: "2021" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { year: "2021", sort: "oldest" },
+    });
+    fireEvent.change(screen.getByLabelText("Event sort"), { target: { value: "newest" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { year: "2021", sort: undefined },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Clear Filters/ }));
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { sort: undefined },
+      replace: true,
+    });
+  });
+
+  it("keeps an empty archive-year selection visible and explains the result", () => {
+    routeHarness.search = { year: "1999" };
+    dataFixture.events = PAST_2020;
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(screen.getByLabelText("Archive year")).toHaveValue("1999");
+    expect(screen.getByText("No events matched.")).toBeInTheDocument();
+    expect(screen.queryByText("Alpha Talk")).not.toBeInTheDocument();
+  });
+
+  it("sorts the canonical archive chronologically across years and dates", () => {
+    routeHarness.search = { sort: "oldest" };
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        year: "2021",
+        date: "1 Jan 2021",
+        startDate: "2021-01-01",
+        title: "Later year",
+        url: "https://example.com/later-year",
+      },
+      {
+        ...PAST_2020[0],
+        startDate: "2020-12-01",
+        title: "Later date",
+        url: "https://example.com/later-date",
+      },
+      {
+        ...PAST_2020[0],
+        startDate: "2020-01-01",
+        title: "Earlier date",
+        url: "https://example.com/earlier-date",
+      },
+    ];
+    const Component = EventsRouteAny.options.component;
+    const { container } = render(<Component />);
+    const titles = [...container.querySelectorAll("h3 a")].map((element) => element.textContent);
+    expect(titles).toEqual(["Earlier date", "Later date", "Later year"]);
+    fireEvent.change(screen.getByLabelText("Event sort"), { target: { value: "oldest" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({ search: { sort: "oldest" } });
+    fireEvent.change(screen.getByLabelText("Archive year"), { target: { value: "" } });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { sort: "oldest", year: undefined },
+    });
+  });
+
+  it("validates all event filter parameters and preserves honest invalid-ID states", () => {
+    expect(
+      EventsRouteAny.options.validateSearch({
+        q: "kiit",
+        community: "gdgoc-kiit",
+        type: "Workshop",
+      }),
+    ).toEqual({ q: "kiit", community: "gdgoc-kiit", type: "Workshop" });
+    expect(
+      EventsRouteAny.options.validateSearch({ q: 42, community: 42, type: "invalid" }),
+    ).toEqual({});
+    expect(EventsRouteAny.options.validateSearch({ community: "x".repeat(81) })).toEqual({});
+    routeHarness.search = { community: "unknown-id" };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(/not a known organizer/)).not.toHaveAttribute("role");
+    expect(liveRegions()).toHaveLength(1);
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    expect(screen.getByText("No events matched.")).toBeInTheDocument();
+  });
+  it.each(["organizer", "type"])(
+    "fetches beyond loaded pages for the %s filter and keeps independent links",
+    (filter) => {
+      const hidden = { ...PAST_2020[0], community: "GDGoC KIIT", type: "Workshop" as const };
+      routeHarness.search =
+        filter === "organizer" ? { community: "gdgoc-kiit" } : { type: "Workshop" };
+      queryHarness.data = { events: [hidden] };
+      render(<EventsRouteAny.options.component />);
+      expect(queryHarness.lastOptions?.enabled).toBe(true);
+      const title = screen.getByRole("link", { name: hidden.title });
+      expect(title).toHaveAttribute("href", hidden.url);
+      expect(screen.getByRole("link", { name: "GDGoC KIIT", exact: true })).toHaveAttribute(
+        "href",
+        "/communities#gdgoc-kiit",
+      );
+      expect(document.querySelector("a a")).toBeNull();
+    },
+  );
+  it.each(["pending", "error"])(
+    "labels incomplete result scope when the complete corpus is %s",
+    (state) => {
+      routeHarness.search = { type: "Workshop" };
+      queryHarness.isPending = state === "pending";
+      queryHarness.isError = state === "error";
+      render(<EventsRouteAny.options.component />);
+      const notice = screen.getByText(
+        state === "pending" ? /Counts below cover loaded events/ : /previously loaded events only/,
+      );
+      // Pending/error scope copy is static context; the count region is the one live region.
+      expect(notice).not.toHaveAttribute("role");
+      const live = liveRegions();
+      expect(live).toHaveLength(1);
+      expect(live[0]).toHaveAttribute("aria-live", "polite");
+    },
+  );
+  it.each([
+    ["skips", PAST_2020, 1, false],
+    ["does not skip", [], 0, false],
+    ["does not retry after a failed automatic request for", PAST_2020, 0, true],
+  ])("%s a Load More page that only repeats bundled events", (_, page2, calls, failed) => {
+    dataFixture.events = PAST_2020;
+    infiniteHarness.hasNextPage = true;
+    infiniteHarness.isFetchNextPageError = failed;
+    infiniteHarness.data = {
+      pages: [
+        { events: [], total: 40, nextCursor: "2" },
+        { events: page2.length ? page2 : [FAR_FUTURE], total: 40, nextCursor: "3" },
+      ],
+    };
+    render(<EventsRouteAny.options.component />);
+    expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(calls);
+  });
+  it.each([
+    ["2026-10-14T18:29:59Z", 1],
+    ["2026-10-14T18:30:00Z", 0],
+  ])("ends a same-day event at IST midnight (now %s)", (now, live) => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date(now));
+    dataFixture.events = [
+      { ...PAST_2020[0], year: "2026", startDate: "2026-10-14", endDate: "2026-10-14" },
+    ];
+    render(<EventsRouteAny.options.component />);
+    expect(screen.queryAllByText("Live")).toHaveLength(live);
+    vi.useRealTimers();
+  });
+  it("offers archive years from the whole corpus before their pages are loaded", () => {
+    infiniteHarness.data = { pages: [{ events: [], total: 40, nextCursor: "2", years: ["2017"] }] };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByRole("option", { name: "2017" })).toBeInTheDocument();
+  });
+  it.each([false, true])(
+    "keeps pagination reachable when the complete corpus fails (fetching: %s)",
+    (fetching) => {
+      routeHarness.search = { sort: "oldest" };
+      queryHarness.isError = true;
+      infiniteHarness.hasNextPage = true;
+      infiniteHarness.isFetchingNextPage = fetching;
+      render(<EventsRouteAny.options.component />);
+      const button = screen.getByRole("button", {
+        name: fetching ? "Loading…" : "Load more events",
+      });
+      fireEvent.click(button);
+      expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(fetching ? 0 : 1);
+    },
+  );
+  it("searches canonical organizer names and aliases without title matches", () => {
+    dataFixture.events = [{ ...PAST_2020[0], community: "TFUG BBSR" }];
+    routeHarness.search = { q: "Bhubaneswar" };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(PAST_2020[0].title)).toBeInTheDocument();
+  });
+  it("preserves all other URL filters when each control changes", () => {
+    routeHarness.search = { q: "Alpha", community: "gdgoc-kiit", type: "Workshop" };
+    dataFixture.events = [{ ...PAST_2020[0], community: "GDGoC KIIT", type: "Workshop" }];
+    render(<EventsRouteAny.options.component />);
+    fireEvent.change(screen.getByPlaceholderText("Search events… [/]"), {
+      target: { value: "next" },
+    });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { q: "next", community: "gdgoc-kiit", type: "Workshop" },
+      replace: true,
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by organizer" }), {
+      target: { value: "tfug-bbsr" },
+    });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { q: "next", community: "tfug-bbsr", type: "Workshop" },
+      replace: true,
+    });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by event type" }), {
+      target: { value: "Conference" },
+    });
+    expect(routeHarness.navigate).toHaveBeenLastCalledWith({
+      search: { q: "next", community: "tfug-bbsr", type: "Conference" },
+      replace: true,
+    });
+  });
+  it("returns to loaded-page pagination after clearing a cached full-corpus filter", () => {
+    const loaded = { ...PAST_2020[0], title: "Loaded first page" };
+    const hidden = { ...PAST_2020[1], title: "Hidden second page" };
+    infiniteHarness.data = { pages: [{ events: [loaded], total: 2, nextCursor: "2" }] };
+    infiniteHarness.hasNextPage = true;
+    queryHarness.data = { events: [loaded, hidden] };
+    routeHarness.search = { q: "Hidden" };
+    render(<EventsRouteAny.options.component />);
+    expect(screen.getByText(hidden.title)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Clear Filters" }));
+    expect(screen.getByText(loaded.title)).toBeInTheDocument();
+    expect(screen.queryByText(hidden.title)).not.toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(infiniteHarness.fetchNextPage).toHaveBeenCalledTimes(1);
+  });
+  it.each([
+    ["a partial page", { pages: [{ events: [], total: 0, partial: true }] }, {}, undefined],
+    ["a partial complete corpus", undefined, { q: "x" }, { events: [], partial: true }],
+  ])("warns when the events API returns %s", (_, pages, search, complete) => {
+    infiniteHarness.data = pages as never;
+    routeHarness.search = search;
+    queryHarness.data = complete as never;
+    render(<EventsRouteAny.options.component />);
+    expect(
+      screen.getByText(/Some event sources are incomplete or unavailable/),
+    ).toBeInTheDocument();
+  });
+  it("restores a linkable query and searches the complete event corpus", async () => {
+    const hiddenEvent: Event = {
+      year: "2026",
+      date: "21 Sep 2026",
+      title: "Hidden Odia Search Meetup",
+      url: "https://example.com/hidden-search-meetup",
+      type: "Talk",
+      community: "OpenOdia",
+      description: "Not present in the loaded timeline pages.",
+      startDate: "2026-09-21",
+      endDate: "2026-09-21",
+    };
+    expect(EventsRouteAny.options.validateSearch({ q: hiddenEvent.title })).toEqual({
+      q: hiddenEvent.title,
+    });
+    expect(EventsRouteAny.options.validateSearch({ q: "x".repeat(81) })).toEqual({});
+    routeHarness.search = { q: hiddenEvent.title };
+    queryHarness.data = { events: [hiddenEvent] };
+    infiniteHarness.data = { pages: [{ events: [], total: 0 }] };
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+
+    expect(screen.getByPlaceholderText("Search events… [/]")).toHaveValue(hiddenEvent.title);
+    expect(screen.getByText(hiddenEvent.title)).toBeInTheDocument();
+    expect(queryHarness.lastOptions?.enabled).toBe(true);
+    fireEvent.change(screen.getByPlaceholderText("Search events… [/]"), {
+      target: { value: "next event" },
+    });
+    expect(screen.getByPlaceholderText("Search events… [/]")).toHaveValue("next event");
+    expect(routeHarness.navigate).toHaveBeenCalledWith({
+      search: { q: "next event" },
+      replace: true,
+    });
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(
+      new Response(JSON.stringify({ events: [hiddenEvent] }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }),
+    );
+    await expect(queryHarness.lastOptions?.queryFn()).resolves.toEqual({ events: [hiddenEvent] });
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/events");
+
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(new Response(null, { status: 503 }));
+    await expect(queryHarness.lastOptions?.queryFn()).rejects.toThrow(
+      "Failed to fetch complete event search corpus",
+    );
+  });
+
   it("computes page head metadata with an RSS alternate link", () => {
     const head = EventsRouteAny.options.head();
     expect(
@@ -283,7 +791,7 @@ describe("events.tsx", () => {
         title: "Has Start",
         url: "https://example.com/has-start",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
         startDate: "2021-01-05",
         endDate: "2021-01-05",
@@ -294,7 +802,7 @@ describe("events.tsx", () => {
         title: "No Start",
         url: "https://example.com/no-start",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
       },
     ];
@@ -312,7 +820,7 @@ describe("events.tsx", () => {
         title: "Malformed Start Dash",
         url: "https://example.com/malformed-1",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
         startDate: "2023",
       },
@@ -322,7 +830,7 @@ describe("events.tsx", () => {
         title: "Malformed Start Month",
         url: "https://example.com/malformed-2",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "d",
         startDate: "2023-13-01",
       },
@@ -347,6 +855,32 @@ describe("events.tsx", () => {
     expect(screen.getAllByText(/Odia AI/i).length).toBeGreaterThan(0);
   });
 
+  it("keeps the event-count live region mounted through the first filter and clear", () => {
+    dataFixture.events = PAST_2020;
+    const Component = EventsRouteAny.options.component;
+    render(<Component />);
+    expect(liveRegions()).toHaveLength(1);
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
+    const community = screen.getByRole("combobox", { name: "Filter by organizer" });
+    fireEvent.change(community, { target: { value: "tfug-bbsr" } });
+    expect(liveRegions()).toHaveLength(1);
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent("2 events matched");
+    fireEvent.click(screen.getByRole("button", { name: /Clear Filters/i }));
+    expect(liveRegions()).toHaveLength(1);
+    expect(screen.getByRole("status")).toBe(region);
+    expect(region).toHaveTextContent(`${PAST_2020.length} events shown`);
+    const search = screen.getByRole("searchbox", { name: "Search events" });
+    fireEvent.change(search, { target: { value: "Alpha" } });
+    expect(region).toHaveTextContent("1 event matched");
+    fireEvent.change(search, { target: { value: "no-matching-event" } });
+    expect(region).toHaveTextContent("0 events matched");
+    expect(region).toHaveAttribute("aria-live", "polite");
+    expect(region).toHaveAttribute("aria-atomic", "true");
+    expect(liveRegions()).toEqual([region]);
+  });
+
   it("filters by search text, type, and community, and clears active filters", () => {
     dataFixture.events = PAST_2020;
     const Component = EventsRouteAny.options.component;
@@ -362,9 +896,10 @@ describe("events.tsx", () => {
     fireEvent.click(clearQueryButton);
     expect(searchInput).toHaveValue("");
 
-    const [communitySelect, typeSelect] = screen.getAllByRole("combobox");
+    const communitySelect = screen.getByRole("combobox", { name: "Filter by organizer" });
+    const typeSelect = screen.getByRole("combobox", { name: "Filter by event type" });
 
-    fireEvent.change(communitySelect, { target: { value: "Comm A" } });
+    fireEvent.change(communitySelect, { target: { value: "tfug-bbsr" } });
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
     expect(screen.queryByText("Delta Hackathon")).not.toBeInTheDocument();
 
@@ -376,7 +911,7 @@ describe("events.tsx", () => {
     fireEvent.change(typeSelect, { target: { value: "" } });
     expect(screen.getByText("Alpha Talk")).toBeInTheDocument();
 
-    fireEvent.change(communitySelect, { target: { value: "Comm C" } });
+    fireEvent.change(communitySelect, { target: { value: "odishaai" } });
     expect(screen.getByText("Delta Hackathon")).toBeInTheDocument();
     expect(screen.queryByText("Alpha Talk")).not.toBeInTheDocument();
 
@@ -446,6 +981,25 @@ describe("events.tsx", () => {
 
     expect(document.getElementById("year-2020")).not.toBeNull();
   });
+
+  it.each([false, true])(
+    "bypasses animated timeline scrolling under reduced motion with Lenis=%s",
+    (withLenis) => {
+      dataFixture.events = PAST_2020;
+      infiniteHarness.data = { pages: [{ events: [FAR_FUTURE], total: 1 }] };
+      vi.spyOn(window, "matchMedia").mockReturnValue({ matches: true } as MediaQueryList);
+      const scrollTo = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+      const lenisScrollTo = vi.fn();
+      if (withLenis) {
+        (window as unknown as { lenis?: unknown }).lenis = { scrollTo: lenisScrollTo };
+      }
+      const Component = EventsRouteAny.options.component;
+      render(<Component />);
+      clickTimelineNode("Upcoming");
+      expect(scrollTo).toHaveBeenCalledWith({ top: expect.any(Number), behavior: "instant" });
+      expect(lenisScrollTo).not.toHaveBeenCalled();
+    },
+  );
 
   it("navigates the timeline via lenis smooth-scroll, the native fallback, and releases the scroll lock on unmount", () => {
     dataFixture.events = PAST_2020;
@@ -557,7 +1111,7 @@ describe("events-feed.ts", () => {
         title: "No Date Event",
         url: "https://example.com/nodate",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
       {
@@ -566,7 +1120,7 @@ describe("events-feed.ts", () => {
         title: "Invalid Date Valid Year",
         url: "https://example.com/invalid-valid-year",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
       {
@@ -575,7 +1129,7 @@ describe("events-feed.ts", () => {
         title: "Invalid Date Invalid Year",
         url: "https://example.com/invalid-invalid-year",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
       {
@@ -584,7 +1138,7 @@ describe("events-feed.ts", () => {
         title: "Invalid Date No Year",
         url: "https://example.com/invalid-no-year",
         type: "Talk",
-        community: "Comm A",
+        community: "TFUG BBSR",
         description: "desc",
       },
     ];
@@ -660,6 +1214,7 @@ describe("events-feed.ts", () => {
   });
 
   it("falls back to the UTC date string when Intl formatting throws while computing today's date", async () => {
+    dataFixture.events = PAST_2020;
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
     const intlSpy = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(() => {
       throw new Error("Intl not available");
@@ -688,20 +1243,7 @@ describe("events-feed.ts", () => {
 // ---------------------------------------------------------------------------
 
 describe("api/events.ts", () => {
-  it("returns an empty date string when Date construction throws", async () => {
-    const RealDate = globalThis.Date;
-    class ThrowingDate extends RealDate {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      constructor(...args: any[]) {
-        if (args.length === 1 && args[0] === "BOOMDATE") {
-          throw new RangeError("simulated invalid date");
-        }
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        super(...(args as any));
-      }
-    }
-    vi.stubGlobal("Date", ThrowingDate);
-
+  it("rejects an invalid source date instead of inventing calendar metadata", async () => {
     const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
         pageProps: {
@@ -727,10 +1269,7 @@ describe("api/events.ts", () => {
       .mockResolvedValue({ ok: true, status: 200, text: async () => html } as Response);
 
     const events = await fetchChapterEvents("Community", "chapter");
-    expect(events).toHaveLength(1);
-    expect(events[0]?.date).toBe("");
-
-    vi.unstubAllGlobals();
+    expect(events).toEqual([]);
   });
 
   it("returns no events when prerenderData is missing from a hydrated page", async () => {
@@ -745,24 +1284,58 @@ describe("api/events.ts", () => {
     expect(events).toEqual([]);
   });
 
+  it("keeps RSS retryable on total failure without retained events, while successful-empty stays available", async () => {
+    dataFixture.events = [];
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
+    const failed = await eventsFeedGet();
+    expect(failed.status).toBe(503);
+    expect(failed.headers.get("X-OpenOdia-Partial")).toBe("true");
+    globalThis.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: async () =>
+        `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({ props: { pageProps: { prerenderData: { upcomingEvents: { results: [], count: 0 }, pastEvents: { results: [], count: 0 } } } } })}</script>`,
+    } as Response);
+    const empty = await eventsFeedGet();
+    expect(empty.status).toBe(200);
+    expect(empty.headers.get("X-OpenOdia-Partial")).toBe("false");
+    const api = await apiEventsGet(new Request("https://openodia.com/api/events"));
+    expect(api.status).toBe(200);
+    expect((await api.json()).partial).toBe(false);
+  });
+
+  it("returns a retryable unavailable response on total failure without retained events", async () => {
+    dataFixture.events = [];
+    globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 503 } as Response);
+    const response = await apiEventsGet(new Request("https://openodia.com/api/events"));
+    expect(response.status).toBe(503);
+    const data = await response.json();
+    expect(data.events).toEqual([]);
+    expect(data.partial).toBe(true);
+    expect(data.sources.every((source: { outcome: string }) => source.outcome === "failed")).toBe(
+      true,
+    );
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  });
+
   it("returns 500 when dedupe throws during live event ingestion", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue({ ok: false, status: 500 } as Response);
     const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
-    (dedupeEventsByUrl as unknown as Mock).mockImplementationOnce(() => {
-      throw new Error("dedupe boom");
+    (mergeEventCollectionsByUrl as unknown as Mock).mockImplementationOnce(() => {
+      throw new Error("canonical merge boom");
     });
 
     const response = await apiEventsGet(new Request("https://openodia.com/api/events"));
     expect(response.status).toBe(500);
-    expect(await response.json()).toEqual({ events: [] });
-    expect(consoleErrorSpy).toHaveBeenCalledWith("Live events ingestion error:", expect.any(Error));
+    expect(await response.json()).toEqual({ events: [], partial: true, sources: [] });
+    expect(consoleErrorSpy).toHaveBeenCalledWith("Live events ingestion error");
   });
 
-  it("falls back to empty upcoming results and a default event type when Bevy data omits them", async () => {
+  it("falls back to a default event type when Bevy data omits it", async () => {
     const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
       props: {
         pageProps: {
           prerenderData: {
+            upcomingEvents: { results: [] },
             pastEvents: {
               results: [
                 {

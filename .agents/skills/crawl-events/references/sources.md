@@ -80,10 +80,12 @@ agent reviews them on the stated cadence and adds verified events by hand, follo
 | Fakir Mohan University              | https://fmuniversity.nic.in/dept_notice?dept_id=12                                                                                                                | `src/data/events/fakir-mohan-university.ts` | Weekly  | Table dates are publication/expiry dates, **not** event dates — open the PDF.                                             |
 | Ravenshaw University                | https://ravenshawuniversity.ac.in/eventreportdisp.php                                                                                                             | `src/data/events/ravenshaw-university.ts`   | Weekly  | One table, no per-event URLs: only one event can use the listing URL — find a report/notice URL for others.               |
 | Odisha State Open University        | https://osou.ac.in/training-programmes-fdp-workshop.html                                                                                                          | `src/data/events/osou.ts`                   | Weekly  | One table, no per-event URLs (same one-URL limit). Many programmes are online → `Online`. TLS cert errors: use `curl -k`. |
-| Parala Maharaja Engineering College | https://pmec.ac.in/event/aimlcps-2-26/                                                                                                                            | `src/data/events/pmec-berhampur.ts`         | Weekly  | Conference registration may be author-only; check attendee terms.                                                         |
+| Parala Maharaja Engineering College | https://pmec.ac.in/event/aimlcps-2-26/ · https://edspmec.github.io/eds-pmec/hackathon.html (IEEE EDS PMEC SBC)                                                    | `src/data/events/pmec-berhampur.ts`         | Weekly  | Conference registration may be author-only; check attendee terms.                                                         |
 | SOA / OAIC                          | https://www.oaic.in/                                                                                                                                              | `src/data/events/soa-oaic.ts`               | Weekly  | Call for papers ≠ attendee registration. Distinct from the Odisha AI community conference.                                |
 | Startup Odisha / O-Hub              | https://startupodisha.gov.in/events/ (detail pages under `/latest_events/`) · https://startups.aws.com/events/cloud-innovate-odisha-startup-acceleration-day      | `src/data/events/startup-odisha.ts`         | Daily   | Audience-targeted (startups) → `eligibility`; "Request to attend" → `approval`. TLS cert errors: use `curl -k`.           |
 | Odisha E&IT / OCAC                  | https://ocac.in/ · https://aimission.odisha.gov.in/                                                                                                               | `src/data/events/odisha-eit.ts`             | Daily   | Reject AI tenders, pre-bid meetings, and working-group stakeholder meetings.                                              |
+| NMIET Bhubaneswar                   | https://www.nirmit.space/events (NIRMIT fest)                                                                                                                     | `src/data/events/nmiet-bhubaneswar.ts`      | Weekly  | Fest site covers many non-AI events; add only AI hackathons/workshops, and each needs its own URL.                        |
+| AIC-NITF                            | https://innovateodisha.aicnitf.in/ (Innovate Odisha)                                                                                                              | `src/data/events/aic-nitf.ts`               | Weekly  | Student hackathon with AI among several technologies; the deadline has been extended, so re-check the timeline.           |
 
 Second-batch / watchlist (discover weekly; create a data file only when the first event is
 verified): Bhubaneswar Data + AI (https://www.meetup.com/bhubaneswar-data-ai-meetup-group/),
@@ -123,9 +125,13 @@ propose them in the PR description before adding them here.
 
 ## Adding a new community
 
-1. Create `src/data/events/<slug>.ts` using any existing file as a template.
-2. Add an import and entry to `src/data/events/index.ts` `sources` array.
-3. Add a row to this file under the appropriate section, including the data-file path.
-4. For a gdg.community.dev chapter, also add it to `SOURCES` in `scripts/crawl-events.mjs`.
+1. Follow `docs/organizers.md`: a maintainer must confirm the identity and official destination,
+   then add it to `src/data/organizers.ts`. A research candidate is not automatically publishable.
+2. Create `src/data/events/<slug>.ts` using any existing file as a template.
+3. Add an import and organizer-ID entry to `src/data/events/index.ts` `sources` array.
+4. Add a row to this file under the appropriate section, including the data-file path.
+5. For a gdg.community.dev chapter, add only its adapter details to `SOURCES` in
+   `scripts/crawl-events.mjs`; identity and official URLs come from the organizer registry.
 
-`test/event-source-registry.test.ts` fails if any of steps 2–4 is missed.
+`test/event-source-registry.test.ts` fails if the registry, data-file, documentation, or adapter
+wiring is missed.
