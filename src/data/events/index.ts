@@ -45,6 +45,7 @@ import { soaOaicEvents } from "./soa-oaic";
 import { startupOdishaEvents } from "./startup-odisha";
 import { odishaEitEvents } from "./odisha-eit";
 import { nmietBhubaneswarEvents } from "./nmiet-bhubaneswar";
+import { aicNitfEvents } from "./aic-nitf";
 
 type RawEvent = Omit<Event, "community">;
 
@@ -76,6 +77,7 @@ const sources: { organizerId: OrganizerId; events: RawEvent[] }[] = [
   { organizerId: "startup-odisha", events: startupOdishaEvents },
   { organizerId: "odisha-eit", events: odishaEitEvents },
   { organizerId: "nmiet-bhubaneswar", events: nmietBhubaneswarEvents },
+  { organizerId: "aic-nitf", events: aicNitfEvents },
 ];
 
 const MONTH_MAP: Record<string, number> = {

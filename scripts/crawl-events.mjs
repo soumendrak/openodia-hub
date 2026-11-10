@@ -605,10 +605,7 @@ export async function main() {
     if (insertPoint > 0) {
       const before = existingContent.slice(0, insertPoint);
       const after = existingContent.slice(insertPoint).replace(/^\s*\n/, "");
-      // Empty array (`= []`) → no leading blank line before the closing `]`.
-      const isEmpty = after.trimStart().startsWith("]");
-      const block = isEmpty ? `\n${formatted}\n` : `\n  // auto-crawled\n${formatted}\n`;
-      writeFileSync(filePath, `${before}${block}${after}`);
+      writeFileSync(filePath, `${before}\n${formatted}\n${after}`);
     } else {
       console.error(`  ❌ Could not locate array literal in ${source.file} — skipped`);
       continue;
