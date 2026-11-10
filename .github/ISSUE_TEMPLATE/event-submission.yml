@@ -61,6 +61,8 @@ body:
         - "SOA (OAIC) (soa-oaic)"
         - "Startup Odisha (startup-odisha)"
         - "Odisha E&IT / OCAC (odisha-eit)"
+        - "NMIET Bhubaneswar (nmiet-bhubaneswar)"
+        - "AIC-NITF (aic-nitf)"
         - "Not listed yet (name it below)"
     validations:
       required: true

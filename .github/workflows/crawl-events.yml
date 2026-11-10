@@ -22,13 +22,20 @@ jobs:
           set -e
           echo "has_changes=$(grep -c 'NEW_EVENTS_FOUND' /tmp/crawl-output.txt || true)" >> $GITHUB_OUTPUT
           exit $status
+      - name: Format crawled event data
+        if: (success() || failure()) && steps.crawl.outputs.has_changes != '0'
+        run: bunx prettier --write src/data/events
+      - name: Date for the PR title
+        id: date
+        if: (success() || failure()) && steps.crawl.outputs.has_changes != '0'
+        run: echo "today=$(date +'%b %d')" >> "$GITHUB_OUTPUT"
       - name: Create PR if event data changed
         if: (success() || failure()) && steps.crawl.outputs.has_changes != '0'
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.PAT }}
           commit-message: "auto: crawl new Odia AI events"
-          title: "Odia AI event data updated — $(date +'%b %d')"
+          title: "Odia AI event data updated — ${{ steps.date.outputs.today }}"
           body: |
             Automated crawl found new events or refreshed redirected event destinations.
 

@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { handleMcpRequest } from "../src/lib/mcp";
+import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
+import { SEARCH_KINDS, createMcpServer, handleMcpRequest } from "../src/lib/mcp";
 import type { SearchSnapshot } from "../src/lib/sources/search";
 
 const snapshot: SearchSnapshot = {
@@ -110,6 +111,37 @@ describe("MCP Streamable HTTP integration", () => {
       expect((empty.structuredContent as { results: unknown[] }).results).toEqual([]);
     } finally {
       await client.close();
+    }
+  });
+
+  it("rejects an oversized kinds list before reporting each entry", async () => {
+    const loader = vi.fn().mockResolvedValue(snapshot);
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    const server = createMcpServer(loader);
+    await server.connect(serverTransport);
+    const client = new Client({ name: "integration-test", version: "1.0.0" });
+    await client.connect(clientTransport);
+    try {
+      const kinds = Array.from({ length: 100_000 }, () => "not-a-kind");
+      const started = performance.now();
+      const result = await client.callTool({
+        name: "search",
+        arguments: { query: "Odia", kinds },
+      });
+      const elapsed = performance.now() - started;
+      expect(result.isError).toBe(true);
+      const text = (result.content ?? [])
+        .map((block) => (block.type === "text" ? block.text : ""))
+        .join("\n");
+      expect(text.split("\n").length).toBe(1);
+      expect(text.length).toBeLessThan(500);
+      expect(text.includes("not-a-kind")).toBe(false);
+      expect(text.includes(`<=${SEARCH_KINDS.length} items`)).toBe(true);
+      expect(elapsed).toBeLessThan(100);
+      expect(loader).not.toHaveBeenCalled();
+    } finally {
+      await client.close();
+      await server.close();
     }
   });
 
