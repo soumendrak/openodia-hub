@@ -19,6 +19,8 @@ const HYDRATION_MESSAGE = /hydrat|react error|server rendered|did not match/i;
 const QUIET_MS = 750;
 const SETTLE_LIMIT_MS = 15000;
 const NEEDS_TEXT = new Set(["click", "link", "press", "expect"]);
+const argumentText = (verb, arg) =>
+  (verb === "press" ? arg : arg.replace(/[\u200b\u00ad]/g, "")).trim();
 
 const splitOnce = (text, separator) => {
   const at = text.indexOf(separator);
@@ -191,7 +193,7 @@ try {
   await mkdir(out, { recursive: true });
   for (const step of steps) {
     const [verb, arg] = splitOnce(step, ":");
-    if (NEEDS_TEXT.has(verb) && arg.trim() === "") {
+    if (NEEDS_TEXT.has(verb) && argumentText(verb, arg) === "") {
       failed = { step, error: `${verb}: needs text` };
       throw new Error(failed.error);
     }
