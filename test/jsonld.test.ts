@@ -1,5 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { REGISTRATION_STATES } from "../src/data/events/types";
+import { getISTDateString } from "../src/lib/ist-date";
 import { eventListSchema, serializeJsonLd } from "../src/lib/jsonld";
 
 describe("serializeJsonLd", () => {
@@ -101,6 +102,11 @@ describe("eventListSchema", () => {
     const unspecified = item(base);
     expect(unspecified.location).toEqual({ "@type": "VirtualLocation" });
   });
+
+  it("omits VirtualLocation.url when joinUrl is an empty string", () => {
+    const out = item({ ...base, location: "Online", joinUrl: "" });
+    expect(out.location).toEqual({ "@type": "VirtualLocation" });
+  });
 });
 
 describe("eventListSchema offers gating (lifecycle and registration)", () => {
@@ -177,6 +183,20 @@ describe("eventListSchema offer expiry in IST", () => {
     const oneDay = { ...free, startDate: "2026-02-16" };
     expect(offer(oneDay, new Date("2026-02-16T18:00:00.000Z"))).toHaveProperty("offers");
     expect(offer(oneDay, new Date("2026-02-16T18:30:00.000Z"))).not.toHaveProperty("offers");
+  });
+
+  it("keeps the free offer when Intl throws, matching the helper's UTC date", () => {
+    const spy = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(function DateTimeFormat() {
+      throw new Error("Intl formatting unavailable");
+    });
+    try {
+      const now = new Date("2026-02-16T18:30:00.000Z");
+      const oneDay = { ...free, startDate: "2026-02-16" };
+      expect(getISTDateString(now)).toBe("2026-02-16");
+      expect(offer(oneDay, now)).toHaveProperty("offers");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 
