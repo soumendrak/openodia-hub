@@ -164,19 +164,42 @@ export const ownedTypes = {
             : [];
         const aliasOf = (type: ts.Type) =>
           listed(type, ts.ObjectFlags.Mapped) ? [] : (type.aliasTypeArguments ?? []);
-        if (zip(argsOf(s), argsOf(t)) || zip(aliasOf(s), aliasOf(t))) return true;
+        const sourceArgs = argsOf(s);
+        const targetArgs = argsOf(t);
+        if (sourceArgs.length !== targetArgs.length) return hollow(s);
+        if (zip(sourceArgs, targetArgs) || zip(aliasOf(s), aliasOf(t))) return true;
         const open = (type: ts.Type) => listed(type, ts.ObjectFlags.Mapped) || local(type);
         if (!open(s) || !open(t)) return false;
-        const returnsOf = (signatures: readonly ts.Signature[]) =>
-          signatures.map((signature) => signature.getReturnType());
+        const fits = (source: ts.Signature, target: ts.Signature) => {
+          const sourceParams = source.getParameters();
+          const targetParams = target.getParameters();
+          return (
+            sourceParams.length <= targetParams.length &&
+            sourceParams.every((parameter, index) =>
+              checker.isTypeAssignableTo(
+                checker.getTypeOfSymbol(targetParams[index]!),
+                checker.getTypeOfSymbol(parameter),
+              ),
+            )
+          );
+        };
+        const returnsReach = (
+          sourceSigs: readonly ts.Signature[],
+          targetSigs: readonly ts.Signature[],
+        ) =>
+          targetSigs.some((targetSig) => {
+            const matched = sourceSigs.filter((sourceSig) => fits(sourceSig, targetSig));
+            if (matched.length === 0)
+              return hollow(s) && brands(targetSig.getReturnType()).length > 0;
+            return matched.some((sourceSig) =>
+              visit(sourceSig.getReturnType(), targetSig.getReturnType()),
+            );
+          });
         const calls = (type: ts.Type) => type.getCallSignatures();
         const constructs = (type: ts.Type) => type.getConstructSignatures();
         if (calls(s).length !== calls(t).length || constructs(s).length !== constructs(t).length)
           return hollow(s);
-        if (
-          zip(returnsOf(calls(s)), returnsOf(calls(t))) ||
-          zip(returnsOf(constructs(s)), returnsOf(constructs(t)))
-        )
+        if (returnsReach(calls(s), calls(t)) || returnsReach(constructs(s), constructs(t)))
           return true;
         const sourceIndexes = checker.getIndexInfosOfType(s);
         const sourceProperties = checker.getPropertiesOfType(s);

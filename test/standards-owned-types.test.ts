@@ -144,6 +144,19 @@ const flagged: Record<string, string> = {
   R56: "type Source = { (): any; (x: string): any };\nconst loose = raw as Source;\nexport const make: () => CanonicalEvent = loose;",
   R57: 'type Owned = { tag: "owned"; value: CanonicalEvent };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Owned | { tag: "other"; value: string } = input;\n  return out;\n}',
   R58: "const payload = { event: JSON.parse(s) };\nexport const events: Record<string, CanonicalEvent> = payload;",
+  Y10: "declare const a: Array<any>;\nexport const r: Iterable<CanonicalEvent> = a;",
+  Y01: "declare function count(es: Iterable<CanonicalEvent>): number;\nexport const n = count(new Set<any>(JSON.parse(s)));",
+  Y02: "declare const t: [any, any];\nexport const xs: readonly CanonicalEvent[] = t;",
+  Y03: "declare const m: Map<string, any>;\ndeclare function take(it: Iterable<readonly [string, CanonicalEvent]>): void;\ntake(m);",
+  X05: "type Source = { (x: string): string; (): any };\nconst loose = raw as Source;\nexport const make: { (): CanonicalEvent; (x: string): string } = loose;",
+  X07: "type Source = { (x: number): any };\nconst loose = raw as Source;\nexport const make: (x: string) => CanonicalEvent = loose;",
+  Z01: 'type Owned = { tag: "owned"; value: CanonicalEvent };\ntype Other = { tag: "other"; value: string };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Other | Owned = input;\n  return out;\n}',
+  Z02: "declare const p: Promise<any>;\nexport const e: Promise<CanonicalEvent> = p;",
+  Z10: "declare const arr: Array<any>;\nexport const xs: ReadonlyArray<CanonicalEvent> = arr;",
+  Z03: "const payload = { 0: JSON.parse(s) };\nexport const events: Record<number, CanonicalEvent> = payload;",
+  Z04: 'declare const value: { tag: any; value: any };\nexport const out: { tag: "a"; value: CanonicalEvent } | { tag: "b"; value: CanonicalEvent } = value;',
+  Z05: "type Box = CanonicalEvent & { readonly extra: true };\ndeclare const value: { leak: any };\nexport const boxed: Box = value;",
+  Z08: "type Source = { new (): any };\ntype Target = { new (): CanonicalEvent };\ndeclare const Factory: Source;\nexport const make: Target = Factory;",
 };
 
 const clean: Record<string, string> = {
@@ -184,6 +197,7 @@ const clean: Record<string, string> = {
   L37: "function read<T extends CanonicalEvent>(value: CanonicalEvent): T {\n  return value;\n}\nexport const out = read;",
   L38: "interface A { b: B }\ninterface B { a: A; event: CanonicalEvent }\ninterface A2 { b: B2 }\ninterface B2 { a: A2; event: CanonicalEvent }\nexport function copy(value: A): A2 {\n  return value;\n}",
   L39: "const payload = { event };\nexport const events: Record<string, CanonicalEvent> = payload;",
+  Z09: "const payload = { 0: event, label: JSON.parse(s) };\nexport const events: Record<number, CanonicalEvent> = payload;",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -292,6 +306,11 @@ afterAll(() => {
 });
 
 describe("isolated/owned-types", () => {
+  it("keeps the flagged and clean probe lists", () => {
+    expect(Object.keys(flagged).length).toBeGreaterThanOrEqual(107);
+    expect(Object.keys(clean).length).toBeGreaterThanOrEqual(39);
+  });
+
   it.each([...Object.keys(flagged), "J01"])("flags %s", (name) => {
     const found = messages.get(`probes/${name}`) ?? [];
     expect(found.length).toBeGreaterThan(0);
