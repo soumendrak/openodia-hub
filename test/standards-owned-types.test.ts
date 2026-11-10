@@ -140,6 +140,7 @@ const flagged: Record<string, string> = {
   C03: 'export async function load() {\n  const Events = await import("../events");\n  return raw as ReturnType<typeof Events.join>;\n}',
   C04: "export async function load(response?: Response) {\n  const e: CanonicalEvent | undefined = await response?.json();\n  return e;\n}",
   C06: "function parse(x: string): CanonicalEvent;\nfunction parse(x: unknown) {\n  return x;\n}\nexport const e = parse(s);",
+  R55: 'type Loose = { tag: "a"; value: any } | { tag: "b"; value: string };\ntype Owned = { tag: "c"; value: CanonicalEvent } | { tag: "d"; value: CanonicalEvent };\nexport const e: Owned = raw as Loose;',
 };
 
 const clean: Record<string, string> = {
@@ -175,6 +176,10 @@ const clean: Record<string, string> = {
   L32: 'import type { Ref } from "../events";\nexport const r = raw as Ref;',
   L33: "interface Holder<T> {\n  get(): T;\n}\nfunction read<T>(holder: Holder<T>): T {\n  return holder.get();\n}\nexport const e = (holder: Holder<CanonicalEvent>) => read(holder);",
   L34: "function apply<T, R>(value: T, fn: (item: T) => R): R {\n  return fn(value);\n}\nexport const e = apply(event, (item) => item);",
+  L35: 'function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(event)]));',
+  L36: 'function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(s)]));',
+  L37: "function read<T extends CanonicalEvent>(value: CanonicalEvent): T {\n  return value;\n}\nexport const out = read;",
+  L38: "interface A { b: B }\ninterface B { a: A; event: CanonicalEvent }\ninterface A2 { b: B2 }\ninterface B2 { a: A2; event: CanonicalEvent }\nexport function copy(value: A): A2 {\n  return value;\n}",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 

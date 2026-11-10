@@ -100,6 +100,87 @@ export const ownedTypes = {
     const holds = (flags: ts.TypeFlags, deep?: boolean) => (type: ts.Type) =>
       closure(String(flags), (t) => (t.flags & flags ? ["held"] : []), deep)(type).length > 0;
     const [hollow, generic] = [holds(Any | Never, true), holds(Param)];
+    const reaches = (source: ts.Type, target: ts.Type) => {
+      const seen = new WeakMap<ts.Type, WeakMap<ts.Type, boolean>>();
+      const visit = (s: ts.Type, t: ts.Type): boolean => {
+        if (!(s.flags & (Any | Never)) && s === t) return false;
+        if (!brands(t).length) return false;
+        if (s.flags & (Any | Never)) return true;
+        let row = seen.get(s);
+        if (row?.has(t)) return row.get(t) ?? false;
+        row ??= new WeakMap();
+        seen.set(s, row);
+        row.set(t, false);
+        const result = align(s, t);
+        row.set(t, result);
+        return result;
+      };
+      const listed = (type: ts.Type, flag: ts.ObjectFlags) =>
+        !!((type as ts.TypeReference).objectFlags & flag);
+      const align = (s: ts.Type, t: ts.Type): boolean => {
+        const baseOf = (type: ts.Type) =>
+          type.flags & ts.TypeFlags.Instantiable
+            ? checker.getBaseConstraintOfType(type)
+            : undefined;
+        const sBase = baseOf(s);
+        if (sBase && sBase !== s) return visit(sBase, t);
+        const tBase = baseOf(t);
+        if (tBase && tBase !== t) return visit(s, tBase);
+        if (s.isUnion()) {
+          if (!t.isUnion()) return s.types.some((member) => visit(member, t));
+          const used = new Set<ts.Type>();
+          const pairs = s.types.map((member) => {
+            const [hit, second] = t.types.filter(
+              (part) => !used.has(part) && checker.isTypeAssignableTo(member, part),
+            );
+            if (hit && !second) used.add(hit);
+            return hit && !second ? ([member, hit] as const) : undefined;
+          });
+          if (pairs.every((pair): pair is readonly [ts.Type, ts.Type] => !!pair))
+            return pairs.some(([member, hit]) => visit(member, hit));
+          return hollow(s);
+        }
+        if (t.isUnion()) {
+          const [hit, second] = t.types.filter((part) => checker.isTypeAssignableTo(s, part));
+          return hit && !second ? visit(s, hit) : hollow(s);
+        }
+        if (!(s.flags & Shape) || !(t.flags & Shape)) return hollow(s);
+        const fields = new Map(
+          checker
+            .getPropertiesOfType(s)
+            .map((property) => [property.name, checker.getTypeOfSymbol(property)]),
+        );
+        if (
+          checker.getPropertiesOfType(t).some((property) => {
+            const field = fields.get(property.name);
+            return !!field && visit(field, checker.getTypeOfSymbol(property));
+          })
+        )
+          return true;
+        const zip = (left: readonly ts.Type[], right: readonly ts.Type[]) =>
+          left.length === right.length && left.some((item, index) => visit(item, right[index]!));
+        const argsOf = (type: ts.Type) =>
+          listed(type, ts.ObjectFlags.Reference)
+            ? checker.getTypeArguments(type as ts.TypeReference)
+            : [];
+        const aliasOf = (type: ts.Type) =>
+          listed(type, ts.ObjectFlags.Mapped) ? [] : (type.aliasTypeArguments ?? []);
+        if (zip(argsOf(s), argsOf(t)) || zip(aliasOf(s), aliasOf(t))) return true;
+        const open = (type: ts.Type) => listed(type, ts.ObjectFlags.Mapped) || local(type);
+        if (!open(s) || !open(t)) return false;
+        const returnsOf = (type: ts.Type) =>
+          [...type.getCallSignatures(), ...type.getConstructSignatures()].map((signature) =>
+            signature.getReturnType(),
+          );
+        if (zip(returnsOf(s), returnsOf(t))) return true;
+        const sourceIndexes = checker.getIndexInfosOfType(s);
+        return checker.getIndexInfosOfType(t).some((info) => {
+          const match = sourceIndexes.find((index) => index.keyType === info.keyType);
+          return !!match && visit(match.type, info.type);
+        });
+      };
+      return visit(source, target);
+    };
 
     const signatureOf = (node: ts.CallLikeExpression) => {
       const declaration = checker.getResolvedSignature(node)?.declaration;
@@ -218,7 +299,7 @@ export const ownedTypes = {
         const target = ts.isExpression(tsNode) && sink(node, tsNode);
         const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
         const type = !wrapper && target && brands(target).length && typeOf(node);
-        if (!target || !type || !hollow(type)) return;
+        if (!target || !type || !reaches(type, target)) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const body = type.flags & Never && call && "body" in call && call.body;
         const throws = body && ts.isBlock(body) && body.statements.every(ts.isThrowStatement);
