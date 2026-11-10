@@ -100,9 +100,9 @@ export const ownedTypes = {
     const holds = (flags: ts.TypeFlags, deep?: boolean) => (type: ts.Type) =>
       closure(String(flags), (t) => (t.flags & flags ? ["held"] : []), deep)(type).length > 0;
     const [hollow, generic] = [holds(Any | Never, true), holds(Param)];
-    const reaches = (source: ts.Type, target: ts.Type) => {
+    function reaches(source: ts.Type, target: ts.Type): boolean {
       const seen = new WeakMap<ts.Type, WeakMap<ts.Type, boolean>>();
-      const visit = (s: ts.Type, t: ts.Type): boolean => {
+      function visit(s: ts.Type, t: ts.Type): boolean {
         if (!(s.flags & (Any | Never)) && s === t) return false;
         if (!brands(t).length) return false;
         if (s.flags & (Any | Never)) return true;
@@ -114,10 +114,10 @@ export const ownedTypes = {
         const result = align(s, t);
         row.set(t, result);
         return result;
-      };
+      }
       const listed = (type: ts.Type, flag: ts.ObjectFlags) =>
         !!((type as ts.TypeReference).objectFlags & flag);
-      const align = (s: ts.Type, t: ts.Type): boolean => {
+      function align(s: ts.Type, t: ts.Type): boolean {
         const baseOf = (type: ts.Type) =>
           type.flags & ts.TypeFlags.Instantiable
             ? checker.getBaseConstraintOfType(type)
@@ -192,9 +192,9 @@ export const ownedTypes = {
             return covered && visit(checker.getTypeOfSymbol(property), info.type);
           });
         });
-      };
+      }
       return visit(source, target);
-    };
+    }
 
     const signatureOf = (node: ts.CallLikeExpression) => {
       const declaration = checker.getResolvedSignature(node)?.declaration;
