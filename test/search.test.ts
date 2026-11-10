@@ -78,6 +78,17 @@ describe("search normalization and ranking", () => {
     expect(searchDocuments(documents, "od ai")).toEqual([]);
   });
 
+  it("breaks equal score and identical title ties by stable ID independently of input order", () => {
+    const twins: SearchDocument[] = [
+      { id: "z", kind: "tool", title: "Odia toolkit", summary: "", source: "fixture" },
+      { id: "a", kind: "tool", title: "Odia toolkit", summary: "", source: "fixture" },
+    ];
+    expect(searchDocuments(twins, "odia").map((result) => result.id)).toEqual(["a", "z"]);
+    expect(searchDocuments([...twins].reverse(), "odia").map((result) => result.id)).toEqual([
+      "a",
+      "z",
+    ]);
+  });
   it("uses deterministic ties, bounded typo tolerance, kind scopes, and post-score limits", () => {
     const fixtures: SearchDocument[] = [
       { id: "z", kind: "tool", title: "Odia Zebra", summary: "", source: "fixture" },

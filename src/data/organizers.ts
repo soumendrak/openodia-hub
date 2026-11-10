@@ -436,6 +436,41 @@ export const ORGANIZERS = [
       ),
     ],
   },
+  {
+    id: "nmiet-bhubaneswar",
+    canonicalName: "NMIET Bhubaneswar",
+    aliases: ["NM Institute of Engineering & Technology", "NIRMIT"],
+    description: "An engineering institute in Bhubaneswar that hosts the NIRMIT tech fest.",
+    region: "Bhubaneswar",
+    kind: "institution",
+    collectionMode: "manual",
+    officialLinks: [
+      official(
+        "Official NIRMIT 2.0 fest site",
+        "https://www.nirmit.space/",
+        "2026-10-22",
+        "The fest site names NMIET Bhubaneswar as host and publishes the NexTech 2.0 schedule.",
+      ),
+    ],
+  },
+  {
+    id: "aic-nitf",
+    canonicalName: "AIC-NITF",
+    aliases: ["Atal Incubation Centre - Nalanda Institute of Technology Foundation", "AIC Nalanda"],
+    description:
+      "The Atal Incubation Centre at Nalanda Institute of Technology Foundation, Bhubaneswar, which organises the Innovate Odisha student hackathon.",
+    region: "Bhubaneswar",
+    kind: "startup-ecosystem",
+    collectionMode: "manual",
+    officialLinks: [
+      official(
+        "Official Innovate Odisha 3.0 site",
+        "https://innovateodisha.aicnitf.in/",
+        "2026-11-02",
+        "The hackathon site names AIC-Nalanda Institute of Technology Foundation, Bhubaneswar as organiser and publishes the Innovate Odisha 3.0 timeline.",
+      ),
+    ],
+  },
 ] as const satisfies readonly Organizer[];
 
 function normalizeIdentity(value: string): string {
@@ -544,4 +579,22 @@ export function validateOrganizerRegistry(registry: readonly OrganizerInput[]): 
   }
 
   return errors;
+}
+
+/**
+ * The organizer's homepage: an "Official website"/"homepage" link or a link to
+ * a site root. Undefined when there is none — a listing page is not a homepage.
+ * Malformed URLs are skipped rather than thrown, since this runs during render.
+ */
+export function organizerHomepage(
+  links: readonly { label: string; url: string }[],
+): string | undefined {
+  return links.find((l) => {
+    if (/website|homepage/i.test(l.label)) return true;
+    try {
+      return new URL(l.url).pathname === "/";
+    } catch {
+      return false;
+    }
+  })?.url;
 }

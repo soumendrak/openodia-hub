@@ -1,81 +1,88 @@
-name: Correct an event or organizer listing
-description: Report a correction, postponement, cancellation, or missing evidence for an existing listing.
+name: Correct or update an event
+description: Report a wrong detail, a postponement, a cancellation, or a duplicate in an existing listing.
 title: "[Event correction]: "
-labels:
-  - bug
+labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping keep the directory accurate. Publication changes require maintainer review. Please provide the listing's canonical URL or enough identifying detail to find it.
-
-        Do not infer that registration is open, free, or open to all. Write `Unknown / not stated` where the official source is silent.
+        Publication requires maintainer review. A listing on OpenOdia never means registration is open, and
+        nothing here is changed automatically. Report only what the official source states now, and write
+        **Unknown / not stated** for anything it does not say. Prefer to edit the data yourself? Open a pull
+        request instead; see [CONTRIBUTING.md](https://github.com/soumendrak/openodia-hub/blob/main/CONTRIBUTING.md#adding-events-or-communities).
   - type: input
-    id: listing
+    id: event_url
     attributes:
-      label: Existing listing URL or identifying details
-      description: Prefer the canonical event/detail URL. If it is unavailable, give the event name, organizer, and date.
-      placeholder: "https://example.org/events/odia-ai-meetup"
+      label: Canonical event URL of the listing
+      description: The event link shown on OpenOdia. It identifies the listing, so do not use a registration or tracking link.
+      placeholder: https://...
     validations:
       required: true
   - type: dropdown
-    id: correction_kind
+    id: change
     attributes:
-      label: What needs to change?
-      description: Select every applicable category.
+      label: What changed
+      description: Listings have no cancelled status, so a cancelled or duplicate listing is removed after review.
+      options:
+        - A detail is wrong
+        - Postponed or rescheduled
+        - Cancelled
+        - Attendance or registration rules changed
+        - Duplicate listing
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: fields
+    attributes:
+      label: Fields to change
+      description: Leave blank for a cancellation or a duplicate. Format (online, in person, hybrid) is part of the location.
       multiple: true
       options:
-        - Event details or organizer identity
-        - Date, postponement, or cancellation
-        - Canonical or registration URL
-        - Attendance, fee, deadline, capacity, or eligibility evidence
-        - Other factual correction
-    validations:
-      required: true
+        - Title
+        - Event URL
+        - Organizer
+        - Event type
+        - Dates
+        - Location or format
+        - Theme
+        - Description
+        - Who may attend
   - type: textarea
-    id: current_and_corrected
+    id: details
     attributes:
-      label: Current listing and proposed correction
-      description: Quote or link the current value, then provide the replacement. For a cancellation or postponement, state that directly.
-      placeholder: "Current: 23 May 2026\nCorrected: Postponed; replacement date unknown / not stated"
+      label: Current and correct values
+      description: For each field, what OpenOdia shows and what the source says now. Give dates as YYYY-MM-DD, or the month (e.g. "Nov 2026") if that is all the source states. For a postponement with no new date, write "not stated".
     validations:
       required: true
   - type: input
-    id: canonical_url
+    id: duplicate_of
     attributes:
-      label: Canonical event/detail URL after the correction
-      description: This is not the registration URL. Write `Unchanged`, `Unknown / not stated`, or `Not applicable` when appropriate.
-      placeholder: "https://example.org/events/odia-ai-meetup"
+      label: Listing to keep
+      description: Duplicate listings only. The canonical event URL of the listing that should stay.
+      placeholder: https://...
+  - type: input
+    id: evidence_url
+    attributes:
+      label: Evidence URL
+      description: The official page where you checked the change.
+      placeholder: https://...
     validations:
       required: true
   - type: input
-    id: registration_url
+    id: evidence_checked_on
     attributes:
-      label: Registration URL after the correction
-      description: Keep it separate from the canonical event page. Write `Unchanged`, `Unknown / not stated`, `Not open`, or `Not applicable` when appropriate.
-      placeholder: "https://example.org/register"
-    validations:
-      required: true
-  - type: textarea
-    id: attendance_and_registration
-    attributes:
-      label: Attendance and registration evidence
-      description: State policy, registration status, fee, deadline, capacity, and eligibility only when sourced. Use `Unknown / not stated` for every unknown value.
-      placeholder: "Attendance: Unknown / not stated\nRegistration: Unknown / not stated\nFee: Unknown / not stated\nDeadline / capacity / eligibility: Unknown / not stated"
-    validations:
-      required: true
-  - type: textarea
-    id: evidence
-    attributes:
-      label: Evidence and date checked
-      description: Link the official page or other evidence and state when you checked it.
-      placeholder: "Evidence: https://example.org/events/odia-ai-meetup\nChecked: 2026-09-22"
+      label: Date you checked the evidence
+      description: YYYY-MM-DD.
+      placeholder: "2026-10-10"
     validations:
       required: true
   - type: checkboxes
-    id: review_acknowledgement
+    id: acknowledgement
     attributes:
-      label: Review acknowledgement
+      label: Review
       options:
-        - label: I understand that a maintainer verifies this correction before publication, and that a listing does not imply open registration.
+        - label: I understand this is reviewed before anything is changed, and a listing does not mean registration is open.
+          required: true
+        - label: Every detail above comes from the source, and anything the source does not state is marked unknown.
           required: true

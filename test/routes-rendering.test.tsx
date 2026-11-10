@@ -1,3 +1,4 @@
+import { en } from "../src/locales/en";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ComponentType } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -147,7 +148,13 @@ vi.mock("../src/components/Nav", () => ({ Nav: () => <nav>nav</nav> }));
 vi.mock("../src/components/Footer", () => ({ Footer: () => <footer>footer</footer> }));
 vi.mock("../src/components/ScrollToTop", () => ({ ScrollToTop: () => null }));
 vi.mock("../src/components/CommandPalette", () => ({ CommandPalette: () => null }));
-vi.mock("../src/lib/i18n", () => ({
+vi.mock("../src/lib/i18n", async () => ({
+  T: ({ k }: { k: keyof typeof import("../src/locales/en").en }) => en[k],
+  useTranslation: () => ({
+    locale: "en",
+    t: (key: keyof typeof import("../src/locales/en").en) => en[key],
+    fallbackLang: () => undefined,
+  }),
   I18nProvider: ({ children }: { children?: React.ReactNode }) => children,
 }));
 vi.mock("../src/lib/jsonld", () => ({
@@ -208,6 +215,17 @@ afterEach(() => {
   routeHarness.invalidate.mockClear();
 });
 
+function expectFormLink(name: string, template: string) {
+  // The sr-only suffix warns screen-reader users that the form opens in a new tab.
+  const link = screen.getByRole("link", { name: `${name} (opens in a new tab)` });
+  expect(link).toHaveAttribute(
+    "href",
+    `https://github.com/soumendrak/openodia-hub/issues/new?template=${template}`,
+  );
+  link.focus();
+  expect(link).toHaveFocus();
+}
+
 describe("route rendering", () => {
   it("renders root shell, application frame, not-found, and error recovery", async () => {
     const root = await import("../src/routes/__root");
@@ -265,14 +283,14 @@ describe("route rendering", () => {
 
     await renderRoute("/contribute", () => import("../src/routes/contribute"));
     expect(screen.getByText(/Add your/i)).toBeInTheDocument();
+    expectFormLink("Submit an event", "event-submission.yml");
+    expectFormLink("Add an organizer", "organizer-submission.yml");
+    expectFormLink("Correct or update an event", "event-correction.yml");
     fireEvent.click(screen.getByRole("button", { name: "Copy" }));
     cleanup();
 
     await renderRoute("/api/", () => import("../src/routes/api/index"));
-    expect(document.querySelector("#api-reference")).toHaveAttribute(
-      "data-url",
-      "/.well-known/openapi.json",
-    );
+    expect(document.querySelector("#openodia-api-reference")).toHaveAttribute("data-api-reference");
   });
 
   it("renders populated model, dataset, paper, and tool directories", async () => {
@@ -448,6 +466,8 @@ describe("route rendering", () => {
   it("renders events and the Odialang playground without loading Pyodide", async () => {
     await renderRoute("/events", () => import("../src/routes/events"));
     expect(screen.getAllByText(/Odia AI/i).length).toBeGreaterThan(0);
+    expectFormLink("Submit an event", "event-submission.yml");
+    expectFormLink("Suggest a correction", "event-correction.yml");
     cleanup();
 
     routeHarness.search["/playground"] = { tab: "odia" };

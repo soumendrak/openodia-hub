@@ -4,9 +4,8 @@ set -eu
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root"
 
-echo "pre-commit: checking 100% coverage on changed executable lines"
-if command -v just >/dev/null 2>&1; then
-  exec just coverage-diff
+if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+  exec bun scripts/standards.ts --base MERGE_HEAD
 fi
 
-exec bun run test:coverage:diff -- --staged
+exec bun scripts/standards.ts --staged

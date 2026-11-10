@@ -4,11 +4,12 @@
  * Context-based, two locales (`en`, `or`), localStorage-persisted. Missing
  * Odia keys fall back to English so the site never shows raw key names.
  *
- * Why custom over react-i18next: this is intentionally a scaffold. The Odia
- * translation set is empty until a native speaker contributes; pulling in a
- * 30 KB i18n library to manage zero translations would be silly. Once real
- * Odia copy lands and we need plurals / interpolation / lazy loading, swap
- * the implementation behind useTranslation() without touching call sites.
+ * Why custom over react-i18next: this is intentionally a scaffold. The registered
+ * navigation, home hero/opening/statistics and footer copy is translated;
+ * test/locale-coverage.test.ts validates the explicit key/review inventory, so a 30 KB i18n library would be overkill.
+ * Once page bodies move to i18n and we need plurals / interpolation / lazy
+ * loading, swap the implementation behind useTranslation() without touching
+ * call sites.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { en } from "../locales/en";
@@ -24,6 +25,8 @@ type Ctx = {
   locale: Locale;
   setLocale: (l: Locale) => void;
   t: (key: TranslationKey) => string;
+  /** "en" when the key falls back to English in a non-English locale; for attributes. */
+  fallbackLang: (key: TranslationKey) => "en" | undefined;
 };
 
 const I18nContext = createContext<Ctx | null>(null);
@@ -46,11 +49,22 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // No interpolation yet: t() returns the string as-is. The placeholder check
+  // in test/locale-coverage.test.ts guards against `{name}` tokens drifting
+  // between en.ts and or.ts once interpolation is added.
   const t = (key: TranslationKey): string => {
-    return STRINGS[locale][key] ?? en[key];
+    const translation = STRINGS[locale][key];
+    return translation?.trim() ? translation : en[key];
   };
 
-  return <I18nContext.Provider value={{ locale, setLocale, t }}>{children}</I18nContext.Provider>;
+  const fallbackLang = (key: TranslationKey): "en" | undefined =>
+    locale !== "en" && !STRINGS[locale][key]?.trim() ? "en" : undefined;
+
+  return (
+    <I18nContext.Provider value={{ locale, setLocale, t, fallbackLang }}>
+      {children}
+    </I18nContext.Provider>
+  );
 }
 
 export function useTranslation() {
@@ -59,4 +73,11 @@ export function useTranslation() {
     throw new Error("useTranslation must be used within an I18nProvider");
   }
   return ctx;
+}
+
+/** Renders a UI string, marking an English fallback inside localized regions as English. */
+export function T({ k }: { k: TranslationKey }) {
+  const { t, fallbackLang } = useTranslation();
+  const lang = fallbackLang(k);
+  return lang ? <span lang={lang}>{t(k)}</span> : <>{t(k)}</>;
 }

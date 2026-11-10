@@ -1,3 +1,5 @@
+import { applyEventOverrides, resolveEventStatus } from "../../lib/event-lifecycle";
+import { EVENT_OVERRIDES } from "../event-overrides";
 /**
  * Aggregates all community event sources into a single sorted array.
  *
@@ -42,6 +44,8 @@ import { pmecBerhampurEvents } from "./pmec-berhampur";
 import { soaOaicEvents } from "./soa-oaic";
 import { startupOdishaEvents } from "./startup-odisha";
 import { odishaEitEvents } from "./odisha-eit";
+import { nmietBhubaneswarEvents } from "./nmiet-bhubaneswar";
+import { aicNitfEvents } from "./aic-nitf";
 
 type RawEvent = Omit<Event, "community">;
 
@@ -72,6 +76,8 @@ const sources: { organizerId: OrganizerId; events: RawEvent[] }[] = [
   { organizerId: "soa-oaic", events: soaOaicEvents },
   { organizerId: "startup-odisha", events: startupOdishaEvents },
   { organizerId: "odisha-eit", events: odishaEitEvents },
+  { organizerId: "nmiet-bhubaneswar", events: nmietBhubaneswarEvents },
+  { organizerId: "aic-nitf", events: aicNitfEvents },
 ];
 
 const MONTH_MAP: Record<string, number> = {
@@ -235,28 +241,11 @@ export const events: Event[] = sources
       }
     }
 
-    // 2. Fall back to event's original status if parsing is impossible
-    let status = event.status;
-
-    if (startStr) {
-      const today = getISTDateString();
-      const end = endStr || startStr;
-
-      if (today < startStr) {
-        status = "upcoming";
-      } else if (today >= startStr && today <= end) {
-        status = "live";
-      } else {
-        status = undefined; // past event
-      }
-    }
-
-    return {
-      ...event,
-      status,
-      startDate: startStr,
-      endDate: endStr,
-    };
+    const reviewed = applyEventOverrides(
+      { ...event, startDate: startStr, endDate: endStr },
+      EVENT_OVERRIDES,
+    );
+    return { ...reviewed, status: resolveEventStatus(reviewed, getISTDateString()) };
   })
   .sort((a, b) => {
     const yearDiff = Number(b.year) - Number(a.year);

@@ -26,6 +26,7 @@ describe("events-feed handler", () => {
               "props": {
                 "pageProps": {
                   "prerenderData": {
+                    "pastEvents": { "results": [] },
                     "upcomingEvents": {
                       "results": [
                         {
@@ -36,7 +37,8 @@ describe("events-feed handler", () => {
                           "url": "https://gdg.community.dev/events/details/tech-talk-test"
                         }
                       ]
-                    }
+                    },
+                    "pastEvents": { "results": [] }
                   }
                 }
               }

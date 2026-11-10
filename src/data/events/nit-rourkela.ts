@@ -72,5 +72,6 @@ export const nitRourkelaEvents: Omit<Event, "community">[] = [
       policy: "public",
       note: "No registration fee; open to UG/PG students, research scholars, faculty and industry professionals via a Google Form, though prior registration is mandatory.",
     },
+    free: true,
   },
 ];
