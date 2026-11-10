@@ -68,7 +68,7 @@ ROUTES
 drive /events "link:Tools" "expect:Sua" || bad="$bad /events->/tools"
 drive /communities "expect:TFUG Bhubaneswar" || bad="$bad /communities-organizers"
 drive /tutorials "expect:LLM Compression" || bad="$bad /tutorials-videos"
-counts="$(curl -sS "http://127.0.0.1:$VERIFY_PORT/api/translation-status" | jq -r '"\(.translated)/\(.total) ·"')"
+counts="$(curl -fsS "http://127.0.0.1:$VERIFY_PORT/api/translation-status" | jq -r '"\(.translated)/\(.total) ·"')"
 drive /translation-status "expect:$counts" || bad="$bad /translation-status-counts"
 [ -z "$bad" ] || { echo "FAILED:$bad"; false; }
 ```
@@ -77,6 +77,6 @@ Each run must exit 0 with status 200, and each `h1:` step must match the whole h
 
 - `/communities` renders the checked-in `src/data/organizers.ts` and `src/data/events/`.
 - `/tutorials` calls `loadVideos()`. `LLM Compression` is a recorded video; when loading fails, the page falls back to channel names only.
-- `/translation-status` calls `getLocaleStatus()` and must show the same `translated/total` count that `/api/translation-status` reports.
+- `/translation-status` calls `getLocaleStatus()` and must show the same `translated/total` count that `/api/translation-status` reports. If that lookup fails, `counts` is empty and `drive` rejects the bare `expect:`, so the journey fails.
 
 `/events` and `/papers` have only the heading check. When a change touches their data, check the rendered rows as well, not only `/api/events` or the KV catalog.
