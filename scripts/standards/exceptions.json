@@ -39,17 +39,6 @@
       "approvedBy": "pending-review:soumendrak"
     },
     {
-      "rule": "zizmor/cache-poisoning",
-      "file": ".github/workflows/ci.yml",
-      "findings": [
-        "jobs.deploy.steps.*.uses uses: oven-sh/setup-bun@v2",
-        "jobs.preview.steps.*.uses uses: oven-sh/setup-bun@v2"
-      ],
-      "reason": "Present on main when zizmor joined the standards gate; fix in a follow-up PR.",
-      "expires": "2027-01-29",
-      "approvedBy": "pending-review:soumendrak"
-    },
-    {
       "rule": "zizmor/dangerous-triggers",
       "file": ".github/workflows/translation-review.yml",
       "findings": [
@@ -117,22 +106,17 @@
       "file": ".github/workflows/ci.yml",
       "findings": [
         "jobs.standards.steps.*.uses actions/checkout@v4",
-        "jobs.standards.steps.*.uses oven-sh/setup-bun@v2",
         "jobs.standards.steps.*.uses actions/github-script@v7",
         "jobs.build.steps.*.uses actions/checkout@v4",
-        "jobs.build.steps.*.uses oven-sh/setup-bun@v2",
         "jobs.build.steps.*.uses actions/upload-artifact@v4",
         "jobs.e2e.steps.*.uses actions/checkout@v4",
-        "jobs.e2e.steps.*.uses oven-sh/setup-bun@v2",
         "jobs.e2e.steps.*.uses actions/setup-node@v4",
         "jobs.e2e.steps.*.uses actions/download-artifact@v4",
         "jobs.e2e.steps.*.uses actions/upload-artifact@v4",
         "jobs.e2e.steps.*.uses actions/upload-artifact@v4",
         "jobs.deploy.steps.*.uses actions/checkout@v4",
-        "jobs.deploy.steps.*.uses oven-sh/setup-bun@v2",
         "jobs.deploy.steps.*.uses cloudflare/wrangler-action@v3",
         "jobs.preview.steps.*.uses actions/checkout@v4",
-        "jobs.preview.steps.*.uses oven-sh/setup-bun@v2",
         "jobs.preview.steps.*.uses cloudflare/wrangler-action@v3",
         "jobs.preview.steps.*.uses actions/github-script@v7"
       ],
