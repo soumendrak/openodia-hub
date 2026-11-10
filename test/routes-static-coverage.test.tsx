@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { I18nProvider } from "../src/lib/i18n";
 import type { ComponentType } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -148,17 +149,104 @@ describe("home route: ecosystem stats loader and head metadata", () => {
 });
 
 describe("API docs route: Scalar bundle script reuse", () => {
+  it("mounts on bundle load, configures MCP headers, and destroys/remounts on navigation", async () => {
+    const mod = (await import("../src/routes/api/index")) as unknown as RouteModule;
+    const Component = mod.Route.options.component as ComponentType;
+    const destroy = vi.fn();
+    const updateConfiguration = vi.fn();
+    const createApiReference = vi.fn(() => ({ destroy, updateConfiguration }));
+    const first = render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
+    const bundle = document.getElementById("scalar-bundle")!;
+    Object.defineProperty(window, "Scalar", { configurable: true, value: { createApiReference } });
+    fireEvent.load(bundle);
+    fireEvent.load(bundle);
+    expect(createApiReference).toHaveBeenCalledTimes(1);
+    const config = createApiReference.mock.calls[0][1] as unknown as {
+      servers: { url: string }[];
+      onBeforeRequest: (args: { request: Request; requestBuilder: { headers: Headers } }) => void;
+      customFetch: (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
+    };
+    expect(config.servers).toEqual([{ url: window.location.origin }]);
+    expect(document.body).toHaveAttribute("data-openodia-api-docs");
+    await act(async () => {
+      document.documentElement.classList.add("light");
+    });
+    expect(updateConfiguration).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        darkMode: false,
+        forceDarkModeState: "light",
+        hideDarkModeToggle: true,
+        onBeforeRequest: config.onBeforeRequest,
+      }),
+    );
+    expect(document.body).toHaveClass("light-mode");
+    await act(async () => {
+      document.documentElement.classList.remove("light");
+    });
+    expect(updateConfiguration).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        darkMode: true,
+        forceDarkModeState: "dark",
+      }),
+    );
+    expect(document.body).toHaveClass("dark-mode");
+    const headers = new Headers();
+    config.onBeforeRequest({
+      request: new Request("https://openodia.com/mcp"),
+      requestBuilder: { headers },
+    });
+    expect(headers.get("accept")).toBe("application/json, text/event-stream");
+    const ordinary = new Headers();
+    config.onBeforeRequest({
+      request: new Request("https://openodia.com/api/models"),
+      requestBuilder: { headers: ordinary },
+    });
+    expect(ordinary.has("accept")).toBe(false);
+    const fetcher = vi.spyOn(window, "fetch").mockResolvedValue(new Response("{}"));
+    await config.customFetch("/.well-known/openapi.json");
+    expect(fetcher).toHaveBeenLastCalledWith("/.well-known/openapi.json", { cache: "no-cache" });
+    const request = new Request("https://openodia.com/api/models");
+    await config.customFetch(request);
+    expect(fetcher).toHaveBeenLastCalledWith(request, undefined);
+    first.unmount();
+    expect(document.body).not.toHaveAttribute("data-openodia-api-docs");
+    expect(destroy).toHaveBeenCalledTimes(1);
+    const second = render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
+    expect(createApiReference).toHaveBeenCalledTimes(2);
+    second.unmount();
+    expect(destroy).toHaveBeenCalledTimes(2);
+    Reflect.deleteProperty(window, "Scalar");
+    fetcher.mockRestore();
+  });
   it("only appends the Scalar bundle script once across renders", async () => {
     const mod = (await import("../src/routes/api/index")) as unknown as RouteModule;
     const Component = mod.Route.options.component as ComponentType;
 
-    const first = render(<Component />);
+    const first = render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(document.getElementById("scalar-bundle")).not.toBeNull();
+    const container = document.querySelector("[data-api-reference]");
+    expect(container).not.toHaveClass("bg-surface");
     first.unmount();
 
     // A second mount finds the bundle script already on the page and skips
     // appending a duplicate.
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(document.querySelectorAll("#scalar-bundle")).toHaveLength(1);
   });
 });
@@ -175,7 +263,11 @@ describe("home route: community videos and FAQ schema", () => {
     };
     queryHarness.data = undefined;
 
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(
       screen.getByText(/Tutorial: GenAI and LLM Overview by Dr\. Shantipriya Parida/),
     ).toBeInTheDocument();
@@ -215,7 +307,11 @@ describe("home route: community videos and FAQ schema", () => {
         },
       ],
     };
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(screen.getByText("T1")).toBeInTheDocument();
     expect(screen.getByText("T3")).toBeInTheDocument();
 
@@ -234,7 +330,11 @@ describe("home route: community videos and FAQ schema", () => {
         },
       ],
     };
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     expect(
       screen.getByText(/Tutorial: GenAI and LLM Overview by Dr\. Shantipriya Parida/),
     ).toBeInTheDocument();
@@ -252,7 +352,11 @@ describe("contribute route: copy-to-clipboard success and failure", () => {
       configurable: true,
     });
 
-    render(<Component />);
+    render(
+      <I18nProvider>
+        <Component />
+      </I18nProvider>,
+    );
     const copyButton = screen.getByRole("button", { name: "Copy" });
 
     vi.useFakeTimers();

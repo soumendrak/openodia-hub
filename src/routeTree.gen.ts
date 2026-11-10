@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TutorialsRouteImport } from './routes/tutorials'
 import { Route as TreebankRouteImport } from './routes/treebank'
+import { Route as TranslationStatusRouteImport } from './routes/translation-status'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as PlaygroundRouteImport } from './routes/playground'
 import { Route as PapersRouteImport } from './routes/papers'
@@ -28,6 +29,7 @@ import { Route as RSplatRouteImport } from './routes/r.$'
 import { Route as LlmsTxtRouteImport } from './routes/llms.txt'
 import { Route as LlmsFullTxtRouteImport } from './routes/llms-full.txt'
 import { Route as ApiVideosRouteImport } from './routes/api/videos'
+import { Route as ApiTranslationStatusRouteImport } from './routes/api/translation-status'
 import { Route as ApiSearchRouteImport } from './routes/api/search'
 import { Route as ApiResourcesRouteImport } from './routes/api/resources'
 import { Route as ApiReposRouteImport } from './routes/api/repos'
@@ -45,6 +47,11 @@ const TutorialsRoute = TutorialsRouteImport.update({
 const TreebankRoute = TreebankRouteImport.update({
   id: '/treebank',
   path: '/treebank',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TranslationStatusRoute = TranslationStatusRouteImport.update({
+  id: '/translation-status',
+  path: '/translation-status',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ToolsRoute = ToolsRouteImport.update({
@@ -132,6 +139,11 @@ const ApiVideosRoute = ApiVideosRouteImport.update({
   path: '/api/videos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTranslationStatusRoute = ApiTranslationStatusRouteImport.update({
+  id: '/api/translation-status',
+  path: '/api/translation-status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSearchRoute = ApiSearchRouteImport.update({
   id: '/api/search',
   path: '/api/search',
@@ -185,6 +197,7 @@ export interface FileRoutesByFullPath {
   '/papers': typeof PapersRoute
   '/playground': typeof PlaygroundRoute
   '/tools': typeof ToolsRoute
+  '/translation-status': typeof TranslationStatusRoute
   '/treebank': typeof TreebankRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
@@ -195,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/api/repos': typeof ApiReposRoute
   '/api/resources': typeof ApiResourcesRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/translation-status': typeof ApiTranslationStatusRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -214,6 +228,7 @@ export interface FileRoutesByTo {
   '/papers': typeof PapersRoute
   '/playground': typeof PlaygroundRoute
   '/tools': typeof ToolsRoute
+  '/translation-status': typeof TranslationStatusRoute
   '/treebank': typeof TreebankRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
@@ -224,6 +239,7 @@ export interface FileRoutesByTo {
   '/api/repos': typeof ApiReposRoute
   '/api/resources': typeof ApiResourcesRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/translation-status': typeof ApiTranslationStatusRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -244,6 +260,7 @@ export interface FileRoutesById {
   '/papers': typeof PapersRoute
   '/playground': typeof PlaygroundRoute
   '/tools': typeof ToolsRoute
+  '/translation-status': typeof TranslationStatusRoute
   '/treebank': typeof TreebankRoute
   '/tutorials': typeof TutorialsRoute
   '/api/awesome': typeof ApiAwesomeRoute
@@ -254,6 +271,7 @@ export interface FileRoutesById {
   '/api/repos': typeof ApiReposRoute
   '/api/resources': typeof ApiResourcesRoute
   '/api/search': typeof ApiSearchRoute
+  '/api/translation-status': typeof ApiTranslationStatusRoute
   '/api/videos': typeof ApiVideosRoute
   '/llms-full/txt': typeof LlmsFullTxtRoute
   '/llms/txt': typeof LlmsTxtRoute
@@ -275,6 +293,7 @@ export interface FileRouteTypes {
     | '/papers'
     | '/playground'
     | '/tools'
+    | '/translation-status'
     | '/treebank'
     | '/tutorials'
     | '/api/awesome'
@@ -285,6 +304,7 @@ export interface FileRouteTypes {
     | '/api/repos'
     | '/api/resources'
     | '/api/search'
+    | '/api/translation-status'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -304,6 +324,7 @@ export interface FileRouteTypes {
     | '/papers'
     | '/playground'
     | '/tools'
+    | '/translation-status'
     | '/treebank'
     | '/tutorials'
     | '/api/awesome'
@@ -314,6 +335,7 @@ export interface FileRouteTypes {
     | '/api/repos'
     | '/api/resources'
     | '/api/search'
+    | '/api/translation-status'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -333,6 +355,7 @@ export interface FileRouteTypes {
     | '/papers'
     | '/playground'
     | '/tools'
+    | '/translation-status'
     | '/treebank'
     | '/tutorials'
     | '/api/awesome'
@@ -343,6 +366,7 @@ export interface FileRouteTypes {
     | '/api/repos'
     | '/api/resources'
     | '/api/search'
+    | '/api/translation-status'
     | '/api/videos'
     | '/llms-full/txt'
     | '/llms/txt'
@@ -363,6 +387,7 @@ export interface RootRouteChildren {
   PapersRoute: typeof PapersRoute
   PlaygroundRoute: typeof PlaygroundRoute
   ToolsRoute: typeof ToolsRoute
+  TranslationStatusRoute: typeof TranslationStatusRoute
   TreebankRoute: typeof TreebankRoute
   TutorialsRoute: typeof TutorialsRoute
   ApiAwesomeRoute: typeof ApiAwesomeRoute
@@ -373,6 +398,7 @@ export interface RootRouteChildren {
   ApiReposRoute: typeof ApiReposRoute
   ApiResourcesRoute: typeof ApiResourcesRoute
   ApiSearchRoute: typeof ApiSearchRoute
+  ApiTranslationStatusRoute: typeof ApiTranslationStatusRoute
   ApiVideosRoute: typeof ApiVideosRoute
   LlmsFullTxtRoute: typeof LlmsFullTxtRoute
   LlmsTxtRoute: typeof LlmsTxtRoute
@@ -395,6 +421,13 @@ declare module '@tanstack/react-router' {
       path: '/treebank'
       fullPath: '/treebank'
       preLoaderRoute: typeof TreebankRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/translation-status': {
+      id: '/translation-status'
+      path: '/translation-status'
+      fullPath: '/translation-status'
+      preLoaderRoute: typeof TranslationStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/tools': {
@@ -516,6 +549,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiVideosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/translation-status': {
+      id: '/api/translation-status'
+      path: '/api/translation-status'
+      fullPath: '/api/translation-status'
+      preLoaderRoute: typeof ApiTranslationStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/search': {
       id: '/api/search'
       path: '/api/search'
@@ -587,6 +627,7 @@ const rootRouteChildren: RootRouteChildren = {
   PapersRoute: PapersRoute,
   PlaygroundRoute: PlaygroundRoute,
   ToolsRoute: ToolsRoute,
+  TranslationStatusRoute: TranslationStatusRoute,
   TreebankRoute: TreebankRoute,
   TutorialsRoute: TutorialsRoute,
   ApiAwesomeRoute: ApiAwesomeRoute,
@@ -597,6 +638,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiReposRoute: ApiReposRoute,
   ApiResourcesRoute: ApiResourcesRoute,
   ApiSearchRoute: ApiSearchRoute,
+  ApiTranslationStatusRoute: ApiTranslationStatusRoute,
   ApiVideosRoute: ApiVideosRoute,
   LlmsFullTxtRoute: LlmsFullTxtRoute,
   LlmsTxtRoute: LlmsTxtRoute,

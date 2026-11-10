@@ -50,6 +50,7 @@ describe("machine-readable text routes", () => {
     const body = await response.text();
     expect(response.headers.get("cache-control")).toBe("public, max-age=3600");
     expect(body).toContain("https://openodia.com/events");
+    expect(body).toContain("<loc>https://openodia.com/translation-status</loc>");
     expect(body).toContain("a&amp;b");
     expect(body).toContain("c&lt;d");
     expect(body.match(/a&amp;b/g)).toHaveLength(1);
@@ -62,6 +63,8 @@ describe("machine-readable text routes", () => {
     textRouteHarness.deadline.mockResolvedValueOnce([]);
     const response = await handler(sitemap.Route)();
     expect(response.headers.get("cache-control")).toBe("public, max-age=120");
-    expect(await response.text()).not.toContain("/r/");
+    const body = await response.text();
+    expect(body).not.toContain("/r/");
+    expect(body).toContain("<loc>https://openodia.com/translation-status</loc>");
   });
 });

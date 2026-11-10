@@ -1,166 +1,227 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
-import { ExternalLink, Search, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Reveal } from "../components/Reveal";
-import { ORGANIZERS, type Organizer } from "../data/organizers";
+import { ExternalLink, Search, X } from "lucide-react";
+import { Chip } from "../components/Facets";
 import { useSearchShortcut } from "../hooks/useSearchShortcut";
 import { JsonLd, breadcrumbSchema } from "../lib/jsonld";
-import { normalizeSearch } from "../lib/search";
 import { pageHead } from "../lib/seo";
+import { normalizeSearch } from "../lib/search";
+import { events } from "../data/events";
+import { eventUrlKey } from "../lib/event-url";
+import { ORGANIZER_KINDS, type PublishedOrganizer } from "../data/organizers";
+import {
+  COLLECTION_LABELS,
+  KIND_LABELS,
+  MAX_DIRECTORY_QUERY,
+  boundDirectoryQuery,
+  filterOrganizers,
+  validateDirectorySearch,
+  type DirectorySearch,
+} from "../lib/organizer-directory";
 
 export const Route = createFileRoute("/communities")({
-  validateSearch: (search: Record<string, unknown>): { q?: string } =>
-    typeof search.q === "string" && search.q.length <= 80 ? { q: search.q } : {},
+  validateSearch: validateDirectorySearch,
   head: () =>
     pageHead({
       path: "communities",
-      title: "Communities · OpenOdia",
+      title: "Communities & organizers · OpenOdia",
       description:
-        "Official destinations for Odisha AI communities, campus chapters, institutions, and public organizers.",
-      ogDescription: "Find the organizations behind OpenOdia's curated event collection.",
+        "Directory of independent Odia AI communities, campus chapters, institutions, and government organizers, with their official links.",
+      ogDescription: "Independent communities and organizers behind Odia AI events.",
     }),
   component: CommunitiesPage,
 });
 
-const KIND_LABEL: Record<Organizer["kind"], string> = {
-  community: "Community",
-  "campus-chapter": "Campus chapter",
-  institution: "Institution",
-  government: "Government",
-};
-const MODE_LABEL: Record<Organizer["collectionMode"], string> = {
-  automated: "Automated collection",
-  partial: "Partial collection",
-  manual: "Curated events listed",
-  "archive-only": "Archive only",
-};
-
 function CommunitiesPage() {
-  const routeSearch = Route.useSearch();
+  const search = Route.useSearch();
   const navigate = Route.useNavigate();
-  const [draft, setDraft] = useState(routeSearch.q ?? "");
-  const inputRef = useRef<HTMLInputElement>(null);
-  useSearchShortcut(inputRef);
-  useEffect(() => setDraft(routeSearch.q ?? ""), [routeSearch.q]);
-  const setQuery = (value: string) => {
-    const q = value.slice(0, 80);
-    setDraft(q);
-    void navigate({ search: q ? { q } : {}, replace: true });
-  };
-  const needle = normalizeSearch(draft);
-  const organizers = ORGANIZERS.filter(
-    (organizer) =>
-      !needle ||
-      [
-        organizer.name,
-        ...organizer.aliases,
-        organizer.region,
-        organizer.kind,
-        organizer.description,
-      ].some((value) => normalizeSearch(value).includes(needle)),
+  const [draftQuery, setDraftQuery] = useState(search.q ?? "");
+  // Follow the URL (links, back/forward), but keep the draft when it already
+  // matches: the URL q is trimmed, and taking it back would drop a trailing
+  // space and move the cursor.
+  useEffect(
+    () =>
+      setDraftQuery((draft) =>
+        boundDirectoryQuery(draft) === search.q ? draft : (search.q ?? ""),
+      ),
+    [search.q],
   );
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  useSearchShortcut(searchInputRef);
+
+  const update = (patch: DirectorySearch) =>
+    navigate({ search: (prev) => validateDirectorySearch({ ...prev, ...patch }), replace: true });
+  const setQuery = (next: string) => {
+    // Same bound as the URL validator; trailing spaces stay so words can be typed.
+    const bounded = next.trimStart().slice(0, MAX_DIRECTORY_QUERY);
+    const draft = normalizeSearch(bounded) !== "" ? bounded : "";
+    setDraftQuery(draft);
+    void update({ q: draft });
+  };
+  const reset = () => {
+    setDraftQuery("");
+    void navigate({ search: {}, replace: true });
+  };
+
+  const organizers = filterOrganizers({ q: draftQuery, kind: search.kind });
+  // setQuery and the URL validator only ever leave a searchable draft or "".
+  const filtered = draftQuery !== "" || Boolean(search.kind);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-24">
+    <div className="mx-auto max-w-6xl min-w-0 px-4 pb-24">
       <JsonLd
         data={breadcrumbSchema([
           { name: "OpenOdia", url: "https://openodia.com" },
           { name: "Communities", url: "https://openodia.com/communities" },
         ])}
       />
-      <Reveal>
-        <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
-        <h1 className="mt-3 font-display text-5xl font-bold md:text-7xl">
-          Communities &amp; <span className="text-gradient">organizers</span>.
-        </h1>
-        <p className="mt-4 max-w-3xl text-muted-foreground">
-          Independent organizations behind the curated event collection. OpenOdia lists their
-          official destinations; it does not operate them or make organizer-wide attendance claims.
-        </p>
-      </Reveal>
-      <Reveal>
-        <div className="relative mt-10 max-w-xl">
+
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: "Communities and organizers",
+          itemListElement: organizers.map((organizer, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            name: organizer.canonicalName,
+            url: `https://openodia.com/communities#${organizer.id}`,
+          })),
+        }}
+      />
+      <p className="text-sm uppercase tracking-widest text-neon">Directory</p>
+      <h1 className="mt-3 font-display text-4xl font-bold sm:text-5xl md:text-7xl">
+        Communities & <span className="text-gradient">organizers</span>.
+      </h1>
+      <p className="mt-4 max-w-2xl text-muted-foreground">
+        The groups, campus chapters, institutions, and government bodies whose events appear on
+        OpenOdia. Each one is independent: being listed here does not mean it is part of or endorsed
+        by OpenOdia. Who may attend and whether registration is open depend on each event, so check
+        the organizer&rsquo;s official page.
+      </p>
+
+      <div className="mt-10 flex flex-col gap-4">
+        <div className="relative max-w-xl">
           <Search
             size={16}
+            aria-hidden="true"
             className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground"
           />
           <input
-            ref={inputRef}
+            ref={searchInputRef}
             type="search"
-            value={draft}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search organizations, regions, or types… [/]"
+            aria-label="Search communities and organizers"
+            placeholder="Search names, regions, kinds… [/]"
+            value={draftQuery}
+            onChange={(e) => setQuery(e.target.value)}
             className="w-full rounded-2xl border border-border bg-surface py-3 pl-10 pr-10 text-sm placeholder:text-muted-foreground focus:border-neon focus:outline-none"
           />
-          {draft && (
+          {draftQuery !== "" && (
             <button
-              onClick={() => setQuery("")}
-              aria-label="Clear community search"
+              type="button"
+              aria-label="Clear search"
+              onClick={() => {
+                setQuery("");
+                searchInputRef.current?.focus();
+              }}
               className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
-              <X size={15} />
+              <X size={14} />
             </button>
           )}
         </div>
-      </Reveal>
-      <p className="mt-6 text-sm text-muted-foreground">
-        {organizers.length} organization{organizers.length === 1 ? "" : "s"} shown · event counts
-        are scoped to curated events listed.
+        <div role="group" aria-label="Organizer kind" className="flex flex-wrap gap-2">
+          <Chip active={!search.kind} onClick={() => void update({ kind: undefined })}>
+            All kinds
+          </Chip>
+          {ORGANIZER_KINDS.map((kind) => (
+            <Chip
+              key={kind}
+              active={search.kind === kind}
+              onClick={() => void update({ kind: search.kind === kind ? undefined : kind })}
+            >
+              {KIND_LABELS[kind]}
+            </Chip>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-6 text-sm text-muted-foreground" aria-live="polite">
+        {organizers.length} organizer{organizers.length === 1 ? "" : "s"}
+        {filtered ? " match" : " listed"}
       </p>
+
       {organizers.length === 0 ? (
-        <p
-          className="mt-8 rounded-2xl border border-border bg-surface p-6 text-muted-foreground"
-          role="status"
-        >
-          No organizers match that search. Try a canonical name, region, or organization type.
-        </p>
+        <div className="mt-6 rounded-2xl border border-border bg-surface p-8 text-center">
+          <p className="text-muted-foreground">No organizers match these filters.</p>
+          <button
+            type="button"
+            onClick={reset}
+            className="mt-4 rounded-full border border-neon/40 bg-neon/5 px-5 py-2.5 text-sm font-medium text-neon transition hover:border-neon hover:bg-neon/15"
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
-        <div className="mt-6 grid min-w-0 gap-4 md:grid-cols-2">
+        <ul className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {organizers.map((organizer) => (
             <OrganizerCard key={organizer.id} organizer={organizer} />
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
 }
 
-function OrganizerCard({ organizer }: { organizer: Organizer }) {
+function OrganizerCard({ organizer }: { organizer: PublishedOrganizer }) {
   return (
-    <article
+    <li
       id={organizer.id}
-      className="scroll-mt-28 min-w-0 rounded-2xl border border-border bg-surface p-6"
+      className="min-w-0 break-words scroll-mt-28 rounded-2xl border border-border bg-surface p-5 target:border-neon"
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wider text-neon">
-            {KIND_LABEL[organizer.kind]} · {organizer.region}
-          </p>
-          <h2 className="mt-2 font-display text-xl font-semibold">{organizer.name}</h2>
-        </div>
-        <span className="rounded-full border border-border px-2.5 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-          {MODE_LABEL[organizer.collectionMode]}
-        </span>
-      </div>
-      <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{organizer.description}</p>
-      <p className="mt-3 text-xs text-muted-foreground">{organizer.verificationNote}</p>
-      <div className="mt-5 flex flex-wrap gap-3">
-        <a
-          href={organizer.officialUrl}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 text-sm text-neon hover:underline"
-        >
-          Official destination <ExternalLink size={13} />
-        </a>
-        <Link
-          to="/events"
-          search={{ community: organizer.id }}
-          className="text-sm text-foreground hover:text-neon hover:underline"
-        >
-          View curated events
-        </Link>
-      </div>
-    </article>
+      <p className="text-xs uppercase tracking-widest text-muted-foreground">
+        {KIND_LABELS[organizer.kind]} · {organizer.region}
+      </p>
+      <h2 className="mt-2 font-display text-xl font-semibold">{organizer.canonicalName}</h2>
+      <p className="mt-2 text-sm text-muted-foreground">{organizer.description}</p>
+      <ul className="mt-4 flex flex-wrap gap-2">
+        {organizer.officialLinks.map((link) => (
+          <li key={link.url}>
+            <a
+              href={link.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 text-xs text-muted-foreground transition hover:border-neon hover:text-neon"
+            >
+              {link.label} <ExternalLink size={11} aria-hidden="true" />
+            </a>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-4 text-xs text-muted-foreground">
+        {
+          new Set(
+            events
+              .filter((event) => event.organizerId === organizer.id)
+              .map((event) => eventUrlKey(event.url)),
+          ).size
+        }{" "}
+        curated events listed
+      </p>
+      <Link
+        to="/events"
+        search={{ community: organizer.id }}
+        className="mt-2 inline-block text-sm text-neon hover:underline"
+      >
+        View events from {organizer.canonicalName}
+      </Link>
+      <details className="mt-4 text-xs text-muted-foreground">
+        <summary className="cursor-pointer hover:text-foreground">How events are collected</summary>
+        <p className="mt-2">{COLLECTION_LABELS[organizer.collectionMode]}</p>
+        {organizer.aliases.length > 0 && (
+          <p className="mt-1">Also known as: {organizer.aliases.join(", ")}</p>
+        )}
+      </details>
+    </li>
   );
 }

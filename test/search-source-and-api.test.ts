@@ -151,6 +151,34 @@ describe("search snapshot adapters", () => {
     expect(fetcher).toHaveBeenCalledTimes(2);
   });
 
+  it("retains checked-in event search results when the live loader rejects entirely", async () => {
+    const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+    const snapshot = await buildSearchSnapshot({
+      ...loaders,
+      events: async () => {
+        throw new Error("event source unavailable");
+      },
+    });
+    expect(snapshot.sources).toContainEqual(
+      expect.objectContaining({ source: "events", status: "partial" }),
+    );
+    expect(snapshot.documents.some((document) => document.kind === "event")).toBe(true);
+  });
+
+  it("keeps healthy event search results while exposing measured partial source state", async () => {
+    const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+    const snapshot = await buildSearchSnapshot({
+      ...loaders,
+      events: async () => ({ events: liveEvents, sources: [], partial: true }),
+    });
+    expect(snapshot.sources).toContainEqual(
+      expect.objectContaining({ source: "events", status: "partial" }),
+    );
+    expect(snapshot.documents).toContainEqual(
+      expect.objectContaining({ id: `event:${liveEvents[0].url}` }),
+    );
+  });
+
   it("maps every supported dynamic kind with stable internal destinations", async () => {
     const { buildSearchSnapshot } = await import("../src/lib/sources/search");
     const snapshot = await buildSearchSnapshot(loaders);
@@ -211,6 +239,27 @@ describe("search snapshot adapters", () => {
     );
   });
 
+  it("keeps the curated archive and healthy catalog when live event discovery rejects", async () => {
+    const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+    const snapshot = await buildSearchSnapshot({
+      ...loaders,
+      events: async () => {
+        throw new Error("event source unavailable");
+      },
+    });
+    expect(snapshot.documents.some((document) => document.kind === "event")).toBe(true);
+    expect(
+      snapshot.documents.some((document) => document.id === `event:${liveEvents[0].url}`),
+    ).toBe(false);
+    expect(snapshot.documents.some((document) => document.kind === "model")).toBe(true);
+    expect(snapshot.sources).toContainEqual(
+      expect.objectContaining({
+        source: "events",
+        status: "partial",
+        count: expect.any(Number),
+      }),
+    );
+  });
   it("deduplicates curated and live events by canonical URL", async () => {
     const { buildSearchSnapshot } = await import("../src/lib/sources/search");
     const duplicate = { ...liveEvents[0], title: "Duplicate title" };
@@ -243,11 +292,86 @@ describe("search snapshot adapters", () => {
   });
 });
 
+describe("search snapshot cache with D1 bound", () => {
+  it("memoizes the D1-backed snapshot per database instead of rebuilding per search", async () => {
+    const { createSearchSnapshotLoader } = await import("../src/lib/sources/search");
+    const { withEventDatabase } = await import("../src/lib/event-request-context");
+    const events = vi.fn(async () => liveEvents);
+    const load = createSearchSnapshotLoader(
+      {
+        catalog: vi.fn(async () => catalog),
+        papers: vi.fn(async () => papers),
+        videos: vi.fn(async () => channels),
+        events,
+      },
+      `search-snapshot:test-d1:${Date.now()}:${Math.random()}`,
+    );
+    const db = { prepare: vi.fn() } as never;
+    const first = await withEventDatabase(db, () => load());
+    const second = await withEventDatabase(db, () => load());
+    expect(second).toBe(first);
+    expect(events).toHaveBeenCalledTimes(1);
+    await load();
+    expect(events).toHaveBeenCalledTimes(2);
+  });
+
+  it("rebuilds the D1-backed snapshot once the snapshot TTL has passed", async () => {
+    const { createSearchSnapshotLoader, SEARCH_SNAPSHOT_TTL_MS } =
+      await import("../src/lib/sources/search");
+    const { withEventDatabase } = await import("../src/lib/event-request-context");
+    const events = vi.fn(async () => liveEvents);
+    const load = createSearchSnapshotLoader(
+      {
+        catalog: vi.fn(async () => catalog),
+        papers: vi.fn(async () => papers),
+        videos: vi.fn(async () => channels),
+        events,
+      },
+      `search-snapshot:test-d1-ttl:${Date.now()}:${Math.random()}`,
+    );
+    const db = { prepare: vi.fn() } as never;
+    const start = Date.now();
+    const now = vi.spyOn(Date, "now").mockReturnValue(start);
+    const first = await withEventDatabase(db, () => load());
+    now.mockReturnValue(start + SEARCH_SNAPSHOT_TTL_MS - 1);
+    expect(await withEventDatabase(db, () => load())).toBe(first);
+    now.mockReturnValue(start + SEARCH_SNAPSHOT_TTL_MS);
+    expect(await withEventDatabase(db, () => load())).not.toBe(first);
+    expect(events).toHaveBeenCalledTimes(2);
+    now.mockRestore();
+  });
+});
+
 describe("search API contract", () => {
   async function handler() {
     const route = await import("../src/routes/api/search");
     return (route.Route as unknown as SearchRoute).options.server.handlers.GET;
   }
+
+  it.each(["translate", "translation", "Odia contributor"])(
+    "finds the translation contributor page for %s from the static snapshot inventory",
+    async (query) => {
+      const { buildSearchSnapshot } = await import("../src/lib/sources/search");
+      const snapshot = await buildSearchSnapshot(loaders);
+      apiHarness.snapshot.mockResolvedValueOnce(snapshot);
+      const get = await handler();
+      const response = await get({
+        request: new Request(
+          `https://openodia.com/api/search?q=${encodeURIComponent(query)}&kind=page`,
+        ),
+      });
+
+      expect(response.status).toBe(200);
+      expect((await response.json()).results).toContainEqual(
+        expect.objectContaining({
+          kind: "page",
+          title: "Help translate OpenOdia",
+          href: "/translation-status",
+          source: "pages",
+        }),
+      );
+    },
+  );
 
   it("validates queries, kinds, and limits", async () => {
     const get = await handler();

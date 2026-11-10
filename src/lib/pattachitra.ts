@@ -4,6 +4,8 @@
  * without rendering a route.
  */
 
+import { getOrganizerById } from "../data/organizers";
+
 /**
  * The hero phrase, as the maintainer wrote it: no danda, not anywhere. It is
  * easy to get wrong and hard to notice, so a test pins it exactly — if that
@@ -49,29 +51,38 @@ export const COLLECTION = [
  * saying so. Changing a link here changes an attribution claim, so the set is
  * covered by a test.
  */
+const odishaAi = getOrganizerById("odishaai");
+const odiaGenAi = getOrganizerById("odiagenai");
+const gdgCloudBhubaneswar = getOrganizerById("gdg-cloud-bhubaneswar");
+const tfugBhubaneswar = getOrganizerById("tfug-bbsr");
+
 export const COMMUNITIES = [
   {
-    name: ["Odisha AI"],
-    body: "People, ideas, and conversations from the wider Odia AI ecosystem.",
-    href: "https://www.odishaai.org/",
+    organizerId: odishaAi.id,
+    name: [odishaAi.canonicalName],
+    body: odishaAi.description,
+    href: odishaAi.officialLinks[0].url,
     cta: "Explore the community",
   },
   {
-    name: ["OdiaGenAI"],
-    body: "Collaborative research and learning around Odia language AI.",
-    href: "https://www.odiagenai.org/",
+    organizerId: odiaGenAi.id,
+    name: [odiaGenAi.canonicalName],
+    body: odiaGenAi.description,
+    href: odiaGenAi.officialLinks[0].url,
     cta: "Explore their work",
   },
   {
+    organizerId: gdgCloudBhubaneswar.id,
     name: ["GDG Cloud", "Bhubaneswar"],
-    body: "Cloud, AI, and hands-on learning with the developer community in Bhubaneswar.",
-    href: "https://gdg.community.dev/gdg-cloud-bhubaneswar/",
+    body: gdgCloudBhubaneswar.description,
+    href: gdgCloudBhubaneswar.officialLinks[0].url,
     cta: "Find your community",
   },
   {
+    organizerId: tfugBhubaneswar.id,
     name: ["TFUG", "Bhubaneswar"],
-    body: "Technical talks and learning from the local machine learning community.",
-    href: "https://www.youtube.com/@tfugbbsr",
+    body: tfugBhubaneswar.description,
+    href: tfugBhubaneswar.officialLinks[1].url,
     cta: "Watch community talks",
   },
 ] as const;
