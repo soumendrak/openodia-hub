@@ -66,6 +66,7 @@ export type Event = {
   startDate?: string; // Optional precise override YYYY-MM-DD
   endDate?: string; // Optional precise override YYYY-MM-DD
   location?: string;
+  joinUrl?: string;
   theme?: string;
   description: string;
   /**

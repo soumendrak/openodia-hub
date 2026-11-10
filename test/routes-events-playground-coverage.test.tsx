@@ -339,6 +339,24 @@ describe("events.tsx", () => {
     expect(schemaEvents[0].previousStartDate).toBeUndefined();
     expect(schemaEvents[0].startDate).toBe("2099-03-01");
   });
+  it("passes a reviewed join URL to event JSON-LD separately from the info page", () => {
+    dataFixture.events = [
+      {
+        ...PAST_2020[0],
+        startDate: "2026-07-01",
+        location: "Online",
+        url: "https://example.org/brochure.pdf",
+        joinUrl: "https://meet.example.org/room",
+      },
+    ];
+    render(<EventsRouteAny.options.component />);
+    const schemaEvents = vi.mocked(eventListSchema).mock.calls.at(-1)![0];
+    expect(schemaEvents[0]).toMatchObject({
+      url: "https://example.org/brochure.pdf",
+      joinUrl: "https://meet.example.org/room",
+      location: "Online",
+    });
+  });
   it("ignores a cached full-search corpus after filters are cleared", () => {
     dataFixture.events = [];
     infiniteHarness.data = { pages: [{ events: [PAST_2020[0]], total: 2, nextCursor: "2" }] };

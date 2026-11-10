@@ -58,6 +58,12 @@ describe("/events JSON-LD", () => {
       expect(it.endDate).toBe(e.endDate);
       if (e.location && !/^online$/i.test(e.location.trim())) {
         expect(it.location).toMatchObject({ "@type": "Place", name: e.location });
+      } else {
+        expect(it.location).toEqual(
+          e.joinUrl
+            ? { "@type": "VirtualLocation", url: e.joinUrl }
+            : { "@type": "VirtualLocation" },
+        );
       }
       const org = e.organizerId ? getOrganizerById(e.organizerId) : undefined;
       if (org) {
@@ -66,6 +72,26 @@ describe("/events JSON-LD", () => {
       }
       if (e.free === undefined) expect(it).not.toHaveProperty("isAccessibleForFree");
       else expect(it.isAccessibleForFree).toBe(e.free);
+    }
+  });
+
+  it("does not publish brochure or archive pages as the virtual attendance URL", () => {
+    const items = renderedEvents();
+    const cited = events.filter(
+      (event) =>
+        event.startDate &&
+        (!event.location || /^online$/i.test(event.location.trim())) &&
+        (event.url.endsWith(".pdf") || event.url.includes("osou.ac.in")),
+    );
+    expect(cited.length).toBeGreaterThanOrEqual(4);
+    for (const event of cited) {
+      const item = items.find((entry) => entry.url === event.url && entry.name === event.title);
+      expect(item, event.title).toBeDefined();
+      expect(item?.location).toEqual(
+        event.joinUrl
+          ? { "@type": "VirtualLocation", url: event.joinUrl }
+          : { "@type": "VirtualLocation" },
+      );
     }
   });
 
