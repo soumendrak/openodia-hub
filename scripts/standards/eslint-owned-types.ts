@@ -102,6 +102,9 @@ export const ownedTypes = {
     const [hollow, generic] = [holds(Any | Never, true), holds(Param)];
     function reaches(source: ts.Type, target: ts.Type): boolean {
       const seen = new WeakMap<ts.Type, WeakMap<ts.Type, boolean>>();
+      const listed = (type: ts.Type, flag: ts.ObjectFlags) =>
+        !!((type as ts.TypeReference).objectFlags & flag);
+      return visit(source, target);
       function visit(s: ts.Type, t: ts.Type): boolean {
         if (!(s.flags & (Any | Never)) && s === t) return false;
         if (!brands(t).length) return false;
@@ -115,8 +118,6 @@ export const ownedTypes = {
         row.set(t, result);
         return result;
       }
-      const listed = (type: ts.Type, flag: ts.ObjectFlags) =>
-        !!((type as ts.TypeReference).objectFlags & flag);
       function align(s: ts.Type, t: ts.Type): boolean {
         const baseOf = (type: ts.Type) =>
           type.flags & ts.TypeFlags.Instantiable
@@ -193,7 +194,6 @@ export const ownedTypes = {
           });
         });
       }
-      return visit(source, target);
     }
 
     const signatureOf = (node: ts.CallLikeExpression) => {
