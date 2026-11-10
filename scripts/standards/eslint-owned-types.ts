@@ -128,12 +128,10 @@ export const ownedTypes = {
         if (tBase && tBase !== t) return visit(s, tBase);
         if (s.isUnion()) {
           if (!t.isUnion()) return s.types.some((member) => visit(member, t));
-          const used = new Set<ts.Type>();
           const pairs = s.types.map((member) => {
-            const [hit, second] = t.types.filter(
-              (part) => !used.has(part) && checker.isTypeAssignableTo(member, part),
+            const [hit, second] = t.types.filter((part) =>
+              checker.isTypeAssignableTo(member, part),
             );
-            if (hit && !second) used.add(hit);
             return hit && !second ? ([member, hit] as const) : undefined;
           });
           if (pairs.every((pair): pair is readonly [ts.Type, ts.Type] => !!pair))
@@ -168,11 +166,17 @@ export const ownedTypes = {
         if (zip(argsOf(s), argsOf(t)) || zip(aliasOf(s), aliasOf(t))) return true;
         const open = (type: ts.Type) => listed(type, ts.ObjectFlags.Mapped) || local(type);
         if (!open(s) || !open(t)) return false;
-        const returnsOf = (type: ts.Type) =>
-          [...type.getCallSignatures(), ...type.getConstructSignatures()].map((signature) =>
-            signature.getReturnType(),
-          );
-        if (zip(returnsOf(s), returnsOf(t))) return true;
+        const returnsOf = (signatures: readonly ts.Signature[]) =>
+          signatures.map((signature) => signature.getReturnType());
+        const calls = (type: ts.Type) => type.getCallSignatures();
+        const constructs = (type: ts.Type) => type.getConstructSignatures();
+        if (calls(s).length !== calls(t).length || constructs(s).length !== constructs(t).length)
+          return hollow(s);
+        if (
+          zip(returnsOf(calls(s)), returnsOf(calls(t))) ||
+          zip(returnsOf(constructs(s)), returnsOf(constructs(t)))
+        )
+          return true;
         const sourceIndexes = checker.getIndexInfosOfType(s);
         return checker.getIndexInfosOfType(t).some((info) => {
           const match = sourceIndexes.find((index) => index.keyType === info.keyType);

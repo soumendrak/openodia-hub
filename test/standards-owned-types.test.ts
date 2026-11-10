@@ -141,6 +141,8 @@ const flagged: Record<string, string> = {
   C04: "export async function load(response?: Response) {\n  const e: CanonicalEvent | undefined = await response?.json();\n  return e;\n}",
   C06: "function parse(x: string): CanonicalEvent;\nfunction parse(x: unknown) {\n  return x;\n}\nexport const e = parse(s);",
   R55: 'type Loose = { tag: "a"; value: any } | { tag: "b"; value: string };\ntype Owned = { tag: "c"; value: CanonicalEvent } | { tag: "d"; value: CanonicalEvent };\nexport const e: Owned = raw as Loose;',
+  R56: "type Source = { (): any; (x: string): any };\nconst loose = raw as Source;\nexport const make: () => CanonicalEvent = loose;",
+  R57: 'type Owned = { tag: "owned"; value: CanonicalEvent };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Owned | { tag: "other"; value: string } = input;\n  return out;\n}',
 };
 
 const clean: Record<string, string> = {
