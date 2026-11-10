@@ -65,6 +65,7 @@ const PINNED_REPOS: string[] = [
   "saroj990/odia-hw-ocr",
   "sushantamishra79/odia-audio-processor",
   "sushantamishra79/LLM-ODIA",
+  "soumyo/odia_stt_ft",
   "Sumitpatel29/sahayak_odia_voice_agent",
   "biranchikulesika/lipy",
   // ── imsbg — Odia educational apps ──
@@ -148,6 +149,7 @@ const PINNED_REPOS: string[] = [
   "ofdn/chapakhana",
   // ── Additional Odia fonts & typing tools ──
   "lecramyajiv/fonts-oriya-extra",
+  "Open-Typography-Foundation/Odia-Oriya-Fonts-Archive",
   "jhellingman/oriya-tex",
   "manojsahukar/TypeOdia",
   // ── Odia learning platforms ──
