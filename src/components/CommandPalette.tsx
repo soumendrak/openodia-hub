@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from "react";
 
 /**
  * ⌘K launcher.
@@ -16,15 +16,26 @@ export function CommandPalette() {
   // Distinct from `open`: once loaded the dialog stays mounted so closing it
   // doesn't throw away the fetched results.
   const [loaded, setLoaded] = useState(false);
+  const openerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
+    const rememberOpener = () => {
+      if (
+        document.activeElement instanceof HTMLElement &&
+        document.activeElement !== document.body
+      ) {
+        openerRef.current = document.activeElement;
+      }
+    };
     const openPalette = () => {
+      rememberOpener();
       setLoaded(true);
       setOpen(true);
     };
     const down = (e: KeyboardEvent) => {
       if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
+        if (!open) rememberOpener();
         setLoaded(true);
         setOpen((v) => !v);
       }
@@ -35,7 +46,13 @@ export function CommandPalette() {
       document.removeEventListener("keydown", down);
       window.removeEventListener("openCommandPalette", openPalette);
     };
-  }, []);
+  }, [open]);
+
+  useEffect(() => {
+    if (open || !loaded || !openerRef.current) return;
+    const frame = window.requestAnimationFrame(() => openerRef.current?.focus());
+    return () => window.cancelAnimationFrame(frame);
+  }, [loaded, open]);
 
   if (!loaded) return null;
 

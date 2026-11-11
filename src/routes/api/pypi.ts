@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { apiJson } from "../../lib/api-response";
 import { fetchWithTimeout } from "../../lib/fetch-utils";
 
 export const Route = createFileRoute("/api/pypi")({
@@ -10,7 +11,7 @@ export const Route = createFileRoute("/api/pypi")({
             headers: { "User-Agent": "openodia.com" },
           });
           if (!r.ok) {
-            return Response.json({ version: "0.1.0", summary: "", releases: 0 });
+            return apiJson({ version: "0.1.0", summary: "", releases: 0 });
           }
           const j = (await r.json()) as {
             info: { version: string; summary: string };

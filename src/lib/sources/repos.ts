@@ -38,7 +38,7 @@ const PINNED_REPOS: string[] = [
   "Deeptiman/Alphabet-Learning-Android-Application",
   "Deeptiman/php-dom-parser-translation-tool",
   "nsoum/odia-tex",
-  "SantoshNayak/Odia-Calendar",
+  "SantoshNayak/Odia_Calendar",
   "SantoshNayak/Odia-Month",
   "gyan111/gyan111.github.io",
   "gyan111/twinkle-orwiki",
@@ -51,14 +51,25 @@ const PINNED_REPOS: string[] = [
   "sushantamishra79/Odia-TTS-Dataset",
   "mohitkdas/OdiaCalendarArchive",
   "RajeebLochan/Sweatable",
+  "jyotirmayananda/odiakhela",
+  "subham1931/Odia-Khela-mobile",
+  "paysontechpvt-hue/odia-calendar-2027",
+  "swayam123456789-cell/youtube-transcript-odia-bot",
+  "suryabusiness101-dev/Voice-assistant-for-mom-public",
+  "asrout9/odia-input-tool",
+  "srinibashsamal/odia-panji",
   "Sameetpatro/odlang",
   "OmmDevgoswami/SikshaSathi---Odia-Gen-AI-Hackathon",
   "biranchi2018/odia",
+  "abhayvikramnayak98/sri_jagannath_radio",
+  "saktiswarupmishra/Odia-Song",
   // ── OCR, datasets & speech ──
   "Udayps2303/Line-Level-OCR-using-CNN-BiLSTM-CTC-loss",
   "sushantamishra79/Odia-TTS-Dataset1",
   "sushantamishra79/odia-audio-processor",
   "sushantamishra79/LLM-ODIA",
+  "soumyo/odia_stt_ft",
+  "Sumitpatel29/sahayak_odia_voice_agent",
   "biranchikulesika/lipy",
   "shrivastava95/odia-dictionary",
   // ── imsbg — Odia educational apps ──
@@ -69,9 +80,11 @@ const PINNED_REPOS: string[] = [
   "imsbg/odialipi",
   "imsbg/Ganita-Bingya-App",
   "imsbg/Atomic-Guru",
+  "imsbg/number-increment",
   // ── Odia time & educational tools ──
   "imsbg/oled-time",
   "imsbg/Ama-Ganita",
+  "imsbg/age-calculator",
   // ── coldbreeze16 — fonts, IME, converter ──
   "coldbreeze16/Lekhani",
   "coldbreeze16/Kunji-Binyasa",
@@ -143,6 +156,7 @@ const PINNED_REPOS: string[] = [
   "ofdn/chapakhana",
   // ── Additional Odia fonts & typing tools ──
   "lecramyajiv/fonts-oriya-extra",
+  "Open-Typography-Foundation/Odia-Oriya-Fonts-Archive",
   "jhellingman/oriya-tex",
   "manojsahukar/TypeOdia",
   // ── Odia learning platforms ──
@@ -150,6 +164,7 @@ const PINNED_REPOS: string[] = [
   "OdiaLanguage/Learn-Odia-Language",
   "ramoh/oriya-vocab-builder",
   "sanchaya/odia",
+  "pralav-25/EduGram",
   // ── Fonts & OS-level Odia support ──
   "notofonts/noto-sans-oriya",
   "notofonts/oriya",

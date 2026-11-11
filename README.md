@@ -64,9 +64,16 @@ and Cloudflare Worker that bring everything together.
 | [About](https://openodia.com/about)                 | Learn about the hub and its contributors                                            |
 
 Use **⌘K / Ctrl+K** for cross-site search and navigation. Papers, Treebank, API,
-and contribution links are also in the footer. The language toggle translates the
-navigation; page bodies and upstream content are not fully translated. Light/dark
+and contribution links are also in the footer. The language toggle translates navigation, the home hero/opening/statistics, and the footer.
+Other page bodies and upstream content retain their original language.
+`/translation-status` reports the scoped inventory and native-review progress separately. Light/dark
 mode and language preferences are saved locally.
+
+## All Features Walkthrough
+
+[![OpenOdia.com Features Walkthrough (in Odia)](https://i.ytimg.com/vi/i1GBstSHzoI/hqdefault.jpg)](https://www.youtube.com/watch?v=i1GBstSHzoI)
+
+[OpenOdia.com Features Walkthrough (in Odia)](https://www.youtube.com/watch?v=i1GBstSHzoI)
 
 Resource cards offer license information and generated APA/BibTeX citations.
 Supported GitHub and Hugging Face resources have shareable `/r/<kind>/<owner>/<name>`
@@ -75,6 +82,7 @@ being listed does not certify quality, accuracy, or unrestricted use.
 
 ## Documentation
 
+- [MCP search and API discovery](docs/mcp.md): agent setup, tool arguments, transport, and validation.
 - [Contributor guide](CONTRIBUTING.md): setup, conventions, checks, and adding resources/events.
 - [Architecture and data](docs/architecture.md): loaders, caching, storage, APIs, and deployment.
 - [Odia video walkthrough](docs/video-walkthrough-or.md): 10–20 minute recording plan, speaking cues, and FocuSee checklist.
@@ -118,8 +126,13 @@ being listed does not certify quality, accuracy, or unrestricted use.
 
 ### Prerequisites
 
-- [Bun](https://bun.sh)
+- [Bun](https://bun.sh) 1.3+
 - Node.js 22+
+- [just](https://just.systems) for the task recipes
+- Playwright Chromium for the browser suites: `bunx playwright install --with-deps chromium`
+- The pinned zizmor, when you change anything under `.github/` or `scripts/standards`: see [CONTRIBUTING.md](CONTRIBUTING.md#before-opening-a-pr)
+
+Run `just doctor` to check these versions.
 
 ### Install
 
@@ -139,8 +152,11 @@ The dev server starts at `http://localhost:9090`.
 | `bun run dev`                            | Start Vite dev server                              |
 | `bun run build`                          | Production build                                   |
 | `bun run build:dev`                      | Development-mode build                             |
-| `bun run preview`                        | Preview production build                           |
+| `bun run preview`                        | Serve the built Worker locally (after `build`)     |
 | `bun run lint`                           | Run ESLint                                         |
+| `bun run typecheck`                      | Type-check with the normal and strict configs      |
+| `bun run test:e2e`                       | Build, then run the Playwright suite               |
+| `just check`                             | Run every repository standard (CI's gate)          |
 | `bun run format`                         | Format with Prettier                               |
 | `bun run test`                           | Run Vitest tests                                   |
 | `bun run test:watch`                     | Watch tests                                        |
@@ -222,16 +238,19 @@ before configuring another Cloudflare account.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, conventions, and where to help.
 
-Quick checklist before opening a PR:
+Quick checklist before opening a PR (stage or stash every change first):
 
 ```bash
-bun run lint
+just check
 bun run build
-bun run test
-bun run test:coverage:diff -- --staged
+just e2e
 ```
 
 ---
+
+## Sponsor
+
+If this project helps you, consider [sponsoring my work on GitHub](https://github.com/sponsors/soumendrak). Your support helps fund maintenance, documentation, and continued development.
 
 ## License
 

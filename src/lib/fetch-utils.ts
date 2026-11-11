@@ -1,12 +1,3 @@
-/**
- * Small utilities for resilient upstream calls from API route handlers.
- *
- *   - fetchWithTimeout aborts a request that exceeds a wall-clock budget so a
- *     single hung upstream can't hold the whole response open.
- *   - settledValues filters Promise.allSettled results down to the fulfilled
- *     ones so a single failing fan-out arm doesn't take the rest down.
- */
-
 const DEFAULT_TIMEOUT_MS = 8000;
 
 export async function fetchWithTimeout(
@@ -23,9 +14,9 @@ export async function fetchWithTimeout(
   }
 }
 
-export function settledValues<T>(results: PromiseSettledResult<T>[]): T[] {
+export async function settledValues<T>(promises: readonly Promise<T>[]): Promise<T[]> {
   const values: T[] = [];
-  for (const r of results) {
+  for (const r of await Promise.allSettled(promises)) {
     if (r.status === "fulfilled") {
       values.push(r.value);
     } else {

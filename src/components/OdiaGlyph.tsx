@@ -14,12 +14,7 @@ const CONTOUR_TRANSFORM = "translate(147.31245 614.51931) scale(0.68509 -0.68509
 /** The hero letter. Motion lives in CSS (`#letter-mount`, `.gold-glint`). */
 export function OdiaGlyph() {
   return (
-    <svg
-      className="hero-letter"
-      viewBox="140 75 520 570"
-      role="img"
-      aria-label="ଓ — the Odia letter O"
-    >
+    <svg className="hero-letter" viewBox="140 75 520 570" role="img" aria-label="The Odia letter O">
       <defs>
         <path id="odia-contour" d={CONTOUR} transform={CONTOUR_TRANSFORM} />
         <linearGradient id="patta-gold" x1="0" y1="0" x2=".8" y2="1">

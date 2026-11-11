@@ -35,6 +35,6 @@ be explicit and justified rather than used to inflate the result.
 ## Acceptance checks
 
 1. `just coverage` exits successfully at 100% lines.
-2. `just coverage-diff` still rejects a deliberately uncovered changed line.
+2. `bun scripts/standards.ts --staged` still rejects a deliberately uncovered changed line.
 3. `bun run lint`, `bun x tsc --noEmit`, and `bun run build` pass.
 4. CI uses the same coverage command and cannot deploy a failing revision.

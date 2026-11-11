@@ -10,6 +10,8 @@ import type { Repo } from "../src/lib/sources/repos";
 const harness = vi.hoisted(() => ({
   loaderData: {} as Record<string, unknown>,
   invalidate: vi.fn(),
+  search: {} as Record<string, { q?: string }>,
+  navigate: vi.fn(),
 }));
 
 vi.mock("@tanstack/react-router", async () => {
@@ -17,6 +19,8 @@ vi.mock("@tanstack/react-router", async () => {
   const makeRoute = (path: string, options: Record<string, unknown>) => ({
     options,
     useLoaderData: () => harness.loaderData[path],
+    useSearch: () => harness.search[path] ?? {},
+    useNavigate: () => harness.navigate,
   });
   const Link = ({
     children,
@@ -136,6 +140,7 @@ import { loadAwesomeLicenses } from "../src/lib/sources/awesome-licenses";
 import { loadRepos } from "../src/lib/sources/repos";
 
 type RouteOptions = {
+  validateSearch: (search: Record<string, unknown>) => { q?: string };
   loader: () => Promise<unknown>;
   head: () => { meta: Array<{ title?: string }> };
   component: ComponentType;
@@ -149,6 +154,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  harness.search = {};
 });
 
 function buildModels(): Model[] {
@@ -515,6 +521,69 @@ function buildRepos(): Repo[] {
   ];
   return [...hero, ...filler, ...noFallbackData];
 }
+
+describe("directory route search parameters", () => {
+  it("validates, restores, and updates linkable queries on all four directory routes", async () => {
+    const cases = [
+      {
+        path: "/models",
+        module: () => import("../src/routes/models"),
+        data: { models: buildModels(), truncated: false, failed: false },
+        query: "flagship-model",
+        placeholder: "Search models, authors, tags… [/]",
+      },
+      {
+        path: "/datasets",
+        module: () => import("../src/routes/datasets"),
+        data: { datasets: buildDatasets(), truncated: false, failed: false },
+        query: "flagship-data",
+        placeholder: "Search datasets, authors, tags… [/]",
+      },
+      {
+        path: "/papers",
+        module: () => import("../src/routes/papers"),
+        data: { papers: buildPapers(), failed: false },
+        query: "Recent Odia NLP survey",
+        placeholder: "Search titles, abstracts, authors, venues… [/]",
+      },
+      {
+        path: "/tools",
+        module: () => import("../src/routes/tools"),
+        data: {
+          awesome: buildAwesome(),
+          repos: buildRepos(),
+          licenses: {},
+          awesomeFailed: false,
+          reposFailed: false,
+        },
+        query: "repo-a",
+        placeholder: "Search projects, repos, datasets, models… [/]",
+      },
+    ];
+
+    for (const fixture of cases) {
+      const routeModule = (await fixture.module()) as unknown as RouteModule;
+      expect(routeModule.Route.options.validateSearch({ q: fixture.query })).toEqual({
+        q: fixture.query,
+      });
+      expect(routeModule.Route.options.validateSearch({ q: "x".repeat(81) })).toEqual({});
+      harness.search[fixture.path] = { q: fixture.query };
+      harness.loaderData[fixture.path] = fixture.data;
+      const Component = routeModule.Route.options.component;
+      render(<Component />);
+      const input = screen.getByPlaceholderText(fixture.placeholder);
+      expect(input).toHaveValue(fixture.query);
+      fireEvent.change(input, { target: { value: "next query" } });
+      expect(input).toHaveValue("next query");
+      expect(harness.navigate).toHaveBeenLastCalledWith({
+        search: { q: "next query" },
+        replace: true,
+      });
+      cleanup();
+      harness.navigate.mockClear();
+    }
+  }, 30000);
+});
 
 describe("models route directory coverage", () => {
   it("covers the loader success/failure branches and head metadata", async () => {

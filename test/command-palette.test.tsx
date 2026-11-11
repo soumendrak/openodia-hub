@@ -85,4 +85,31 @@ describe("CommandPalette", () => {
     await waitFor(() => expect(screen.queryByTestId("palette")).not.toBeInTheDocument());
     expect(screen.getByTestId("palette-root")).toBeInTheDocument();
   });
+
+  it("restores focus to the element that opened the palette", async () => {
+    const requestFrame = vi
+      .spyOn(window, "requestAnimationFrame")
+      .mockImplementation((callback) => {
+        callback(0);
+        return 42;
+      });
+    const cancelFrame = vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {});
+    const view = render(
+      <>
+        <button type="button">Open search</button>
+        <CommandPalette />
+      </>,
+    );
+    const opener = screen.getByRole("button", { name: "Open search" });
+    opener.focus();
+
+    window.dispatchEvent(new CustomEvent("openCommandPalette"));
+    expect(await screen.findByTestId("palette")).toBeInTheDocument();
+    openWithShortcut();
+
+    await waitFor(() => expect(opener).toHaveFocus());
+    expect(requestFrame).toHaveBeenCalled();
+    view.unmount();
+    expect(cancelFrame).toHaveBeenCalledWith(42);
+  });
 });

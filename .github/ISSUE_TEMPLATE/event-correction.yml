@@ -1,0 +1,88 @@
+name: Correct or update an event
+description: Report a wrong detail, a postponement, a cancellation, or a duplicate in an existing listing.
+title: "[Event correction]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Publication requires maintainer review. A listing on OpenOdia never means registration is open, and
+        nothing here is changed automatically. Report only what the official source states now, and write
+        **Unknown / not stated** for anything it does not say. Prefer to edit the data yourself? Open a pull
+        request instead; see [CONTRIBUTING.md](https://github.com/soumendrak/openodia-hub/blob/main/CONTRIBUTING.md#adding-events-or-communities).
+  - type: input
+    id: event_url
+    attributes:
+      label: Canonical event URL of the listing
+      description: The event link shown on OpenOdia. It identifies the listing, so do not use a registration or tracking link.
+      placeholder: https://...
+    validations:
+      required: true
+  - type: dropdown
+    id: change
+    attributes:
+      label: What changed
+      description: Listings have no cancelled status, so a cancelled or duplicate listing is removed after review.
+      options:
+        - A detail is wrong
+        - Postponed or rescheduled
+        - Cancelled
+        - Attendance or registration rules changed
+        - Duplicate listing
+        - Something else
+    validations:
+      required: true
+  - type: dropdown
+    id: fields
+    attributes:
+      label: Fields to change
+      description: Leave blank for a cancellation or a duplicate. Format (online, in person, hybrid) is part of the location.
+      multiple: true
+      options:
+        - Title
+        - Event URL
+        - Organizer
+        - Event type
+        - Dates
+        - Location or format
+        - Theme
+        - Description
+        - Who may attend
+  - type: textarea
+    id: details
+    attributes:
+      label: Current and correct values
+      description: For each field, what OpenOdia shows and what the source says now. Give dates as YYYY-MM-DD, or the month (e.g. "Nov 2026") if that is all the source states. For a postponement with no new date, write "not stated".
+    validations:
+      required: true
+  - type: input
+    id: duplicate_of
+    attributes:
+      label: Listing to keep
+      description: Duplicate listings only. The canonical event URL of the listing that should stay.
+      placeholder: https://...
+  - type: input
+    id: evidence_url
+    attributes:
+      label: Evidence URL
+      description: The official page where you checked the change.
+      placeholder: https://...
+    validations:
+      required: true
+  - type: input
+    id: evidence_checked_on
+    attributes:
+      label: Date you checked the evidence
+      description: YYYY-MM-DD.
+      placeholder: "2026-10-10"
+    validations:
+      required: true
+  - type: checkboxes
+    id: acknowledgement
+    attributes:
+      label: Review
+      options:
+        - label: I understand this is reviewed before anything is changed, and a listing does not mean registration is open.
+          required: true
+        - label: Every detail above comes from the source, and anything the source does not state is marked unknown.
+          required: true

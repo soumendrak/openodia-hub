@@ -47,6 +47,15 @@ flowchart LR
 | Contributor sources                            | Contributor grid and leaderboard                        | Daily GitHub sync into CONTRIBUTORS_KV                    |
 | PyPI                                           | `openodia` package metadata                             | `/api/pypi` proxy                                         |
 
+Event adapters return measured per-source outcomes, including successful-empty and
+sanitized failure categories. The Worker persists attempts and successes separately,
+and source memberships prevent one failing organizer feed from retiring another's
+known events. Events API, search and RSS retain the merged canonical archive and
+expose partial results when sources are unavailable, truncated, unmeasured or stale.
+Fetch success does not establish registration availability or editorial verification.
+Apply `db/migrations/0001_event_source_outcomes.sql` to existing event databases before
+the new sync runs; legacy persisted reads remain available with unknown health.
+
 Paper task labels come from keyword matching, not author-provided classifications.
 Upstream metadata may omit licenses or sizes. A missing preview or temporarily
 unavailable feed must not be presented as proof that a resource/channel has no content.
@@ -97,11 +106,11 @@ syndication and discovery surfaces.
   source data; `EVENTS_DB` stores synced events. D1 schema lives in `db/schema.sql`.
 - Some development bindings have `remote: true`; local development can read remote
   services. Do not assume every development data source is isolated.
-- The Worker cron is `0 */6 * * *`. It refreshes event data and warms catalog sources.
+- Catalog warming uses `0 */6 * * *`; event sync runs separately at `15 */6 * * *` (UTC). The event invocation counts every D1 query and every `fetch` (each redirect hop included) against the single Workers Free limit of 50 subrequests per invocation, because Cloudflare counts both Fetch API calls and D1 requests as subrequests ([Workers limits: Subrequests](https://developers.cloudflare.com/workers/platform/limits/#subrequests)). A sync spends `3 × chapters + 7` D1 queries and one page fetch per chapter; the redirect HEAD budget is whatever remains, capped at 30 (23 at today's five chapters). URLs with an already observed destination are not re-checked. A sync that would leave no budget (more than ten chapters) is refused before any fetch, and every chapter's source status records `failed` with error category `budget`; public event surfaces read stored destination aliases without HEAD requests. See `docs/event-lifecycle.md` for migration order and budgets.
 - `GITHUB_TOKEN` is optional upstream GitHub authentication; `YOUTUBE_API_KEY` enables
   optional YouTube enrichment. Never commit credentials. Consult the relevant loader
   and your runtime's environment setup when configuring them.
-- `.github/workflows/ci.yml` runs lint, changed-line coverage, and build in parallel.
+- `.github/workflows/ci.yml` runs `bun scripts/standards.ts` (locales, lint, typecheck, new-comment check, zizmor, changed-line coverage) and the build in parallel.
   Production deploys on `main` after all checks pass. Same-repository PR previews use
   Worker version uploads; their KV is shared with production.
 - Separate GitHub workflows sync contributors, propose event-data PRs, and check links.
@@ -113,3 +122,18 @@ this document, and CONTRIBUTING as appropriate. Treat `plan.md`, `issues/`, and 
 verification totals as historical project records unless explicitly remeasured.
 For demonstrations, rehearse the deployed site: code inspection does not establish
 that every upstream dependency is available during recording.
+
+### Organizer directory and event deep links
+
+`/communities` server-renders the reviewed organizer registry. Search `q` and organizer `kind`
+are URL state; each card links to `/events?community=<stable-id>`. Counts explicitly mean
+**curated events listed**, deduplicated by canonical event URL. They do not claim complete
+coverage of live sources. Directory metadata, sitemap, footer and page-search entries support discovery.
+
+`/events` accepts composable `q`, `community` and `type` filters. The community parameter is
+a stable registry ID, not a display name. Unknown IDs show a warning and no results. Any filter
+loads the unpaginated `/api/events` collection so later live pages participate. While loading or
+after a failure, the UI explains the smaller result/count scope. Event links and organizer
+anchors are separate interactive elements. The API's human-readable `community` field remains
+compatible; additive `organizerId` identifies reviewed records and old aliases resolve through
+the registry.
