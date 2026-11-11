@@ -140,6 +140,33 @@ const flagged: Record<string, string> = {
   C03: 'export async function load() {\n  const Events = await import("../events");\n  return raw as ReturnType<typeof Events.join>;\n}',
   C04: "export async function load(response?: Response) {\n  const e: CanonicalEvent | undefined = await response?.json();\n  return e;\n}",
   C06: "function parse(x: string): CanonicalEvent;\nfunction parse(x: unknown) {\n  return x;\n}\nexport const e = parse(s);",
+  R55: 'type Loose = { tag: "a"; value: any } | { tag: "b"; value: string };\ntype Owned = { tag: "c"; value: CanonicalEvent } | { tag: "d"; value: CanonicalEvent };\nexport const e: Owned = raw as Loose;',
+  R56: "type Source = { (): any; (x: string): any };\nconst loose = raw as Source;\nexport const make: () => CanonicalEvent = loose;",
+  R57: 'type Owned = { tag: "owned"; value: CanonicalEvent };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Owned | { tag: "other"; value: string } = input;\n  return out;\n}',
+  R58: "const payload = { event: JSON.parse(s) };\nexport const events: Record<string, CanonicalEvent> = payload;",
+  Y10: "declare const a: Array<any>;\nexport const r: Iterable<CanonicalEvent> = a;",
+  Y01: "declare function count(es: Iterable<CanonicalEvent>): number;\nexport const n = count(new Set<any>(JSON.parse(s)));",
+  Y02: "declare const t: [any, any];\nexport const xs: readonly CanonicalEvent[] = t;",
+  Y03: "declare const m: Map<string, any>;\ndeclare function take(it: Iterable<readonly [string, CanonicalEvent]>): void;\ntake(m);",
+  X05: "type Source = { (x: string): string; (): any };\nconst loose = raw as Source;\nexport const make: { (): CanonicalEvent; (x: string): string } = loose;",
+  X07: "type Source = { (x: number): any };\nconst loose = raw as Source;\nexport const make: (x: string) => CanonicalEvent = loose;",
+  Z01: 'type Owned = { tag: "owned"; value: CanonicalEvent };\ntype Other = { tag: "other"; value: string };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Other | Owned = input;\n  return out;\n}',
+  Z02: "declare const p: Promise<any>;\nexport const e: Promise<CanonicalEvent> = p;",
+  Z10: "declare const arr: Array<any>;\nexport const xs: ReadonlyArray<CanonicalEvent> = arr;",
+  Z03: "const payload = { 0: JSON.parse(s) };\nexport const events: Record<number, CanonicalEvent> = payload;",
+  Z04: 'declare const value: { tag: any; value: any };\nexport const out: { tag: "a"; value: CanonicalEvent } | { tag: "b"; value: CanonicalEvent } = value;',
+  Z05: "type Box = CanonicalEvent & { readonly extra: true };\ndeclare const value: { leak: any };\nexport const boxed: Box = value;",
+  Z08: "type Source = { new (): any };\ntype Target = { new (): CanonicalEvent };\ndeclare const Factory: Source;\nexport const make: Target = Factory;",
+  K2: "type Source = { (): any; (x: string): string };\ntype Target = { (x: string): CanonicalEvent; (): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K6: "type Source = { (x: string): CanonicalEvent; (x: string | boolean): any };\ntype Target = { (x: string): CanonicalEvent; (x: boolean): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K7: "type Source = { (): CanonicalEvent; (x: string): any };\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  Q01: "declare const a: any[];\nexport const r: { [n: number]: CanonicalEvent } = a;",
+  Q02: "declare const a: any[];\nexport const r: Record<number, CanonicalEvent> = a;",
+  Q03: "declare const a: Array<any>;\nexport const r: { readonly length: number; readonly [n: number]: CanonicalEvent } = a;",
+  Q04: "declare const m: Map<string, any>;\nexport const r: { get(k: string): CanonicalEvent | undefined } = m;",
+  Q05: "declare const it: { [Symbol.iterator](): Iterator<any> };\nexport const r: Iterable<CanonicalEvent> = it;",
+  Q06: "interface Bag {\n  [Symbol.iterator](): Iterator<any>;\n}\ndeclare const b: Bag;\nexport const r: Iterable<CanonicalEvent> = b;",
+  Q07: "declare const o: { [n: number]: any; length: number };\nexport const r: ArrayLike<CanonicalEvent> = o;",
 };
 
 const clean: Record<string, string> = {
@@ -175,6 +202,21 @@ const clean: Record<string, string> = {
   L32: 'import type { Ref } from "../events";\nexport const r = raw as Ref;',
   L33: "interface Holder<T> {\n  get(): T;\n}\nfunction read<T>(holder: Holder<T>): T {\n  return holder.get();\n}\nexport const e = (holder: Holder<CanonicalEvent>) => read(holder);",
   L34: "function apply<T, R>(value: T, fn: (item: T) => R): R {\n  return fn(value);\n}\nexport const e = apply(event, (item) => item);",
+  L35: 'function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(event)]));',
+  L36: 'function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(s)]));',
+  L37: "function read<T extends CanonicalEvent>(value: CanonicalEvent): T {\n  return value;\n}\nexport const out = read;",
+  L38: "interface A { b: B }\ninterface B { a: A; event: CanonicalEvent }\ninterface A2 { b: B2 }\ninterface B2 { a: A2; event: CanonicalEvent }\nexport function copy(value: A): A2 {\n  return value;\n}",
+  L39: "const payload = { event };\nexport const events: Record<string, CanonicalEvent> = payload;",
+  Z09: "const payload = { 0: event, label: JSON.parse(s) };\nexport const events: Record<number, CanonicalEvent> = payload;",
+  N03: "interface Envelope<T> {\n  payload: T;\n  raw: unknown;\n}\nexport const env: Envelope<CanonicalEvent> = { payload: event, raw: JSON.parse(s) };",
+  K1: "type Source = { (x: string): any; (): CanonicalEvent };\ntype Target = { (x: string): string; (): CanonicalEvent };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K3: 'type Source = { (x: string): CanonicalEvent; (x: number): any };\ntype Target = { (x: "a"): CanonicalEvent; (x: number): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}',
+  K4: "type Source = { (x?: number): any; event: CanonicalEvent };\ntype Target = { (): string; event: CanonicalEvent };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K5: "type Source = (x?: string) => CanonicalEvent;\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  V06: "const xs: CanonicalEvent[] = [event];\nexport const r: Iterable<CanonicalEvent> = xs;",
+  V07: "export const r: Iterable<CanonicalEvent> = new Set([event]);",
+  V08: 'export const r: Iterable<readonly [string, CanonicalEvent]> = new Map([["k", event]]);',
+  V09: "declare const m: Map<string, any>;\nexport const r: { size: number; ev?: CanonicalEvent } = m;",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -283,14 +325,31 @@ afterAll(() => {
 });
 
 describe("isolated/owned-types", () => {
+  it("keeps the flagged and clean probe lists", () => {
+    expect(Object.keys(flagged).length).toBe(118);
+    expect(Object.keys(clean).length).toBe(48);
+  });
+
+  const flaggedSeen: string[] = [];
   it.each([...Object.keys(flagged), "J01"])("flags %s", (name) => {
+    flaggedSeen.push(name);
     const found = messages.get(`probes/${name}`) ?? [];
     expect(found.length).toBeGreaterThan(0);
     for (const message of found) expect(message).toMatch(/^(?:[7-9]|\d\d) isolated\/owned-types: /);
   });
 
+  it("visits every flagged probe", () => {
+    expect(flaggedSeen).toEqual([...Object.keys(flagged), "J01"]);
+  });
+
+  const cleanSeen: string[] = [];
   it.each(Object.keys(clean))("passes %s", (name) => {
+    cleanSeen.push(name);
     expect(messages.get(`probes/${name}`)).toEqual([]);
+  });
+
+  it("visits every clean probe", () => {
+    expect(cleanSeen).toEqual(Object.keys(clean));
   });
 
   it("reports a generic helper's cast where the helper casts, not where an honest caller passes a real value", () => {
