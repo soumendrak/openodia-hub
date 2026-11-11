@@ -104,10 +104,14 @@ export const ownedTypes = {
       const seen = new WeakMap<ts.Type, WeakMap<ts.Type, boolean>>();
       const listed = (type: ts.Type, flag: ts.ObjectFlags) =>
         !!((type as ts.TypeReference).objectFlags & flag);
+      const returnOwned = (type: ts.Type) =>
+        [...type.getCallSignatures(), ...type.getConstructSignatures()].some(
+          (signature) => brands(signature.getReturnType()).length > 0,
+        );
       return visit(source, target);
       function visit(s: ts.Type, t: ts.Type): boolean {
         if (!(s.flags & (Any | Never)) && s === t) return false;
-        if (!brands(t).length) return false;
+        if (!brands(t).length && !returnOwned(t)) return false;
         if (s.flags & (Any | Never)) return true;
         let row = seen.get(s);
         if (row?.has(t)) return row.get(t) ?? false;
@@ -144,6 +148,16 @@ export const ownedTypes = {
           return hit && !second ? visit(s, hit) : hollow(s);
         }
         if (!(s.flags & Shape) || !(t.flags & Shape)) return hollow(s);
+        const earlyArgs = (type: ts.Type) =>
+          listed(type, ts.ObjectFlags.Reference)
+            ? checker.getTypeArguments(type as ts.TypeReference)
+            : [];
+        const earlySourceArgs = earlyArgs(s);
+        const earlyTargetArgs = earlyArgs(t);
+        if (listed(s, ts.ObjectFlags.Reference) && listed(t, ts.ObjectFlags.Reference)) {
+          if (earlySourceArgs.length !== earlyTargetArgs.length) return hollow(s);
+          return earlySourceArgs.some((arg, index) => visit(arg, earlyTargetArgs[index]!));
+        }
         const fields = new Map(
           checker
             .getPropertiesOfType(s)
@@ -166,12 +180,29 @@ export const ownedTypes = {
           listed(type, ts.ObjectFlags.Mapped) ? [] : (type.aliasTypeArguments ?? []);
         const sourceArgs = argsOf(s);
         const targetArgs = argsOf(t);
-        const bothReferences =
-          listed(s, ts.ObjectFlags.Reference) && listed(t, ts.ObjectFlags.Reference);
-        if (bothReferences && sourceArgs.length !== targetArgs.length) return hollow(s);
         if (zip(sourceArgs, targetArgs) || zip(aliasOf(s), aliasOf(t))) return true;
+        const sourceIndexes = checker.getIndexInfosOfType(s);
+        const sourceProperties = checker.getPropertiesOfType(s);
+        if (
+          checker.getIndexInfosOfType(t).some((info) => {
+            let matchedIndex: ts.Type | undefined;
+            for (const index of sourceIndexes)
+              if (index.keyType === info.keyType) matchedIndex = index.type;
+            if (matchedIndex && visit(matchedIndex, info.type)) return true;
+            return sourceProperties.some((property) => {
+              const name = ts.unescapeLeadingUnderscores(property.escapedName);
+              const numeric = typeof name === "string" && /^(?:0|[1-9]\d*)$/.test(name);
+              const covered =
+                typeof name === "string" &&
+                ((info.keyType.flags & ts.TypeFlags.String) !== 0 ||
+                  ((info.keyType.flags & ts.TypeFlags.Number) !== 0 && numeric));
+              return covered && visit(checker.getTypeOfSymbol(property), info.type);
+            });
+          })
+        )
+          return true;
         const open = (type: ts.Type) => listed(type, ts.ObjectFlags.Mapped) || local(type);
-        if (!open(s) || !open(t)) return false;
+        if ((!open(s) || !open(t)) && !returnOwned(s) && !returnOwned(t)) return false;
         const fits = (source: ts.Signature, target: ts.Signature) => {
           const sourceParams = source.getParameters();
           const targetParams = target.getParameters();
@@ -203,21 +234,7 @@ export const ownedTypes = {
           return hollow(s);
         if (returnsReach(calls(s), calls(t)) || returnsReach(constructs(s), constructs(t)))
           return true;
-        const sourceIndexes = checker.getIndexInfosOfType(s);
-        const sourceProperties = checker.getPropertiesOfType(s);
-        return checker.getIndexInfosOfType(t).some((info) => {
-          const match = sourceIndexes.find((index) => index.keyType === info.keyType);
-          if (match && visit(match.type, info.type)) return true;
-          return sourceProperties.some((property) => {
-            const name = ts.unescapeLeadingUnderscores(property.escapedName);
-            const numeric = typeof name === "string" && /^(?:0|[1-9]\d*)$/.test(name);
-            const covered =
-              typeof name === "string" &&
-              ((info.keyType.flags & ts.TypeFlags.String) !== 0 ||
-                ((info.keyType.flags & ts.TypeFlags.Number) !== 0 && numeric));
-            return covered && visit(checker.getTypeOfSymbol(property), info.type);
-          });
-        });
+        return false;
       }
     }
 

@@ -160,6 +160,13 @@ const flagged: Record<string, string> = {
   K2: "type Source = { (): any; (x: string): string };\ntype Target = { (x: string): CanonicalEvent; (): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
   K6: "type Source = { (x: string): CanonicalEvent; (x: string | boolean): any };\ntype Target = { (x: string): CanonicalEvent; (x: boolean): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
   K7: "type Source = { (): CanonicalEvent; (x: string): any };\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  Q01: "declare const a: any[];\nexport const r: { [n: number]: CanonicalEvent } = a;",
+  Q02: "declare const a: any[];\nexport const r: Record<number, CanonicalEvent> = a;",
+  Q03: "declare const a: Array<any>;\nexport const r: { readonly length: number; readonly [n: number]: CanonicalEvent } = a;",
+  Q04: "declare const m: Map<string, any>;\nexport const r: { get(k: string): CanonicalEvent | undefined } = m;",
+  Q05: "declare const it: { [Symbol.iterator](): Iterator<any> };\nexport const r: Iterable<CanonicalEvent> = it;",
+  Q06: "interface Bag {\n  [Symbol.iterator](): Iterator<any>;\n}\ndeclare const b: Bag;\nexport const r: Iterable<CanonicalEvent> = b;",
+  Q07: "declare const o: { [n: number]: any; length: number };\nexport const r: ArrayLike<CanonicalEvent> = o;",
 };
 
 const clean: Record<string, string> = {
@@ -206,6 +213,10 @@ const clean: Record<string, string> = {
   K3: 'type Source = { (x: string): CanonicalEvent; (x: number): any };\ntype Target = { (x: "a"): CanonicalEvent; (x: number): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}',
   K4: "type Source = { (x?: number): any; event: CanonicalEvent };\ntype Target = { (): string; event: CanonicalEvent };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
   K5: "type Source = (x?: string) => CanonicalEvent;\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  V06: "const xs: CanonicalEvent[] = [event];\nexport const r: Iterable<CanonicalEvent> = xs;",
+  V07: "export const r: Iterable<CanonicalEvent> = new Set([event]);",
+  V08: 'export const r: Iterable<readonly [string, CanonicalEvent]> = new Map([["k", event]]);',
+  V09: "declare const m: Map<string, any>;\nexport const r: { size: number; ev?: CanonicalEvent } = m;",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -315,8 +326,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(111);
-    expect(Object.keys(clean).length).toBe(44);
+    expect(Object.keys(flagged).length).toBe(118);
+    expect(Object.keys(clean).length).toBe(48);
   });
 
   const flaggedSeen: string[] = [];
