@@ -166,7 +166,9 @@ export const ownedTypes = {
           listed(type, ts.ObjectFlags.Mapped) ? [] : (type.aliasTypeArguments ?? []);
         const sourceArgs = argsOf(s);
         const targetArgs = argsOf(t);
-        if (sourceArgs.length !== targetArgs.length) return hollow(s);
+        const bothReferences =
+          listed(s, ts.ObjectFlags.Reference) && listed(t, ts.ObjectFlags.Reference);
+        if (bothReferences && sourceArgs.length !== targetArgs.length) return hollow(s);
         if (zip(sourceArgs, targetArgs) || zip(aliasOf(s), aliasOf(t))) return true;
         const open = (type: ts.Type) => listed(type, ts.ObjectFlags.Mapped) || local(type);
         if (!open(s) || !open(t)) return false;

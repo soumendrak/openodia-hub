@@ -157,6 +157,9 @@ const flagged: Record<string, string> = {
   Z04: 'declare const value: { tag: any; value: any };\nexport const out: { tag: "a"; value: CanonicalEvent } | { tag: "b"; value: CanonicalEvent } = value;',
   Z05: "type Box = CanonicalEvent & { readonly extra: true };\ndeclare const value: { leak: any };\nexport const boxed: Box = value;",
   Z08: "type Source = { new (): any };\ntype Target = { new (): CanonicalEvent };\ndeclare const Factory: Source;\nexport const make: Target = Factory;",
+  K2: "type Source = { (): any; (x: string): string };\ntype Target = { (x: string): CanonicalEvent; (): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K6: "type Source = { (x: string): CanonicalEvent; (x: string | boolean): any };\ntype Target = { (x: string): CanonicalEvent; (x: boolean): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K7: "type Source = { (): CanonicalEvent; (x: string): any };\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -198,6 +201,11 @@ const clean: Record<string, string> = {
   L38: "interface A { b: B }\ninterface B { a: A; event: CanonicalEvent }\ninterface A2 { b: B2 }\ninterface B2 { a: A2; event: CanonicalEvent }\nexport function copy(value: A): A2 {\n  return value;\n}",
   L39: "const payload = { event };\nexport const events: Record<string, CanonicalEvent> = payload;",
   Z09: "const payload = { 0: event, label: JSON.parse(s) };\nexport const events: Record<number, CanonicalEvent> = payload;",
+  N03: "interface Envelope<T> {\n  payload: T;\n  raw: unknown;\n}\nexport const env: Envelope<CanonicalEvent> = { payload: event, raw: JSON.parse(s) };",
+  K1: "type Source = { (x: string): any; (): CanonicalEvent };\ntype Target = { (x: string): string; (): CanonicalEvent };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K3: 'type Source = { (x: string): CanonicalEvent; (x: number): any };\ntype Target = { (x: "a"): CanonicalEvent; (x: number): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}',
+  K4: "type Source = { (x?: number): any; event: CanonicalEvent };\ntype Target = { (): string; event: CanonicalEvent };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K5: "type Source = (x?: string) => CanonicalEvent;\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
 };
 
@@ -307,18 +315,30 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBeGreaterThanOrEqual(107);
-    expect(Object.keys(clean).length).toBeGreaterThanOrEqual(39);
+    expect(Object.keys(flagged).length).toBe(111);
+    expect(Object.keys(clean).length).toBe(44);
   });
 
+  const flaggedSeen: string[] = [];
   it.each([...Object.keys(flagged), "J01"])("flags %s", (name) => {
+    flaggedSeen.push(name);
     const found = messages.get(`probes/${name}`) ?? [];
     expect(found.length).toBeGreaterThan(0);
     for (const message of found) expect(message).toMatch(/^(?:[7-9]|\d\d) isolated\/owned-types: /);
   });
 
+  it("visits every flagged probe", () => {
+    expect(flaggedSeen).toEqual([...Object.keys(flagged), "J01"]);
+  });
+
+  const cleanSeen: string[] = [];
   it.each(Object.keys(clean))("passes %s", (name) => {
+    cleanSeen.push(name);
     expect(messages.get(`probes/${name}`)).toEqual([]);
+  });
+
+  it("visits every clean probe", () => {
+    expect(cleanSeen).toEqual(Object.keys(clean));
   });
 
   it("reports a generic helper's cast where the helper casts, not where an honest caller passes a real value", () => {
