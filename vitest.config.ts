@@ -1,8 +1,10 @@
+import { resolve } from "node:path";
 import { defineConfig } from "vitest/config";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
   plugins: [tsconfigPaths()],
+  resolve: { alias: { jiti: resolve(import.meta.dirname, "test/jiti.ts") } },
   test: {
     globals: true,
     environment: "jsdom",
@@ -21,6 +23,7 @@ export default defineConfig({
       // assert nothing real. Run it with `just check-pattachitra`.
       exclude: ["scripts/check-pattachitra.mjs"],
       reporter: ["text", "html", "json"],
+      thresholds: { "src/{events,boundary,platform}/**": { 100: true } },
     },
   },
 });

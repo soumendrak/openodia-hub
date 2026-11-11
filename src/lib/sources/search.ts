@@ -1,3 +1,5 @@
+import { mergeReviewedCollections, lifecycleLabel, REGISTRATION_LABELS } from "../event-lifecycle";
+import { EVENT_OVERRIDES } from "../../data/event-overrides";
 import { events, type Event } from "../../data/events";
 import { dedupeEventsByUrl } from "../event-url";
 import { type SearchDocument, type SearchKind, type SearchSourceStatus } from "../search";
@@ -30,9 +32,15 @@ const PAGES: SearchDocument[] = [
   ["Tutorials", "/tutorials", "Odia AI community videos and learning"],
   ["Playground", "/playground", "Try Odia language tools in the browser"],
   ["Events", "/events", "Odia AI community events"],
+  ["Communities", "/communities", "Odia AI communities and event organizers"],
   ["Papers", "/papers", "Odia NLP research papers"],
   ["Treebank search", "/treebank", "Search the Odia Universal Dependencies treebank"],
   ["Add your project", "/contribute", "Contribute an Odia open-source project"],
+  [
+    "Help translate OpenOdia",
+    "/translation-status",
+    "Odia contributor guide: translate UI strings and track translation status and native reviews",
+  ],
   ["API", "/api", "OpenOdia public API reference"],
   ["About", "/about", "About the OpenOdia ecosystem"],
 ].map(([title, href, summary]) => ({
@@ -57,7 +65,12 @@ function eventDocument(event: Event): SearchDocument {
     id: `event:${event.url}`,
     kind: "event",
     title: event.title,
-    summary: event.description,
+    summary: [
+      event.description,
+      ...(event.lifecycle ? [lifecycleLabel(event)] : []),
+      ...(event.registration ? [REGISTRATION_LABELS[event.registration.state]] : []),
+      ...(event.notices ?? []).map((notice) => notice.text),
+    ].join(" · "),
     keywords: [event.community, event.type, event.location ?? "", event.date, event.year],
     href,
     externalHref: event.url,
@@ -66,9 +79,13 @@ function eventDocument(event: Event): SearchDocument {
 }
 
 export async function loadLiveSearchEvents(
-  fetcher: typeof fetchChapterEvents = fetchChapterEvents,
+  fetcher?: typeof fetchChapterEvents,
   chapters: typeof CHAPTERS = CHAPTERS,
-): Promise<Event[]> {
+): Promise<Event[] | Awaited<ReturnType<typeof import("./events").loadReviewedEventCollection>>> {
+  if (!fetcher) {
+    const { loadReviewedEventCollection } = await import("./events");
+    return loadReviewedEventCollection();
+  }
   const settled = await Promise.allSettled(
     chapters.map((chapter) => fetcher(chapter.organizerId ?? chapter.community, chapter.slug)),
   );
@@ -157,12 +174,26 @@ export async function buildSearchSnapshot(
     sources.push({ source: "videos", status: "ready", count: records.length });
   } else sources.push({ source: "videos", status: "unavailable", count: 0 });
 
-  const known = [...events, ...(live.status === "fulfilled" ? live.value : [])];
+  // A collection result already includes curated history and stored aliases.
+  // Raw injected arrays retain their historical merge contract.
+  const known =
+    live.status === "fulfilled" && !Array.isArray(live.value)
+      ? live.value.events
+      : mergeReviewedCollections(
+          events,
+          live.status === "fulfilled" ? (live.value as Event[]) : [],
+          EVENT_OVERRIDES,
+          new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()),
+        );
   const eventRecords = dedupeEventsByUrl(known).map(eventDocument);
   documents.push(...eventRecords);
   sources.push({
     source: "events",
-    status: live.status === "rejected" ? "unavailable" : "ready",
+    // Checked-in history stays searchable, so a rejected loader is partial too.
+    status:
+      live.status === "rejected" || (!Array.isArray(live.value) && live.value.partial)
+        ? "partial"
+        : "ready",
     count: eventRecords.length,
   });
 
@@ -171,9 +202,20 @@ export async function buildSearchSnapshot(
 
 export function createSearchSnapshotLoader(
   loaders: SearchLoaders = DEFAULT_LOADERS,
-  cacheKey = "search-snapshot:v1",
+  cacheKey = "search-snapshot:v3-reviewed-events-outcomes",
 ): () => Promise<SearchSnapshot> {
-  return () => cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+  const byDatabase = new WeakMap<object, { at: number; snapshot: Promise<SearchSnapshot> }>();
+  return async () => {
+    const { getEventDatabase } = await import("../event-request-context");
+    const db = getEventDatabase();
+    if (!db)
+      return cachedJson(cacheKey, SEARCH_SNAPSHOT_TTL_MS, () => buildSearchSnapshot(loaders));
+    const hit = byDatabase.get(db);
+    if (hit && Date.now() - hit.at < SEARCH_SNAPSHOT_TTL_MS) return hit.snapshot;
+    const snapshot = buildSearchSnapshot(loaders);
+    byDatabase.set(db, { at: Date.now(), snapshot });
+    return snapshot;
+  };
 }
 
 const loadDefaultSearchSnapshot = createSearchSnapshotLoader();

@@ -9,12 +9,13 @@ const serverHarness = vi.hoisted(() => ({
   models: vi.fn(),
   datasets: vi.fn(),
   readEvents: vi.fn(),
+  readStatuses: vi.fn(),
   syncEvents: vi.fn(),
   chapterEvents: vi.fn(),
   capturedError: vi.fn(),
 }));
 
-vi.mock("@tanstack/react-start/server-entry", () => ({
+vi.mock("../src/lib/ssr-entry", () => ({
   default: { fetch: serverHarness.entryFetch },
 }));
 vi.mock("../src/lib/error-capture", () => ({
@@ -30,7 +31,16 @@ vi.mock("../src/lib/sources/huggingface", () => ({
   loadModels: serverHarness.models,
   loadDatasets: serverHarness.datasets,
 }));
+vi.mock("../src/data/events", () => ({ events: [] }));
+vi.mock("../src/lib/event-reviewed-store", () => ({
+  restoreReviewedEvents: async (_db: unknown, events: unknown[]) => events,
+}));
+vi.mock("../src/lib/event-destination-store", () => ({
+  readEventDestinationAliases: async () => new Map(),
+  storedEventDestination: (url: string) => url,
+}));
 vi.mock("../src/lib/events-store", () => ({
+  readEventSourceStatuses: serverHarness.readStatuses,
   readEventsFromD1: serverHarness.readEvents,
   syncEventsToD1: serverHarness.syncEvents,
 }));
@@ -40,6 +50,28 @@ vi.mock("../src/routes/api/events", () => ({
     { community: "Two", slug: "two" },
   ],
   fetchChapterEvents: serverHarness.chapterEvents,
+  fetchChapterOutcome: async (...args: unknown[]) => {
+    const events = await serverHarness.chapterEvents(...args);
+    return { events, status: { outcome: events.length ? "success-events" : "success-empty" } };
+  },
+  fetchLiveEventCollection: async () => {
+    const results = await Promise.allSettled([
+      serverHarness.chapterEvents(),
+      serverHarness.chapterEvents(),
+    ]);
+    return {
+      events: results.flatMap((result) => (result.status === "fulfilled" ? result.value : [])),
+      sources: results.map((result, index) => ({
+        sourceId: index === 0 ? "one" : "two",
+        outcome: result.status === "fulfilled" ? "success-events" : "failed",
+        eventCount: result.status === "fulfilled" ? result.value.length : 0,
+        lastAttemptAt: "2026-10-12T12:00:00Z",
+        upcomingComplete: result.status === "fulfilled",
+        pastComplete: result.status === "fulfilled",
+      })),
+      partial: results.some((result) => result.status === "rejected"),
+    };
+  },
 }));
 
 import server from "../src/server";
@@ -79,6 +111,7 @@ beforeEach(() => {
   serverHarness.datasets.mockResolvedValue({ items: [], truncated: false });
   serverHarness.chapterEvents.mockResolvedValue([]);
   serverHarness.readEvents.mockResolvedValue([]);
+  serverHarness.readStatuses.mockResolvedValue([]);
   serverHarness.syncEvents.mockResolvedValue({ upserted: 2 });
   serverHarness.capturedError.mockReturnValue(undefined);
 });
@@ -228,6 +261,17 @@ describe("event endpoint fallbacks and paging", () => {
     });
   });
 
+  it("returns 503 rather than complete empty success when every source fails and no retained records exist", async () => {
+    serverHarness.chapterEvents.mockRejectedValue(new TypeError("offline"));
+    const response = await server.fetch(
+      new Request("https://openodia.com/api/events"),
+      undefined,
+      {},
+    );
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ events: [], partial: true });
+  });
+
   it("falls back when D1 fails and caps malformed paging values", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => undefined);
     serverHarness.readEvents.mockRejectedValueOnce(new Error("D1 offline"));
@@ -249,6 +293,62 @@ describe("event endpoint fallbacks and paging", () => {
       {},
     );
     expect(await response.json()).toMatchObject({ source: "d1" });
+    expect(serverHarness.chapterEvents).not.toHaveBeenCalled();
+  });
+
+  it("keeps a failed empty RSS feed unavailable instead of replacing subscriber history", async () => {
+    serverHarness.chapterEvents.mockRejectedValue(new TypeError("offline"));
+    const failed = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      undefined,
+      {},
+    );
+    expect(failed.status).toBe(503);
+    expect(failed.headers.get("X-OpenOdia-Partial")).toBe("true");
+    serverHarness.chapterEvents.mockResolvedValue([]);
+    const empty = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      undefined,
+      {},
+    );
+    expect(empty.status).toBe(200);
+    expect(empty.headers.get("X-OpenOdia-Partial")).toBe("false");
+  });
+
+  it("caches persisted RSS only when every measured source is complete and fresh", async () => {
+    serverHarness.readEvents.mockResolvedValueOnce([event]);
+    serverHarness.readStatuses.mockResolvedValueOnce(
+      ["one", "two"].map((sourceId) => ({
+        sourceId,
+        outcome: "success-events",
+        eventCount: 1,
+        lastAttemptAt: new Date().toISOString(),
+        lastSuccessAt: new Date().toISOString(),
+        upcomingComplete: true,
+        pastComplete: true,
+      })),
+    );
+    const response = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      { EVENTS_DB: {} },
+      {},
+    );
+    expect(response.headers.get("X-OpenOdia-Partial")).toBe("false");
+    expect(response.headers.get("Cache-Control")).toBe("public, s-maxage=3600");
+    expect(await response.text()).toContain("<title>Event</title>");
+  });
+
+  it("serves persisted RSS events during source uncertainty without a live fetch", async () => {
+    serverHarness.readEvents.mockResolvedValueOnce([event]);
+    const response = await server.fetch(
+      new Request("https://openodia.com/events-feed"),
+      { EVENTS_DB: {} },
+      {},
+    );
+    expect(response.status).toBe(200);
+    expect(response.headers.get("X-OpenOdia-Partial")).toBe("true");
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.text()).toContain("<title>Event</title>");
     expect(serverHarness.chapterEvents).not.toHaveBeenCalled();
   });
 
@@ -372,34 +472,43 @@ describe("scheduled cache and event refresh", () => {
   it("warms every catalog source and skips an absent D1 binding", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     serverHarness.repos.mockRejectedValueOnce(new Error("GitHub offline"));
-    await server.scheduled({}, { CATALOG_KV: { get: vi.fn(), put: vi.fn() } }, {});
+    await server.scheduled(
+      { cron: "0 */6 * * *" },
+      { CATALOG_KV: { get: vi.fn(), put: vi.fn() } },
+      {},
+    );
     expect(serverHarness.awesome).toHaveBeenCalled();
     expect(serverHarness.datasets).toHaveBeenCalled();
+    expect(serverHarness.syncEvents).not.toHaveBeenCalled();
+    await server.scheduled({ cron: "15 */6 * * *" }, undefined, {});
     expect(warn).toHaveBeenCalledWith("scheduled: EVENTS_DB not bound; skipping events sync");
+    await server.scheduled({ cron: "unknown" }, undefined, {});
   });
 
   it("syncs D1 and reports both success and failure", async () => {
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const env = { EVENTS_DB: {} };
-    await server.scheduled({}, env, {});
+    await server.scheduled({ cron: "15 */6 * * *" }, env, {});
     expect(log).toHaveBeenCalledWith("events sync: 2 upserted");
+    expect(serverHarness.awesome).not.toHaveBeenCalled();
+    expect(serverHarness.repos).not.toHaveBeenCalled();
     serverHarness.syncEvents.mockRejectedValueOnce(new Error("sync failed"));
-    await server.scheduled({}, env, {});
+    await server.scheduled({ cron: "15 */6 * * *" }, env, {});
     expect(error).toHaveBeenCalledWith("events sync failed", expect.any(Error));
   });
 });
 
 describe("getServerEntry default export fallback", () => {
   afterEach(() => {
-    vi.doUnmock("@tanstack/react-start/server-entry");
+    vi.doUnmock("../src/lib/ssr-entry");
     vi.resetModules();
   });
 
   it("uses the module namespace directly when it has no default export", async () => {
     vi.resetModules();
     const freshFetch = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
-    vi.doMock("@tanstack/react-start/server-entry", () => ({
+    vi.doMock("../src/lib/ssr-entry", () => ({
       fetch: freshFetch,
       default: undefined,
     }));
