@@ -140,6 +140,28 @@ describe("curated OdiaSLM models", () => {
     expect(screen.queryByText("No license")).not.toBeInTheDocument();
   });
 
+  it.each([
+    [
+      "arunjmisra2273/OdiaSLM-60M-Base",
+      "cc-by-nc-4.0-with-commercial-option",
+      "Licensed under CC-BY-NC-4.0 for academic, research, and non-commercial use. Commercial deployments require a separate Commercial License from the author (arunjmisra2273).",
+    ],
+    [
+      "arunjmisra2273/OdiaSLM-100M-Base",
+      "cc-by-nc-4.0-with-commercial-option",
+      "Licensed under CC-BY-NC-4.0 for academic, research, and non-commercial use. Commercial deployments require a separate Commercial License from the author (arunjmisra2273).",
+    ],
+    [
+      "arunjmisra2273/OdiaSLM-100M-Instruct",
+      "odiaslm-dual-nc-1.0",
+      "Released under the OdiaSLM Non-Commercial Research & Educational License v1.0 (LICENSE). Free for academic research, classroom education, personal experimentation, and non-profit cultural preservation.",
+    ],
+  ])("renders the exact model-card licence sentence as the %s tooltip", (id, name, sentence) => {
+    render(<ResourceMeta license="" licenseNote={curatedLicense(id)} entry={entry} />);
+
+    expect(screen.getByRole("link", { name })).toHaveAttribute("title", sentence);
+  });
+
   it("prefers a recognised SPDX licence over the curated note", () => {
     render(<ResourceMeta license="MIT" licenseNote={curatedLicense(ODIASLM[0])} entry={entry} />);
 
