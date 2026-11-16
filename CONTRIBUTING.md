@@ -118,7 +118,10 @@ group, or organisation; individuals are not listed as organizers.
 - **Registration and fee** stay separate from attendance. `registration` stores the reviewed
   state (`unknown`, `not-open`, `open`, `closed`, `sold-out`, or `waitlist`). When the source
   gives a registration page that is not the event page, that page is `registration.url`, never
-  `url`. Every state other than `unknown` also needs `evidenceUrl` and `verifiedAt` from the
+  `url`. `joinUrl` is only the reviewed meeting, stream, or room where people attend an online
+  event. Event JSON-LD emits it as `VirtualLocation.url` and omits that property when it is
+  absent, so a brochure, archive, or event info page stays in `url` and is never copied into
+  `joinUrl` or `registration.url`. Every state other than `unknown` also needs `evidenceUrl` and `verifiedAt` from the
   organizer's page. Do not fold the registration URL or status into `attendance`. Set `free: true`
   only when the source states there is no fee; otherwise omit `free`. Silence stays unknown, and
   a listing still does not mean registration is open. Corrections to an existing event use the

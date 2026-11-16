@@ -118,7 +118,9 @@ For sources without a crawler adapter (see `references/sources.md`):
   brochure, organizer post, or PIB). Publication, expiry, and paper-submission dates are not event
   dates. Unknown or conflicting dates go in the PR report instead.
 - **One URL per event**: use its detail page, brochure, or conference site. Two events must not
-  share a URL — dedup treats them as one.
+  share a URL — dedup treats them as one. That page is `url`, not `joinUrl`. Set `joinUrl` only
+  when the source gives the meeting, stream, or room where people attend. Leave it unset when no
+  attendance link is known.
 - **Always set `attendance`** (see `types.ts`), from evidence only:
   - `public` — explicit open invitation or public registration
   - `eligibility` — registration with criteria: fee, ID, seat cap, target roles, prerequisites

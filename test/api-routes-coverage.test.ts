@@ -140,13 +140,24 @@ describe("parameterized and custom API routes", () => {
         { status: 200 },
       ),
     );
-    expect(await (await handler()).json()).toEqual({
+    const success = await handler();
+    expect(await success.json()).toEqual({
       version: "1.2.3",
       summary: "Odia",
       releases: 2,
     });
     apiHarness.fetchWithTimeout.mockResolvedValueOnce(new Response("no", { status: 500 }));
-    expect(await (await handler()).json()).toEqual({ version: "0.1.0", summary: "", releases: 0 });
+    const outage = await handler();
+    expect(outage.status).toBe(200);
+    expect(await outage.json()).toEqual({ version: "0.1.0", summary: "", releases: 0 });
+    expect(success.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(outage.headers.get("Access-Control-Allow-Origin")).toBe("*");
+    expect(outage.headers.get("Access-Control-Allow-Methods")).toBe(
+      success.headers.get("Access-Control-Allow-Methods"),
+    );
+    expect(outage.headers.get("Access-Control-Allow-Headers")).toBe(
+      success.headers.get("Access-Control-Allow-Headers"),
+    );
     apiHarness.fetchWithTimeout.mockRejectedValueOnce(new Error("offline"));
     expect(await (await handler()).json()).toEqual({ version: "0.1.0", summary: "", releases: 0 });
 

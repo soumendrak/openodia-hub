@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { getISTDateString } from "../src/lib/ist-date";
 import { parseEventDateRange } from "../src/data/events/index";
 
 /** Re-imports the module fresh, honoring any `vi.doMock` set up beforehand. */
@@ -257,6 +258,25 @@ describe("events aggregation (module-level computation)", () => {
     // The event with a resolvable startDate sorts before those without one,
     // and events lacking a startDate on both sides remain stable relative to each other.
     expect(noStartTitles).toEqual(["No Start A", "No Start B", "No Start C"]);
+  });
+});
+
+describe("getISTDateString", () => {
+  it("returns the Asia/Kolkata calendar day across the UTC offset", () => {
+    expect(getISTDateString(new Date("2026-02-16T18:29:00.000Z"))).toBe("2026-02-16");
+    expect(getISTDateString(new Date("2026-02-16T18:30:00.000Z"))).toBe("2026-02-17");
+    expect(getISTDateString(new Date("2026-02-16T23:59:00.000Z"))).toBe("2026-02-17");
+  });
+
+  it("falls back to that instant's UTC date when Intl formatting throws", () => {
+    const spy = vi.spyOn(Intl, "DateTimeFormat").mockImplementation(() => {
+      throw new Error("Intl formatting unavailable");
+    });
+    try {
+      expect(getISTDateString(new Date("2026-02-16T18:30:00.000Z"))).toBe("2026-02-16");
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
 

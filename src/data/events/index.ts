@@ -1,4 +1,5 @@
 import { applyEventOverrides, resolveEventStatus } from "../../lib/event-lifecycle";
+import { getISTDateString } from "../../lib/ist-date";
 import { EVENT_OVERRIDES } from "../event-overrides";
 /**
  * Aggregates all community event sources into a single sorted array.
@@ -195,20 +196,6 @@ export function parseEventDateRange(
   }
 
   return { start: null, end: null };
-}
-
-function getISTDateString(): string {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-CA", {
-      timeZone: "Asia/Kolkata",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    return formatter.format(new Date());
-  } catch {
-    return new Date().toISOString().split("T")[0];
-  }
 }
 
 /** All events merged, community-tagged, and dynamically evaluated for status & sorted newest-year-first. */
