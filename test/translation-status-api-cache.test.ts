@@ -24,8 +24,11 @@ describe("translation status source-cache metadata", () => {
     async (layer) => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date("2026-10-12T00:00:00Z"));
-      const upstream = vi.fn(async () =>
-        Response.json([{ id: "openodia/model", tags: ["language:or"] }]),
+      const isListing = (input: RequestInfo | URL) => String(input).includes("/api/models?");
+      const upstream = vi.fn(async (input: RequestInfo | URL) =>
+        isListing(input)
+          ? Response.json([{ id: "openodia/model", tags: ["language:or"] }])
+          : new Response(null, { status: 404 }),
       );
       vi.stubGlobal("fetch", upstream);
       const kvData = new Map<string, string>();
@@ -55,7 +58,9 @@ describe("translation status source-cache metadata", () => {
         models: [{ id: "openodia/model" }],
         truncated: false,
       });
-      expect(upstream).toHaveBeenCalledTimes(layer === "STALE" ? 2 : 1);
+      expect(upstream.mock.calls.filter(([input]) => isListing(input))).toHaveLength(
+        layer === "STALE" ? 2 : 1,
+      );
 
       const status = await import("../src/routes/api/translation-status");
       const { getLocaleStatus } = await import("../src/lib/locale-status");

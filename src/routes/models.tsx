@@ -21,6 +21,7 @@ import { pageHead } from "../lib/seo";
 import { MIN_LIKES, pickWeeklyBy } from "../lib/weekly-picks";
 import { loadModels, type Model } from "../lib/sources/huggingface";
 import { normalizeSearch } from "../lib/search";
+import { curatedLicense } from "../data/curated-models";
 
 /**
  * Runs on the server during SSR and over RPC on client navigation, so the
@@ -263,6 +264,7 @@ function ModelsPage() {
               </Link>
               <ResourceMeta
                 license={normalizeSpdx(m.license)}
+                licenseNote={curatedLicense(m.id)}
                 entry={{
                   name: m.name,
                   author: m.author,

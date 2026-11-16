@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, Copy, Quote } from "lucide-react";
 import { isPermissive } from "../lib/license";
 import { toApa, toBibTeX, type CitableEntry } from "../lib/citation";
+import type { ModelLicenseNote } from "../data/curated-models";
 
 /**
  * The metadata row shared by /tools, /models and /datasets cards: the license
@@ -16,6 +17,30 @@ import { toApa, toBibTeX, type CitableEntry } from "../lib/citation";
  * /tools that was 30 cards x (two copy buttons, two inline SVGs, a BibTeX blob
  * and an APA blob) — 58% of the page's markup for a panel almost nobody opens.
  */
+
+function LicenseNoteBadge({ note }: { note: ModelLicenseNote }) {
+  return (
+    <>
+      <a
+        href={note.url}
+        target="_blank"
+        rel="noreferrer"
+        title={note.terms}
+        className="rounded-full border border-saffron/40 bg-saffron/5 px-2 py-0.5 text-[10px] text-saffron"
+      >
+        {note.name}
+      </a>
+      <a
+        href={note.paperUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition hover:border-neon hover:text-neon"
+      >
+        Paper
+      </a>
+    </>
+  );
+}
 
 export function LicenseBadge({ spdx }: { spdx: string }) {
   if (!spdx) {
@@ -83,10 +108,12 @@ function CopyRow({ label, value }: { label: string; value: string }) {
  */
 export function ResourceMeta({
   license,
+  licenseNote,
   entry,
   extra,
 }: {
   license: string;
+  licenseNote?: ModelLicenseNote;
   entry: CitableEntry;
   extra?: React.ReactNode;
 }) {
@@ -107,7 +134,11 @@ export function ResourceMeta({
       onToggle={(e) => setOpen(e.currentTarget.open)}
     >
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-2 px-5 py-3 [&::-webkit-details-marker]:hidden">
-        <LicenseBadge spdx={license} />
+        {licenseNote && !license ? (
+          <LicenseNoteBadge note={licenseNote} />
+        ) : (
+          <LicenseBadge spdx={license} />
+        )}
         {extra}
         <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground transition hover:border-neon hover:text-neon">
           <Quote size={10} />
