@@ -8,6 +8,7 @@
  * `size_categories:10K<n<100K`) — no extra round trip per entry.
  */
 import { fetchWithTimeout } from "../fetch-utils";
+import { CURATED_MODEL_IDS } from "../../data/curated-models";
 import { cachedJson, UpstreamUnavailableError } from "./cache";
 
 export type Model = {
@@ -194,10 +195,28 @@ async function fetchHF<T>(url: string, label: string): Promise<Page<T>> {
   return { items: all, truncated: next !== null };
 }
 
+async function fetchOneModel(id: string): Promise<Model> {
+  const r = await fetchWithTimeout(`https://huggingface.co/api/models/${id}`, {
+    headers: { "User-Agent": "openodia.com" },
+  });
+  if (!r.ok) throw new UpstreamUnavailableError(`hf_model_${r.status}`);
+  return normalizeModel((await r.json()) as HFModel);
+}
+
+async function withCuratedModels(listed: Model[]): Promise<Model[]> {
+  const known = new Set(listed.map((m) => m.id.toLowerCase()));
+  const missing = CURATED_MODEL_IDS.filter((id) => !known.has(id.toLowerCase()));
+  const fetched = await Promise.allSettled(missing.map(fetchOneModel));
+  const added = fetched.flatMap((f) => (f.status === "fulfilled" ? [f.value] : []));
+  if (added.length === 0) return listed;
+  return [...listed, ...added].sort((a, b) => b.downloads - a.downloads);
+}
+
 export async function loadModels(): Promise<Page<Model>> {
   return cachedJson("hf-models", TTL_MS, async () => {
     const page = await fetchHF<HFModel>(MODELS_URL, "hf_models");
-    return { items: page.items.map(normalizeModel), truncated: page.truncated };
+    const items = await withCuratedModels(page.items.map(normalizeModel));
+    return { items, truncated: page.truncated };
   });
 }
 
