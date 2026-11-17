@@ -277,6 +277,13 @@ export const ownedTypes = {
           const node = declared(parameter);
           return !!node && (checker.isOptionalParameter(node) || !!node.dotDotDotToken);
         };
+        const members = (type: ts.Type) => (type.isUnion() ? type.types : [type]);
+        const overlaps = (left: ts.Type, right: ts.Type) =>
+          members(left).some((a) =>
+            members(right).some(
+              (b) => checker.isTypeAssignableTo(a, b) || checker.isTypeAssignableTo(b, a),
+            ),
+          );
         const fits = (source: ts.Signature, target: ts.Signature) => {
           const sourceParams = source.getParameters();
           const targetParams = target.getParameters();
@@ -284,7 +291,7 @@ export const ownedTypes = {
             sourceParams.slice(targetParams.length).every(optional) &&
             targetParams.every((_, index) => {
               const wanted = typeAt(sourceParams, index);
-              return !wanted || checker.isTypeAssignableTo(typeAt(targetParams, index)!, wanted);
+              return !wanted || overlaps(typeAt(targetParams, index)!, wanted);
             })
           );
         };
