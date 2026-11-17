@@ -195,11 +195,29 @@ export const ownedTypes = {
         if (zip(sourceArgs, targetArgs) || zip(aliasOf(s), aliasOf(t))) return true;
         const numeric = (key: ts.Type) => (key.flags & ts.TypeFlags.NumberLike) !== 0;
         const textual = (key: ts.Type) => (key.flags & ts.TypeFlags.StringLike) !== 0;
+        const expand = (type: ts.Type): string[] => {
+          if (!(type.flags & ts.TypeFlags.TemplateLiteral)) return [];
+          const tmpl = type as ts.TemplateLiteralType;
+          const rec = (index: number): string[] => {
+            if (index === tmpl.types.length) return [tmpl.texts[index] ?? ""];
+            return ["", "a", "event", "-"].flatMap((fill) =>
+              rec(index + 1).map((tail) => `${tmpl.texts[index] ?? ""}${fill}${tail}`),
+            );
+          };
+          return rec(0);
+        };
         const overlap = (left: ts.Type, right: ts.Type) =>
           checker.isTypeAssignableTo(left, right) ||
           checker.isTypeAssignableTo(right, left) ||
           (numeric(left) && textual(right)) ||
-          (textual(left) && numeric(right));
+          (textual(left) && numeric(right)) ||
+          [...expand(left), ...expand(right)].some((witness) => {
+            const literal = checker.getStringLiteralType(witness);
+            return (
+              checker.isTypeAssignableTo(literal, left) &&
+              checker.isTypeAssignableTo(literal, right)
+            );
+          });
         const sourceIndexes = checker.getIndexInfosOfType(s);
         const sourceProperties = checker.getPropertiesOfType(s);
         if (
@@ -362,8 +380,13 @@ export const ownedTypes = {
         checker
           .getPropertiesOfType(owner)
           .filter((p) => String(p.escapedName).replace(/^__@(.*)@\d+$/, "$1") === name)
-          .flatMap((p) => checker.getTypeOfSymbol(p).getCallSignatures())
-          .map((signature) => settle(signature.getReturnType()));
+          .flatMap((p) => {
+            const property = checker.getTypeOfSymbol(p);
+            if (property.flags & (Any | Never)) return [property];
+            return property
+              .getCallSignatures()
+              .map((signature) => settle(signature.getReturnType()));
+          });
       const asynchronous = wait ? results(type, "asyncIterator") : [];
       const iterators = asynchronous.length ? asynchronous : results(type, "iterator");
       const open = (value: ts.Type) => (value.flags & (Any | Never) ? [value] : []);
@@ -426,7 +449,8 @@ export const ownedTypes = {
         const type = !wrapper && target && brands(target).length && typeOf(node);
         if (!target || !type) return;
         const loop = node.parent.type === "ForOfStatement" && node.parent;
-        const sources = loop ? yielded(type, loop.await) : [type];
+        const spread = node.parent.type === "SpreadElement";
+        const sources = loop ? yielded(type, loop.await) : spread ? yielded(type, false) : [type];
         if (!sources.some((source) => reaches(source, target))) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const body = type.flags & Never && call && "body" in call && call.body;
