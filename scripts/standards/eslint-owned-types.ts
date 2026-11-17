@@ -14,6 +14,69 @@ const Declare = ts.SyntaxKind.DeclareKeyword;
 const shared = new Map<string, WeakMap<ts.Type, readonly string[]>>();
 const build = (what: string) => `${what}. Build it with the functions in {{module}}.`;
 
+function isNumericKey(key: ts.Type): boolean {
+  return (key.flags & ts.TypeFlags.NumberLike) !== 0;
+}
+
+function isTextualKey(key: ts.Type): boolean {
+  return (key.flags & ts.TypeFlags.StringLike) !== 0;
+}
+
+function expandTemplates(type: ts.Type): string[] {
+  const tmpl = type as ts.TemplateLiteralType;
+  const rec = (index: number): string[] => {
+    if (index === tmpl.types.length) return [tmpl.texts[index] ?? ""];
+    return ["", "a", "event", "-"].flatMap((fill) =>
+      rec(index + 1).map((tail) => `${tmpl.texts[index] ?? ""}${fill}${tail}`),
+    );
+  };
+  return rec(0);
+}
+
+function keysOverlap(checker: ts.TypeChecker, left: ts.Type, right: ts.Type): boolean {
+  const templates = (type: ts.Type) =>
+    type.flags & ts.TypeFlags.TemplateLiteral ? expandTemplates(type) : [];
+  return (
+    checker.isTypeAssignableTo(left, right) ||
+    checker.isTypeAssignableTo(right, left) ||
+    (isNumericKey(left) && isTextualKey(right)) ||
+    (isTextualKey(left) && isNumericKey(right)) ||
+    [...templates(left), ...templates(right)].some((witness) => {
+      const literal = checker.getStringLiteralType(witness);
+      return (
+        checker.isTypeAssignableTo(literal, left) && checker.isTypeAssignableTo(literal, right)
+      );
+    })
+  );
+}
+
+function namedFieldsReach(
+  checker: ts.TypeChecker,
+  visit: (source: ts.Type, target: ts.Type) => boolean,
+  source: ts.Type,
+  target: ts.Type,
+): boolean {
+  const fields = new Map(
+    checker
+      .getPropertiesOfType(source)
+      .map((property) => [property.name, checker.getTypeOfSymbol(property)]),
+  );
+  return checker.getPropertiesOfType(target).some((property) => {
+    const wanted = checker.getTypeOfSymbol(property);
+    const field = fields.get(property.name);
+    if (field) return visit(field, wanted);
+    const symbolic = String(property.escapedName).startsWith("__@");
+    const name = ts.unescapeLeadingUnderscores(property.escapedName);
+    return checker.getIndexInfosOfType(source).some((info) => {
+      const covered = symbolic
+        ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
+        : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
+          (isNumericKey(info.keyType) && String(Number(name)) === name);
+      return covered && visit(info.type, wanted);
+    });
+  });
+}
+
 export const ownedTypes = {
   meta: {
     type: "problem",
@@ -159,61 +222,15 @@ export const ownedTypes = {
           if (earlySourceArgs.length !== earlyTargetArgs.length) return hollow(s);
           return earlySourceArgs.some((arg, index) => visit(arg, earlyTargetArgs[index]!));
         }
-        const fields = new Map(
-          checker
-            .getPropertiesOfType(s)
-            .map((property) => [property.name, checker.getTypeOfSymbol(property)]),
-        );
-        const namedHit = checker.getPropertiesOfType(t).some((property) => {
-          const wanted = checker.getTypeOfSymbol(property);
-          const field = fields.get(property.name);
-          if (field) return visit(field, wanted);
-          const symbolic = String(property.escapedName).startsWith("__@");
-          const name = ts.unescapeLeadingUnderscores(property.escapedName);
-          return checker.getIndexInfosOfType(s).some((info) => {
-            const covered = symbolic
-              ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
-              : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
-                ((info.keyType.flags & ts.TypeFlags.NumberLike) !== 0 &&
-                  String(Number(name)) === name);
-            return covered && visit(info.type, wanted);
-          });
-        });
-        if (namedHit) {
-          return true;
-        }
-        const numeric = (key: ts.Type) => (key.flags & ts.TypeFlags.NumberLike) !== 0;
-        const textual = (key: ts.Type) => (key.flags & ts.TypeFlags.StringLike) !== 0;
-        const expand = (type: ts.Type): string[] => {
-          if (!(type.flags & ts.TypeFlags.TemplateLiteral)) return [];
-          const tmpl = type as ts.TemplateLiteralType;
-          const rec = (index: number): string[] => {
-            if (index === tmpl.types.length) return [tmpl.texts[index] ?? ""];
-            return ["", "a", "event", "-"].flatMap((fill) =>
-              rec(index + 1).map((tail) => `${tmpl.texts[index] ?? ""}${fill}${tail}`),
-            );
-          };
-          return rec(0);
-        };
-        const overlap = (left: ts.Type, right: ts.Type) =>
-          checker.isTypeAssignableTo(left, right) ||
-          checker.isTypeAssignableTo(right, left) ||
-          (numeric(left) && textual(right)) ||
-          (textual(left) && numeric(right)) ||
-          [...expand(left), ...expand(right)].some((witness) => {
-            const literal = checker.getStringLiteralType(witness);
-            return (
-              checker.isTypeAssignableTo(literal, left) &&
-              checker.isTypeAssignableTo(literal, right)
-            );
-          });
+        if (namedFieldsReach(checker, visit, s, t)) return true;
         const sourceIndexes = checker.getIndexInfosOfType(s);
         const sourceProperties = checker.getPropertiesOfType(s);
         if (
           checker.getIndexInfosOfType(t).some((info) => {
             if (
               sourceIndexes.some(
-                (index) => overlap(index.keyType, info.keyType) && visit(index.type, info.type),
+                (index) =>
+                  keysOverlap(checker, index.keyType, info.keyType) && visit(index.type, info.type),
               )
             )
               return true;
@@ -223,7 +240,7 @@ export const ownedTypes = {
               const covered = symbolic
                 ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
                 : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
-                  (numeric(info.keyType) && String(Number(name)) === name);
+                  (isNumericKey(info.keyType) && String(Number(name)) === name);
               return covered && visit(checker.getTypeOfSymbol(property), info.type);
             });
           })
