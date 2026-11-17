@@ -164,35 +164,24 @@ export const ownedTypes = {
             .getPropertiesOfType(s)
             .map((property) => [property.name, checker.getTypeOfSymbol(property)]),
         );
-        if (
-          checker.getPropertiesOfType(t).some((property) => {
-            const wanted = checker.getTypeOfSymbol(property);
-            const field = fields.get(property.name);
-            if (field) return visit(field, wanted);
-            const symbolic = String(property.escapedName).startsWith("__@");
-            const name = ts.unescapeLeadingUnderscores(property.escapedName);
-            return checker.getIndexInfosOfType(s).some((info) => {
-              const covered = symbolic
-                ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
-                : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
-                  ((info.keyType.flags & ts.TypeFlags.NumberLike) !== 0 &&
-                    String(Number(name)) === name);
-              return covered && visit(info.type, wanted);
-            });
-          })
-        )
+        const namedHit = checker.getPropertiesOfType(t).some((property) => {
+          const wanted = checker.getTypeOfSymbol(property);
+          const field = fields.get(property.name);
+          if (field) return visit(field, wanted);
+          const symbolic = String(property.escapedName).startsWith("__@");
+          const name = ts.unescapeLeadingUnderscores(property.escapedName);
+          return checker.getIndexInfosOfType(s).some((info) => {
+            const covered = symbolic
+              ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
+              : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
+                ((info.keyType.flags & ts.TypeFlags.NumberLike) !== 0 &&
+                  String(Number(name)) === name);
+            return covered && visit(info.type, wanted);
+          });
+        });
+        if (namedHit) {
           return true;
-        const zip = (left: readonly ts.Type[], right: readonly ts.Type[]) =>
-          left.length === right.length && left.some((item, index) => visit(item, right[index]!));
-        const argsOf = (type: ts.Type) =>
-          listed(type, ts.ObjectFlags.Reference)
-            ? checker.getTypeArguments(type as ts.TypeReference)
-            : [];
-        const aliasOf = (type: ts.Type) =>
-          listed(type, ts.ObjectFlags.Mapped) ? [] : (type.aliasTypeArguments ?? []);
-        const sourceArgs = argsOf(s);
-        const targetArgs = argsOf(t);
-        if (zip(sourceArgs, targetArgs) || zip(aliasOf(s), aliasOf(t))) return true;
+        }
         const numeric = (key: ts.Type) => (key.flags & ts.TypeFlags.NumberLike) !== 0;
         const textual = (key: ts.Type) => (key.flags & ts.TypeFlags.StringLike) !== 0;
         const expand = (type: ts.Type): string[] => {
