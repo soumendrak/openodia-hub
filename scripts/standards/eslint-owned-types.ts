@@ -166,8 +166,19 @@ export const ownedTypes = {
         );
         if (
           checker.getPropertiesOfType(t).some((property) => {
+            const wanted = checker.getTypeOfSymbol(property);
             const field = fields.get(property.name);
-            return !!field && visit(field, checker.getTypeOfSymbol(property));
+            if (field) return visit(field, wanted);
+            const symbolic = String(property.escapedName).startsWith("__@");
+            const name = ts.unescapeLeadingUnderscores(property.escapedName);
+            return checker.getIndexInfosOfType(s).some((info) => {
+              const covered = symbolic
+                ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
+                : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
+                  ((info.keyType.flags & ts.TypeFlags.NumberLike) !== 0 &&
+                    String(Number(name)) === name);
+              return covered && visit(info.type, wanted);
+            });
           })
         )
           return true;
@@ -345,6 +356,7 @@ export const ownedTypes = {
 
     function yielded(type: ts.Type, wait: boolean): readonly ts.Type[] {
       if (type.flags & (Any | Never)) return [type];
+      if (type.isUnion()) return type.types.flatMap((member) => yielded(member, wait));
       const settle = (value: ts.Type) => (wait && checker.getAwaitedType(value)) || value;
       const results = (owner: ts.Type, name: string) =>
         checker
@@ -354,14 +366,23 @@ export const ownedTypes = {
           .map((signature) => settle(signature.getReturnType()));
       const asynchronous = wait ? results(type, "asyncIterator") : [];
       const iterators = asynchronous.length ? asynchronous : results(type, "iterator");
+      const open = (value: ts.Type) => (value.flags & (Any | Never) ? [value] : []);
       return iterators
-        .flatMap((iterator) => results(iterator, "next"))
-        .flatMap((result) => (result.isUnion() ? result.types : [result]))
+        .flatMap((iterator) => {
+          const unchecked = open(iterator);
+          return unchecked.length ? unchecked : results(iterator, "next");
+        })
+        .flatMap((result) => {
+          const unchecked = open(result);
+          return unchecked.length ? unchecked : result.isUnion() ? result.types : [result];
+        })
         .filter((result) => {
+          if (result.flags & (Any | Never)) return true;
           const done = checker.getPropertyOfType(result, "done");
           return !done || checker.getTypeOfSymbol(done) !== checker.getTrueType();
         })
         .flatMap((result) => {
+          if (result.flags & (Any | Never)) return [result];
           const value = checker.getPropertyOfType(result, "value");
           return value ? [settle(checker.getTypeOfSymbol(value))] : [];
         });

@@ -188,6 +188,9 @@ const flagged: Record<string, string> = {
   C4a: "export function pass(input: any[]) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
   C4b: "export async function pass(input: AsyncIterable<any>) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
   C4c: "export function pass(input: any[] | Set<any>) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C5a: "export function pass(input: { [k: string]: any }) {\n  const out: { event?: CanonicalEvent } = input;\n  return out;\n}",
+  C5b: "export async function pass(input: AsyncIterable<any> | any[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C5c: "export function pass(input: { [Symbol.iterator](): any }) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
 };
 
 const clean: Record<string, string> = {
@@ -357,7 +360,7 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(139);
+    expect(Object.keys(flagged).length).toBe(142);
     expect(Object.keys(clean).length).toBe(58);
   });
 
