@@ -200,6 +200,8 @@ const flagged: Record<string, string> = {
   C7a: "export function pass(input: { then: any }) {\n  const out: PromiseLike<CanonicalEvent> = input;\n  return out;\n}",
   C7b: "export function pass(input: { subscribe: any }) {\n  const out: { subscribe(listener: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
   C8a: "export async function pass(input: { asyncIterator(): Iterator<CanonicalEvent>; [Symbol.iterator](): Iterator<any> }) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C9a: "interface Stream<T> {\n  subscribe(listener: (event: T) => void): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  C9c: "interface Stream<T> {\n  subscribe(listener?: (event: T) => void): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -263,6 +265,7 @@ const clean: Record<string, string> = {
   C4f: "export async function pass(input: AsyncIterable<CanonicalEvent> | Promise<CanonicalEvent>[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
   C7c: "export function pass(input: { then: any }) {\n  const out: PromiseLike<string> = input;\n  return out;\n}",
   C8c: "declare const iterator: unique symbol;\nexport function pass(input: { [iterator](): Iterator<any>; [Symbol.iterator](): Iterator<CanonicalEvent> }) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C9b: "interface Stream<T> {\n  subscribe(listener: (event: T) => void): void;\n}\nexport function pass(input: { subscribe(listener: (event: CanonicalEvent) => void): void }) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -371,8 +374,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(151);
-    expect(Object.keys(clean).length).toBe(60);
+    expect(Object.keys(flagged).length).toBe(153);
+    expect(Object.keys(clean).length).toBe(61);
   });
 
   const flaggedSeen: string[] = [];

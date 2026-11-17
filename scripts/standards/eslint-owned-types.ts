@@ -288,6 +288,21 @@ export const ownedTypes = {
             })
           );
         };
+        const listeners = (params: readonly ts.Symbol[], index: number) => {
+          const type = typeAt(params, index);
+          return type ? checker.getNonNullableType(type).getCallSignatures() : [];
+        };
+        const callbacksReach = (source: ts.Signature, target: ts.Signature) =>
+          target.getParameters().some((_, index) =>
+            listeners(target.getParameters(), index).some((wanted) =>
+              listeners(source.getParameters(), index).some((given) =>
+                wanted.getParameters().some((_, at) => {
+                  const sent = typeAt(given.getParameters(), at);
+                  return !!sent && visit(sent, typeAt(wanted.getParameters(), at)!);
+                }),
+              ),
+            ),
+          );
         const returnsReach = (
           sourceSigs: readonly ts.Signature[],
           targetSigs: readonly ts.Signature[],
@@ -296,8 +311,10 @@ export const ownedTypes = {
             const matched = sourceSigs.filter((sourceSig) => fits(sourceSig, targetSig));
             if (matched.length === 0)
               return hollow(s) && brands(targetSig.getReturnType()).length > 0;
-            return matched.some((sourceSig) =>
-              visit(sourceSig.getReturnType(), targetSig.getReturnType()),
+            return matched.some(
+              (sourceSig) =>
+                visit(sourceSig.getReturnType(), targetSig.getReturnType()) ||
+                callbacksReach(sourceSig, targetSig),
             );
           });
         const calls = (type: ts.Type) => type.getCallSignatures();
