@@ -182,20 +182,20 @@ export const ownedTypes = {
         const sourceArgs = argsOf(s);
         const targetArgs = argsOf(t);
         if (zip(sourceArgs, targetArgs) || zip(aliasOf(s), aliasOf(t))) return true;
-        const keyed = (info: ts.IndexInfo) => (flag: ts.TypeFlags) =>
-          (info.keyType.flags & flag) !== 0;
+        const numeric = (key: ts.Type) => (key.flags & ts.TypeFlags.NumberLike) !== 0;
+        const textual = (key: ts.Type) => (key.flags & ts.TypeFlags.StringLike) !== 0;
+        const overlap = (left: ts.Type, right: ts.Type) =>
+          checker.isTypeAssignableTo(left, right) ||
+          checker.isTypeAssignableTo(right, left) ||
+          (numeric(left) && textual(right)) ||
+          (textual(left) && numeric(right));
         const sourceIndexes = checker.getIndexInfosOfType(s);
         const sourceProperties = checker.getPropertiesOfType(s);
         if (
           checker.getIndexInfosOfType(t).some((info) => {
-            const keys = keyed(info);
             if (
               sourceIndexes.some(
-                (index) =>
-                  (index.keyType === info.keyType ||
-                    (keys(ts.TypeFlags.Number) &&
-                      (index.keyType.flags & ts.TypeFlags.String) !== 0)) &&
-                  visit(index.type, info.type),
+                (index) => overlap(index.keyType, info.keyType) && visit(index.type, info.type),
               )
             )
               return true;
@@ -203,9 +203,9 @@ export const ownedTypes = {
               const symbolic = String(property.escapedName).startsWith("__@");
               const name = ts.unescapeLeadingUnderscores(property.escapedName);
               const covered = symbolic
-                ? keys(ts.TypeFlags.ESSymbolLike)
-                : keys(ts.TypeFlags.String) ||
-                  (keys(ts.TypeFlags.Number) && /^(?:0|[1-9]\d*)$/.test(name));
+                ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
+                : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
+                  (numeric(info.keyType) && String(Number(name)) === name);
               return covered && visit(checker.getTypeOfSymbol(property), info.type);
             });
           })
@@ -213,17 +213,31 @@ export const ownedTypes = {
           return true;
         const open = (type: ts.Type) => listed(type, ts.ObjectFlags.Mapped) || local(type);
         if ((!open(s) || !open(t)) && !returnOwned(t)) return false;
+        const declared = (parameter: ts.Symbol | undefined) => {
+          const node = parameter?.valueDeclaration;
+          return node && ts.isParameter(node) ? node : undefined;
+        };
+        const typeAt = (params: readonly ts.Symbol[], index: number) => {
+          const last = params.at(-1);
+          const rest = declared(last)?.dotDotDotToken && index >= params.length - 1;
+          const type = rest ? checker.getTypeOfSymbol(last!) : undefined;
+          if (type) return checker.getIndexTypeOfType(type, ts.IndexKind.Number) ?? type;
+          const parameter = params[index];
+          return parameter && checker.getTypeOfSymbol(parameter);
+        };
+        const optional = (parameter: ts.Symbol) => {
+          const node = declared(parameter);
+          return !!node && (checker.isOptionalParameter(node) || !!node.dotDotDotToken);
+        };
         const fits = (source: ts.Signature, target: ts.Signature) => {
           const sourceParams = source.getParameters();
           const targetParams = target.getParameters();
           return (
-            sourceParams.length <= targetParams.length &&
-            sourceParams.every((parameter, index) =>
-              checker.isTypeAssignableTo(
-                checker.getTypeOfSymbol(targetParams[index]!),
-                checker.getTypeOfSymbol(parameter),
-              ),
-            )
+            sourceParams.slice(targetParams.length).every(optional) &&
+            targetParams.every((_, index) => {
+              const wanted = typeAt(sourceParams, index);
+              return !wanted || checker.isTypeAssignableTo(typeAt(targetParams, index)!, wanted);
+            })
           );
         };
         const returnsReach = (
@@ -329,6 +343,30 @@ export const ownedTypes = {
       report(here || node, here ? "laundered" : "forged", cast ? result : missing);
     };
 
+    function yielded(type: ts.Type, wait: boolean): readonly ts.Type[] {
+      if (type.flags & (Any | Never)) return [type];
+      const settle = (value: ts.Type) => (wait && checker.getAwaitedType(value)) || value;
+      const results = (owner: ts.Type, name: string) =>
+        checker
+          .getPropertiesOfType(owner)
+          .filter((p) => String(p.escapedName).replace(/^__@(.*)@\d+$/, "$1") === name)
+          .flatMap((p) => checker.getTypeOfSymbol(p).getCallSignatures())
+          .map((signature) => settle(signature.getReturnType()));
+      const asynchronous = wait ? results(type, "asyncIterator") : [];
+      const iterators = asynchronous.length ? asynchronous : results(type, "iterator");
+      return iterators
+        .flatMap((iterator) => results(iterator, "next"))
+        .flatMap((result) => (result.isUnion() ? result.types : [result]))
+        .filter((result) => {
+          const done = checker.getPropertyOfType(result, "done");
+          return !done || checker.getTypeOfSymbol(done) !== checker.getTrueType();
+        })
+        .flatMap((result) => {
+          const value = checker.getPropertyOfType(result, "value");
+          return value ? [settle(checker.getTypeOfSymbol(value))] : [];
+        });
+    }
+
     function sink(node: TSESTree.Expression, tsNode: ts.Expression) {
       const { parent } = node;
       if (parent.type === "ForOfStatement" && parent.right === node) return typeOf(parent.left);
@@ -365,7 +403,10 @@ export const ownedTypes = {
         const target = ts.isExpression(tsNode) && sink(node, tsNode);
         const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
         const type = !wrapper && target && brands(target).length && typeOf(node);
-        if (!target || !type || !reaches(type, target)) return;
+        if (!target || !type) return;
+        const loop = node.parent.type === "ForOfStatement" && node.parent;
+        const sources = loop ? yielded(type, loop.await) : [type];
+        if (!sources.some((source) => reaches(source, target))) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const body = type.flags & Never && call && "body" in call && call.body;
         const throws = body && ts.isBlock(body) && body.statements.every(ts.isThrowStatement);

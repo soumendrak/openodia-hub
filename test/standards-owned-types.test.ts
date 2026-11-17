@@ -175,6 +175,19 @@ const flagged: Record<string, string> = {
   F10c: "const key = Symbol();\nexport function pass2(input: { [key]: any }) {\n  const out: { [k: symbol]: CanonicalEvent } = input;\n  return out;\n}",
   F9d: 'interface Mine<T> {\n  status: "fulfilled";\n  value: any;\n  tag: T;\n}\nexport function pass(m: Mine<CanonicalEvent>) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = m;\n  return r;\n}',
   F11d: "export const make: { new (): CanonicalEvent[] } = Array;",
+  C1a: "export function pass(input: { [k: number]: any }) {\n  const out: { [k: string]: CanonicalEvent } = input;\n  return out;\n}",
+  C2a: "export function pass(input: { '-1': any }) {\n  const out: Record<number, CanonicalEvent> = input;\n  return out;\n}",
+  C2b: "export function pass(input: { '1.5': any }) {\n  const out: Record<number, CanonicalEvent> = input;\n  return out;\n}",
+  C2c: "export function pass(input: { 'event-a': any }) {\n  const out: { [k: `event-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  C2d: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: `event-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  C2f: "export function pass(input: { [k: `event-${string}`]: any }) {\n  const out: { [k: string]: CanonicalEvent } = input;\n  return out;\n}",
+  C3d: "export function pass(input: { (...x: string[]): any; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: string, y: string): string } = input;\n  return out;\n}",
+  C4g: "export async function pass(input: Promise<any>[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C3a: "export function pass(input: { (x?: string): any; (): CanonicalEvent }) {\n  const out: { (): CanonicalEvent; (x: string): string } = input;\n  return out;\n}",
+  C3b: "export function pass(input: { (...x: string[]): any; (): CanonicalEvent }) {\n  const out: { (): CanonicalEvent; (x: string): string } = input;\n  return out;\n}",
+  C4a: "export function pass(input: any[]) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C4b: "export async function pass(input: AsyncIterable<any>) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C4c: "export function pass(input: any[] | Set<any>) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
 };
 
 const clean: Record<string, string> = {
@@ -231,6 +244,11 @@ const clean: Record<string, string> = {
   F11c: 'export function pass(v: { status: "fulfilled"; value: CanonicalEvent; extra: any }) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = v;\n  return r;\n}',
   F10d: "const key = Symbol();\nexport function pass(o: { [key]: any; a: CanonicalEvent }) {\n  const r: { [k: string]: CanonicalEvent } = o;\n  return r;\n}",
   F10e: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: symbol]: CanonicalEvent } = input;\n  return out;\n}",
+  C2e: "export function pass(input: { other: any }) {\n  const out: { [k: `event-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  C3c: "export function pass(input: { (x: string, y: number): any; (): CanonicalEvent }) {\n  const out: { (): CanonicalEvent; (x: string, y: number): string } = input;\n  return out;\n}",
+  C4d: "export function pass(input: CanonicalEvent[]) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C4e: "export function pass(input: Iterable<CanonicalEvent>) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C4f: "export async function pass(input: AsyncIterable<CanonicalEvent> | Promise<CanonicalEvent>[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -339,8 +357,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(126);
-    expect(Object.keys(clean).length).toBe(53);
+    expect(Object.keys(flagged).length).toBe(139);
+    expect(Object.keys(clean).length).toBe(58);
   });
 
   const flaggedSeen: string[] = [];
