@@ -455,8 +455,17 @@ export const ownedTypes = {
         const type = !wrapper && target && brands(target).length && typeOf(node);
         if (!target || !type) return;
         const loop = node.parent.type === "ForOfStatement" && node.parent;
-        const spread = node.parent.type === "SpreadElement";
-        const sources = loop ? yielded(type, loop.await) : spread ? yielded(type, false) : [type];
+        const spread = node.parent.type === "SpreadElement" ? node.parent.parent : undefined;
+        const iterableSpread =
+          spread &&
+          (spread.type === "ArrayExpression" ||
+            spread.type === "CallExpression" ||
+            spread.type === "NewExpression");
+        const sources = loop
+          ? yielded(type, loop.await)
+          : iterableSpread
+            ? yielded(type, false)
+            : [type];
         if (!sources.some((source) => reaches(source, target))) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const body = type.flags & Never && call && "body" in call && call.body;

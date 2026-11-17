@@ -196,6 +196,7 @@ const flagged: Record<string, string> = {
   C6c: "export function pass(input: { [k: `event-${string}`]: any }) {\n  const out: { [k: `${string}-a`]: CanonicalEvent } = input;\n  return out;\n}",
   C6d: "export function collect(input: any[]) {\n  const out: CanonicalEvent[] = [...input];\n  return out;\n}",
   C6e: "declare function saveAll(...events: CanonicalEvent[]): void;\nexport function pass(input: any[]) {\n  saveAll(...input);\n}",
+  C6f: "export function pass(input: { event: any }) {\n  const out: { event: CanonicalEvent } = { ...input };\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -365,7 +366,7 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(147);
+    expect(Object.keys(flagged).length).toBe(148);
     expect(Object.keys(clean).length).toBe(58);
   });
 
