@@ -197,6 +197,9 @@ const flagged: Record<string, string> = {
   C6d: "export function collect(input: any[]) {\n  const out: CanonicalEvent[] = [...input];\n  return out;\n}",
   C6e: "declare function saveAll(...events: CanonicalEvent[]): void;\nexport function pass(input: any[]) {\n  saveAll(...input);\n}",
   C6f: "export function pass(input: { event: any }) {\n  const out: { event: CanonicalEvent } = { ...input };\n  return out;\n}",
+  C7a: "export function pass(input: { then: any }) {\n  const out: PromiseLike<CanonicalEvent> = input;\n  return out;\n}",
+  C7b: "export function pass(input: { subscribe: any }) {\n  const out: { subscribe(listener: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
+  C8a: "export async function pass(input: { asyncIterator(): Iterator<CanonicalEvent>; [Symbol.iterator](): Iterator<any> }) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
 };
 
 const clean: Record<string, string> = {
@@ -258,6 +261,8 @@ const clean: Record<string, string> = {
   C4d: "export function pass(input: CanonicalEvent[]) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
   C4e: "export function pass(input: Iterable<CanonicalEvent>) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
   C4f: "export async function pass(input: AsyncIterable<CanonicalEvent> | Promise<CanonicalEvent>[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C7c: "export function pass(input: { then: any }) {\n  const out: PromiseLike<string> = input;\n  return out;\n}",
+  C8c: "declare const iterator: unique symbol;\nexport function pass(input: { [iterator](): Iterator<any>; [Symbol.iterator](): Iterator<CanonicalEvent> }) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -366,8 +371,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(148);
-    expect(Object.keys(clean).length).toBe(58);
+    expect(Object.keys(flagged).length).toBe(151);
+    expect(Object.keys(clean).length).toBe(60);
   });
 
   const flaggedSeen: string[] = [];

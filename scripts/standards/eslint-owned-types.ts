@@ -160,6 +160,19 @@ export const ownedTypes = {
         return module ? [module] : [];
       });
     const brands = closure("brands", seals);
+    const fed = closure("fed", (type) => [
+      ...seals(type),
+      ...[...type.getCallSignatures(), ...type.getConstructSignatures()].flatMap((signature) =>
+        signature.getParameters().flatMap((parameter) =>
+          checker
+            .getNonNullableType(checker.getTypeOfSymbol(parameter))
+            .getCallSignatures()
+            .flatMap((callback) =>
+              callback.getParameters().flatMap((value) => brands(checker.getTypeOfSymbol(value))),
+            ),
+        ),
+      ),
+    ]);
     const holds = (flags: ts.TypeFlags, deep?: boolean) => (type: ts.Type) =>
       closure(String(flags), (t) => (t.flags & flags ? ["held"] : []), deep)(type).length > 0;
     const [hollow, generic] = [holds(Any | Never, true), holds(Param)];
@@ -174,7 +187,7 @@ export const ownedTypes = {
       return visit(source, target);
       function visit(s: ts.Type, t: ts.Type): boolean {
         if (!(s.flags & (Any | Never)) && s === t) return false;
-        if (!brands(t).length && !returnOwned(t)) return false;
+        if (!fed(t).length && !returnOwned(t)) return false;
         if (s.flags & (Any | Never)) return true;
         let row = seen.get(s);
         if (row?.has(t)) return row.get(t) ?? false;
@@ -378,14 +391,25 @@ export const ownedTypes = {
       report(here || node, here ? "laundered" : "forged", cast ? result : missing);
     };
 
+    const symbolConstructor = checker.resolveName("Symbol", undefined, ts.SymbolFlags.Value, false);
+    const wellKnown = (name: string) => {
+      const member =
+        symbolConstructor &&
+        checker.getPropertyOfType(checker.getTypeOfSymbol(symbolConstructor), name);
+      const type = member && checker.getTypeOfSymbol(member);
+      return type && type.flags & ts.TypeFlags.UniqueESSymbol
+        ? (type as ts.UniqueESSymbolType).escapedName
+        : undefined;
+    };
+
     function yielded(type: ts.Type, wait: boolean): readonly ts.Type[] {
       if (type.flags & (Any | Never)) return [type];
       if (type.isUnion()) return type.types.flatMap((member) => yielded(member, wait));
       const settle = (value: ts.Type) => (wait && checker.getAwaitedType(value)) || value;
-      const results = (owner: ts.Type, name: string) =>
+      const results = (owner: ts.Type, name: ts.__String | undefined) =>
         checker
           .getPropertiesOfType(owner)
-          .filter((p) => String(p.escapedName).replace(/^__@(.*)@\d+$/, "$1") === name)
+          .filter((p) => p.escapedName === name)
           .flatMap((p) => {
             const property = checker.getTypeOfSymbol(p);
             if (property.flags & (Any | Never)) return [property];
@@ -393,13 +417,15 @@ export const ownedTypes = {
               .getCallSignatures()
               .map((signature) => settle(signature.getReturnType()));
           });
-      const asynchronous = wait ? results(type, "asyncIterator") : [];
-      const iterators = asynchronous.length ? asynchronous : results(type, "iterator");
+      const asynchronous = wait ? results(type, wellKnown("asyncIterator")) : [];
+      const iterators = asynchronous.length ? asynchronous : results(type, wellKnown("iterator"));
       const open = (value: ts.Type) => (value.flags & (Any | Never) ? [value] : []);
       return iterators
         .flatMap((iterator) => {
           const unchecked = open(iterator);
-          return unchecked.length ? unchecked : results(iterator, "next");
+          return unchecked.length
+            ? unchecked
+            : results(iterator, ts.escapeLeadingUnderscores("next"));
         })
         .flatMap((result) => {
           const unchecked = open(result);
@@ -452,7 +478,7 @@ export const ownedTypes = {
         const tsNode = nodes.get(node);
         const target = ts.isExpression(tsNode) && sink(node, tsNode);
         const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
-        const type = !wrapper && target && brands(target).length && typeOf(node);
+        const type = !wrapper && target && fed(target).length && typeOf(node);
         if (!target || !type) return;
         const loop = node.parent.type === "ForOfStatement" && node.parent;
         const spread = node.parent.type === "SpreadElement" ? node.parent.parent : undefined;
@@ -470,7 +496,7 @@ export const ownedTypes = {
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const body = type.flags & Never && call && "body" in call && call.body;
         const throws = body && ts.isBlock(body) && body.statements.every(ts.isThrowStatement);
-        if (!throws) report(node, "unsafe", brands(target));
+        if (!throws) report(node, "unsafe", fed(target));
       },
     } satisfies TSESLint.RuleListener;
   },
