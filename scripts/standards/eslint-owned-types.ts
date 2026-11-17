@@ -154,7 +154,8 @@ export const ownedTypes = {
             : [];
         const earlySourceArgs = earlyArgs(s);
         const earlyTargetArgs = earlyArgs(t);
-        if (listed(s, ts.ObjectFlags.Reference) && listed(t, ts.ObjectFlags.Reference)) {
+        const library = (type: ts.Type) => listed(type, ts.ObjectFlags.Reference) && !local(type);
+        if (library(s) && library(t)) {
           if (earlySourceArgs.length !== earlyTargetArgs.length) return hollow(s);
           return earlySourceArgs.some((arg, index) => visit(arg, earlyTargetArgs[index]!));
         }
@@ -181,28 +182,37 @@ export const ownedTypes = {
         const sourceArgs = argsOf(s);
         const targetArgs = argsOf(t);
         if (zip(sourceArgs, targetArgs) || zip(aliasOf(s), aliasOf(t))) return true;
+        const keyed = (info: ts.IndexInfo) => (flag: ts.TypeFlags) =>
+          (info.keyType.flags & flag) !== 0;
         const sourceIndexes = checker.getIndexInfosOfType(s);
         const sourceProperties = checker.getPropertiesOfType(s);
         if (
           checker.getIndexInfosOfType(t).some((info) => {
-            let matchedIndex: ts.Type | undefined;
-            for (const index of sourceIndexes)
-              if (index.keyType === info.keyType) matchedIndex = index.type;
-            if (matchedIndex && visit(matchedIndex, info.type)) return true;
+            const keys = keyed(info);
+            if (
+              sourceIndexes.some(
+                (index) =>
+                  (index.keyType === info.keyType ||
+                    (keys(ts.TypeFlags.Number) &&
+                      (index.keyType.flags & ts.TypeFlags.String) !== 0)) &&
+                  visit(index.type, info.type),
+              )
+            )
+              return true;
             return sourceProperties.some((property) => {
+              const symbolic = String(property.escapedName).startsWith("__@");
               const name = ts.unescapeLeadingUnderscores(property.escapedName);
-              const numeric = typeof name === "string" && /^(?:0|[1-9]\d*)$/.test(name);
-              const covered =
-                typeof name === "string" &&
-                ((info.keyType.flags & ts.TypeFlags.String) !== 0 ||
-                  ((info.keyType.flags & ts.TypeFlags.Number) !== 0 && numeric));
+              const covered = symbolic
+                ? keys(ts.TypeFlags.ESSymbolLike)
+                : keys(ts.TypeFlags.String) ||
+                  (keys(ts.TypeFlags.Number) && /^(?:0|[1-9]\d*)$/.test(name));
               return covered && visit(checker.getTypeOfSymbol(property), info.type);
             });
           })
         )
           return true;
         const open = (type: ts.Type) => listed(type, ts.ObjectFlags.Mapped) || local(type);
-        if ((!open(s) || !open(t)) && !returnOwned(s) && !returnOwned(t)) return false;
+        if ((!open(s) || !open(t)) && !returnOwned(t)) return false;
         const fits = (source: ts.Signature, target: ts.Signature) => {
           const sourceParams = source.getParameters();
           const targetParams = target.getParameters();

@@ -167,6 +167,14 @@ const flagged: Record<string, string> = {
   Q05: "declare const it: { [Symbol.iterator](): Iterator<any> };\nexport const r: Iterable<CanonicalEvent> = it;",
   Q06: "interface Bag {\n  [Symbol.iterator](): Iterator<any>;\n}\ndeclare const b: Bag;\nexport const r: Iterable<CanonicalEvent> = b;",
   Q07: "declare const o: { [n: number]: any; length: number };\nexport const r: ArrayLike<CanonicalEvent> = o;",
+  F9a: "interface Loose<T> {\n  meta: T;\n  value: any;\n}\ninterface Owned<T> {\n  meta: T;\n  value: CanonicalEvent;\n}\nexport function pass(input: Loose<string>) {\n  const out: Owned<string> = input;\n  return out;\n}",
+  F9b: "interface Holder<T> {\n  item: T;\n  extra: any;\n}\ninterface Slot<T> {\n  item: T;\n  extra: CanonicalEvent;\n}\ndeclare const h: Holder<number>;\nexport const out: Slot<number> = h;",
+  F9c: "class Loose2<T> {\n  constructor(\n    readonly meta: T,\n    readonly value: any,\n  ) {}\n}\ninterface Owned2<T> {\n  meta: T;\n  value: CanonicalEvent;\n}\ndeclare const l: Loose2<string>;\nexport const o2: Owned2<string> = l;",
+  F10a: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: number]: CanonicalEvent } = input;\n  return out;\n}",
+  F10b: "declare const m: Record<string, any>;\nexport const r: Record<number, CanonicalEvent> = m;",
+  F10c: "const key = Symbol();\nexport function pass2(input: { [key]: any }) {\n  const out: { [k: symbol]: CanonicalEvent } = input;\n  return out;\n}",
+  F9d: 'interface Mine<T> {\n  status: "fulfilled";\n  value: any;\n  tag: T;\n}\nexport function pass(m: Mine<CanonicalEvent>) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = m;\n  return r;\n}',
+  F11d: "export const make: { new (): CanonicalEvent[] } = Array;",
 };
 
 const clean: Record<string, string> = {
@@ -218,6 +226,11 @@ const clean: Record<string, string> = {
   V08: 'export const r: Iterable<readonly [string, CanonicalEvent]> = new Map([["k", event]]);',
   V09: "declare const m: Map<string, any>;\nexport const r: { size: number; ev?: CanonicalEvent } = m;",
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
+  F11a: 'export function pass(v: { (): CanonicalEvent; status: "fulfilled"; value: CanonicalEvent; extra: any }) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = v;\n  return r;\n}',
+  F11b: 'export function pass(v: { new (): CanonicalEvent; status: "fulfilled"; value: CanonicalEvent; extra: any }) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = v;\n  return r;\n}',
+  F11c: 'export function pass(v: { status: "fulfilled"; value: CanonicalEvent; extra: any }) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = v;\n  return r;\n}',
+  F10d: "const key = Symbol();\nexport function pass(o: { [key]: any; a: CanonicalEvent }) {\n  const r: { [k: string]: CanonicalEvent } = o;\n  return r;\n}",
+  F10e: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: symbol]: CanonicalEvent } = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -326,8 +339,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(118);
-    expect(Object.keys(clean).length).toBe(48);
+    expect(Object.keys(flagged).length).toBe(126);
+    expect(Object.keys(clean).length).toBe(53);
   });
 
   const flaggedSeen: string[] = [];
