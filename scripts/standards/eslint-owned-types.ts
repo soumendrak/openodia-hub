@@ -24,34 +24,67 @@ function isTextualKey(key: ts.Type): boolean {
   return (key.flags & ts.TypeFlags.StringLike) !== 0;
 }
 
-const textsOf = (type: ts.Type) =>
-  type.flags & ts.TypeFlags.TemplateLiteral ? (type as ts.TemplateLiteralType).texts : [];
+const ANY = /^[^]$/u;
+const NUMERIC = /^[\s\da-fA-FoOxX.+-]$/;
+type Glyph = readonly [chars: string | RegExp, star: boolean];
 
-function expandTemplates(type: ts.Type, fills: readonly string[]): string[] {
-  const tmpl = type as ts.TemplateLiteralType;
-  const rec = (index: number): string[] => {
-    if (index === tmpl.types.length) return [tmpl.texts[index] ?? ""];
-    return fills.flatMap((fill) =>
-      rec(index + 1).map((tail) => `${tmpl.texts[index] ?? ""}${fill}${tail}`),
-    );
-  };
-  return rec(0);
+const meet = (left: string | RegExp, right: string | RegExp) =>
+  typeof left === "string"
+    ? typeof right === "string"
+      ? left === right
+      : right.test(left)
+    : typeof right === "string"
+      ? left.test(right)
+      : true;
+
+const hole = (type: ts.Type): Glyph[] =>
+  type.flags & (ts.TypeFlags.NumberLike | ts.TypeFlags.BigIntLike)
+    ? [
+        [NUMERIC, false],
+        [NUMERIC, true],
+      ]
+    : [[ANY, true]];
+
+function glyphs(type: ts.Type): readonly Glyph[] | undefined {
+  if (!(type.flags & ts.TypeFlags.TemplateLiteral))
+    return isTextualKey(type) ? [[ANY, true]] : undefined;
+  const { texts, types } = type as ts.TemplateLiteralType;
+  return texts.flatMap((text, at) => [
+    ...[...text].map((char): Glyph => [char, false]),
+    ...(types[at] ? hole(types[at]) : []),
+  ]);
 }
 
-function keysOverlap(checker: ts.TypeChecker, left: ts.Type, right: ts.Type): boolean {
-  const fills = [...new Set(["", "0", ...textsOf(left), ...textsOf(right)])];
-  const templates = (type: ts.Type) =>
-    type.flags & ts.TypeFlags.TemplateLiteral ? expandTemplates(type, fills) : [];
+const close = (pattern: readonly Glyph[], at: number): number[] =>
+  pattern[at]?.[1] ? [at, ...close(pattern, at + 1)] : [at];
+
+function intersects(left: readonly Glyph[], right: readonly Glyph[]): boolean {
+  const seen = new Set<number>();
+  const queue: (readonly [number, number])[] = [];
+  const add = (i: number, j: number) => {
+    for (const a of close(left, i))
+      for (const b of close(right, j)) {
+        const key = a * (right.length + 1) + b;
+        if (!seen.has(key)) queue.push([a, b]);
+        seen.add(key);
+      }
+  };
+  add(0, 0);
+  for (const [i, j] of queue) {
+    if (i === left.length && j === right.length) return true;
+    const [a, b] = [left[i], right[j]];
+    if (a && b && meet(a[0], b[0])) add(a[1] ? i : i + 1, b[1] ? j : j + 1);
+  }
+  return false;
+}
+
+export function keysOverlap(checker: ts.TypeChecker, left: ts.Type, right: ts.Type): boolean {
+  const [from, to] = [glyphs(left), glyphs(right)];
   return (
     checker.isTypeAssignableTo(left, right) ||
     (isNumericKey(left) && isTextualKey(right)) ||
     (isTextualKey(left) && isNumericKey(right)) ||
-    [...templates(left), ...templates(right)].some((witness) => {
-      const literal = checker.getStringLiteralType(witness);
-      return (
-        checker.isTypeAssignableTo(literal, left) && checker.isTypeAssignableTo(literal, right)
-      );
-    })
+    (!!from && !!to && intersects(from, to))
   );
 }
 
@@ -176,45 +209,59 @@ export const ownedTypes = {
         return module ? [module] : [];
       });
     const brands = closure("brands", seals);
-    function callables(
-      type: ts.Type,
-      path: readonly Step[] = [],
-      seen = new Set<ts.Type>(),
-    ): Listener[] {
+    const listenerCache = new WeakMap<ts.Type, readonly Listener[]>();
+    const walking: ts.Type[] = [];
+    const callables = (type: ts.Type) => walk(type)[0];
+    function walk(type: ts.Type): readonly [readonly Listener[], number] {
       const own = checker.getNonNullableType(type);
-      if (seen.has(own)) return [];
-      seen = new Set([...seen, own]);
-      if (own.flags & Any) return [[path, undefined]];
-      if (own.isUnion()) return own.types.flatMap((member) => callables(member, path, seen));
-      const base = own.flags & ts.TypeFlags.Instantiable && checker.getBaseConstraintOfType(own);
-      if (base) return callables(base, path, seen);
-      const signatures = own.getCallSignatures();
-      if (signatures.length) return signatures.map((signature) => [path, signature] as const);
+      const cached = listenerCache.get(own);
+      if (cached) return [cached, Infinity];
+      if (walking.includes(own)) return [[], walking.indexOf(own)];
+      const at = walking.push(own) - 1;
+      const [found, low] = listenersOf(own);
+      walking.pop();
+      if (low >= at) listenerCache.set(own, found);
+      return [found, low];
+    }
+    function listenersOf(own: ts.Type): readonly [readonly Listener[], number] {
+      let low = Infinity;
+      const under = (child: ts.Type, step?: Step): Listener[] => {
+        const [found, reach] = walk(child);
+        low = Math.min(low, reach);
+        return found.map(([path, signature]) => [step ? [step, ...path] : path, signature]);
+      };
+      const found = (): Listener[] => {
+        if (own.flags & Any) return [[[], undefined]];
+        if (own.isUnion()) return own.types.flatMap((member) => under(member));
+        const base = own.flags & ts.TypeFlags.Instantiable && checker.getBaseConstraintOfType(own);
+        if (base) return under(base);
+        const signatures = own.getCallSignatures().map((signature): Listener => [[], signature]);
+        return [...signatures, ...slots(own, under)];
+      };
+      return [found(), low];
+    }
+    function slots(own: ts.Type, under: (child: ts.Type, step: Step) => Listener[]): Listener[] {
       if (checker.isTupleType(own))
         return checker
           .getPropertiesOfType(own)
           .filter((property) => String(Number(property.name)) === property.name)
-          .flatMap((property) =>
-            callables(checker.getTypeOfSymbol(property), [...path, { name: property }], seen),
-          );
+          .flatMap((property) => under(checker.getTypeOfSymbol(property), { name: property }));
       if (checker.isArrayType(own))
         return checker
           .getIndexInfosOfType(own)
-          .flatMap((info) => callables(info.type, [...path, { key: info.keyType }], seen));
+          .flatMap((info) => under(info.type, { key: info.keyType }));
       const reference = (own as ts.TypeReference).objectFlags & ts.ObjectFlags.Reference;
       if (reference && !local(own))
         return checker
           .getTypeArguments(own as ts.TypeReference)
-          .flatMap((arg, index) => callables(arg, [...path, { arg: index }], seen));
+          .flatMap((arg, index) => under(arg, { arg: index }));
       return [
         ...checker
           .getPropertiesOfType(own)
-          .flatMap((property) =>
-            callables(checker.getTypeOfSymbol(property), [...path, { name: property }], seen),
-          ),
+          .flatMap((property) => under(checker.getTypeOfSymbol(property), { name: property })),
         ...checker
           .getIndexInfosOfType(own)
-          .flatMap((info) => callables(info.type, [...path, { key: info.keyType }], seen)),
+          .flatMap((info) => under(info.type, { key: info.keyType })),
       ];
     }
     const fed = closure("fed", (type) => [
@@ -281,16 +328,17 @@ export const ownedTypes = {
           return hit && !second ? visit(s, hit) : hollow(s);
         }
         if (!(s.flags & Shape) || !(t.flags & Shape)) return hollow(s);
-        const earlyArgs = (type: ts.Type) =>
-          listed(type, ts.ObjectFlags.Reference)
-            ? checker.getTypeArguments(type as ts.TypeReference)
-            : [];
-        const earlySourceArgs = earlyArgs(s);
-        const earlyTargetArgs = earlyArgs(t);
         const library = (type: ts.Type) => listed(type, ts.ObjectFlags.Reference) && !local(type);
-        if (library(s) && library(t)) {
-          if (earlySourceArgs.length !== earlyTargetArgs.length) return hollow(s);
-          return earlySourceArgs.some((arg, index) => visit(arg, earlyTargetArgs[index]!));
+        const declaration = (type: ts.Type) => (type as ts.TypeReference).target;
+        const related = (from: ts.Type, to: ts.Type) => {
+          const [a, b] = [declaration(from), declaration(to)];
+          return a === b || (checker.isArrayType(from) && checker.isArrayType(to));
+        };
+        if (library(s) && library(t) && related(s, t)) {
+          const targetArgs = checker.getTypeArguments(t as ts.TypeReference);
+          return checker
+            .getTypeArguments(s as ts.TypeReference)
+            .some((arg, index) => visit(arg, targetArgs[index]!));
         }
         if (namedFieldsReach(checker, visit, s, t)) return true;
         const sourceIndexes = checker.getIndexInfosOfType(s);

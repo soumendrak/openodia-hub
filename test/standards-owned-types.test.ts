@@ -3,8 +3,10 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
+import ts from "typescript";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import config from "../eslint.config.js";
+import { keysOverlap } from "../scripts/standards/eslint-owned-types";
 import mainConfig from "./standards/owned-types-main-config.js";
 
 const MODEL = `
@@ -265,6 +267,18 @@ const flagged: Record<string, string> = {
   KC10: "interface Src<T> {\n  subscribe(o: [(event: T) => void]): void;\n}\ninterface Tgt<T> {\n  subscribe(o: ((event: T) => void)[]): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
   F12R23:
     "interface Stream<T> {\n  subscribe(listeners: Set<(event: T) => void>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  KD3: "export function pass(input: { [k: `z${string}`]: any }) {\n  const out: { [k: `z${number}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD4: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string}.${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD5: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD6: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `+${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD7: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string} `]: CanonicalEvent } = input;\n  return out;\n}",
+  CL1: "interface Stream<T> {\n  subscribe(listener: ((label: string) => void) & { onEvent: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  CL2: "interface Stream<T> {\n  subscribe(listener: ((label: string) => void) & { [k: string]: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  LR1: 'import type { Loose } from "fake-lib";\nexport function pass(input: Loose<CanonicalEvent>) {\n  const out: PromiseFulfilledResult<CanonicalEvent> = input;\n  return out;\n}',
+  KD8: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `0${string}1${string}2`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD9: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string}f`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD10: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `0x${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  CY1: "interface A<T> {\n  b: B<T>;\n  on: (event: T) => void;\n}\ninterface B<T> {\n  a: A<T>;\n}\ninterface Src<T> {\n  m(b: B<T>): void;\n}\ninterface Tgt<T> {\n  n?(a: A<T>): void;\n  m(b: B<T>): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -351,6 +365,11 @@ const clean: Record<string, string> = {
   KC11: "export function pass(input: { subscribe(o: Map<(event: any) => void, (event: CanonicalEvent) => void>): void }) {\n  const out: { subscribe(o: Map<(event: string) => void, (event: CanonicalEvent) => void>): void } = input;\n  return out;\n}",
   KC12: "export function pass(input: { subscribe(o: Set<any>): void }) {\n  const out: { subscribe(o: { add(value: CanonicalEvent): void }): void } = input;\n  return out;\n}",
   KC13: "export function pass(input: { subscribe(o: [any, CanonicalEvent]): void }) {\n  const out: { subscribe(o: [string, CanonicalEvent]): void } = input;\n  return out;\n}",
+  KD1: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string}y`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD2: "export function pass(input: { [k: `z${number}`]: any }) {\n  const out: { [k: `${string}z`]: CanonicalEvent } = input;\n  return out;\n}",
+  LR2: 'import type { Tight } from "fake-lib";\nexport function pass(input: Tight<CanonicalEvent>) {\n  const out: PromiseFulfilledResult<CanonicalEvent> = input;\n  return out;\n}',
+  KD11: "export function pass(input: { [k: `${bigint}`]: any }) {\n  const out: { [k: `${string}y`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD12: "export function pass(input: { [k: `y${string}`]: any }) {\n  const out: { [k: `${number}`]: CanonicalEvent } = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -373,6 +392,10 @@ const intendedClean = [
   "KC5",
   "KC6",
   "KC7",
+  "KD1",
+  "KD2",
+  "KD11",
+  "KD12",
   "KT2",
   "L35",
   "N03",
@@ -384,6 +407,7 @@ const intendedClean = [
 let root: string;
 let messages: Map<string, string[]>;
 let mainFlags: Set<string>;
+let ruleTimes: Map<string, number>;
 
 beforeAll(async () => {
   if (!isolated) throw new Error("eslint.config.js no longer registers the isolated plugin");
@@ -405,6 +429,8 @@ beforeAll(async () => {
       "export declare function is<T>(value: unknown): value is T;",
       "export declare function assertIs<T>(value: unknown): asserts value is T;",
       "export interface Payload { event: any }",
+      'export interface Loose<T> { status: "fulfilled"; value: any; meta: T }',
+      'export interface Tight<T> { status: "fulfilled"; value: T; meta: string }',
       "export declare function pass<T>(strings: TemplateStringsArray, value: T): T;",
       "export declare const payload: Payload;",
       "export declare function isDefined<T>(value: T | undefined): value is T;",
@@ -451,6 +477,7 @@ beforeAll(async () => {
   );
   const eslint = new ESLint({
     cwd: root,
+    stats: true,
     overrideConfigFile: true,
     overrideConfig: [
       {
@@ -499,6 +526,15 @@ beforeAll(async () => {
       .filter((result) => result.messages.length > 0)
       .map((result) => relative(join(root, "probes"), result.filePath).replace(/\.tsx?$/, "")),
   );
+  ruleTimes = new Map(
+    results.map((result) => [
+      relative(root, result.filePath).replace(/\.tsx?$/, ""),
+      (result.stats?.times.passes ?? []).reduce(
+        (total, pass) => total + (pass.rules?.["isolated/owned-types"]?.total ?? 0),
+        0,
+      ),
+    ]),
+  );
   messages = new Map(
     results.map((result) => [
       relative(root, result.filePath).replace(/\.tsx?$/, ""),
@@ -515,8 +551,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(199);
-    expect(Object.keys(clean).length).toBe(78);
+    expect(Object.keys(flagged).length).toBe(211);
+    expect(Object.keys(clean).length).toBe(83);
   });
 
   const flaggedSeen: string[] = [];
@@ -571,8 +607,36 @@ describe("isolated/owned-types", () => {
     expect(messages.get("lib/fetch-utils")).toEqual([]);
   });
 
+  it("spends under ten seconds of rule time on any one file", () => {
+    const slowest = Math.max(...ruleTimes.values());
+    expect(ruleTimes.size).toBeGreaterThan(280);
+    expect(slowest).toBeGreaterThan(0);
+    expect(slowest).toBeLessThan(10_000);
+  });
+
   it("lets the guarded module build its own values", () => {
     expect(messages.get("events/own")).toEqual([]);
     expect(messages.get("events/model")).toEqual([]);
+  });
+});
+
+describe("template index key overlap", () => {
+  const six = "a${string}b${string}c${string}d${string}e${string}f${string}z";
+  it.each([
+    [six, "a${string}f${string}e${string}d${string}c${string}b${string}z", true],
+    [six, "a${string}f${string}e${string}d${string}c${string}b${string}y", false],
+  ])("decides %s against %s in under 100 ms", (left, right, overlap) => {
+    const file = join(root, `keys-${String(overlap)}.ts`);
+    writeFileSync(file, `export type L = \`${left}\`;\nexport type R = \`${right}\`;\n`);
+    const program = ts.createProgram([file], { strict: true, noEmit: true });
+    const checker = program.getTypeChecker();
+    const [l, r] = program
+      .getSourceFile(file)!
+      .statements.filter(ts.isTypeAliasDeclaration)
+      .map((alias) => checker.getTypeFromTypeNode(alias.type));
+    const started = performance.now();
+    const found = [keysOverlap(checker, l!, r!), keysOverlap(checker, r!, l!)];
+    expect(performance.now() - started).toBeLessThan(100);
+    expect(found).toEqual([overlap, overlap]);
   });
 });
