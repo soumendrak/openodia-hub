@@ -245,6 +245,12 @@ const flagged: Record<string, string> = {
   KT5: "export function pass(input: { [k: `a${string}a${number}a`]: any }) {\n  const out: { [k: `a${string}b${string}a`]: CanonicalEvent } = input;\n  return out;\n}",
   KT6: "export function pass(input: { [k: `a${string}b${string}a`]: any }) {\n  const out: { [k: `a${string}a${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
   KT7: "export function pass(input: { [k: `a${string}a`]: any }) {\n  const out: { [k: `${string}b${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  CX1: "export function pass(input: { subscribe(listener: any): void }) {\n  const out: { subscribe(listener: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
+  CX2: "export function pass(input: { subscribe(o: { onEvent: any }): void }) {\n  const out: { subscribe(o: { onEvent: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  CX3: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: { onEvent: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  CX4: "export function pass(input: { subscribe(o: [any]): void }) {\n  const out: { subscribe(o: [(event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
+  CX7: "export function pass(input: { subscribe(a: any, b: (event: any) => void): void }) {\n  const out: { subscribe(a: any, b: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
+  CX8: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: [(event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -321,6 +327,8 @@ const clean: Record<string, string> = {
     "export function pass(input: { subscribe(o: { a: (event: any) => void; b: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { a: (event: string) => void; b: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
   F12P2:
     "export function pass(input: { subscribe(o: [(event: any) => void, (event: CanonicalEvent) => void]): void }) {\n  const out: { subscribe(o: [(event: string) => void, (event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
+  CX5: "export function pass(input: { subscribe(o: { on: any; onEvent: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { on: string; onEvent: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  CX6: "export function pass(input: { subscribe(listener: any): void }) {\n  const out: { subscribe(listener: (event: string) => void): void } = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -482,8 +490,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(182);
-    expect(Object.keys(clean).length).toBe(69);
+    expect(Object.keys(flagged).length).toBe(188);
+    expect(Object.keys(clean).length).toBe(71);
   });
 
   const flaggedSeen: string[] = [];

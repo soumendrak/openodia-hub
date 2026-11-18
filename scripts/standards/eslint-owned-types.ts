@@ -3,7 +3,7 @@ import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
 import ts from "typescript";
 
 type Node = TSESTree.Node;
-type Listener = readonly [string, ts.Signature];
+type Listener = readonly [string, ts.Signature | undefined];
 type Messages = "assertion" | "unsafe" | "forged" | "laundered" | "declared" | "merged";
 
 const ROOT = resolve(import.meta.dirname, "../..");
@@ -168,6 +168,7 @@ export const ownedTypes = {
       const own = checker.getNonNullableType(type);
       if (seen.has(own)) return [];
       seen = new Set([...seen, own]);
+      if (own.flags & Any) return [[path, undefined]];
       if (own.isUnion()) return own.types.flatMap((member) => callables(member, path, seen));
       const base = own.flags & ts.TypeFlags.Instantiable && checker.getBaseConstraintOfType(own);
       if (base) return callables(base, path, seen);
@@ -191,7 +192,9 @@ export const ownedTypes = {
           .getParameters()
           .flatMap((parameter) => callables(checker.getTypeOfSymbol(parameter)))
           .flatMap(([, callback]) =>
-            callback.getParameters().flatMap((value) => brands(checker.getTypeOfSymbol(value))),
+            (callback?.getParameters() ?? []).flatMap((value) =>
+              brands(checker.getTypeOfSymbol(value)),
+            ),
           ),
       ),
     ]);
@@ -321,17 +324,21 @@ export const ownedTypes = {
           const type = typeAt(params, index);
           return type ? callables(type) : [];
         };
+        const covers = (from: string, path: string) =>
+          from === path || [".", "<"].some((mark) => path.startsWith(`${from}${mark}`));
         const callbacksReach = (source: ts.Signature, target: ts.Signature) =>
           target.getParameters().some((_, index) =>
-            listeners(target.getParameters(), index).some(([path, wanted]) =>
-              listeners(source.getParameters(), index).some(
-                ([from, given]) =>
-                  from === path &&
-                  wanted.getParameters().some((_, at) => {
-                    const sent = typeAt(given.getParameters(), at);
-                    return !!sent && visit(sent, typeAt(wanted.getParameters(), at)!);
-                  }),
-              ),
+            listeners(target.getParameters(), index).some(
+              ([path, wanted]) =>
+                !!wanted &&
+                listeners(source.getParameters(), index).some(
+                  ([from, given]) =>
+                    covers(from, path) &&
+                    wanted.getParameters().some((_, at) => {
+                      const sent = given ? typeAt(given.getParameters(), at) : checker.getAnyType();
+                      return !!sent && visit(sent, typeAt(wanted.getParameters(), at)!);
+                    }),
+                ),
             ),
           );
         const returnsReach = (
