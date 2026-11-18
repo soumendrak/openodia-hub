@@ -204,6 +204,12 @@ const flagged: Record<string, string> = {
   C9c: "interface Stream<T> {\n  subscribe(listener?: (event: T) => void): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
   C10a: 'export function pass(input: { (x: "raw"): any; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: "raw"): string } = input;\n  return out;\n}',
   C10c: 'export function pass(input: { (x: "a" | "b"): any; (x: string): CanonicalEvent }) {\n  const out: { (x: "b" | "c"): CanonicalEvent; (x: "a"): string } = input;\n  return out;\n}',
+  KA: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: string]: CanonicalEvent } = input;\n  return out;\n}",
+  KB: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: `${number}`]: CanonicalEvent } = input;\n  return out;\n}",
+  NN: "export function pass(input: { [k: number]: any }) {\n  const out: { 1?: CanonicalEvent } = input;\n  return out;\n}",
+  NS: "const key = Symbol();\nexport function pass(input: { [k: symbol]: any }) {\n  const out: { [key]?: CanonicalEvent } = input;\n  return out;\n}",
+  FC: "export function pass(input: { make: any }) {\n  const out: { make: new (cb: (event: CanonicalEvent) => void) => object } = input;\n  return out;\n}",
+  NW: "class Bag {\n  constructor(...events: CanonicalEvent[]) {\n    events.forEach(save);\n  }\n}\nexport function pass(input: any[]) {\n  return new Bag(...input);\n}",
 };
 
 const clean: Record<string, string> = {
@@ -270,6 +276,8 @@ const clean: Record<string, string> = {
   C9b: "interface Stream<T> {\n  subscribe(listener: (event: T) => void): void;\n}\nexport function pass(input: { subscribe(listener: (event: CanonicalEvent) => void): void }) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
   C10b: 'export function pass(input: { (x: "raw"): string; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: "raw"): string } = input;\n  return out;\n}',
   C10d: "export function pass(input: { (x: number): any; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: number): string } = input;\n  return out;\n}",
+  KT2: "export function pass(input: { [k: `event-${string}`]: any }) {\n  const out: { [k: `other-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  NS2: "const key = Symbol();\nexport function pass(input: { [k: string]: any }) {\n  const out: { [key]?: CanonicalEvent } = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -378,8 +386,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(155);
-    expect(Object.keys(clean).length).toBe(63);
+    expect(Object.keys(flagged).length).toBe(161);
+    expect(Object.keys(clean).length).toBe(65);
   });
 
   const flaggedSeen: string[] = [];
