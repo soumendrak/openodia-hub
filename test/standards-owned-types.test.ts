@@ -251,6 +251,11 @@ const flagged: Record<string, string> = {
   CX4: "export function pass(input: { subscribe(o: [any]): void }) {\n  const out: { subscribe(o: [(event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
   CX7: "export function pass(input: { subscribe(a: any, b: (event: any) => void): void }) {\n  const out: { subscribe(a: any, b: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
   CX8: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: [(event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
+  F12R21:
+    "interface Stream<T> {\n  subscribe(listeners: Record<string, (event: T) => void>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R22:
+    "interface Stream<T> {\n  subscribe(listeners: { [k: number]: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  CX9: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: Record<string, (event: CanonicalEvent) => void>): void } = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -329,6 +334,8 @@ const clean: Record<string, string> = {
     "export function pass(input: { subscribe(o: [(event: any) => void, (event: CanonicalEvent) => void]): void }) {\n  const out: { subscribe(o: [(event: string) => void, (event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
   CX5: "export function pass(input: { subscribe(o: { on: any; onEvent: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { on: string; onEvent: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
   CX6: "export function pass(input: { subscribe(listener: any): void }) {\n  const out: { subscribe(listener: (event: string) => void): void } = input;\n  return out;\n}",
+  F12P3:
+    "export function pass(input: { subscribe(o: { [k: symbol]: (event: any) => void; [k: string]: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { [k: symbol]: (event: string) => void; [k: string]: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -490,8 +497,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(188);
-    expect(Object.keys(clean).length).toBe(71);
+    expect(Object.keys(flagged).length).toBe(191);
+    expect(Object.keys(clean).length).toBe(72);
   });
 
   const flaggedSeen: string[] = [];

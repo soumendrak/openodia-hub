@@ -179,11 +179,18 @@ export const ownedTypes = {
         return checker
           .getTypeArguments(own as ts.TypeReference)
           .flatMap((arg, index) => callables(arg, `${path}<${index}>`, seen));
-      return checker
-        .getPropertiesOfType(own)
-        .flatMap((property) =>
-          callables(checker.getTypeOfSymbol(property), `${path}.${property.name}`, seen),
-        );
+      return [
+        ...checker
+          .getPropertiesOfType(own)
+          .flatMap((property) =>
+            callables(checker.getTypeOfSymbol(property), `${path}.${property.name}`, seen),
+          ),
+        ...checker
+          .getIndexInfosOfType(own)
+          .flatMap((info) =>
+            callables(info.type, `${path}[${checker.typeToString(info.keyType)}]`, seen),
+          ),
+      ];
     }
     const fed = closure("fed", (type) => [
       ...seals(type),
@@ -325,7 +332,7 @@ export const ownedTypes = {
           return type ? callables(type) : [];
         };
         const covers = (from: string, path: string) =>
-          from === path || [".", "<"].some((mark) => path.startsWith(`${from}${mark}`));
+          from === path || [".", "<", "["].some((mark) => path.startsWith(`${from}${mark}`));
         const callbacksReach = (source: ts.Signature, target: ts.Signature) =>
           target.getParameters().some((_, index) =>
             listeners(target.getParameters(), index).some(
