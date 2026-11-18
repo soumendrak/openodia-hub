@@ -256,6 +256,15 @@ const flagged: Record<string, string> = {
   F12R22:
     "interface Stream<T> {\n  subscribe(listeners: { [k: number]: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
   CX9: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: Record<string, (event: CanonicalEvent) => void>): void } = input;\n  return out;\n}",
+  KC1: "interface Src<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC2: "interface Src<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC3: "interface Src<T> {\n  subscribe(o: { [k: number]: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC4: "interface Src<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: number]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC8: "interface Src<T> {\n  subscribe(o: [(event: T) => void]): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { 0: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC9: "interface Src<T> {\n  subscribe(o: ((event: T) => void)[]): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: number]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC10: "interface Src<T> {\n  subscribe(o: [(event: T) => void]): void;\n}\ninterface Tgt<T> {\n  subscribe(o: ((event: T) => void)[]): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  F12R23:
+    "interface Stream<T> {\n  subscribe(listeners: Set<(event: T) => void>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -336,6 +345,12 @@ const clean: Record<string, string> = {
   CX6: "export function pass(input: { subscribe(listener: any): void }) {\n  const out: { subscribe(listener: (event: string) => void): void } = input;\n  return out;\n}",
   F12P3:
     "export function pass(input: { subscribe(o: { [k: symbol]: (event: any) => void; [k: string]: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { [k: symbol]: (event: string) => void; [k: string]: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  KC5: "interface Src<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: `x${string}`]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC6: "interface Src<T> {\n  subscribe(o: { [k: `a${string}`]: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: `b${string}`]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC7: "interface Src<T> {\n  subscribe(o: { [k: `x${string}`]: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC11: "export function pass(input: { subscribe(o: Map<(event: any) => void, (event: CanonicalEvent) => void>): void }) {\n  const out: { subscribe(o: Map<(event: string) => void, (event: CanonicalEvent) => void>): void } = input;\n  return out;\n}",
+  KC12: "export function pass(input: { subscribe(o: Set<any>): void }) {\n  const out: { subscribe(o: { add(value: CanonicalEvent): void }): void } = input;\n  return out;\n}",
+  KC13: "export function pass(input: { subscribe(o: [any, CanonicalEvent]): void }) {\n  const out: { subscribe(o: [string, CanonicalEvent]): void } = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -355,6 +370,9 @@ const intendedClean = [
   "K1",
   "K3",
   "K4",
+  "KC5",
+  "KC6",
+  "KC7",
   "KT2",
   "L35",
   "N03",
@@ -497,8 +515,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(191);
-    expect(Object.keys(clean).length).toBe(72);
+    expect(Object.keys(flagged).length).toBe(199);
+    expect(Object.keys(clean).length).toBe(78);
   });
 
   const flaggedSeen: string[] = [];

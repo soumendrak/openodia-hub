@@ -3,7 +3,8 @@ import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
 import ts from "typescript";
 
 type Node = TSESTree.Node;
-type Listener = readonly [string, ts.Signature | undefined];
+type Step = { readonly name: ts.Symbol } | { readonly key: ts.Type } | { readonly arg: number };
+type Listener = readonly [readonly Step[], ts.Signature | undefined];
 type Messages = "assertion" | "unsafe" | "forged" | "laundered" | "declared" | "merged";
 
 const ROOT = resolve(import.meta.dirname, "../..");
@@ -54,6 +55,23 @@ function keysOverlap(checker: ts.TypeChecker, left: ts.Type, right: ts.Type): bo
   );
 }
 
+function nameCovered(checker: ts.TypeChecker, property: ts.Symbol, key: ts.Type): boolean {
+  const name = ts.unescapeLeadingUnderscores(property.escapedName);
+  return String(property.escapedName).startsWith("__@")
+    ? (key.flags & ts.TypeFlags.ESSymbolLike) !== 0
+    : checker.isTypeAssignableTo(checker.getStringLiteralType(name), key) ||
+        (isNumericKey(key) && String(Number(name)) === name);
+}
+
+function stepCovers(checker: ts.TypeChecker, from: Step, to: Step): boolean {
+  if ("arg" in from || "arg" in to) return "arg" in from && "arg" in to && from.arg === to.arg;
+  if ("name" in from)
+    return "name" in to ? from.name.name === to.name.name : nameCovered(checker, from.name, to.key);
+  return "name" in to
+    ? nameCovered(checker, to.name, from.key)
+    : keysOverlap(checker, from.key, to.key);
+}
+
 function namedFieldsReach(
   checker: ts.TypeChecker,
   visit: (source: ts.Type, target: ts.Type) => boolean,
@@ -69,15 +87,9 @@ function namedFieldsReach(
     const wanted = checker.getTypeOfSymbol(property);
     const field = fields.get(property.name);
     if (field) return visit(field, wanted);
-    const symbolic = String(property.escapedName).startsWith("__@");
-    const name = ts.unescapeLeadingUnderscores(property.escapedName);
-    return checker.getIndexInfosOfType(source).some((info) => {
-      const covered = symbolic
-        ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
-        : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
-          (isNumericKey(info.keyType) && String(Number(name)) === name);
-      return covered && visit(info.type, wanted);
-    });
+    return checker
+      .getIndexInfosOfType(source)
+      .some((info) => nameCovered(checker, property, info.keyType) && visit(info.type, wanted));
   });
 }
 
@@ -164,7 +176,11 @@ export const ownedTypes = {
         return module ? [module] : [];
       });
     const brands = closure("brands", seals);
-    function callables(type: ts.Type, path = "", seen = new Set<ts.Type>()): Listener[] {
+    function callables(
+      type: ts.Type,
+      path: readonly Step[] = [],
+      seen = new Set<ts.Type>(),
+    ): Listener[] {
       const own = checker.getNonNullableType(type);
       if (seen.has(own)) return [];
       seen = new Set([...seen, own]);
@@ -174,22 +190,31 @@ export const ownedTypes = {
       if (base) return callables(base, path, seen);
       const signatures = own.getCallSignatures();
       if (signatures.length) return signatures.map((signature) => [path, signature] as const);
+      if (checker.isTupleType(own))
+        return checker
+          .getPropertiesOfType(own)
+          .filter((property) => String(Number(property.name)) === property.name)
+          .flatMap((property) =>
+            callables(checker.getTypeOfSymbol(property), [...path, { name: property }], seen),
+          );
+      if (checker.isArrayType(own))
+        return checker
+          .getIndexInfosOfType(own)
+          .flatMap((info) => callables(info.type, [...path, { key: info.keyType }], seen));
       const reference = (own as ts.TypeReference).objectFlags & ts.ObjectFlags.Reference;
       if (reference && !local(own))
         return checker
           .getTypeArguments(own as ts.TypeReference)
-          .flatMap((arg, index) => callables(arg, `${path}<${index}>`, seen));
+          .flatMap((arg, index) => callables(arg, [...path, { arg: index }], seen));
       return [
         ...checker
           .getPropertiesOfType(own)
           .flatMap((property) =>
-            callables(checker.getTypeOfSymbol(property), `${path}.${property.name}`, seen),
+            callables(checker.getTypeOfSymbol(property), [...path, { name: property }], seen),
           ),
         ...checker
           .getIndexInfosOfType(own)
-          .flatMap((info) =>
-            callables(info.type, `${path}[${checker.typeToString(info.keyType)}]`, seen),
-          ),
+          .flatMap((info) => callables(info.type, [...path, { key: info.keyType }], seen)),
       ];
     }
     const fed = closure("fed", (type) => [
@@ -279,15 +304,11 @@ export const ownedTypes = {
               )
             )
               return true;
-            return sourceProperties.some((property) => {
-              const symbolic = String(property.escapedName).startsWith("__@");
-              const name = ts.unescapeLeadingUnderscores(property.escapedName);
-              const covered = symbolic
-                ? (info.keyType.flags & ts.TypeFlags.ESSymbolLike) !== 0
-                : checker.isTypeAssignableTo(checker.getStringLiteralType(name), info.keyType) ||
-                  (isNumericKey(info.keyType) && String(Number(name)) === name);
-              return covered && visit(checker.getTypeOfSymbol(property), info.type);
-            });
+            return sourceProperties.some(
+              (property) =>
+                nameCovered(checker, property, info.keyType) &&
+                visit(checker.getTypeOfSymbol(property), info.type),
+            );
           })
         )
           return true;
@@ -331,8 +352,9 @@ export const ownedTypes = {
           const type = typeAt(params, index);
           return type ? callables(type) : [];
         };
-        const covers = (from: string, path: string) =>
-          from === path || [".", "<", "["].some((mark) => path.startsWith(`${from}${mark}`));
+        const covers = (from: readonly Step[], path: readonly Step[]) =>
+          from.length <= path.length &&
+          from.every((step, at) => stepCovers(checker, step, path[at]!));
         const callbacksReach = (source: ts.Signature, target: ts.Signature) =>
           target.getParameters().some((_, index) =>
             listeners(target.getParameters(), index).some(
