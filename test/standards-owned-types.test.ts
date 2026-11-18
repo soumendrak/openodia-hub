@@ -446,7 +446,11 @@ beforeAll(async () => {
         files: ["**/*.ts", "**/*.tsx"],
         languageOptions: {
           parser: tseslint.parser,
-          parserOptions: { project: "./tsconfig.json", tsconfigRootDir: root },
+          parserOptions: {
+            project: "./tsconfig.json",
+            tsconfigRootDir: root,
+            disallowAutomaticSingleRunInference: true,
+          },
         },
         rules: {
           "main/owned-types": [
