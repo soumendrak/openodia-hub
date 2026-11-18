@@ -3,6 +3,7 @@ import type { TSESLint, TSESTree } from "@typescript-eslint/utils";
 import ts from "typescript";
 
 type Node = TSESTree.Node;
+type Listener = readonly [string, ts.Signature];
 type Messages = "assertion" | "unsafe" | "forged" | "laundered" | "declared" | "merged";
 
 const ROOT = resolve(import.meta.dirname, "../..");
@@ -160,17 +161,35 @@ export const ownedTypes = {
         return module ? [module] : [];
       });
     const brands = closure("brands", seals);
+    function callables(type: ts.Type, path = "", seen = new Set<ts.Type>()): Listener[] {
+      const own = checker.getNonNullableType(type);
+      if (seen.has(own)) return [];
+      seen = new Set([...seen, own]);
+      if (own.isUnion()) return own.types.flatMap((member) => callables(member, path, seen));
+      const base = own.flags & ts.TypeFlags.Instantiable && checker.getBaseConstraintOfType(own);
+      if (base) return callables(base, path, seen);
+      const signatures = own.getCallSignatures();
+      if (signatures.length) return signatures.map((signature) => [path, signature] as const);
+      const reference = (own as ts.TypeReference).objectFlags & ts.ObjectFlags.Reference;
+      if (reference && !local(own))
+        return checker
+          .getTypeArguments(own as ts.TypeReference)
+          .flatMap((arg, index) => callables(arg, `${path}<${index}>`, seen));
+      return checker
+        .getPropertiesOfType(own)
+        .flatMap((property) =>
+          callables(checker.getTypeOfSymbol(property), `${path}.${property.name}`, seen),
+        );
+    }
     const fed = closure("fed", (type) => [
       ...seals(type),
       ...[...type.getCallSignatures(), ...type.getConstructSignatures()].flatMap((signature) =>
-        signature.getParameters().flatMap((parameter) =>
-          checker
-            .getNonNullableType(checker.getTypeOfSymbol(parameter))
-            .getCallSignatures()
-            .flatMap((callback) =>
-              callback.getParameters().flatMap((value) => brands(checker.getTypeOfSymbol(value))),
-            ),
-        ),
+        signature
+          .getParameters()
+          .flatMap((parameter) => callables(checker.getTypeOfSymbol(parameter)))
+          .flatMap(([, callback]) =>
+            callback.getParameters().flatMap((value) => brands(checker.getTypeOfSymbol(value))),
+          ),
       ),
     ]);
     const holds = (flags: ts.TypeFlags, deep?: boolean) => (type: ts.Type) =>
@@ -291,22 +310,24 @@ export const ownedTypes = {
             sourceParams.slice(targetParams.length).every(optional) &&
             targetParams.every((_, index) => {
               const wanted = typeAt(sourceParams, index);
-              return !wanted || overlaps(typeAt(targetParams, index)!, wanted);
+              return !wanted || generic(wanted) || overlaps(typeAt(targetParams, index)!, wanted);
             })
           );
         };
         const listeners = (params: readonly ts.Symbol[], index: number) => {
           const type = typeAt(params, index);
-          return type ? checker.getNonNullableType(type).getCallSignatures() : [];
+          return type ? callables(type) : [];
         };
         const callbacksReach = (source: ts.Signature, target: ts.Signature) =>
           target.getParameters().some((_, index) =>
-            listeners(target.getParameters(), index).some((wanted) =>
-              listeners(source.getParameters(), index).some((given) =>
-                wanted.getParameters().some((_, at) => {
-                  const sent = typeAt(given.getParameters(), at);
-                  return !!sent && visit(sent, typeAt(wanted.getParameters(), at)!);
-                }),
+            listeners(target.getParameters(), index).some(([path, wanted]) =>
+              listeners(source.getParameters(), index).some(
+                ([from, given]) =>
+                  from === path &&
+                  wanted.getParameters().some((_, at) => {
+                    const sent = typeAt(given.getParameters(), at);
+                    return !!sent && visit(sent, typeAt(wanted.getParameters(), at)!);
+                  }),
               ),
             ),
           );

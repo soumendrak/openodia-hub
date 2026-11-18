@@ -210,6 +210,30 @@ const flagged: Record<string, string> = {
   NS: "const key = Symbol();\nexport function pass(input: { [k: symbol]: any }) {\n  const out: { [key]?: CanonicalEvent } = input;\n  return out;\n}",
   FC: "export function pass(input: { make: any }) {\n  const out: { make: new (cb: (event: CanonicalEvent) => void) => object } = input;\n  return out;\n}",
   NW: "class Bag {\n  constructor(...events: CanonicalEvent[]) {\n    events.forEach(save);\n  }\n}\nexport function pass(input: any[]) {\n  return new Bag(...input);\n}",
+  F12R1:
+    "interface Stream<T> {\n  subscribe(...listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R4:
+    "interface Stream<T> {\n  subscribe(...listeners: [(event: T) => void]): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R8:
+    "interface Stream<T> {\n  subscribe(listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R9:
+    "interface Stream<T> {\n  subscribe(options: { onEvent: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R10:
+    "interface Stream<T> {\n  subscribe(listener: ((event: T) => void) | string): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R11:
+    "interface Stream<T> {\n  subscribe(listeners: Array<(event: T) => void>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R14:
+    "interface Tree<T> {\n  on: (event: T) => void;\n  child: Tree<T>;\n}\ninterface Stream<T> {\n  subscribe(tree: Tree<T>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R15:
+    "interface Box<T> {\n  on: (event: T) => void;\n}\ninterface Stream<T> {\n  subscribe(box: Box<T>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R16:
+    "interface Stream<T> {\n  subscribe(options: { onEvent: (event: T) => void } & { name: string }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R17:
+    "interface Stream<T> {\n  subscribe<U extends (event: T) => void>(listener: U): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R18:
+    "interface Stream<T> {\n  subscribe<U extends (event: T) => void>(options: { on: U }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R19:
+    "interface Stream<T> {\n  subscribe<U extends { on: (event: T) => void }>(options: U): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -278,6 +302,14 @@ const clean: Record<string, string> = {
   C10d: "export function pass(input: { (x: number): any; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: number): string } = input;\n  return out;\n}",
   KT2: "export function pass(input: { [k: `event-${string}`]: any }) {\n  const out: { [k: `other-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
   NS2: "const key = Symbol();\nexport function pass(input: { [k: string]: any }) {\n  const out: { [key]?: CanonicalEvent } = input;\n  return out;\n}",
+  F12R12:
+    "interface Stream<T> {\n  subscribe(...listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<string>) {\n  const out: Stream<string> = input;\n  return out;\n}",
+  F12R13:
+    "interface Stream<T> {\n  subscribe(...listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<CanonicalEvent>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12P1:
+    "export function pass(input: { subscribe(o: { a: (event: any) => void; b: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { a: (event: string) => void; b: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  F12P2:
+    "export function pass(input: { subscribe(o: [(event: any) => void, (event: CanonicalEvent) => void]): void }) {\n  const out: { subscribe(o: [(event: string) => void, (event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
@@ -386,8 +418,8 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(161);
-    expect(Object.keys(clean).length).toBe(65);
+    expect(Object.keys(flagged).length).toBe(173);
+    expect(Object.keys(clean).length).toBe(69);
   });
 
   const flaggedSeen: string[] = [];
