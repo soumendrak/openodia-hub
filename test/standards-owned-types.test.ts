@@ -5,6 +5,7 @@ import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import config from "../eslint.config.js";
+import mainConfig from "./standards/owned-types-main-config.js";
 
 const MODEL = `
 declare const brand: unique symbol;
@@ -322,8 +323,32 @@ const clean: Record<string, string> = {
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
 
+const intendedClean = [
+  "F10d",
+  "F10e",
+  "F11a",
+  "F11b",
+  "F11c",
+  "C2e",
+  "C3c",
+  "C4e",
+  "C4f",
+  "C8c",
+  "C10d",
+  "K1",
+  "K3",
+  "K4",
+  "KT2",
+  "L35",
+  "N03",
+  "NS2",
+  "V09",
+  "Z09",
+];
+
 let root: string;
 let messages: Map<string, string[]>;
+let mainFlags: Set<string>;
 
 beforeAll(async () => {
   if (!isolated) throw new Error("eslint.config.js no longer registers the isolated plugin");
@@ -410,6 +435,31 @@ beforeAll(async () => {
     ],
   });
   const results = await eslint.lintFiles(["probes", "events", "lib"]);
+  const baseline = new ESLint({
+    cwd: root,
+    overrideConfigFile: true,
+    overrideConfig: [
+      ...mainConfig,
+      {
+        files: ["**/*.ts", "**/*.tsx"],
+        languageOptions: {
+          parser: tseslint.parser,
+          parserOptions: { project: "./tsconfig.json", tsconfigRootDir: root },
+        },
+        rules: {
+          "main/owned-types": [
+            "error",
+            { modules: [relative(join(import.meta.dirname, ".."), join(root, "events"))] },
+          ],
+        },
+      },
+    ],
+  });
+  mainFlags = new Set(
+    (await baseline.lintFiles(["probes"]))
+      .filter((result) => result.messages.length > 0)
+      .map((result) => relative(join(root, "probes"), result.filePath).replace(/\.tsx?$/, "")),
+  );
   messages = new Map(
     results.map((result) => [
       relative(root, result.filePath).replace(/\.tsx?$/, ""),
@@ -450,6 +500,14 @@ describe("isolated/owned-types", () => {
 
   it("visits every clean probe", () => {
     expect(cleanSeen).toEqual(Object.keys(clean));
+  });
+
+  it("flags every probe that main's rule flags, unless it is listed as intended clean", () => {
+    const opened = [...mainFlags].filter(
+      (name) => (messages.get(`probes/${name}`) ?? []).length === 0,
+    );
+    expect(mainFlags.size).toBeGreaterThan(150);
+    expect(opened.sort()).toEqual([...intendedClean].sort());
   });
 
   it("reports a generic helper's cast where the helper casts, not where an honest caller passes a real value", () => {
