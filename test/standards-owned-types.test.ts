@@ -234,6 +234,14 @@ const flagged: Record<string, string> = {
     "interface Stream<T> {\n  subscribe<U extends (event: T) => void>(options: { on: U }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
   F12R19:
     "interface Stream<T> {\n  subscribe<U extends { on: (event: T) => void }>(options: U): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  KT1: "export function pass(input: { [k: `x${string}`]: any }) {\n  const out: { [k: `${string}y`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT3: "export function pass(input: { [k: `id-${number}`]: any }) {\n  const out: { [k: `${string}-7`]: CanonicalEvent } = input;\n  return out;\n}",
+  KE: "export function pass(input: { [k: `ab${number}`]: any }) {\n  const out: { [k: `a${string}b0`]: CanonicalEvent } = input;\n  return out;\n}",
+  KN: "export function pass(input: { [k: `${number}-${string}`]: any }) {\n  const out: { [k: `${string}-x`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT4: "export function pass(input: { [k: `a${string}-${string}a`]: any }) {\n  const out: { [k: `a${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT5: "export function pass(input: { [k: `a${string}a${number}a`]: any }) {\n  const out: { [k: `a${string}b${string}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT6: "export function pass(input: { [k: `a${string}b${string}a`]: any }) {\n  const out: { [k: `a${string}a${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT7: "export function pass(input: { [k: `a${string}a`]: any }) {\n  const out: { [k: `${string}b${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -418,7 +426,7 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(173);
+    expect(Object.keys(flagged).length).toBe(181);
     expect(Object.keys(clean).length).toBe(69);
   });
 

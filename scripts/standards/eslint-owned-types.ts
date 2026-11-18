@@ -23,11 +23,14 @@ function isTextualKey(key: ts.Type): boolean {
   return (key.flags & ts.TypeFlags.StringLike) !== 0;
 }
 
-function expandTemplates(type: ts.Type): string[] {
+const textsOf = (type: ts.Type) =>
+  type.flags & ts.TypeFlags.TemplateLiteral ? (type as ts.TemplateLiteralType).texts : [];
+
+function expandTemplates(type: ts.Type, fills: readonly string[]): string[] {
   const tmpl = type as ts.TemplateLiteralType;
   const rec = (index: number): string[] => {
     if (index === tmpl.types.length) return [tmpl.texts[index] ?? ""];
-    return ["", "a", "event", "-"].flatMap((fill) =>
+    return fills.flatMap((fill) =>
       rec(index + 1).map((tail) => `${tmpl.texts[index] ?? ""}${fill}${tail}`),
     );
   };
@@ -35,11 +38,11 @@ function expandTemplates(type: ts.Type): string[] {
 }
 
 function keysOverlap(checker: ts.TypeChecker, left: ts.Type, right: ts.Type): boolean {
+  const fills = [...new Set(["", "0", ...textsOf(left), ...textsOf(right)])];
   const templates = (type: ts.Type) =>
-    type.flags & ts.TypeFlags.TemplateLiteral ? expandTemplates(type) : [];
+    type.flags & ts.TypeFlags.TemplateLiteral ? expandTemplates(type, fills) : [];
   return (
     checker.isTypeAssignableTo(left, right) ||
-    checker.isTypeAssignableTo(right, left) ||
     (isNumericKey(left) && isTextualKey(right)) ||
     (isTextualKey(left) && isNumericKey(right)) ||
     [...templates(left), ...templates(right)].some((witness) => {
