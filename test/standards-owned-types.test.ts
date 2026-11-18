@@ -510,6 +510,15 @@ describe("isolated/owned-types", () => {
     expect(opened.sort()).toEqual([...intendedClean].sort());
   });
 
+  it.each(["F12R1", "F12R4", "F12R8", "F12R9", "F12R10", "F12R11"])(
+    "reports %s's listener escape as unsafe on the assignment line",
+    (name) => {
+      expect(messages.get(`probes/${name}`)).toEqual([
+        expect.stringMatching(/^11 isolated\/owned-types: An any- or never-typed value/),
+      ]);
+    },
+  );
+
   it("reports a generic helper's cast where the helper casts, not where an honest caller passes a real value", () => {
     expect(messages.get("probes/R13")).toEqual([expect.stringMatching(/^9 /)]);
     expect(messages.get("probes/R22")).toEqual([expect.stringMatching(/^8 /)]);
