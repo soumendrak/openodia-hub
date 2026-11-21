@@ -14,7 +14,7 @@ export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
     title: "GDG DevFest 2026 Bhubaneswar",
     url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-gdg-devfest-2026-bhubaneswar/",
     type: "Conference",
-    location: "Pipul Padmaja Premium Hotel and Convention",
+    location: "Pipul Padmaja Premium Hotel and Convention, Bhubaneswar",
     startDate: "2026-11-28",
     endDate: "2026-11-29",
     description:

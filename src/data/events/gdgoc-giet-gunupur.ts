@@ -14,7 +14,7 @@ export const gdgocGietGunupurEvents: Omit<Event, "community">[] = [
     title: "Learn with Communities",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-giet-university-gunupur-india-presents-learn-with-communities/",
     type: "Workshop",
-    location: "GIET University",
+    location: "GIET University, Gunupur",
     startDate: "2026-10-26",
     endDate: "2026-10-27",
     description:
@@ -26,7 +26,7 @@ export const gdgocGietGunupurEvents: Omit<Event, "community">[] = [
     title: "From Experience to Expertise",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-giet-university-gunupur-india-presents-from-experience-to-expertise/",
     type: "Workshop",
-    location: "GIET University",
+    location: "GIET University, Gunupur",
     startDate: "2026-10-08",
     endDate: "2026-10-09",
     description:

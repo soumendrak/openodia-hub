@@ -24,7 +24,7 @@ export const gdgocNitRourkelaEvents: Omit<Event, "community">[] = [
     date: "8 Oct 2026",
     title: "Hacktober Fest : From Zero to Open Source",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-hacktober-fest-from-zero-to-open-source/",
-    type: "Conference",
+    type: "Workshop",
     startDate: "2026-10-08",
     endDate: "2026-10-08",
     description:
