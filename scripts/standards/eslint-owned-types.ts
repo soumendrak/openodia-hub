@@ -182,14 +182,26 @@ export const ownedTypes = {
       report(here || node, here ? "laundered" : "forged", cast ? result : missing);
     };
 
-    const sameSlots = (source: ts.Type, target: ts.Type): boolean => {
+    const promise = (type: ts.Type) => {
+      const symbol = type.getSymbol();
+      const [declaration] = symbol?.declarations ?? [];
+      const global =
+        !!declaration && program.isSourceFileDefaultLibrary(declaration.getSourceFile());
+      return global && ["Promise", "PromiseLike"].includes(symbol?.name ?? "");
+    };
+    const sameSlots = (
+      source: ts.Type,
+      target: ts.Type,
+      seen: readonly ts.Type[] = [],
+    ): boolean => {
       if (source === target) return true;
-      const [from, to] = [checker.getAwaitedType(source), checker.getAwaitedType(target)];
-      if (from && to && from !== source && to !== target) return sameSlots(from, to);
-      if (!checker.isArrayType(source) || !checker.isArrayType(target)) return false;
-      const [item] = checker.getTypeArguments(source as ts.TypeReference);
-      const [slot] = checker.getTypeArguments(target as ts.TypeReference);
-      return !!item && !!slot && sameSlots(item, slot);
+      if (seen.includes(source)) return false;
+      if (target.isUnion()) return target.types.some((part) => sameSlots(source, part, seen));
+      const arrays = checker.isArrayType(source) && checker.isArrayType(target);
+      const paired = arrays || (promise(source) && promise(target));
+      const [item] = paired ? checker.getTypeArguments(source as ts.TypeReference) : [];
+      const [slot] = paired ? checker.getTypeArguments(target as ts.TypeReference) : [];
+      return !!item && !!slot && sameSlots(item, slot, [...seen, source]);
     };
 
     function sink(node: TSESTree.Expression, tsNode: ts.Expression) {

@@ -308,6 +308,10 @@ const flagged: Record<string, string> = {
   W08: "interface Odd<T> {\n  readonly [n: number]: { reason: CanonicalEvent };\n  tag?: T;\n}\nexport function pass(input: PromiseRejectedResult[]) {\n  const out: Odd<PromiseRejectedResult> = input;\n  return out;\n}",
   W09: "interface Odd<T> extends ReadonlyArray<any> {\n  tag?: T;\n}\nexport function pass(input: Odd<CanonicalEvent>) {\n  const out: readonly CanonicalEvent[] = input;\n  return out;\n}",
   W10: "type Thenish = { then: any; e: CanonicalEvent };\nexport function pass(input: Thenish) {\n  const out: PromiseLike<Thenish> = input;\n  return out;\n}",
+  W11: "interface PromiseLike<T> {\n  then: any;\n  catch: any;\n  finally: any;\n  tag?: T;\n  readonly [Symbol.toStringTag]: string;\n}\nexport function pass(input: PromiseLike<CanonicalEvent>) {\n  const out: Promise<CanonicalEvent> = input;\n  return out;\n}",
+  CB1: "interface Box<T> extends Promise<string> {\n  payload: T;\n}\nexport function pass(input: Box<any>) {\n  const out: Box<CanonicalEvent> = input;\n  return out;\n}",
+  CB2: "type Recursive<T> = Recursive<T>[];\nexport function pass(input: Recursive<any>) {\n  const out: Recursive<CanonicalEvent> = input;\n  return out;\n}",
+  W12: "export function pass(input: Map<string, any>) {\n  const out: Map<string, CanonicalEvent> = input;\n  return out;\n}",
 };
 
 const unflaggedOnMain: Record<string, string> = {
@@ -544,7 +548,7 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(242);
+    expect(Object.keys(flagged).length).toBe(246);
     expect(Object.keys(clean).length).toBe(62);
     expect(Object.keys(unflaggedOnMain).length).toBe(9);
   });
