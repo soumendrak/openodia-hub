@@ -1,13 +1,8 @@
 import { join } from "node:path";
 import { ESLint } from "eslint";
 import { describe, expect, it } from "vitest";
-import config from "../eslint.config.js";
 
-const eslint = new ESLint({
-  cwd: join(import.meta.dirname, ".."),
-  overrideConfigFile: true,
-  overrideConfig: config,
-});
+const eslint = new ESLint({ cwd: join(import.meta.dirname, "..") });
 
 describe("eslint ignores follow .gitignore", () => {
   it.each([

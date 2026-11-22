@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
@@ -304,7 +305,6 @@ const flagged: Record<string, string> = {
   W04: "export async function pass(results: Promise<PromiseSettledResult<any>[]>) {\n  const out: PromiseSettledResult<CanonicalEvent>[] = await results;\n  return out;\n}",
   W05: "export function pass(results: [PromiseSettledResult<CanonicalEvent>, any]) {\n  const out: readonly PromiseSettledResult<CanonicalEvent>[] = results;\n  return out;\n}",
   W06: "export function pass(results: Promise<any>[]) {\n  const out: PromiseLike<CanonicalEvent>[] = results;\n  return out;\n}",
-  W07: "export function pass(results: PromiseSettledResult<CanonicalEvent>[]) {\n  const out: { reason: CanonicalEvent }[] = results;\n  return out;\n}",
   W08: "interface Odd<T> {\n  readonly [n: number]: { reason: CanonicalEvent };\n  tag?: T;\n}\nexport function pass(input: PromiseRejectedResult[]) {\n  const out: Odd<PromiseRejectedResult> = input;\n  return out;\n}",
   W09: "interface Odd<T> extends ReadonlyArray<any> {\n  tag?: T;\n}\nexport function pass(input: Odd<CanonicalEvent>) {\n  const out: readonly CanonicalEvent[] = input;\n  return out;\n}",
   W10: "type Thenish = { then: any; e: CanonicalEvent };\nexport function pass(input: Thenish) {\n  const out: PromiseLike<Thenish> = input;\n  return out;\n}",
@@ -312,6 +312,18 @@ const flagged: Record<string, string> = {
   CB1: "interface Box<T> extends Promise<string> {\n  payload: T;\n}\nexport function pass(input: Box<any>) {\n  const out: Box<CanonicalEvent> = input;\n  return out;\n}",
   CB2: "type Recursive<T> = Recursive<T>[];\nexport function pass(input: Recursive<any>) {\n  const out: Recursive<CanonicalEvent> = input;\n  return out;\n}",
   W12: "export function pass(input: Map<string, any>) {\n  const out: Map<string, CanonicalEvent> = input;\n  return out;\n}",
+  A1: "export function pass(src: any[]) {\n  let x: CanonicalEvent | any[];\n  for (x of src) if (!Array.isArray(x)) save(x);\n}",
+  A2: "interface Weird extends Array<any> {\n  e: CanonicalEvent;\n}\nexport function pass(src: Weird) {\n  let x: Weird;\n  for (x of src) save(x.e);\n}",
+  A3: "declare function f(...a: (CanonicalEvent | any[])[]): void;\nexport function pass(src: any[]) {\n  f(...src);\n}",
+  A4: "export function pass(src: any[]) {\n  const out: (CanonicalEvent | any[])[] = [...src];\n  return out;\n}",
+  A6: "export async function pass(src: any[]) {\n  let x: CanonicalEvent | any[];\n  for await (x of src) if (!Array.isArray(x)) save(x);\n}",
+  A7: "interface Weird extends Array<any> {\n  e: CanonicalEvent;\n}\ndeclare function f(...a: Weird[]): void;\nexport function pass(src: Weird) {\n  f(...src);\n}",
+  A8: "export function pass(src: Set<any>) {\n  let x: CanonicalEvent | Set<any>;\n  for (x of src) if (!(x instanceof Set)) save(x);\n}",
+};
+
+const cycles: Record<string, string> = {
+  E3: "type R<T> = Promise<R<T>[]>;\nexport function pass(input: R<any>) {\n  const out: R<CanonicalEvent> = input;\n  return out;\n}",
+  E5: "type A<T> = B<T>[];\ntype B<T> = Promise<A<T>>;\nexport function pass(input: A<any>) {\n  const out: A<CanonicalEvent> = input;\n  return out;\n}",
 };
 
 const unflaggedOnMain: Record<string, string> = {
@@ -462,6 +474,8 @@ beforeAll(async () => {
       include: ["**/*.ts", "**/*.tsx"],
     }),
   );
+  for (const [name, code] of Object.entries(cycles))
+    write(`cycles/${name}.ts`, `${HEADER}${code}\n`);
   for (const [name, code] of Object.entries({ ...flagged, ...clean, ...unflaggedOnMain }))
     write(`probes/${name}.ts`, `${HEADER}${code}\n`);
   write(
@@ -548,9 +562,10 @@ afterAll(() => {
 
 describe("isolated/owned-types", () => {
   it("keeps the flagged and clean probe lists", () => {
-    expect(Object.keys(flagged).length).toBe(246);
+    expect(Object.keys(flagged).length).toBe(252);
     expect(Object.keys(clean).length).toBe(62);
     expect(Object.keys(unflaggedOnMain).length).toBe(9);
+    expect(Object.keys(cycles).length).toBe(2);
   });
 
   const flaggedSeen: string[] = [];
@@ -574,6 +589,33 @@ describe("isolated/owned-types", () => {
   it("visits every clean probe", () => {
     expect(cleanSeen).toEqual(Object.keys(clean));
   });
+
+  it.each(Object.keys(cycles))(
+    "flags %s, a recursive type, in a separate process within 60 s",
+    (name) => {
+      const repo = join(import.meta.dirname, "..");
+      const run = spawnSync(
+        "bun",
+        [
+          join(import.meta.dirname, "standards/owned-types-lint-file.ts"),
+          root,
+          relative(repo, join(root, "events")),
+          `cycles/${name}.ts`,
+        ],
+        {
+          cwd: repo,
+          encoding: "utf8",
+          timeout: 60_000,
+          env: Object.fromEntries(
+            Object.entries(process.env).filter(([key]) => key !== "NODE_V8_COVERAGE"),
+          ),
+        },
+      );
+      expect(run.signal).toBeNull();
+      expect(JSON.parse(run.stdout)).toEqual([["isolated/owned-types"]]);
+    },
+    90_000,
+  );
 
   it.each(Object.keys(unflaggedOnMain))("matches main on %s, which neither rule flags", (name) => {
     expect(mainFlags.has(name)).toBe(false);

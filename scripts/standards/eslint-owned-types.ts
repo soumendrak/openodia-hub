@@ -206,10 +206,12 @@ export const ownedTypes = {
 
     function sink(node: TSESTree.Expression, tsNode: ts.Expression) {
       const { parent } = node;
-      if (parent.type === "ForOfStatement" && parent.right === node) return typeOf(parent.left);
+      if (parent.type === "ForOfStatement" && parent.right === node)
+        return { target: typeOf(parent.left), whole: false };
       const named = "name" in tsNode.parent && tsNode.parent.name === tsNode;
-      const element = ts.isSpreadElement(tsNode.parent) ? tsNode.parent : tsNode;
-      return named ? undefined : checker.getContextualType(element);
+      const spread = ts.isSpreadElement(tsNode.parent);
+      const target = named ? undefined : checker.getContextualType(spread ? tsNode.parent : tsNode);
+      return { target, whole: !spread };
     }
 
     return {
@@ -237,10 +239,12 @@ export const ownedTypes = {
       },
       ":expression"(node: TSESTree.Expression) {
         const tsNode = nodes.get(node);
-        const target = ts.isExpression(tsNode) && sink(node, tsNode);
+        const { target, whole } = ts.isExpression(tsNode)
+          ? sink(node, tsNode)
+          : { target: undefined, whole: false };
         const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
         const type = !wrapper && target && brands(target).length && typeOf(node);
-        if (!target || !type || !hollow(type) || sameSlots(type, target)) return;
+        if (!target || !type || !hollow(type) || (whole && sameSlots(type, target))) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const body = type.flags & Never && call && "body" in call && call.body;
         const throws = body && ts.isBlock(body) && body.statements.every(ts.isThrowStatement);
