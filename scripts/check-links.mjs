@@ -11,7 +11,9 @@
  * Exit code 1 when anything is dead, so CI surfaces it.
  */
 
-const README_URL = "https://raw.githubusercontent.com/odisha-ml/Awesome-Odia-AI/main/README.md";
+const LIST_BASE = "https://raw.githubusercontent.com/odisha-ml/Awesome-Odia-AI/main";
+const README_URL = `${LIST_BASE}/README.md`;
+const CONFIG_URL = `${LIST_BASE}/.markdown-link-check.json`;
 const CONCURRENCY = 8;
 const TIMEOUT_MS = 15000;
 const RETRIES = 1;
@@ -45,7 +47,7 @@ export async function checkOne(url) {
     try {
       let res = await fetchWithTimeout(url, { method, headers: { "User-Agent": UA } });
       // Some hosts reject HEAD outright; a GET is the honest second try.
-      if (method === "HEAD" && (res.status === 403 || res.status === 405)) {
+      if (method === "HEAD" && res.status >= 400 && res.status < 500) {
         res = await fetchWithTimeout(url, { method: "GET", headers: { "User-Agent": UA } });
       }
       if (res.ok) return { url, ok: true, status: res.status };
@@ -59,6 +61,7 @@ export async function checkOne(url) {
         await new Promise((r) => setTimeout(r, 3000));
         continue;
       }
+      if (res.status === 429) return { url, ok: true, status: 429, rateLimited: true };
       return { url, ok: false, status: res.status, reason: `HTTP ${res.status}` };
     } catch (err) {
       if (attempt < RETRIES) continue;
@@ -86,6 +89,12 @@ export async function mapWithConcurrency(items, limit, fn) {
   return results;
 }
 
+export function skipPatterns(config) {
+  return Array.isArray(config.ignorePatterns)
+    ? config.ignorePatterns.map(({ pattern }) => new RegExp(pattern))
+    : [];
+}
+
 export function extractUrls(markdown) {
   const urls = new Set();
   for (const [, url] of markdown.matchAll(/\[[^\]]*\]\((https?:\/\/[^)\s]+)\)/g)) {
@@ -102,7 +111,18 @@ export async function main() {
     console.error(`Could not fetch the Awesome-Odia-AI README: HTTP ${res.status}`);
     process.exit(2);
   }
-  const urls = extractUrls(await res.text());
+  const markdown = await res.text();
+  const configRes = await fetchWithTimeout(CONFIG_URL, { headers: { "User-Agent": UA } });
+  if (!configRes.ok) {
+    console.error(
+      `Could not fetch the Awesome-Odia-AI link-check config: HTTP ${configRes.status}`,
+    );
+    process.exit(2);
+  }
+  const skips = skipPatterns(await configRes.json());
+  const listed = extractUrls(markdown);
+  const skipped = listed.filter((url) => skips.some((pattern) => pattern.test(url)));
+  const urls = listed.filter((url) => !skipped.includes(url));
   if (!json) console.log(`Checking ${urls.length} links…`);
 
   const results = await mapWithConcurrency(urls, CONCURRENCY, checkOne);
@@ -110,7 +130,7 @@ export async function main() {
   const restricted = results.filter((r) => r.restricted);
 
   if (json) {
-    console.log(JSON.stringify({ checked: results.length, dead, restricted }, null, 2));
+    console.log(JSON.stringify({ checked: results.length, dead, restricted, skipped }, null, 2));
   } else if (dead.length === 0) {
     console.log(`All ${results.length} links resolve.`);
   } else {
@@ -121,6 +141,11 @@ export async function main() {
   if (restricted.length > 0 && !json) {
     console.log(`\n${restricted.length} link(s) exist but require authentication:`);
     for (const r of restricted) console.log(`  HTTP ${r.status}     ${r.url}`);
+  }
+
+  if (skipped.length > 0 && !json) {
+    console.log(`\n${skipped.length} link(s) skipped by the Awesome-Odia-AI link-check config:`);
+    for (const url of skipped) console.log(`  ${url}`);
   }
 
   process.exit(dead.length > 0 ? 1 : 0);

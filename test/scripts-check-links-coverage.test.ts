@@ -31,6 +31,8 @@ describe("link checker script", () => {
       .mockResolvedValueOnce(response(405))
       .mockResolvedValueOnce(response(200))
       .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(404))
       .mockResolvedValueOnce(response(404))
       .mockRejectedValueOnce(new Error("temporary"))
       .mockResolvedValueOnce(response(202));
@@ -122,6 +124,7 @@ describe("link checker script", () => {
       vi
         .fn()
         .mockResolvedValueOnce(response(200, "[ok](https://example.com)"))
+        .mockResolvedValueOnce(response(200, "{}"))
         .mockResolvedValueOnce(response(200)),
     );
     const previousArgv = process.argv;
@@ -151,6 +154,7 @@ describe("link checker script", () => {
         .mockResolvedValueOnce(
           response(200, "[a](https://example.com/a) [b](https://example.com/b)"),
         )
+        .mockResolvedValueOnce(response(200, "{}"))
         .mockResolvedValueOnce(response(200))
         .mockResolvedValueOnce(response(200)),
     );
@@ -178,8 +182,8 @@ describe("link checker script", () => {
         .mockResolvedValueOnce(
           response(200, "[dead](https://example.com/dead) [gated](https://example.com/gated)"),
         )
-        .mockResolvedValueOnce(response(404))
-        .mockResolvedValueOnce(response(401)),
+        .mockResolvedValueOnce(response(200, "{}"))
+        .mockImplementation(async (url: string) => response(url.endsWith("/dead") ? 404 : 401)),
     );
 
     const previousArgv = process.argv;
@@ -200,7 +204,10 @@ describe("link checker script", () => {
   it("runs main() automatically when executed as the entry script", async () => {
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValueOnce(response(200, "")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValueOnce(response(200, "")).mockResolvedValueOnce(response(200, "{}")),
+    );
 
     const previousArgv1 = process.argv[1];
     process.argv[1] = "/path/to/scripts/check-links.mjs";
