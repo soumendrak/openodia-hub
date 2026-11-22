@@ -135,38 +135,54 @@ describe("event crawler orchestration", () => {
   });
 
   it("uses archive-only files for deduplication without fetching their dead source", async () => {
-    const archivedUrl = "https://gdg.community.dev/events/details/iiit-archive-event/";
-    crawlHarness.existsSync.mockReturnValue(true);
-    crawlHarness.readFileSync.mockImplementation((path: string) =>
-      path.includes("gdgoc-iiit-bbsr.ts")
-        ? `export const events = [{ url: "${archivedUrl}" }];\n`
-        : "export const events = [\n];\n",
-    );
-    crawlHarness.resolveEventDestinationUrl.mockImplementation(async (url: string) => url);
-    const fetcher = vi.fn(async (input: string | URL | Request) => {
-      const url = String(input);
-      if (url.includes("gdg-bhubaneswar") && !url.includes("/events/details/")) {
-        return new Response(
-          nextData([gdgEvent("IIIT archive duplicate", `${archivedUrl}cohost-gdg-bhubaneswar`)]),
-        );
-      }
-      throw new Error("network unreachable");
-    });
-    vi.stubGlobal("fetch", fetcher);
-    vi.spyOn(console, "log").mockImplementation(() => undefined);
-    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const { main, SOURCES } = await import("../scripts/crawl-events.mjs");
+    const archivedUrl = "https://gdg.community.dev/events/details/archive-fixture-event/";
+    const archivedSource = {
+      id: "archive-fixture",
+      url: "https://gdg.community.dev/archive-fixture-should-not-be-fetched/",
+      file: "archive-fixture.ts",
+      archiveOnly: true,
+    };
+    SOURCES.push(archivedSource);
+    try {
+      crawlHarness.existsSync.mockReturnValue(true);
+      crawlHarness.readFileSync.mockImplementation((path: string) =>
+        path.includes("archive-fixture.ts")
+          ? `export const events = [{ url: "${archivedUrl}" }];\n`
+          : "export const events = [\n];\n",
+      );
+      crawlHarness.resolveEventDestinationUrl.mockImplementation(async (url: string) => url);
+      const fetcher = vi.fn(async (input: string | URL | Request) => {
+        const url = String(input);
+        if (url.includes("gdg-bhubaneswar") && !url.includes("/events/details/")) {
+          return new Response(
+            nextData([
+              gdgEvent("Archive fixture duplicate", `${archivedUrl}cohost-gdg-bhubaneswar`),
+            ]),
+          );
+        }
+        throw new Error("network unreachable");
+      });
+      vi.stubGlobal("fetch", fetcher);
+      vi.spyOn(console, "log").mockImplementation(() => undefined);
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    const { main } = await import("../scripts/crawl-events.mjs");
-    await expect(main()).resolves.toBe(0);
+      await expect(main()).resolves.toBe(0);
 
-    expect(crawlHarness.resolveEventDestinationUrl).toHaveBeenCalledWith(
-      archivedUrl,
-      expect.any(Function),
-    );
-    expect(
-      fetcher.mock.calls.some(([input]) => String(input).includes("international-institute")),
-    ).toBe(false);
-    expect(crawlHarness.writes).toEqual([]);
+      expect(crawlHarness.resolveEventDestinationUrl).toHaveBeenCalledWith(
+        archivedUrl,
+        expect.any(Function),
+      );
+      expect(
+        fetcher.mock.calls.some(([input]) =>
+          String(input).includes("archive-fixture-should-not-be-fetched"),
+        ),
+      ).toBe(false);
+      expect(crawlHarness.writes).toEqual([]);
+    } finally {
+      const index = SOURCES.indexOf(archivedSource);
+      if (index >= 0) SOURCES.splice(index, 1);
+    }
   });
 
   it("reports an active source whose event lists are empty", async () => {

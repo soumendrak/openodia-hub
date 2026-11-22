@@ -9,6 +9,29 @@ import type { Event } from "./types";
 
 export const gdgocIiitBbsrEvents: Omit<Event, "community">[] = [
   {
+    year: "2026",
+    date: "28 Oct 2026",
+    title: "AI/ML Kickstart: From Fundamentals to Your First Machine Learning Model",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-aiml-kickstart-from-fundamentals-to-your-first-machine-learning-model/",
+    type: "Workshop",
+    location: "IIIT Bhubaneswar",
+    startDate: "2026-10-28",
+    endDate: "2026-10-28",
+    description:
+      "Explore the basics of AI and Machine Learning with Google Developer Group at IIIT Bhubaneswar. This beginner-friendly event on October 28, 2026, covers AI/ML fundamentals, real-world applications, and ML workflow. No prior experience needed, just a curiosity to learn. Open to students from all colleges. Bring a laptop if you can.",
+  },
+  {
+    year: "2026",
+    date: "22–30 Oct 2026",
+    title: "☁️ Google Cloud Learn With Communities is here!",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india-presents-google-cloud-learn-with-communities-is-here/",
+    type: "Workshop",
+    startDate: "2026-10-22",
+    endDate: "2026-10-30",
+    description:
+      "Participate in hands-on Google Cloud labs to earn skill badges and exclusive rewards like a Google Cloud Sipper or a T-shirt and Developer Kit. Sign up via your Google Skills account, make your profile public, and register by October 30 or until seats fill. Limited spots available, so act fast! Perfect for developers eager to enhance their cloud skills.",
+  },
+  {
     year: "2025",
     date: "29 Mar 2025",
     title: "Hackfest-Advaita: Innovate and Collaborate",

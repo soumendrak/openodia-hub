@@ -34,9 +34,9 @@ const validOrganizer: Organizer = {
 describe("organizer identity registry", () => {
   it("is internally valid and keeps every collection mode distinct", () => {
     expect(validateOrganizerRegistry(ORGANIZERS)).toEqual([]);
-    expect(new Set(ORGANIZERS.map((organizer) => organizer.collectionMode))).toEqual(
-      new Set(COLLECTION_MODES),
-    );
+    const usedModes = new Set(ORGANIZERS.map((organizer) => organizer.collectionMode));
+    expect([...usedModes].sort()).toEqual(["automated", "manual", "partial"]);
+    expect(COLLECTION_MODES).toEqual(["automated", "partial", "manual", "archive-only"]);
   });
 
   it("resolves IDs, canonical names, legacy aliases, and normalized whitespace", () => {
