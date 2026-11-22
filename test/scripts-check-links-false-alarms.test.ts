@@ -109,6 +109,17 @@ describe("link checker false alarms", () => {
     expect(fetchMock.mock.calls.map((call) => call[1].method)).toEqual(["GET"]);
   });
 
+  it("counts a link that answers 403 to HEAD and GET as restricted, not dead", async () => {
+    vi.stubGlobal("fetch", byMethod(403, 403));
+
+    await expect(checkOne("https://example.com/gated")).resolves.toEqual({
+      url: "https://example.com/gated",
+      ok: true,
+      status: 403,
+      restricted: true,
+    });
+  });
+
   it("still reports a link dead when HEAD and GET both answer 404", async () => {
     const fetchMock = vi.fn().mockResolvedValue(response(404));
     vi.stubGlobal("fetch", fetchMock);
