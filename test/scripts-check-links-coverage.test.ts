@@ -206,7 +206,11 @@ describe("link checker script", () => {
     const exit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValueOnce(response(200, "")).mockResolvedValueOnce(response(200, "{}")),
+      vi
+        .fn()
+        .mockResolvedValueOnce(response(200, "[ok](https://example.com)"))
+        .mockResolvedValueOnce(response(200, "{}"))
+        .mockResolvedValueOnce(response(200)),
     );
 
     const previousArgv1 = process.argv[1];
@@ -214,7 +218,7 @@ describe("link checker script", () => {
     vi.resetModules();
     try {
       await import("../scripts/check-links.mjs");
-      expect(exit).toHaveBeenCalledWith(0);
+      expect(exit.mock.calls).toEqual([[0]]);
     } finally {
       process.argv[1] = previousArgv1;
     }

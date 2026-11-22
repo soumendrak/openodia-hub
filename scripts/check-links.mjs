@@ -90,9 +90,41 @@ export async function mapWithConcurrency(items, limit, fn) {
 }
 
 export function skipPatterns(config) {
-  return Array.isArray(config.ignorePatterns)
-    ? config.ignorePatterns.map(({ pattern }) => new RegExp(pattern))
-    : [];
+  if (typeof config !== "object" || config === null || Array.isArray(config)) {
+    throw new Error("the config is not a JSON object");
+  }
+  const entries = config.ignorePatterns ?? [];
+  if (!Array.isArray(entries)) throw new Error("ignorePatterns is not an array");
+  return entries.map((entry, index) => {
+    const pattern = entry?.pattern;
+    if (typeof pattern !== "string" || pattern === "") {
+      throw new Error(
+        `ignorePatterns[${index}] needs a non-empty string "pattern": ${JSON.stringify(entry)}`,
+      );
+    }
+    try {
+      return new RegExp(pattern);
+    } catch {
+      throw new Error(`ignorePatterns[${index}] is not a valid regular expression: ${pattern}`);
+    }
+  });
+}
+
+export async function loadSkipPatterns() {
+  let res;
+  try {
+    res = await fetchWithTimeout(CONFIG_URL, { headers: { "User-Agent": UA } });
+  } catch (err) {
+    throw new Error(`it could not be fetched: ${String(err)}`);
+  }
+  if (!res.ok) throw new Error(`it could not be fetched: HTTP ${res.status}`);
+  let config;
+  try {
+    config = JSON.parse(await res.text());
+  } catch (err) {
+    throw new Error(`it is not valid JSON: ${String(err)}`);
+  }
+  return skipPatterns(config);
 }
 
 export function extractUrls(markdown) {
@@ -106,31 +138,46 @@ export function extractUrls(markdown) {
 export async function main() {
   const json = process.argv.includes("--json");
 
-  const res = await fetchWithTimeout(README_URL, { headers: { "User-Agent": UA } });
-  if (!res.ok) {
-    console.error(`Could not fetch the Awesome-Odia-AI README: HTTP ${res.status}`);
+  let markdown;
+  try {
+    const res = await fetchWithTimeout(README_URL, { headers: { "User-Agent": UA } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    markdown = await res.text();
+  } catch (err) {
+    console.error(`Could not fetch the Awesome-Odia-AI README: ${err.message}`);
     process.exit(2);
   }
-  const markdown = await res.text();
-  const configRes = await fetchWithTimeout(CONFIG_URL, { headers: { "User-Agent": UA } });
-  if (!configRes.ok) {
-    console.error(
-      `Could not fetch the Awesome-Odia-AI link-check config: HTTP ${configRes.status}`,
-    );
+  let skips;
+  try {
+    skips = await loadSkipPatterns();
+  } catch (err) {
+    console.error(`Could not use the Awesome-Odia-AI link-check config: ${err.message}`);
     process.exit(2);
   }
-  const skips = skipPatterns(await configRes.json());
   const listed = extractUrls(markdown);
   const skipped = listed.filter((url) => skips.some((pattern) => pattern.test(url)));
   const urls = listed.filter((url) => !skipped.includes(url));
+  if (listed.length === 0) {
+    console.error("The Awesome-Odia-AI README lists no links, so nothing would be checked.");
+    process.exit(2);
+  }
+  if (urls.length === 0) {
+    console.error(
+      `The Awesome-Odia-AI link-check config skips all ${listed.length} listed links, so nothing would be checked.`,
+    );
+    process.exit(2);
+  }
   if (!json) console.log(`Checking ${urls.length} links…`);
 
   const results = await mapWithConcurrency(urls, CONCURRENCY, checkOne);
   const dead = results.filter((r) => !r.ok);
   const restricted = results.filter((r) => r.restricted);
+  const rateLimited = results.filter((r) => r.rateLimited);
 
   if (json) {
-    console.log(JSON.stringify({ checked: results.length, dead, restricted, skipped }, null, 2));
+    console.log(
+      JSON.stringify({ checked: results.length, dead, restricted, rateLimited, skipped }, null, 2),
+    );
   } else if (dead.length === 0) {
     console.log(`All ${results.length} links resolve.`);
   } else {
@@ -141,6 +188,13 @@ export async function main() {
   if (restricted.length > 0 && !json) {
     console.log(`\n${restricted.length} link(s) exist but require authentication:`);
     for (const r of restricted) console.log(`  HTTP ${r.status}     ${r.url}`);
+  }
+
+  if (rateLimited.length > 0 && !json) {
+    console.log(
+      `\n${rateLimited.length} link(s) stayed rate limited (HTTP 429) and count as alive:`,
+    );
+    for (const r of rateLimited) console.log(`  ${r.url}`);
   }
 
   if (skipped.length > 0 && !json) {
