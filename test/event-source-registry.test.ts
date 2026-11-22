@@ -47,4 +47,17 @@ describe("event source registry", () => {
       expect("partial" in source).toBe(organizer?.collectionMode === "partial");
     },
   );
+
+  const activelyCollected = SOURCES.filter(
+    (source) => !("archiveOnly" in source) && !("partial" in source) && !("unparsable" in source),
+  );
+
+  it("requires every source without archiveOnly, partial, or unparsable to be automated", () => {
+    expect(activelyCollected.length).toBeGreaterThan(0);
+    expect(
+      activelyCollected
+        .filter((source) => getOrganizerById(source.id)?.collectionMode !== "automated")
+        .map((source) => source.id),
+    ).toEqual([]);
+  });
 });

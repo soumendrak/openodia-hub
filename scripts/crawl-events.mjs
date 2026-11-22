@@ -40,9 +40,7 @@ export const SOURCES = [
   organizerSource("gdgoc-nist-berhampur", "gdgoc-nist-berhampur.ts"),
   organizerSource("gdgoc-kiit", "gdgoc-kiit.ts"),
   organizerSource("gdgoc-cvr", "gdgoc-cvr.ts"),
-  // Keep dead sources in the archive scan so their historical destinations
-  // still prevent cross-community duplicates, but do not fetch their pages.
-  organizerSource("gdgoc-iiit-bbsr", "gdgoc-iiit-bbsr.ts", { archiveOnly: true }),
+  organizerSource("gdgoc-iiit-bbsr", "gdgoc-iiit-bbsr.ts"),
   organizerSource("gdgoc-iter-soa", "gdgoc-iter-soa.ts"),
   organizerSource("gdgoc-vssut-burla", "gdgoc-vssut-burla.ts"),
   organizerSource("gdgoc-nit-rourkela", "gdgoc-nit-rourkela.ts"),

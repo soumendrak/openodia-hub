@@ -156,13 +156,13 @@ export const ORGANIZERS = [
     id: "gdgoc-iiit-bbsr",
     canonicalName: "GDGoC IIIT Bhubaneswar",
     aliases: ["GDG on Campus IIIT Bhubaneswar"],
-    description: "Archived Google Developer Group on Campus identity at IIIT Bhubaneswar.",
+    description: "Google Developer Group on Campus at IIIT Bhubaneswar.",
     region: "Bhubaneswar",
     kind: "student-community",
-    collectionMode: "archive-only",
+    collectionMode: "automated",
     officialLinks: [
       official(
-        "Archived chapter destination",
+        "Official chapter",
         "https://gdg.community.dev/gdg-on-campus-international-institute-of-information-technology-bhubaneswar-india/",
       ),
     ],
