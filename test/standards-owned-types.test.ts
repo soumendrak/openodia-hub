@@ -602,14 +602,7 @@ describe("isolated/owned-types", () => {
           relative(repo, join(root, "events")),
           `cycles/${name}.ts`,
         ],
-        {
-          cwd: repo,
-          encoding: "utf8",
-          timeout: 60_000,
-          env: Object.fromEntries(
-            Object.entries(process.env).filter(([key]) => key !== "NODE_V8_COVERAGE"),
-          ),
-        },
+        { cwd: repo, encoding: "utf8", timeout: 60_000 },
       );
       expect(run.signal).toBeNull();
       expect(JSON.parse(run.stdout)).toEqual([["isolated/owned-types"]]);
