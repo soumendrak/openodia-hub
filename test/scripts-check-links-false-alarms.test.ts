@@ -417,14 +417,28 @@ describe("link checker false alarms", () => {
     expect(thrown).toEqual([`Error: ${message}`, message]);
   });
 
-  const parseError = (() => {
+  const errorOf = (run: () => unknown) => {
     try {
-      JSON.parse("{not json");
+      run();
     } catch (err) {
       return String(err);
     }
-    return "parsed";
-  })();
+    return "no error";
+  };
+  const jsonError = (text: string) => `it is not valid JSON: ${errorOf(() => JSON.parse(text))}`;
+  const parseError = errorOf(() => JSON.parse("{not json"));
+  const utf8Error = `it is not valid UTF-8: ${errorOf(() =>
+    new TextDecoder("utf-8", { fatal: true }).decode(new Uint8Array([0xff])),
+  )}`;
+  const bytes = (...parts: (string | number[])[]) =>
+    new Response(
+      new Uint8Array(
+        parts.flatMap((part) =>
+          typeof part === "string" ? [...new TextEncoder().encode(part)] : part,
+        ),
+      ),
+      { status: 200 },
+    );
 
   const resetMidBody = () =>
     new Response(
@@ -472,6 +486,35 @@ describe("link checker false alarms", () => {
       resetMidBody,
       "it could not be fetched: TypeError: ECONNRESET: socket closed",
     ],
+    ["an empty body", () => response(200, ""), jsonError("")],
+    ["a whitespace-only body", () => response(200, " \n\t\r"), jsonError(" \n\t\r")],
+    ["an NBSP before the JSON", () => response(200, "\u00a0{}"), jsonError("\u00a0{}")],
+    ["an NBSP after the JSON", () => response(200, "{}\u00a0"), jsonError("{}\u00a0")],
+    ["a trailing garbage byte", () => response(200, "{}x"), jsonError("{}x")],
+    [
+      "a truncated body",
+      () => response(200, '{"ignorePatterns":['),
+      jsonError('{"ignorePatterns":['),
+    ],
+    [
+      "a second BOM after the first",
+      () => bytes([0xef, 0xbb, 0xbf, 0xef, 0xbb, 0xbf], "{}"),
+      jsonError("\ufeff{}"),
+    ],
+    ["a JSON number", () => response(200, "5"), "the config is not a JSON object"],
+    ["a JSON true", () => response(200, "true"), "the config is not a JSON object"],
+    ["a nested array", () => response(200, "[[]]"), "the config is not a JSON object"],
+    [
+      "a nested array entry",
+      () => response(200, '{"ignorePatterns":[["^x"]]}'),
+      'ignorePatterns[0] needs a non-empty string "pattern": ["^x"]',
+    ],
+    ["a non-UTF-8 byte before the JSON", () => bytes([0xff], "{}"), utf8Error],
+    [
+      "a non-UTF-8 byte inside a pattern",
+      () => bytes('{"ignorePatterns":[{"pattern":"^https://a', [0xc3, 0x28], '"}]}'),
+      utf8Error,
+    ],
   ])("exits 2 with a message when the config has %s", async (_name, configResponse, message) => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const log = vi.spyOn(console, "log").mockImplementation(() => undefined);
@@ -503,8 +546,12 @@ describe("link checker false alarms", () => {
     });
   });
 
-  it("exits 2 when the README lists no links", async () => {
-    const run = await runMain("no links here", "{}", () => 200);
+  it.each([
+    ["no links", "no links here"],
+    ["an empty body", ""],
+    ["a whitespace-only body", " \n\t\r"],
+  ])("exits 2 when the README has %s", async (_name, readme) => {
+    const run = await runMain(readme, "{}", () => 200);
 
     expect(run.outcome).toBe("exit:2");
     expect(run.errors).toEqual([
@@ -580,6 +627,67 @@ describe("link checker false alarms", () => {
     expect(run.checked).toEqual([]);
     expect(run.errors).toEqual([
       "The Awesome-Odia-AI link-check config skips all 2 listed links, so nothing would be checked.",
+    ]);
+  });
+
+  it.each([
+    [
+      "a UTF-8 BOM",
+      () => bytes([0xef, 0xbb, 0xbf], '{"ignorePatterns":[{"pattern":"^https://t"}]}'),
+    ],
+    [
+      "JSON whitespace around it",
+      () => response(200, ' \n\t{"ignorePatterns":[{"pattern":"^https://t"}]}\r\n '),
+    ],
+    [
+      "an 8 MB body",
+      () =>
+        response(
+          200,
+          `${" ".repeat(8 * 1024 * 1024)}{"ignorePatterns":[{"pattern":"^https://t"}]}`,
+        ),
+    ],
+  ])("accepts a config with %s", async (_name, configResponse) => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url === CONFIG
+        ? configResponse()
+        : url === README
+          ? response(200, "[l](https://example.com/live) [t](https://t.test/x)")
+          : response(200),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    stubExit();
+    await expect(main()).rejects.toThrow("exit:0");
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      README,
+      CONFIG,
+      "https://example.com/live",
+    ]);
+  });
+
+  it.each([
+    [
+      "a BOM and an NBSP before it",
+      () => bytes([0xef, 0xbb, 0xbf], "\u00a0[l](https://example.com/live)"),
+    ],
+    ["a non-UTF-8 byte in the prose", () => bytes("caf", [0xe9], " [l](https://example.com/live)")],
+    [
+      "5 MB of prose",
+      () => response(200, `${"x".repeat(5 * 1024 * 1024)} [l](https://example.com/live)`),
+    ],
+  ])("still checks the README links when it has %s", async (_name, readmeResponse) => {
+    const fetchMock = vi.fn(async (url: string) =>
+      url === README ? readmeResponse() : url === CONFIG ? response(200, "{}") : response(200),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "log").mockImplementation(() => undefined);
+    stubExit();
+    await expect(main()).rejects.toThrow("exit:0");
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      README,
+      CONFIG,
+      "https://example.com/live",
     ]);
   });
 });

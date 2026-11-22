@@ -119,11 +119,17 @@ export async function loadSkipPatterns() {
     throw new Error(`it could not be fetched: ${String(err)}`);
   }
   if (!res.ok) throw new Error(`it could not be fetched: HTTP ${res.status}`);
-  let body;
+  let bytes;
   try {
-    body = await res.text();
+    bytes = await res.arrayBuffer();
   } catch (err) {
     throw new Error(`it could not be fetched: ${String(err)}`);
+  }
+  let body;
+  try {
+    body = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  } catch (err) {
+    throw new Error(`it is not valid UTF-8: ${String(err)}`);
   }
   let config;
   try {
