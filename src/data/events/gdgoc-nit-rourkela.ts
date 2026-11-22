@@ -8,6 +8,28 @@
 import type { Event } from "./types";
 
 export const gdgocNitRourkelaEvents: Omit<Event, "community">[] = [
+  {
+    year: "2026",
+    date: "2 Nov 2026",
+    title: "Solve or Ship? Making Sense of DSA and Dev",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-solve-or-ship-making-sense-of-dsa-and-dev/",
+    type: "Talk",
+    startDate: "2026-11-02",
+    endDate: "2026-11-02",
+    description:
+      "Join Praveen and Ashutosh as they tackle the decision between Leetcode grinding and project building. Discover what DSA and Development truly entail, understand why both are important, and learn how to decide your focus and timing. Perfect for students starting out or preparing for placements, this session clarifies common myths and guides you on how to best invest your time.",
+  },
+  {
+    year: "2026",
+    date: "8 Oct 2026",
+    title: "Hacktober Fest : From Zero to Open Source",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-national-institute-of-technology-rourkela-india-presents-hacktober-fest-from-zero-to-open-source/",
+    type: "Workshop",
+    startDate: "2026-10-08",
+    endDate: "2026-10-08",
+    description:
+      "Join GDSC NIT Rourkela for Hacktoberfest to delve into open source, learning how developers worldwide build and collaborate on GitHub. Explore project workflows, issues, and pull requests, and make a live contribution. Ideal for developers, designers, or anyone curious about open source, this event offers a chance to actively participate. Date: 08/10/26, Time: 6:30 PM.",
+  },
   // auto-crawled
   {
     year: "2026",

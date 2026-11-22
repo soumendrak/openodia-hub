@@ -10,6 +10,30 @@ import type { Event } from "./types";
 export const gdgocGietGunupurEvents: Omit<Event, "community">[] = [
   {
     year: "2026",
+    date: "26–27 Oct 2026",
+    title: "Learn with Communities",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-giet-university-gunupur-india-presents-learn-with-communities/",
+    type: "Workshop",
+    location: "GIET University, Gunupur",
+    startDate: "2026-10-26",
+    endDate: "2026-10-27",
+    description:
+      'Join "Introduction to Learn with Communities" and dive into Google Cloud\'s free hands-on learning initiative. Ideal for students eager to explore cloud, data, and AI technologies, this session covers program insights, registration, skill badges, and exclusive rewards. Build sought-after skills, enhance your resume, and engage with a global tech community to kickstart your cloud journey.',
+  },
+  {
+    year: "2026",
+    date: "8–9 Oct 2026",
+    title: "From Experience to Expertise",
+    url: "https://gdg.community.dev/events/details/google-gdg-on-campus-giet-university-gunupur-india-presents-from-experience-to-expertise/",
+    type: "Workshop",
+    location: "GIET University, Gunupur",
+    startDate: "2026-10-08",
+    endDate: "2026-10-09",
+    description:
+      "Join Google Developer Group On Campus at GIET University, Gunupur, for an exclusive event featuring talks by Google Certified Educators and industry experts. Enjoy icebreaker sessions with exciting goodies, interactive discussions, and hands-on experiences. Perfect for aspiring tech enthusiasts looking to learn and grow in the field.",
+  },
+  {
+    year: "2026",
     date: "20 Jun 2026",
     title: "Solutions Challenge 2026: Build with AI",
     url: "https://gdg.community.dev/events/details/google-gdg-on-campus-giet-university-gunupur-india-presents-solutions-challenge-2026-build-with-ai/",

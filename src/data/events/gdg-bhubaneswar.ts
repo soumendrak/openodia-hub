@@ -8,6 +8,18 @@
 import type { Event } from "./types";
 
 export const gdgBhubaneswarEvents: Omit<Event, "community">[] = [
+  {
+    year: "2026",
+    date: "28–29 Nov 2026",
+    title: "GDG DevFest 2026 Bhubaneswar",
+    url: "https://gdg.community.dev/events/details/google-gdg-bhubaneswar-presents-gdg-devfest-2026-bhubaneswar/",
+    type: "Conference",
+    location: "Pipul Padmaja Premium Hotel and Convention, Bhubaneswar",
+    startDate: "2026-11-28",
+    endDate: "2026-11-29",
+    description:
+      "The GDG DevFest 2026 Bhubaneswar invites developers to connect, share ideas, and explore exciting previews of DevFest 2026. Attendees can enjoy tech talks, live demos, and collaborative sessions highlighting Google's latest technologies. It's a prime opportunity to innovate, inspire, and engage with the local developer community. Register to be part of the change!",
+  },
   // auto-crawled
   {
     year: "2026",
