@@ -182,6 +182,16 @@ export const ownedTypes = {
       report(here || node, here ? "laundered" : "forged", cast ? result : missing);
     };
 
+    const sameSlots = (source: ts.Type, target: ts.Type): boolean => {
+      if (source === target) return true;
+      const [from, to] = [checker.getAwaitedType(source), checker.getAwaitedType(target)];
+      if (from && to && from !== source && to !== target) return sameSlots(from, to);
+      if (!checker.isArrayType(source) || !checker.isArrayType(target)) return false;
+      const [item] = checker.getTypeArguments(source as ts.TypeReference);
+      const [slot] = checker.getTypeArguments(target as ts.TypeReference);
+      return !!item && !!slot && sameSlots(item, slot);
+    };
+
     function sink(node: TSESTree.Expression, tsNode: ts.Expression) {
       const { parent } = node;
       if (parent.type === "ForOfStatement" && parent.right === node) return typeOf(parent.left);
@@ -218,7 +228,7 @@ export const ownedTypes = {
         const target = ts.isExpression(tsNode) && sink(node, tsNode);
         const wrapper = node.type === "ArrayExpression" || node.type.endsWith("FunctionExpression");
         const type = !wrapper && target && brands(target).length && typeOf(node);
-        if (!target || !type || !hollow(type)) return;
+        if (!target || !type || !hollow(type) || sameSlots(type, target)) return;
         const call = ts.isCallExpression(tsNode) ? signatureOf(tsNode) : undefined;
         const body = type.flags & Never && call && "body" in call && call.body;
         const throws = body && ts.isBlock(body) && body.statements.every(ts.isThrowStatement);

@@ -5,6 +5,7 @@ import { ESLint } from "eslint";
 import tseslint from "typescript-eslint";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import config from "../eslint.config.js";
+import mainConfig from "./standards/owned-types-main-config.js";
 
 const MODEL = `
 declare const brand: unique symbol;
@@ -140,6 +141,185 @@ const flagged: Record<string, string> = {
   C03: 'export async function load() {\n  const Events = await import("../events");\n  return raw as ReturnType<typeof Events.join>;\n}',
   C04: "export async function load(response?: Response) {\n  const e: CanonicalEvent | undefined = await response?.json();\n  return e;\n}",
   C06: "function parse(x: string): CanonicalEvent;\nfunction parse(x: unknown) {\n  return x;\n}\nexport const e = parse(s);",
+  R55: 'type Loose = { tag: "a"; value: any } | { tag: "b"; value: string };\ntype Owned = { tag: "c"; value: CanonicalEvent } | { tag: "d"; value: CanonicalEvent };\nexport const e: Owned = raw as Loose;',
+  R56: "type Source = { (): any; (x: string): any };\nconst loose = raw as Source;\nexport const make: () => CanonicalEvent = loose;",
+  R57: 'type Owned = { tag: "owned"; value: CanonicalEvent };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Owned | { tag: "other"; value: string } = input;\n  return out;\n}',
+  R58: "const payload = { event: JSON.parse(s) };\nexport const events: Record<string, CanonicalEvent> = payload;",
+  Y10: "declare const a: Array<any>;\nexport const r: Iterable<CanonicalEvent> = a;",
+  Y01: "declare function count(es: Iterable<CanonicalEvent>): number;\nexport const n = count(new Set<any>(JSON.parse(s)));",
+  Y02: "declare const t: [any, any];\nexport const xs: readonly CanonicalEvent[] = t;",
+  Y03: "declare const m: Map<string, any>;\ndeclare function take(it: Iterable<readonly [string, CanonicalEvent]>): void;\ntake(m);",
+  X05: "type Source = { (x: string): string; (): any };\nconst loose = raw as Source;\nexport const make: { (): CanonicalEvent; (x: string): string } = loose;",
+  X07: "type Source = { (x: number): any };\nconst loose = raw as Source;\nexport const make: (x: string) => CanonicalEvent = loose;",
+  Z01: 'type Owned = { tag: "owned"; value: CanonicalEvent };\ntype Other = { tag: "other"; value: string };\nexport function pass(input: Owned | { tag: any; value: any }) {\n  const out: Other | Owned = input;\n  return out;\n}',
+  Z02: "declare const p: Promise<any>;\nexport const e: Promise<CanonicalEvent> = p;",
+  Z10: "declare const arr: Array<any>;\nexport const xs: ReadonlyArray<CanonicalEvent> = arr;",
+  Z03: "const payload = { 0: JSON.parse(s) };\nexport const events: Record<number, CanonicalEvent> = payload;",
+  Z04: 'declare const value: { tag: any; value: any };\nexport const out: { tag: "a"; value: CanonicalEvent } | { tag: "b"; value: CanonicalEvent } = value;',
+  Z05: "type Box = CanonicalEvent & { readonly extra: true };\ndeclare const value: { leak: any };\nexport const boxed: Box = value;",
+  Z08: "type Source = { new (): any };\ntype Target = { new (): CanonicalEvent };\ndeclare const Factory: Source;\nexport const make: Target = Factory;",
+  K2: "type Source = { (): any; (x: string): string };\ntype Target = { (x: string): CanonicalEvent; (): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K6: "type Source = { (x: string): CanonicalEvent; (x: string | boolean): any };\ntype Target = { (x: string): CanonicalEvent; (x: boolean): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K7: "type Source = { (): CanonicalEvent; (x: string): any };\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  Q01: "declare const a: any[];\nexport const r: { [n: number]: CanonicalEvent } = a;",
+  Q02: "declare const a: any[];\nexport const r: Record<number, CanonicalEvent> = a;",
+  Q03: "declare const a: Array<any>;\nexport const r: { readonly length: number; readonly [n: number]: CanonicalEvent } = a;",
+  Q04: "declare const m: Map<string, any>;\nexport const r: { get(k: string): CanonicalEvent | undefined } = m;",
+  Q05: "declare const it: { [Symbol.iterator](): Iterator<any> };\nexport const r: Iterable<CanonicalEvent> = it;",
+  Q06: "interface Bag {\n  [Symbol.iterator](): Iterator<any>;\n}\ndeclare const b: Bag;\nexport const r: Iterable<CanonicalEvent> = b;",
+  Q07: "declare const o: { [n: number]: any; length: number };\nexport const r: ArrayLike<CanonicalEvent> = o;",
+  F9a: "interface Loose<T> {\n  meta: T;\n  value: any;\n}\ninterface Owned<T> {\n  meta: T;\n  value: CanonicalEvent;\n}\nexport function pass(input: Loose<string>) {\n  const out: Owned<string> = input;\n  return out;\n}",
+  F9b: "interface Holder<T> {\n  item: T;\n  extra: any;\n}\ninterface Slot<T> {\n  item: T;\n  extra: CanonicalEvent;\n}\ndeclare const h: Holder<number>;\nexport const out: Slot<number> = h;",
+  F9c: "class Loose2<T> {\n  constructor(\n    readonly meta: T,\n    readonly value: any,\n  ) {}\n}\ninterface Owned2<T> {\n  meta: T;\n  value: CanonicalEvent;\n}\ndeclare const l: Loose2<string>;\nexport const o2: Owned2<string> = l;",
+  F10a: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: number]: CanonicalEvent } = input;\n  return out;\n}",
+  F10b: "declare const m: Record<string, any>;\nexport const r: Record<number, CanonicalEvent> = m;",
+  F10c: "const key = Symbol();\nexport function pass2(input: { [key]: any }) {\n  const out: { [k: symbol]: CanonicalEvent } = input;\n  return out;\n}",
+  F9d: 'interface Mine<T> {\n  status: "fulfilled";\n  value: any;\n  tag: T;\n}\nexport function pass(m: Mine<CanonicalEvent>) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = m;\n  return r;\n}',
+  F11d: "export const make: { new (): CanonicalEvent[] } = Array;",
+  C1a: "export function pass(input: { [k: number]: any }) {\n  const out: { [k: string]: CanonicalEvent } = input;\n  return out;\n}",
+  C2a: "export function pass(input: { '-1': any }) {\n  const out: Record<number, CanonicalEvent> = input;\n  return out;\n}",
+  C2b: "export function pass(input: { '1.5': any }) {\n  const out: Record<number, CanonicalEvent> = input;\n  return out;\n}",
+  C2c: "export function pass(input: { 'event-a': any }) {\n  const out: { [k: `event-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  C2d: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: `event-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  C2f: "export function pass(input: { [k: `event-${string}`]: any }) {\n  const out: { [k: string]: CanonicalEvent } = input;\n  return out;\n}",
+  C3d: "export function pass(input: { (...x: string[]): any; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: string, y: string): string } = input;\n  return out;\n}",
+  C4g: "export async function pass(input: Promise<any>[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C3a: "export function pass(input: { (x?: string): any; (): CanonicalEvent }) {\n  const out: { (): CanonicalEvent; (x: string): string } = input;\n  return out;\n}",
+  C3b: "export function pass(input: { (...x: string[]): any; (): CanonicalEvent }) {\n  const out: { (): CanonicalEvent; (x: string): string } = input;\n  return out;\n}",
+  C4a: "export function pass(input: any[]) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C4b: "export async function pass(input: AsyncIterable<any>) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C4c: "export function pass(input: any[] | Set<any>) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C5a: "export function pass(input: { [k: string]: any }) {\n  const out: { event?: CanonicalEvent } = input;\n  return out;\n}",
+  C5b: "export async function pass(input: AsyncIterable<any> | any[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C5c: "export function pass(input: { [Symbol.iterator](): any }) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C6a: "export function pass(input: { [Symbol.iterator]: any }) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C6b: "export function pass(input: { [Symbol.iterator](): { next: any } }) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C6c: "export function pass(input: { [k: `event-${string}`]: any }) {\n  const out: { [k: `${string}-a`]: CanonicalEvent } = input;\n  return out;\n}",
+  C6d: "export function collect(input: any[]) {\n  const out: CanonicalEvent[] = [...input];\n  return out;\n}",
+  C6e: "declare function saveAll(...events: CanonicalEvent[]): void;\nexport function pass(input: any[]) {\n  saveAll(...input);\n}",
+  C6f: "export function pass(input: { event: any }) {\n  const out: { event: CanonicalEvent } = { ...input };\n  return out;\n}",
+  C7a: "export function pass(input: { then: any }) {\n  const out: PromiseLike<CanonicalEvent> = input;\n  return out;\n}",
+  C8a: "export async function pass(input: { asyncIterator(): Iterator<CanonicalEvent>; [Symbol.iterator](): Iterator<any> }) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C9a: "interface Stream<T> {\n  subscribe(listener: (event: T) => void): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  C9c: "interface Stream<T> {\n  subscribe(listener?: (event: T) => void): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  C10a: 'export function pass(input: { (x: "raw"): any; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: "raw"): string } = input;\n  return out;\n}',
+  C10c: 'export function pass(input: { (x: "a" | "b"): any; (x: string): CanonicalEvent }) {\n  const out: { (x: "b" | "c"): CanonicalEvent; (x: "a"): string } = input;\n  return out;\n}',
+  KA: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: string]: CanonicalEvent } = input;\n  return out;\n}",
+  KB: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: `${number}`]: CanonicalEvent } = input;\n  return out;\n}",
+  NN: "export function pass(input: { [k: number]: any }) {\n  const out: { 1?: CanonicalEvent } = input;\n  return out;\n}",
+  NS: "const key = Symbol();\nexport function pass(input: { [k: symbol]: any }) {\n  const out: { [key]?: CanonicalEvent } = input;\n  return out;\n}",
+  NW: "class Bag {\n  constructor(...events: CanonicalEvent[]) {\n    events.forEach(save);\n  }\n}\nexport function pass(input: any[]) {\n  return new Bag(...input);\n}",
+  F12R1:
+    "interface Stream<T> {\n  subscribe(...listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R4:
+    "interface Stream<T> {\n  subscribe(...listeners: [(event: T) => void]): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R8:
+    "interface Stream<T> {\n  subscribe(listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R9:
+    "interface Stream<T> {\n  subscribe(options: { onEvent: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R10:
+    "interface Stream<T> {\n  subscribe(listener: ((event: T) => void) | string): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R11:
+    "interface Stream<T> {\n  subscribe(listeners: Array<(event: T) => void>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R14:
+    "interface Tree<T> {\n  on: (event: T) => void;\n  child: Tree<T>;\n}\ninterface Stream<T> {\n  subscribe(tree: Tree<T>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R15:
+    "interface Box<T> {\n  on: (event: T) => void;\n}\ninterface Stream<T> {\n  subscribe(box: Box<T>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R16:
+    "interface Stream<T> {\n  subscribe(options: { onEvent: (event: T) => void } & { name: string }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R17:
+    "interface Stream<T> {\n  subscribe<U extends (event: T) => void>(listener: U): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R18:
+    "interface Stream<T> {\n  subscribe<U extends (event: T) => void>(options: { on: U }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R19:
+    "interface Stream<T> {\n  subscribe<U extends { on: (event: T) => void }>(options: U): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R20:
+    "interface Stream<T> {\n  subscribe<U extends ((event: T) => void) | string>(listener: U): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  KT1: "export function pass(input: { [k: `x${string}`]: any }) {\n  const out: { [k: `${string}y`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT3: "export function pass(input: { [k: `id-${number}`]: any }) {\n  const out: { [k: `${string}-7`]: CanonicalEvent } = input;\n  return out;\n}",
+  KE: "export function pass(input: { [k: `ab${number}`]: any }) {\n  const out: { [k: `a${string}b0`]: CanonicalEvent } = input;\n  return out;\n}",
+  KN: "export function pass(input: { [k: `${number}-${string}`]: any }) {\n  const out: { [k: `${string}-x`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT4: "export function pass(input: { [k: `a${string}-${string}a`]: any }) {\n  const out: { [k: `a${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT5: "export function pass(input: { [k: `a${string}a${number}a`]: any }) {\n  const out: { [k: `a${string}b${string}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT6: "export function pass(input: { [k: `a${string}b${string}a`]: any }) {\n  const out: { [k: `a${string}a${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  KT7: "export function pass(input: { [k: `a${string}a`]: any }) {\n  const out: { [k: `${string}b${number}a`]: CanonicalEvent } = input;\n  return out;\n}",
+  F12R21:
+    "interface Stream<T> {\n  subscribe(listeners: Record<string, (event: T) => void>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12R22:
+    "interface Stream<T> {\n  subscribe(listeners: { [k: number]: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  KC1: "interface Src<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC2: "interface Src<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC3: "interface Src<T> {\n  subscribe(o: { [k: number]: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC4: "interface Src<T> {\n  subscribe(o: Record<string, (event: T) => void>): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: number]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC8: "interface Src<T> {\n  subscribe(o: [(event: T) => void]): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { 0: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC9: "interface Src<T> {\n  subscribe(o: ((event: T) => void)[]): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: number]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC10: "interface Src<T> {\n  subscribe(o: [(event: T) => void]): void;\n}\ninterface Tgt<T> {\n  subscribe(o: ((event: T) => void)[]): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  F12R23:
+    "interface Stream<T> {\n  subscribe(listeners: Set<(event: T) => void>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  KD3: "export function pass(input: { [k: `z${string}`]: any }) {\n  const out: { [k: `z${number}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD4: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string}.${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD5: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD6: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `+${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD7: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string} `]: CanonicalEvent } = input;\n  return out;\n}",
+  CL1: "interface Stream<T> {\n  subscribe(listener: ((label: string) => void) & { onEvent: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  CL2: "interface Stream<T> {\n  subscribe(listener: ((label: string) => void) & { [k: string]: (event: T) => void }): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  LR1: 'import type { Loose } from "fake-lib";\nexport function pass(input: Loose<CanonicalEvent>) {\n  const out: PromiseFulfilledResult<CanonicalEvent> = input;\n  return out;\n}',
+  KD8: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `0${string}1${string}2`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD9: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string}f`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD10: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `0x${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  CY1: "interface A<T> {\n  b: B<T>;\n  on: (event: T) => void;\n}\ninterface B<T> {\n  a: A<T>;\n}\ninterface Src<T> {\n  m(b: B<T>): void;\n}\ninterface Tgt<T> {\n  n?(a: A<T>): void;\n  m(b: B<T>): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  Z09: "const payload = { 0: event, label: JSON.parse(s) };\nexport const events: Record<number, CanonicalEvent> = payload;",
+  N03: "interface Envelope<T> {\n  payload: T;\n  raw: unknown;\n}\nexport const env: Envelope<CanonicalEvent> = { payload: event, raw: JSON.parse(s) };",
+  K1: "type Source = { (x: string): any; (): CanonicalEvent };\ntype Target = { (x: string): string; (): CanonicalEvent };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  K3: 'type Source = { (x: string): CanonicalEvent; (x: number): any };\ntype Target = { (x: "a"): CanonicalEvent; (x: number): string };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}',
+  K4: "type Source = { (x?: number): any; event: CanonicalEvent };\ntype Target = { (): string; event: CanonicalEvent };\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  V09: "declare const m: Map<string, any>;\nexport const r: { size: number; ev?: CanonicalEvent } = m;",
+  F11a: 'export function pass(v: { (): CanonicalEvent; status: "fulfilled"; value: CanonicalEvent; extra: any }) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = v;\n  return r;\n}',
+  F11b: 'export function pass(v: { new (): CanonicalEvent; status: "fulfilled"; value: CanonicalEvent; extra: any }) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = v;\n  return r;\n}',
+  F11c: 'export function pass(v: { status: "fulfilled"; value: CanonicalEvent; extra: any }) {\n  const r: PromiseFulfilledResult<CanonicalEvent> = v;\n  return r;\n}',
+  F10d: "const key = Symbol();\nexport function pass(o: { [key]: any; a: CanonicalEvent }) {\n  const r: { [k: string]: CanonicalEvent } = o;\n  return r;\n}",
+  F10e: "export function pass(input: { [k: string]: any }) {\n  const out: { [k: symbol]: CanonicalEvent } = input;\n  return out;\n}",
+  C2e: "export function pass(input: { other: any }) {\n  const out: { [k: `event-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  C3c: "export function pass(input: { (x: string, y: number): any; (): CanonicalEvent }) {\n  const out: { (): CanonicalEvent; (x: string, y: number): string } = input;\n  return out;\n}",
+  C4e: "export function pass(input: Iterable<CanonicalEvent>) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C4f: "export async function pass(input: AsyncIterable<CanonicalEvent> | Promise<CanonicalEvent>[]) {\n  let event: CanonicalEvent;\n  for await (event of input) save(event);\n}",
+  C8c: "declare const iterator: unique symbol;\nexport function pass(input: { [iterator](): Iterator<any>; [Symbol.iterator](): Iterator<CanonicalEvent> }) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C10d: "export function pass(input: { (x: number): any; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: number): string } = input;\n  return out;\n}",
+  KT2: "export function pass(input: { [k: `event-${string}`]: any }) {\n  const out: { [k: `other-${string}`]: CanonicalEvent } = input;\n  return out;\n}",
+  NS2: "const key = Symbol();\nexport function pass(input: { [k: string]: any }) {\n  const out: { [key]?: CanonicalEvent } = input;\n  return out;\n}",
+  KC5: "interface Src<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: `x${string}`]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC6: "interface Src<T> {\n  subscribe(o: { [k: `a${string}`]: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { [k: `b${string}`]: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KC7: "interface Src<T> {\n  subscribe(o: { [k: `x${string}`]: (event: T) => void }): void;\n}\ninterface Tgt<T> {\n  subscribe(o: { on: (event: T) => void }): void;\n}\nexport function pass(input: Src<any>) {\n  const out: Tgt<CanonicalEvent> = input;\n  return out;\n}",
+  KD1: "export function pass(input: { [k: `${number}`]: any }) {\n  const out: { [k: `${string}y`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD2: "export function pass(input: { [k: `z${number}`]: any }) {\n  const out: { [k: `${string}z`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD11: "export function pass(input: { [k: `${bigint}`]: any }) {\n  const out: { [k: `${string}y`]: CanonicalEvent } = input;\n  return out;\n}",
+  KD12: "export function pass(input: { [k: `y${string}`]: any }) {\n  const out: { [k: `${number}`]: CanonicalEvent } = input;\n  return out;\n}",
+  ZD1: "interface Stream<T> {\n  subscribe(options: PromiseLike<T>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  ZD2: 'import type { DepOpts } from "fake-lib";\ninterface Stream<T> {\n  subscribe(options: DepOpts<T>): void;\n}\nexport function pass(input: Stream<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}',
+  ZR1: "interface Listener<T> {\n  next?: Listener<T>;\n  onEvent(e: T): void;\n}\ninterface Stream<T> {\n  subscribe(o: Listener<T>): void;\n}\ninterface Source<T> {\n  subscribe(o: { next?: Listener<T>; onEvent(e: CanonicalEvent): void }): void;\n}\nexport function pass(input: Source<any>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  ZO1: "export function pass(input: { (x: string, y: string): any; (...args: string[]): CanonicalEvent }) {\n  const out: { (...args: string[]): CanonicalEvent; (x: string, y: string): string } = input;\n  return out;\n}",
+  W01: "declare function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined;\nexport function pass(results: PromiseSettledResult<any>[]) {\n  return firstFulfilled<CanonicalEvent>(results);\n}",
+  W02: 'export function pass(results: PromiseSettledResult<CanonicalEvent>[]) {\n  const out: { reason: CanonicalEvent }[] = results.filter((r) => r.status === "rejected");\n  return out;\n}',
+  W03: "export function pass(rejected: PromiseRejectedResult) {\n  const out: { reason: CanonicalEvent } = rejected;\n  return out;\n}",
+  W04: "export async function pass(results: Promise<PromiseSettledResult<any>[]>) {\n  const out: PromiseSettledResult<CanonicalEvent>[] = await results;\n  return out;\n}",
+  W05: "export function pass(results: [PromiseSettledResult<CanonicalEvent>, any]) {\n  const out: readonly PromiseSettledResult<CanonicalEvent>[] = results;\n  return out;\n}",
+  W06: "export function pass(results: Promise<any>[]) {\n  const out: PromiseLike<CanonicalEvent>[] = results;\n  return out;\n}",
+  W07: "export function pass(results: PromiseSettledResult<CanonicalEvent>[]) {\n  const out: { reason: CanonicalEvent }[] = results;\n  return out;\n}",
+  W08: "interface Odd<T> {\n  readonly [n: number]: { reason: CanonicalEvent };\n  tag?: T;\n}\nexport function pass(input: PromiseRejectedResult[]) {\n  const out: Odd<PromiseRejectedResult> = input;\n  return out;\n}",
+  W09: "interface Odd<T> extends ReadonlyArray<any> {\n  tag?: T;\n}\nexport function pass(input: Odd<CanonicalEvent>) {\n  const out: readonly CanonicalEvent[] = input;\n  return out;\n}",
+  W10: "type Thenish = { then: any; e: CanonicalEvent };\nexport function pass(input: Thenish) {\n  const out: PromiseLike<Thenish> = input;\n  return out;\n}",
+};
+
+const unflaggedOnMain: Record<string, string> = {
+  C7b: "export function pass(input: { subscribe: any }) {\n  const out: { subscribe(listener: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
+  FC: "export function pass(input: { make: any }) {\n  const out: { make: new (cb: (event: CanonicalEvent) => void) => object } = input;\n  return out;\n}",
+  CX1: "export function pass(input: { subscribe(listener: any): void }) {\n  const out: { subscribe(listener: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
+  CX2: "export function pass(input: { subscribe(o: { onEvent: any }): void }) {\n  const out: { subscribe(o: { onEvent: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  CX3: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: { onEvent: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  CX4: "export function pass(input: { subscribe(o: [any]): void }) {\n  const out: { subscribe(o: [(event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
+  CX7: "export function pass(input: { subscribe(a: any, b: (event: any) => void): void }) {\n  const out: { subscribe(a: any, b: (event: CanonicalEvent) => void): void } = input;\n  return out;\n}",
+  CX8: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: [(event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
+  CX9: "export function pass(input: { subscribe(o: any): void }) {\n  const out: { subscribe(o: Record<string, (event: CanonicalEvent) => void>): void } = input;\n  return out;\n}",
 };
 
 const clean: Record<string, string> = {
@@ -175,13 +355,51 @@ const clean: Record<string, string> = {
   L32: 'import type { Ref } from "../events";\nexport const r = raw as Ref;',
   L33: "interface Holder<T> {\n  get(): T;\n}\nfunction read<T>(holder: Holder<T>): T {\n  return holder.get();\n}\nexport const e = (holder: Holder<CanonicalEvent>) => read(holder);",
   L34: "function apply<T, R>(value: T, fn: (item: T) => R): R {\n  return fn(value);\n}\nexport const e = apply(event, (item) => item);",
+  L35: 'function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(event)]));',
+  L36: 'function firstFulfilled<T>(results: readonly PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(s)]));',
+  L37: "function read<T extends CanonicalEvent>(value: CanonicalEvent): T {\n  return value;\n}\nexport const out = read;",
+  L38: "interface A { b: B }\ninterface B { a: A; event: CanonicalEvent }\ninterface A2 { b: B2 }\ninterface B2 { a: A2; event: CanonicalEvent }\nexport function copy(value: A): A2 {\n  return value;\n}",
+  L39: "const payload = { event };\nexport const events: Record<string, CanonicalEvent> = payload;",
+  K5: "type Source = (x?: string) => CanonicalEvent;\ntype Target = () => CanonicalEvent;\nexport function pass(loose: Source) {\n  const make: Target = loose;\n  return make;\n}",
+  V06: "const xs: CanonicalEvent[] = [event];\nexport const r: Iterable<CanonicalEvent> = xs;",
+  V07: "export const r: Iterable<CanonicalEvent> = new Set([event]);",
+  V08: 'export const r: Iterable<readonly [string, CanonicalEvent]> = new Map([["k", event]]);',
   L13: "export type Label = Text;\nexport interface Wider extends CanonicalEvent {\n  readonly extra: true;\n}\nexport const relay = join;",
+  C4d: "export function pass(input: CanonicalEvent[]) {\n  let event: CanonicalEvent;\n  for (event of input) save(event);\n}",
+  C7c: "export function pass(input: { then: any }) {\n  const out: PromiseLike<string> = input;\n  return out;\n}",
+  C9b: "interface Stream<T> {\n  subscribe(listener: (event: T) => void): void;\n}\nexport function pass(input: { subscribe(listener: (event: CanonicalEvent) => void): void }) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  C10b: 'export function pass(input: { (x: "raw"): string; (x: string): CanonicalEvent }) {\n  const out: { (x: string): CanonicalEvent; (x: "raw"): string } = input;\n  return out;\n}',
+  F12R12:
+    "interface Stream<T> {\n  subscribe(...listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<string>) {\n  const out: Stream<string> = input;\n  return out;\n}",
+  F12R13:
+    "interface Stream<T> {\n  subscribe(...listeners: ((event: T) => void)[]): void;\n}\nexport function pass(input: Stream<CanonicalEvent>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  F12P1:
+    "export function pass(input: { subscribe(o: { a: (event: any) => void; b: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { a: (event: string) => void; b: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  F12P2:
+    "export function pass(input: { subscribe(o: [(event: any) => void, (event: CanonicalEvent) => void]): void }) {\n  const out: { subscribe(o: [(event: string) => void, (event: CanonicalEvent) => void]): void } = input;\n  return out;\n}",
+  CX5: "export function pass(input: { subscribe(o: { on: any; onEvent: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { on: string; onEvent: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  CX6: "export function pass(input: { subscribe(listener: any): void }) {\n  const out: { subscribe(listener: (event: string) => void): void } = input;\n  return out;\n}",
+  F12P3:
+    "export function pass(input: { subscribe(o: { [k: symbol]: (event: any) => void; [k: string]: (event: CanonicalEvent) => void }): void }) {\n  const out: { subscribe(o: { [k: symbol]: (event: string) => void; [k: string]: (event: CanonicalEvent) => void }): void } = input;\n  return out;\n}",
+  KC11: "export function pass(input: { subscribe(o: Map<(event: any) => void, (event: CanonicalEvent) => void>): void }) {\n  const out: { subscribe(o: Map<(event: string) => void, (event: CanonicalEvent) => void>): void } = input;\n  return out;\n}",
+  KC12: "export function pass(input: { subscribe(o: Set<any>): void }) {\n  const out: { subscribe(o: { add(value: CanonicalEvent): void }): void } = input;\n  return out;\n}",
+  KC13: "export function pass(input: { subscribe(o: [any, CanonicalEvent]): void }) {\n  const out: { subscribe(o: [string, CanonicalEvent]): void } = input;\n  return out;\n}",
+  LR2: 'import type { Tight } from "fake-lib";\nexport function pass(input: Tight<CanonicalEvent>) {\n  const out: PromiseFulfilledResult<CanonicalEvent> = input;\n  return out;\n}',
+  ZD1c: "interface Stream<T> {\n  subscribe(options: PromiseLike<T>): void;\n}\nexport function pass(input: Stream<string>) {\n  const out: Stream<string> = input;\n  return out;\n}",
+  ZR1c: "interface Listener<T> {\n  next?: Listener<T>;\n  onEvent(e: T): void;\n}\ninterface Stream<T> {\n  subscribe(o: Listener<T>): void;\n}\ninterface Source<T> {\n  subscribe(o: { next?: Listener<T>; onEvent(e: CanonicalEvent): void }): void;\n}\nexport function pass(input: Source<CanonicalEvent>) {\n  const out: Stream<CanonicalEvent> = input;\n  return out;\n}",
+  ZO1c: "export function pass(input: { (x: string, y: string): string; (...args: string[]): CanonicalEvent }) {\n  const out: { (...args: string[]): CanonicalEvent; (x: string, y: string): string } = input;\n  return out;\n}",
+  S02: 'function firstFulfilled<T>(results: PromiseSettledResult<T>[]): T | undefined {\n  for (const r of results) if (r.status === "fulfilled") return r.value;\n  return undefined;\n}\nexport const e = firstFulfilled(await Promise.allSettled([Promise.resolve(event), Promise.resolve(event)]));',
+  S03: "declare function count<T>(results: Promise<readonly PromiseSettledResult<T>[]>): number;\nexport const n = count(Promise.allSettled([Promise.resolve(event)]));",
 };
 
 const isolated = config.find((block) => block.plugins?.["isolated"])?.plugins?.["isolated"];
 
+const intendedClean = ["L35", "S02", "S03"];
+
 let root: string;
 let messages: Map<string, string[]>;
+let mainFlags: Set<string>;
+let ruleTimes: Map<string, number>;
 
 beforeAll(async () => {
   if (!isolated) throw new Error("eslint.config.js no longer registers the isolated plugin");
@@ -203,9 +421,12 @@ beforeAll(async () => {
       "export declare function is<T>(value: unknown): value is T;",
       "export declare function assertIs<T>(value: unknown): asserts value is T;",
       "export interface Payload { event: any }",
+      'export interface Loose<T> { status: "fulfilled"; value: any; meta: T }',
+      'export interface Tight<T> { status: "fulfilled"; value: T; meta: string }',
       "export declare function pass<T>(strings: TemplateStringsArray, value: T): T;",
       "export declare const payload: Payload;",
       "export declare function isDefined<T>(value: T | undefined): value is T;",
+      "export interface DepOpts<T> { onEvent(event: T): void }",
     ].join("\n"),
   );
   write(
@@ -237,7 +458,7 @@ beforeAll(async () => {
       include: ["**/*.ts", "**/*.tsx"],
     }),
   );
-  for (const [name, code] of Object.entries({ ...flagged, ...clean }))
+  for (const [name, code] of Object.entries({ ...flagged, ...clean, ...unflaggedOnMain }))
     write(`probes/${name}.ts`, `${HEADER}${code}\n`);
   write(
     "probes/S01.ts",
@@ -249,6 +470,7 @@ beforeAll(async () => {
   );
   const eslint = new ESLint({
     cwd: root,
+    stats: true,
     overrideConfigFile: true,
     overrideConfig: [
       {
@@ -268,6 +490,44 @@ beforeAll(async () => {
     ],
   });
   const results = await eslint.lintFiles(["probes", "events", "lib"]);
+  const baseline = new ESLint({
+    cwd: root,
+    overrideConfigFile: true,
+    overrideConfig: [
+      ...mainConfig,
+      {
+        files: ["**/*.ts", "**/*.tsx"],
+        languageOptions: {
+          parser: tseslint.parser,
+          parserOptions: {
+            project: "./tsconfig.json",
+            tsconfigRootDir: root,
+            disallowAutomaticSingleRunInference: true,
+          },
+        },
+        rules: {
+          "main/owned-types": [
+            "error",
+            { modules: [relative(join(import.meta.dirname, ".."), join(root, "events"))] },
+          ],
+        },
+      },
+    ],
+  });
+  mainFlags = new Set(
+    (await baseline.lintFiles(["probes"]))
+      .filter((result) => result.messages.length > 0)
+      .map((result) => relative(join(root, "probes"), result.filePath).replace(/\.tsx?$/, "")),
+  );
+  ruleTimes = new Map(
+    results.map((result) => [
+      relative(root, result.filePath).replace(/\.tsx?$/, ""),
+      (result.stats?.times.passes ?? []).reduce(
+        (total, pass) => total + (pass.rules?.["isolated/owned-types"]?.total ?? 0),
+        0,
+      ),
+    ]),
+  );
   messages = new Map(
     results.map((result) => [
       relative(root, result.filePath).replace(/\.tsx?$/, ""),
@@ -283,15 +543,55 @@ afterAll(() => {
 });
 
 describe("isolated/owned-types", () => {
+  it("keeps the flagged and clean probe lists", () => {
+    expect(Object.keys(flagged).length).toBe(242);
+    expect(Object.keys(clean).length).toBe(62);
+    expect(Object.keys(unflaggedOnMain).length).toBe(9);
+  });
+
+  const flaggedSeen: string[] = [];
   it.each([...Object.keys(flagged), "J01"])("flags %s", (name) => {
+    flaggedSeen.push(name);
     const found = messages.get(`probes/${name}`) ?? [];
     expect(found.length).toBeGreaterThan(0);
     for (const message of found) expect(message).toMatch(/^(?:[7-9]|\d\d) isolated\/owned-types: /);
   });
 
+  it("visits every flagged probe", () => {
+    expect(flaggedSeen).toEqual([...Object.keys(flagged), "J01"]);
+  });
+
+  const cleanSeen: string[] = [];
   it.each(Object.keys(clean))("passes %s", (name) => {
+    cleanSeen.push(name);
     expect(messages.get(`probes/${name}`)).toEqual([]);
   });
+
+  it("visits every clean probe", () => {
+    expect(cleanSeen).toEqual(Object.keys(clean));
+  });
+
+  it.each(Object.keys(unflaggedOnMain))("matches main on %s, which neither rule flags", (name) => {
+    expect(mainFlags.has(name)).toBe(false);
+    expect(messages.get(`probes/${name}`)).toEqual([]);
+  });
+
+  it("flags every probe that main's rule flags, unless it is listed as intended clean", () => {
+    const opened = [...mainFlags].filter(
+      (name) => (messages.get(`probes/${name}`) ?? []).length === 0,
+    );
+    expect(mainFlags.size).toBeGreaterThan(150);
+    expect(opened.sort()).toEqual([...intendedClean].sort());
+  });
+
+  it.each(["F12R1", "F12R4", "F12R8", "F12R9", "F12R10", "F12R11"])(
+    "reports %s's listener escape as unsafe on the assignment line",
+    (name) => {
+      expect(messages.get(`probes/${name}`)).toEqual([
+        expect.stringMatching(/^11 isolated\/owned-types: An any- or never-typed value/),
+      ]);
+    },
+  );
 
   it("reports a generic helper's cast where the helper casts, not where an honest caller passes a real value", () => {
     expect(messages.get("probes/R13")).toEqual([expect.stringMatching(/^9 /)]);
@@ -304,6 +604,13 @@ describe("isolated/owned-types", () => {
   it("lets a consumer collect events through the real settledValues helper", () => {
     expect(messages.get("probes/S01")).toEqual([]);
     expect(messages.get("lib/fetch-utils")).toEqual([]);
+  });
+
+  it("spends under ten seconds of rule time on any one file", () => {
+    const slowest = Math.max(...ruleTimes.values());
+    expect(ruleTimes.size).toBeGreaterThan(280);
+    expect(slowest).toBeGreaterThan(0);
+    expect(slowest).toBeLessThan(10_000);
   });
 
   it("lets the guarded module build its own values", () => {
