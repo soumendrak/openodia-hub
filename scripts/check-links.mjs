@@ -93,7 +93,8 @@ export function skipPatterns(config) {
   if (typeof config !== "object" || config === null || Array.isArray(config)) {
     throw new Error("the config is not a JSON object");
   }
-  const entries = config.ignorePatterns ?? [];
+  if (!Object.hasOwn(config, "ignorePatterns")) return [];
+  const entries = config.ignorePatterns;
   if (!Array.isArray(entries)) throw new Error("ignorePatterns is not an array");
   return entries.map((entry, index) => {
     const pattern = entry?.pattern;
@@ -118,9 +119,15 @@ export async function loadSkipPatterns() {
     throw new Error(`it could not be fetched: ${String(err)}`);
   }
   if (!res.ok) throw new Error(`it could not be fetched: HTTP ${res.status}`);
+  let body;
+  try {
+    body = await res.text();
+  } catch (err) {
+    throw new Error(`it could not be fetched: ${String(err)}`);
+  }
   let config;
   try {
-    config = JSON.parse(await res.text());
+    config = JSON.parse(body);
   } catch (err) {
     throw new Error(`it is not valid JSON: ${String(err)}`);
   }

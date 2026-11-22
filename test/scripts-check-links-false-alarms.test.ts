@@ -382,28 +382,84 @@ describe("link checker false alarms", () => {
       { ignorePatterns: { pattern: "^a" } },
       "ignorePatterns is not an array",
     ],
+    ["a null ignorePatterns", { ignorePatterns: null }, "ignorePatterns is not an array"],
+    [
+      "an undefined ignorePatterns",
+      { ignorePatterns: undefined },
+      "ignorePatterns is not an array",
+    ],
+    ["a false ignorePatterns", { ignorePatterns: false }, "ignorePatterns is not an array"],
+    ["a zero ignorePatterns", { ignorePatterns: 0 }, "ignorePatterns is not an array"],
+    ["an empty-string ignorePatterns", { ignorePatterns: "" }, "ignorePatterns is not an array"],
     ["a null config", null, "the config is not a JSON object"],
     ["an array config", [], "the config is not a JSON object"],
     ["a string config", "x", "the config is not a JSON object"],
   ])("rejects %s", (_name, value, message) => {
-    expect(() => skipPatterns(value)).toThrow(message);
+    const thrown = (() => {
+      try {
+        skipPatterns(value);
+      } catch (err) {
+        return [String(err), (err as Error).message];
+      }
+      return ["no error", "no error"];
+    })();
+    expect(thrown).toEqual([`Error: ${message}`, message]);
   });
 
+  const parseError = (() => {
+    try {
+      JSON.parse("{not json");
+    } catch (err) {
+      return String(err);
+    }
+    return "parsed";
+  })();
+
+  const resetMidBody = () =>
+    new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode('{"ignorePat'));
+          controller.error(new TypeError("ECONNRESET: socket closed"));
+        },
+      }),
+      { status: 200 },
+    );
+
   it.each([
-    ["invalid JSON", () => response(200, "{not json"), "is not valid JSON"],
+    ["invalid JSON", () => response(200, "{not json"), `it is not valid JSON: ${parseError}`],
     ["a null body", () => response(200, "null"), "the config is not a JSON object"],
-    ["an invalid regex", () => config(["(unclosed"]), "is not a valid regular expression"],
+    [
+      "an invalid regex",
+      () => config(["(unclosed"]),
+      "ignorePatterns[0] is not a valid regular expression: (unclosed",
+    ],
     [
       "a string entry",
       () => response(200, '{"ignorePatterns":["^nomatch"]}'),
-      'needs a non-empty string "pattern"',
+      'ignorePatterns[0] needs a non-empty string "pattern": "^nomatch"',
     ],
-    ["an empty pattern", () => config([""]), 'needs a non-empty string "pattern"'],
-    ["HTTP 404", () => response(404), "could not be fetched: HTTP 404"],
+    [
+      "an empty pattern",
+      () => config([""]),
+      'ignorePatterns[0] needs a non-empty string "pattern": {"pattern":""}',
+    ],
+    [
+      "a null ignorePatterns",
+      () => response(200, '{"ignorePatterns":null}'),
+      "ignorePatterns is not an array",
+    ],
+    ["HTTP 404", () => response(404), "it could not be fetched: HTTP 404"],
+    ["HTTP 500", () => response(500), "it could not be fetched: HTTP 500"],
     [
       "a network error",
       () => Promise.reject(new TypeError("fetch failed")),
-      "could not be fetched: TypeError: fetch failed",
+      "it could not be fetched: TypeError: fetch failed",
+    ],
+    [
+      "a connection reset mid-body",
+      resetMidBody,
+      "it could not be fetched: TypeError: ECONNRESET: socket closed",
     ],
   ])("exits 2 with a message when the config has %s", async (_name, configResponse, message) => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
@@ -415,11 +471,9 @@ describe("link checker false alarms", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(main()).rejects.toThrow("exit:2");
-    expect(error).toHaveBeenCalledTimes(1);
-    expect(String(error.mock.calls[0]?.[0])).toContain(
-      "Could not use the Awesome-Odia-AI link-check config: ",
-    );
-    expect(String(error.mock.calls[0]?.[0])).toContain(message);
+    expect(error.mock.calls).toEqual([
+      [`Could not use the Awesome-Odia-AI link-check config: ${message}`],
+    ]);
     expect(log).not.toHaveBeenCalled();
     expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([README, CONFIG]);
   });
@@ -468,17 +522,40 @@ describe("link checker false alarms", () => {
     expect(fetchMock.mock.calls.map((call) => call[1].method)).toEqual(["HEAD", "GET", "HEAD"]);
   });
 
-  it("exits 2 when the README request itself fails", async () => {
+  it.each([
+    ["a network error", () => Promise.reject(new TypeError("fetch failed")), "fetch failed"],
+    ["HTTP 503", () => response(503), "HTTP 503"],
+    ["a connection reset mid-body", resetMidBody, "ECONNRESET: socket closed"],
+  ])("exits 2 when the README request fails with %s", async (_name, readmeResponse, cause) => {
     const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
     stubExit();
-    const fetchMock = vi.fn().mockRejectedValueOnce(new TypeError("fetch failed"));
+    const fetchMock = vi.fn(async () => readmeResponse());
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(main()).rejects.toThrow("exit:2");
-    expect(error.mock.calls).toEqual([
-      ["Could not fetch the Awesome-Odia-AI README: fetch failed"],
-    ]);
+    expect(error.mock.calls).toEqual([[`Could not fetch the Awesome-Odia-AI README: ${cause}`]]);
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts any 2xx answer for the README and the config", async () => {
+    const run = await runMain("[l](https://example.com/live)", "{}", () => 200);
+    expect(run.outcome).toBe("exit:0");
+
+    const fetchMock = vi.fn(async (url: string) =>
+      url === CONFIG
+        ? new Response('{"ignorePatterns":[{"pattern":"^https://tdil"}]}', { status: 203 })
+        : url === README
+          ? new Response("[l](https://example.com/live) [t](https://tdil.test/x)", { status: 203 })
+          : response(200),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    stubExit();
+    await expect(main()).rejects.toThrow("exit:0");
+    expect(fetchMock.mock.calls.map((call) => call[0])).toEqual([
+      README,
+      CONFIG,
+      "https://example.com/live",
+    ]);
   });
 
   it("exits 2 instead of passing when the config skips every listed link", async () => {
