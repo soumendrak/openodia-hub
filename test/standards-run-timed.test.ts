@@ -1,31 +1,39 @@
-import { spawnSync } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { bunExecutable, ChildTimeoutError, runTimed } from "./standards/run-timed";
+import {
+  HANG_AWAIT_BOUND_MS,
+  HANG_CHILD_DEADLINE_MS,
+  HANG_TIMEOUT_MS,
+  hungChildArgs,
+  killMarked,
+  listedProcesses,
+  processAlive,
+} from "./standards/run-timed-test-util";
 import { expect, it } from "vitest";
 
 function uniqueMark(): string {
   return `OWNED_TYPES_TIMED_${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
-function listedProcesses(mark: string, psCommand = "ps"): string[] {
-  const out = spawnSync(psCommand, ["-eo", "pid,ppid,pgid,args"], { encoding: "utf8" });
-  if (out.error || out.status !== 0) {
-    throw new Error(
-      `ps failed: ${(out.error?.message ?? out.stderr.trim()) || `status ${out.status}`}`,
-    );
-  }
-  return out.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.includes(mark));
-}
-
-function processAlive(pid: number): boolean {
+async function settleOrBound(
+  promise: Promise<unknown>,
+  boundMs: number,
+  label: string,
+): Promise<unknown> {
+  const timers: ReturnType<typeof setTimeout>[] = [];
   try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timers.push(
+          setTimeout(() => {
+            reject(new Error(`${label} did not settle within ${boundMs} ms`));
+          }, boundMs),
+        );
+      }),
+    ]);
+  } finally {
+    for (const timer of timers) clearTimeout(timer);
   }
 }
 
@@ -36,24 +44,21 @@ it("resolves bun to the real binary, not a shell wrapper", () => {
 });
 
 it("kills a hung child and reports the timeout", async () => {
-  const timeoutMs = 1_000;
+  const timeoutMs = HANG_TIMEOUT_MS;
   const mark = uniqueMark();
   const started = Date.now();
   let error: unknown;
   try {
-    error = await runTimed(
-      "bun",
-      [
-        "-e",
-        `process.on("SIGTERM", () => {}); process.on("SIGINT", () => {}); void ${JSON.stringify(mark)}; while (true) {}`,
-      ],
-      {
+    error = await settleOrBound(
+      runTimed("bun", hungChildArgs(mark, process.pid, HANG_CHILD_DEADLINE_MS), {
         timeoutMs,
         label: "hung lint child",
-      },
-    ).then(
-      () => undefined,
-      (reason: unknown) => reason,
+      }).then(
+        () => undefined,
+        (reason: unknown) => reason,
+      ),
+      HANG_AWAIT_BOUND_MS,
+      "hung lint child",
     );
     const elapsed = Date.now() - started;
     expect(error).toBeInstanceOf(ChildTimeoutError);
@@ -67,16 +72,7 @@ it("kills a hung child and reports the timeout", async () => {
     expect(elapsed).toBeGreaterThan(timeoutMs * 0.5);
     expect(elapsed).toBeLessThan(timeoutMs * 3);
   } finally {
-    for (const line of listedProcesses(mark)) {
-      const childPid = Number(line.split(/\s+/)[0]);
-      if (childPid) {
-        try {
-          process.kill(childPid, "SIGKILL");
-        } catch {
-          continue;
-        }
-      }
-    }
+    killMarked(mark);
   }
 });
 
