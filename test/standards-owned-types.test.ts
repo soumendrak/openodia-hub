@@ -1,5 +1,5 @@
-import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { LINT_FILE_TIMEOUT_MS, runTimed } from "./standards/run-timed";
 import { tmpdir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import { ESLint } from "eslint";
@@ -557,7 +557,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(() => {
-  rmSync(root, { recursive: true, force: true });
+  if (root) rmSync(root, { recursive: true, force: true });
 });
 
 describe("isolated/owned-types", () => {
@@ -592,9 +592,9 @@ describe("isolated/owned-types", () => {
 
   it.each(Object.keys(cycles))(
     "flags %s, a recursive type, in a separate process within 60 s",
-    (name) => {
+    async (name) => {
       const repo = join(import.meta.dirname, "..");
-      const run = spawnSync(
+      const run = await runTimed(
         "bun",
         [
           join(import.meta.dirname, "standards/owned-types-lint-file.ts"),
@@ -602,7 +602,11 @@ describe("isolated/owned-types", () => {
           relative(repo, join(root, "events")),
           `cycles/${name}.ts`,
         ],
-        { cwd: repo, encoding: "utf8", timeout: 60_000 },
+        {
+          cwd: repo,
+          timeoutMs: LINT_FILE_TIMEOUT_MS,
+          label: `owned-types lint of cycles/${name}.ts`,
+        },
       );
       expect(run.signal).toBeNull();
       expect(JSON.parse(run.stdout)).toEqual([["isolated/owned-types"]]);
