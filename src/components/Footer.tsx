@@ -19,7 +19,9 @@ export function Footer() {
               >
                 ଓ
               </span>
-              <span className="font-display text-lg font-semibold">OpenOdia</span>
+              <span lang="en" className="font-display text-lg font-semibold">
+                OpenOdia
+              </span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
               <T k="footer.description" />
@@ -146,6 +148,7 @@ export function Footer() {
                 rel="noreferrer"
                 className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon"
                 aria-label="GitHub"
+                lang="en"
               >
                 <GithubIcon />
               </a>
@@ -155,6 +158,7 @@ export function Footer() {
                 rel="noreferrer"
                 className="rounded-lg border border-border p-2 transition hover:border-magenta hover:text-magenta"
                 aria-label="YouTube"
+                lang="en"
               >
                 <YoutubeIcon />
               </a>

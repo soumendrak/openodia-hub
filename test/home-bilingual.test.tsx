@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { I18nProvider, useTranslation } from "../src/lib/i18n";
 import { Footer } from "../src/components/Footer";
 import { Route } from "../src/routes/index";
@@ -46,6 +46,11 @@ function App() {
     </I18nProvider>
   );
 }
+
+function closestLang(el: Element): string | null {
+  return el.closest("[lang]")?.getAttribute("lang") ?? null;
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -77,5 +82,26 @@ describe("bilingual high-traffic UI", () => {
     render(<App />);
     expect(screen.getByRole("link", { name: /ଶିଖିବା ଆରମ୍ଭ କରନ୍ତୁ/ })).toBeInTheDocument();
     expect(screen.getAllByText("ଆମ ଭାଷା ଆମ ପରିଚୟ")).toHaveLength(2);
+  });
+
+  it("marks fixed English footer names as English and keeps Odia marks in Odia", () => {
+    render(<App />);
+    const footerEn = screen.getByRole("contentinfo");
+    expect(footerEn).toHaveAttribute("lang", "en");
+    expect(closestLang(within(footerEn).getByText("ଓ"))).toBe("or");
+    expect(closestLang(within(footerEn).getByText("ଆମ ଭାଷା ଆମ ପରିଚୟ"))).toBe("or");
+    fireEvent.click(screen.getByRole("button", { name: "Switch test language" }));
+    const footerOr = screen.getByRole("contentinfo");
+    expect(footerOr).toHaveAttribute("lang", "or");
+    const wordmark = within(footerOr).getByRole("link", { name: /OpenOdia/ });
+    expect(closestLang(within(wordmark).getByText("OpenOdia"))).toBe("en");
+    expect(closestLang(within(wordmark).getByText("ଓ"))).toBe("or");
+    const github = within(footerOr).getByRole("link", { name: "GitHub" });
+    const youtube = within(footerOr).getByRole("link", { name: "YouTube" });
+    expect(github).toHaveAttribute("aria-label", "GitHub");
+    expect(youtube).toHaveAttribute("aria-label", "YouTube");
+    expect(closestLang(github)).toBe("en");
+    expect(closestLang(youtube)).toBe("en");
+    expect(closestLang(within(footerOr).getByText("ଆମ ଭାଷା ଆମ ପରିଚୟ"))).toBe("or");
   });
 });
