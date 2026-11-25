@@ -890,7 +890,11 @@ function EventsPage() {
         aria-atomic="true"
         className={isFiltering ? "mt-10 text-sm text-muted-foreground" : "sr-only"}
       >
-        {`${filtered.length} event${filtered.length !== 1 ? "s" : ""} ${isFiltering ? "matched" : "shown"}`}
+        {`${filtered.length} event${filtered.length !== 1 ? "s" : ""} ${isFiltering ? "matched" : "shown"}${
+          needsCompleteCorpus && (isCompletePending || isCompleteError)
+            ? " (loaded events only)"
+            : ""
+        }`}
       </p>
       {isFiltering ? (
         <div className="mt-4">
