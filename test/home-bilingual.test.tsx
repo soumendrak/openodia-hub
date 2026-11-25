@@ -51,6 +51,18 @@ function closestLang(el: Element): string | null {
   return el.closest("[lang]")?.getAttribute("lang") ?? null;
 }
 
+function elementOwningText(root: HTMLElement, text: string): HTMLElement {
+  const owners = [root, ...Array.from(root.querySelectorAll("*"))].filter((el) =>
+    Array.from(el.childNodes).some(
+      (n) => n.nodeType === Node.TEXT_NODE && Boolean(n.textContent?.includes(text)),
+    ),
+  );
+  if (owners.length !== 1) {
+    throw new Error(`expected 1 owner of ${JSON.stringify(text)}, got ${owners.length}`);
+  }
+  return owners[0] as HTMLElement;
+}
+
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -103,5 +115,18 @@ describe("bilingual high-traffic UI", () => {
     expect(closestLang(github)).toBe("en");
     expect(closestLang(youtube)).toBe("en");
     expect(closestLang(within(footerOr).getByText("ଆମ ଭାଷା ଆମ ପରିଚୟ"))).toBe("or");
+    const api = within(footerOr).getByRole("link", { name: "API" });
+    expect(closestLang(api)).toBe("en");
+    const copyrightLine = within(footerOr).getByText((_, el) =>
+      Boolean(
+        el &&
+        el.tagName === "P" &&
+        /©\s+\d+/.test(el.textContent ?? "") &&
+        el.textContent?.includes("OpenOdia"),
+      ),
+    );
+    expect(closestLang(elementOwningText(copyrightLine, "OpenOdia"))).toBe("en");
+    expect(closestLang(elementOwningText(copyrightLine, "ନିର୍ମିତ"))).toBe("or");
+    expect(closestLang(elementOwningText(copyrightLine, "ଓଡ଼ିଶାରେ"))).toBe("or");
   });
 });

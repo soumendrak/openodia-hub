@@ -115,7 +115,7 @@ export function Footer() {
             </h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link to="/api" className="hover:text-foreground">
+                <Link to="/api" lang="en" className="hover:text-foreground">
                   API
                 </Link>
               </li>
@@ -168,7 +168,7 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
           <p>
-            © {new Date().getFullYear()} OpenOdia · <T k="footer.built" />{" "}
+            © {new Date().getFullYear()} <span lang="en">OpenOdia</span> · <T k="footer.built" />{" "}
             <Heart size={12} className="inline text-magenta" aria-hidden="true" />
             <span className="sr-only">
               <T k="footer.love" />
