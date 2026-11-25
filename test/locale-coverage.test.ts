@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 // The real locale files: other suites mock `or`, so check the shipped strings here.
+import { assessLocale } from "../src/lib/locale-status";
 import { en } from "../src/locales/en";
 import { or } from "../src/locales/or";
 import { ODIA_REVIEW_QUEUE } from "../src/locales/review";
@@ -24,6 +26,29 @@ const visible = (text: string) => text.replace(/[\s\u200B-\u200D\u2060\uFEFF]/g,
  */
 const hasOdia = (text: string) => /(?=[\u0B00-\u0B7F])\p{L}/u.test(text);
 
+function assertCoveredTranslation(
+  key: string,
+  english: string,
+  value: string | undefined,
+  queue: readonly string[],
+) {
+  expect(value).toBeDefined();
+  if (value === "") {
+    expect(queue).toContain(key);
+    return;
+  }
+  expect(typeof value).toBe("string");
+  expect(visible(value!)).not.toBe("");
+  if (SAME_AS_ENGLISH.has(key)) {
+    // An allowlisted string must stay exactly the English one, not drift or typo.
+    expect(value).toBe(english);
+  } else {
+    expect(value!.trim()).not.toBe(english.trim());
+    expect(hasOdia(value!), `${key} has no Odia character`).toBe(true);
+  }
+  expect(tokens(value!)).toEqual(tokens(english));
+}
+
 describe("Odia locale coverage", () => {
   it("has exactly the English keys", () => {
     expect(Object.keys(or).every((key) => key in en)).toBe(true);
@@ -31,23 +56,8 @@ describe("Odia locale coverage", () => {
   });
 
   it.each(enKeys)("%s has a translated Odia string with the same placeholders", (key) => {
-    const value = or[key];
     expect(Object.hasOwn(or, key)).toBe(true);
-    if (value === "") {
-      expect(ODIA_REVIEW_QUEUE).toContain(key);
-      expect(key.startsWith("nav.")).toBe(false);
-      return;
-    }
-    expect(typeof value).toBe("string");
-    expect(visible(value!)).not.toBe("");
-    if (SAME_AS_ENGLISH.has(key)) {
-      // An allowlisted string must stay exactly the English one, not drift or typo.
-      expect(value).toBe(en[key]);
-    } else {
-      expect(value!.trim()).not.toBe(en[key].trim());
-      expect(hasOdia(value!), `${key} has no Odia character`).toBe(true);
-    }
-    expect(tokens(value!)).toEqual(tokens(en[key]));
+    assertCoveredTranslation(key, en[key], or[key], ODIA_REVIEW_QUEUE);
   });
 
   it.each(["about", "About.", "Abuot", "About\u0B66", "About\u0B3C", "About\u0B4D"])(
@@ -75,5 +85,33 @@ describe("Odia locale coverage", () => {
     expect(tokens("{{{name}}}")).not.toEqual(tokens("{{name}}"));
     expect(tokens("{name")).toEqual(["{"]);
     expect(tokens("Open search (Cmd+K)")).toEqual([]);
+  });
+
+  it("allows a queued blank nav.* placeholder", () => {
+    assertCoveredTranslation("nav.new", "New page", "", ["nav.new"]);
+    const report = assessLocale({ "nav.new": "New page" }, { "nav.new": "" }, ["nav.new"], {});
+    expect(report.errors).toEqual([]);
+    expect(report.entries).toEqual([
+      { key: "nav.new", english: "New page", translation: "", status: "missing" },
+    ]);
+  });
+
+  it("requires a blank nav.* placeholder to be in the review queue", () => {
+    expect(() => assertCoveredTranslation("nav.new", "New page", "", [])).toThrow(/nav\.new/);
+    expect(assessLocale({ "nav.new": "New page" }, { "nav.new": "" }, [], {}).errors).toContain(
+      "Untracked English key: nav.new",
+    );
+  });
+
+  it("documents that a tracked nav.* key may use a blank-string placeholder", () => {
+    const contributing = readFileSync("CONTRIBUTING.md", "utf8");
+    const start = contributing.indexOf("## Translate one string");
+    expect(start).toBeGreaterThan(-1);
+    const next = contributing.indexOf("\n## ", start + 1);
+    const section = contributing.slice(start, next === -1 ? undefined : next);
+    expect(section).toMatch(
+      /untranslated tracked keys, including `nav\.\*` keys, must have an explicit blank-string placeholder in `or\.ts`/,
+    );
+    expect(section).toMatch(/"nav\.[A-Za-z0-9.]+": ""/);
   });
 });
