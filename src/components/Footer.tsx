@@ -19,7 +19,9 @@ export function Footer() {
               >
                 ଓ
               </span>
-              <span className="font-display text-lg font-semibold">OpenOdia</span>
+              <span lang="en" className="font-display text-lg font-semibold">
+                OpenOdia
+              </span>
             </Link>
             <p className="mt-3 max-w-xs text-sm text-muted-foreground">
               <T k="footer.description" />
@@ -113,7 +115,7 @@ export function Footer() {
             </h4>
             <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
               <li>
-                <Link to="/api" className="hover:text-foreground">
+                <Link to="/api" lang="en" className="hover:text-foreground">
                   API
                 </Link>
               </li>
@@ -146,6 +148,7 @@ export function Footer() {
                 rel="noreferrer"
                 className="rounded-lg border border-border p-2 transition hover:border-neon hover:text-neon"
                 aria-label="GitHub"
+                lang="en"
               >
                 <GithubIcon />
               </a>
@@ -155,6 +158,7 @@ export function Footer() {
                 rel="noreferrer"
                 className="rounded-lg border border-border p-2 transition hover:border-magenta hover:text-magenta"
                 aria-label="YouTube"
+                lang="en"
               >
                 <YoutubeIcon />
               </a>
@@ -164,7 +168,7 @@ export function Footer() {
 
         <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-border pt-6 text-xs text-muted-foreground md:flex-row">
           <p>
-            © {new Date().getFullYear()} OpenOdia · <T k="footer.built" />{" "}
+            © {new Date().getFullYear()} <span lang="en">OpenOdia</span> · <T k="footer.built" />{" "}
             <Heart size={12} className="inline text-magenta" aria-hidden="true" />
             <span className="sr-only">
               <T k="footer.love" />
