@@ -40,9 +40,10 @@ describe("eventListSchema", () => {
       "@type": "Offer",
       price: 0,
       priceCurrency: "INR",
-      url: "https://example.org/event",
       availability: "https://schema.org/InStock",
     });
+    expect(out.offers).not.toHaveProperty("url");
+    expect(out.url).toBe(base.url);
     expect(JSON.parse(serializeJsonLd(eventListSchema([base], NOW)))).toBeTruthy();
   });
 
@@ -128,9 +129,12 @@ describe("eventListSchema offers gating (lifecycle and registration)", () => {
   it("emits an InStock offer for a scheduled free future event", () => {
     expect(item({})).toHaveProperty("offers.availability", "https://schema.org/InStock");
     expect(item({ lifecycle: { state: "scheduled", ...evidence } })).toHaveProperty("offers");
-    expect(item({ registration: { state: "open" } })).toMatchObject({
-      offers: { url: base.url, availability: "https://schema.org/InStock" },
+    const openNoUrl = item({ registration: { state: "open" } });
+    expect(openNoUrl).toMatchObject({
+      offers: { availability: "https://schema.org/InStock" },
     });
+    expect(openNoUrl.offers).not.toHaveProperty("url");
+    expect(openNoUrl.url).toBe(base.url);
   });
 
   it("points an open free offer at the reviewed registration URL", () => {
@@ -201,20 +205,41 @@ describe("eventListSchema offer expiry in IST", () => {
 });
 
 describe("eventListSchema offer destination", () => {
-  it("points the offer at the reviewed registration URL when present", () => {
-    const item = eventListSchema(
-      [
-        {
-          name: "Open event",
-          url: "https://example.org/e",
-          description: "d",
-          startDate: "2099-12-01",
-          free: true,
-          registration: { state: "open", url: "https://example.org/register" },
-        },
-      ],
-      new Date("2026-10-01T00:00:00Z"),
-    ).itemListElement[0].item;
-    expect(item).toHaveProperty("offers.url", "https://example.org/register");
+  const now = new Date("2026-10-01T00:00:00Z");
+  const brochure = "https://www.nitrkl.ac.in/docs/Workshop/CS/brochure.pdf";
+  const registrationUrl = "https://forms.gle/example-registration";
+  const freeOpen = {
+    name: "Open event",
+    url: brochure,
+    description: "d",
+    startDate: "2099-12-01",
+    free: true as const,
+    registration: { state: "open" as const },
+  };
+  const item = (event: Parameters<typeof eventListSchema>[0][number]) =>
+    eventListSchema([event], now).itemListElement[0].item as Record<string, unknown>;
+  const offerWithoutUrl = {
+    "@type": "Offer",
+    price: 0,
+    priceCurrency: "INR",
+    availability: "https://schema.org/InStock",
+  };
+
+  it("points the offer at registration.url when that field is non-empty", () => {
+    const out = item({ ...freeOpen, registration: { state: "open", url: registrationUrl } });
+    expect(out.offers).toEqual({ ...offerWithoutUrl, url: registrationUrl });
+    expect(out.url).toBe(brochure);
+  });
+
+  it("omits offers.url when registration.url is missing or empty, and does not use the event page", () => {
+    const openWithoutUrl = item(freeOpen);
+    const emptyUrl = item({ ...freeOpen, registration: { state: "open", url: "" } });
+    const noRegistration = item({ ...freeOpen, registration: undefined });
+    for (const out of [openWithoutUrl, emptyUrl, noRegistration]) {
+      expect(out.offers).toEqual(offerWithoutUrl);
+      expect(out.offers).not.toHaveProperty("url");
+      expect(out.url).toBe(brochure);
+    }
+    expect(emptyUrl).toEqual(openWithoutUrl);
   });
 });
