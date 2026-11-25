@@ -207,7 +207,7 @@ describe("eventListSchema offer expiry in IST", () => {
 describe("eventListSchema offer destination", () => {
   const now = new Date("2026-10-01T00:00:00Z");
   const brochure = "https://www.nitrkl.ac.in/docs/Workshop/CS/brochure.pdf";
-  const registrationUrl = "https://forms.gle/reviewed-registration";
+  const registrationUrl = "https://forms.gle/example-registration";
   const freeOpen = {
     name: "Open event",
     url: brochure,
@@ -225,21 +225,21 @@ describe("eventListSchema offer destination", () => {
     availability: "https://schema.org/InStock",
   };
 
-  it("points the offer at the reviewed registration URL when present", () => {
+  it("points the offer at registration.url when that field is non-empty", () => {
     const out = item({ ...freeOpen, registration: { state: "open", url: registrationUrl } });
     expect(out.offers).toEqual({ ...offerWithoutUrl, url: registrationUrl });
     expect(out.url).toBe(brochure);
   });
 
-  it("omits offers.url when an open free event has no registration URL, and never uses the event page", () => {
-    const missing = item(freeOpen);
-    const empty = item({ ...freeOpen, registration: { state: "open", url: "" } });
-    const unreviewed = item({ ...freeOpen, registration: undefined });
-    for (const out of [missing, empty, unreviewed]) {
+  it("omits offers.url when registration.url is missing or empty, and does not use the event page", () => {
+    const openWithoutUrl = item(freeOpen);
+    const emptyUrl = item({ ...freeOpen, registration: { state: "open", url: "" } });
+    const noRegistration = item({ ...freeOpen, registration: undefined });
+    for (const out of [openWithoutUrl, emptyUrl, noRegistration]) {
       expect(out.offers).toEqual(offerWithoutUrl);
       expect(out.offers).not.toHaveProperty("url");
       expect(out.url).toBe(brochure);
     }
-    expect(empty).toEqual(missing);
+    expect(emptyUrl).toEqual(openWithoutUrl);
   });
 });
