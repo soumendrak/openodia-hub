@@ -153,6 +153,33 @@ describe("cachedJson", () => {
       expect(a.lastCacheLayer()).toBe("KV");
     });
 
+    it("reports KV when a past-stale call joins an in-flight stale-window refresh that adopts another isolate's fresh copy", async () => {
+      const STALE_WINDOW_MS = 24 * 60 * 60 * 1000;
+      const kv = fakeKv();
+      const a = await freshCache();
+      a.setCacheStore(kv);
+      expect(await a.cachedJson("k", TTL, async () => "v1")).toBe("v1");
+      vi.advanceTimersByTime(TTL + STALE_WINDOW_MS - 1);
+      kv.data.set("cache:v3:k", JSON.stringify({ at: Date.now(), value: "v2" }));
+      const load = vi.fn(async () => "v3");
+      let releaseGets: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        releaseGets = resolve;
+      });
+      kv.get.mockImplementation(async (key: string) => {
+        await gate;
+        return kv.data.get(key) ?? null;
+      });
+      expect(await a.cachedJson("k", TTL, load)).toBe("v1");
+      expect(a.lastCacheLayer()).toBe("STALE");
+      vi.advanceTimersByTime(2);
+      const past = a.cachedJson("k", TTL, load);
+      releaseGets();
+      expect(await past).toBe("v2");
+      expect(load).not.toHaveBeenCalled();
+      expect(a.lastCacheLayer()).toBe("KV");
+    });
+
     it("still reports MISS and runs load when a past-stale-window refresh finds no usable KV copy", async () => {
       const kv = fakeKv();
       const a = await freshCache();
