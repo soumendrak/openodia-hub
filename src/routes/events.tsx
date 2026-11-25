@@ -350,9 +350,9 @@ function EventsPage() {
     lastPage,
   ]);
   // Disabled queries keep cached data: clearing filters must restore pagination.
-  const fetchedEvents = needsCompleteCorpus
-    ? (completeSearchEvents?.events ?? loadedEvents)
-    : loadedEvents;
+  const completeCorpusEvents = needsCompleteCorpus ? completeSearchEvents?.events : undefined;
+  const fetchedEvents = completeCorpusEvents ?? loadedEvents;
+  const countsLoadedEventsOnly = needsCompleteCorpus && completeCorpusEvents === undefined;
   const partialEvents =
     liveSourceError ||
     (needsCompleteCorpus && isCompleteError) ||
@@ -860,13 +860,13 @@ function EventsPage() {
         </p>
       )}
 
-      {needsCompleteCorpus && isCompletePending && (
+      {countsLoadedEventsOnly && isCompletePending && (
         <p className="mt-4 text-sm text-muted-foreground">
           Loading the complete event collection… Counts below cover loaded events until this
           finishes.
         </p>
       )}
-      {needsCompleteCorpus && isCompleteError && (
+      {countsLoadedEventsOnly && isCompleteError && (
         <p className="mt-4 text-sm text-muted-foreground">
           The complete live event collection is unavailable. Results and counts cover curated and
           previously loaded events only.
@@ -890,7 +890,9 @@ function EventsPage() {
         aria-atomic="true"
         className={isFiltering ? "mt-10 text-sm text-muted-foreground" : "sr-only"}
       >
-        {`${filtered.length} event${filtered.length !== 1 ? "s" : ""} ${isFiltering ? "matched" : "shown"}`}
+        {`${filtered.length} event${filtered.length !== 1 ? "s" : ""} ${isFiltering ? "matched" : "shown"}${
+          countsLoadedEventsOnly ? " (loaded events only)" : ""
+        }`}
       </p>
       {isFiltering ? (
         <div className="mt-4">

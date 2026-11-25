@@ -524,6 +524,7 @@ describe("events.tsx", () => {
   it.each(["pending", "error"])(
     "labels incomplete result scope when the complete corpus is %s",
     (state) => {
+      dataFixture.events = PAST_2020;
       routeHarness.search = { type: "Workshop" };
       queryHarness.isPending = state === "pending";
       queryHarness.isError = state === "error";
@@ -533,11 +534,75 @@ describe("events.tsx", () => {
       );
       // Pending/error scope copy is static context; the count region is the one live region.
       expect(notice).not.toHaveAttribute("role");
+      expect(notice).not.toHaveAttribute("aria-live");
       const live = liveRegions();
       expect(live).toHaveLength(1);
+      expect(live[0]).toHaveAttribute("role", "status");
       expect(live[0]).toHaveAttribute("aria-live", "polite");
+      expect(live[0]).toHaveAttribute("aria-atomic", "true");
+      expect(live[0]).not.toBe(notice);
+      expect(live[0].textContent).toBe("1 event matched (loaded events only)");
     },
   );
+  it.each(["pending", "error"])(
+    "announces a plural matched count with the loaded-events-only qualifier while the corpus is %s",
+    (state) => {
+      dataFixture.events = PAST_2020;
+      routeHarness.search = { community: "tfug-bbsr" };
+      queryHarness.isPending = state === "pending";
+      queryHarness.isError = state === "error";
+      render(<EventsRouteAny.options.component />);
+      const live = liveRegions();
+      expect(live).toHaveLength(1);
+      expect(live[0].textContent).toBe("2 events matched (loaded events only)");
+    },
+  );
+  it.each(["pending", "error"])(
+    "announces the loaded-events-only qualifier for an unfiltered sort while the corpus is %s",
+    (state) => {
+      dataFixture.events = PAST_2020;
+      routeHarness.search = { sort: "oldest" };
+      queryHarness.isPending = state === "pending";
+      queryHarness.isError = state === "error";
+      render(<EventsRouteAny.options.component />);
+      const live = liveRegions();
+      expect(live).toHaveLength(1);
+      expect(live[0].textContent).toBe("4 events shown (loaded events only)");
+      expect(live[0]).toHaveAttribute("aria-atomic", "true");
+    },
+  );
+  it("omits the loaded-events-only qualifier when the complete corpus is available", () => {
+    dataFixture.events = PAST_2020;
+    routeHarness.search = { type: "Workshop" };
+    queryHarness.data = { events: PAST_2020 };
+    render(<EventsRouteAny.options.component />);
+    const live = liveRegions();
+    expect(live).toHaveLength(1);
+    expect(live[0].textContent).toBe("1 event matched");
+    expect(
+      screen.queryByText(/Counts below cover loaded events|previously loaded events only/),
+    ).not.toBeInTheDocument();
+  });
+  it("omits the loaded-events-only qualifier when complete corpus data is still held after an error", () => {
+    dataFixture.events = PAST_2020;
+    routeHarness.search = { type: "Workshop" };
+    queryHarness.data = { events: PAST_2020 };
+    queryHarness.isError = true;
+    render(<EventsRouteAny.options.component />);
+    const live = liveRegions();
+    expect(live).toHaveLength(1);
+    expect(live[0].textContent).toBe("1 event matched");
+    expect(screen.queryByText(/previously loaded events only/)).not.toBeInTheDocument();
+  });
+  it("omits the loaded-events-only qualifier when the complete corpus is not requested", () => {
+    dataFixture.events = PAST_2020;
+    queryHarness.isPending = true;
+    queryHarness.isError = true;
+    render(<EventsRouteAny.options.component />);
+    const live = liveRegions();
+    expect(live).toHaveLength(1);
+    expect(live[0].textContent).toBe("4 events shown");
+  });
   it.each([
     ["skips", PAST_2020, 1, false],
     ["does not skip", [], 0, false],
@@ -875,6 +940,7 @@ describe("events.tsx", () => {
 
   it("keeps the event-count live region mounted through the first filter and clear", () => {
     dataFixture.events = PAST_2020;
+    queryHarness.data = { events: PAST_2020 };
     const Component = EventsRouteAny.options.component;
     render(<Component />);
     expect(liveRegions()).toHaveLength(1);
@@ -901,6 +967,7 @@ describe("events.tsx", () => {
 
   it("filters by search text, type, and community, and clears active filters", () => {
     dataFixture.events = PAST_2020;
+    queryHarness.data = { events: PAST_2020 };
     const Component = EventsRouteAny.options.component;
     render(<Component />);
 

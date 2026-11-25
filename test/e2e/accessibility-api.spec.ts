@@ -37,12 +37,41 @@ test("event filter changes announce the resulting count", async ({ page, baseURL
   const unfilteredCount = await region.textContent();
   await region.evaluate((el) => el.setAttribute("data-present-before-filter", "true"));
   await page.getByRole("searchbox", { name: "Search events" }).fill("fixture-no-match-93817");
+  await expect(page.getByText(/Counts below cover loaded events/)).toHaveCount(0);
   await expect(region).toHaveText("0 events matched");
   await expect(region).toHaveAttribute("data-present-before-filter", "true");
   await expect(page.getByRole("status")).toHaveAttribute("aria-live", "polite");
   await page.getByRole("button", { name: "Clear Filters" }).click();
   await expect(region).toHaveText(unfilteredCount!);
   await expect(region).toHaveAttribute("data-present-before-filter", "true");
+});
+
+test("event filter count announces loaded events only while the complete corpus is unavailable", async ({
+  page,
+  baseURL,
+}) => {
+  await page.route(
+    (url) => url.origin !== new URL(baseURL!).origin,
+    (route) => route.abort(),
+  );
+  await page.goto("/events");
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByText(/^Current collection:/)).toBeVisible();
+  await page.route("**/api/events", (route) => {
+    const url = new URL(route.request().url());
+    if ([...url.searchParams.keys()].length === 0) {
+      return route.abort();
+    }
+    return route.continue();
+  });
+  const region = page.getByRole("status");
+  await expect(region).toHaveCount(1);
+  await page.getByRole("searchbox", { name: "Search events" }).fill("fixture-no-match-93817");
+  await expect(page.getByText(/The complete live event collection is unavailable/)).toBeVisible();
+  await expect(region).toHaveText("0 events matched (loaded events only)");
+  await expect(page.getByRole("status")).toHaveCount(1);
+  await expect(region).toHaveAttribute("aria-live", "polite");
+  await expect(region).toHaveAttribute("aria-atomic", "true");
 });
 
 test("small directory clear controls have a usable target and return focus", async ({
