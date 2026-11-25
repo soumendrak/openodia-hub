@@ -227,7 +227,7 @@ export function eventListSchema(
                 "@type": "Offer",
                 price: 0,
                 priceCurrency: "INR",
-                url: e.registration?.url ?? e.url,
+                ...(e.registration?.url ? { url: e.registration.url } : {}),
                 availability: "https://schema.org/InStock",
               },
             }
