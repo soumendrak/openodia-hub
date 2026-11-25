@@ -140,6 +140,31 @@ describe("cachedJson", () => {
       };
     }
 
+    it("reports KV when a past-stale-window refresh adopts another isolate's fresh copy", async () => {
+      const kv = fakeKv();
+      const a = await freshCache();
+      a.setCacheStore(kv);
+      await a.cachedJson("k", TTL, async () => "v1");
+      vi.advanceTimersByTime(25 * 60 * 60 * 1000);
+      kv.data.set("cache:v3:k", JSON.stringify({ at: Date.now(), value: "v2" }));
+      const load = vi.fn(async () => "v3");
+      expect(await a.cachedJson("k", TTL, load)).toBe("v2");
+      expect(load).not.toHaveBeenCalled();
+      expect(a.lastCacheLayer()).toBe("KV");
+    });
+
+    it("still reports MISS and runs load when a past-stale-window refresh finds no usable KV copy", async () => {
+      const kv = fakeKv();
+      const a = await freshCache();
+      a.setCacheStore(kv);
+      await a.cachedJson("k", TTL, async () => "v1");
+      vi.advanceTimersByTime(25 * 60 * 60 * 1000);
+      const load = vi.fn(async () => "v2");
+      expect(await a.cachedJson("k", TTL, load)).toBe("v2");
+      expect(load).toHaveBeenCalledTimes(1);
+      expect(a.lastCacheLayer()).toBe("MISS");
+    });
+
     it("serves a cold isolate from the store instead of re-running the loader", async () => {
       const kv = fakeKv();
 
@@ -221,8 +246,10 @@ describe("cachedJson", () => {
         // Another isolate refreshes the key in the shared store.
         kv.data.set("cache:v3:k", JSON.stringify({ at: Date.now(), value: "v2" }));
         const load = vi.fn(async () => "v3");
-        await a.cachedJson("k", TTL, load); // stale memo -> refresh
+        expect(await a.cachedJson("k", TTL, load)).toBe("v1");
+        expect(a.lastCacheLayer()).toBe("STALE");
         await vi.runAllTimersAsync();
+        expect(a.lastCacheLayer()).toBe("STALE");
         expect(load).not.toHaveBeenCalled();
         expect(kv.put).toHaveBeenCalledTimes(1);
         expect(await a.cachedJson("k", TTL, load)).toBe("v2");

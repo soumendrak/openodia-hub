@@ -171,6 +171,7 @@ function refresh<T>(
   ttlMs: number,
   load: () => Promise<T>,
   persist: boolean,
+  reportAdoptedLayer = false,
 ): Promise<T> {
   const existing = inflight.get(key);
   if (existing) return existing as Promise<T>;
@@ -191,6 +192,7 @@ function refresh<T>(
     }
     if (stored && Date.now() - stored.at < ttlMs) {
       memo.set(key, stored);
+      if (reportAdoptedLayer) lastLayer = "KV";
       return stored.value;
     }
     const value = await load();
@@ -249,7 +251,7 @@ export async function cachedJson<T>(
   }
 
   lastLayer = "MISS";
-  return refresh(key, ttlMs, load, persist);
+  return refresh(key, ttlMs, load, persist, true);
 }
 
 /** Thrown when every upstream call failed — distinct from "upstream has nothing". */
