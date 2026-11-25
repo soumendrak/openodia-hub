@@ -160,6 +160,8 @@ function shouldWrite<T>(stored: Entry<T> | undefined, value: T, now: number): bo
   return age >= MIN_WRITE_INTERVAL_MS;
 }
 
+type RefreshResult<T> = { value: T; adopted: boolean };
+
 /**
  * Runs `load` at most once per key at a time and publishes the result to both
  * layers. A failing loader is deliberately not cached — see loadRepos, which
@@ -171,9 +173,9 @@ function refresh<T>(
   ttlMs: number,
   load: () => Promise<T>,
   persist: boolean,
-): Promise<T> {
+): Promise<RefreshResult<T>> {
   const existing = inflight.get(key);
-  if (existing) return existing as Promise<T>;
+  if (existing) return existing as Promise<RefreshResult<T>>;
 
   const run = (async () => {
     // Another isolate may already have refreshed this key: adopt its copy
@@ -191,13 +193,15 @@ function refresh<T>(
     }
     if (stored && Date.now() - stored.at < ttlMs) {
       memo.set(key, stored);
-      return stored.value;
+      return { value: stored.value, adopted: true };
     }
     const value = await load();
     const now = Date.now();
     const entry: Entry<T> = { at: now, value };
     memo.set(key, entry);
-    if (!store || !persist || readFailed || !shouldWrite(stored, value, now)) return value;
+    if (!store || !persist || readFailed || !shouldWrite(stored, value, now)) {
+      return { value, adopted: false };
+    }
     // The caller is already waiting on the fan-out; don't make it wait on the
     // write too. waitUntil keeps it alive past the response where there is a
     // ctx to hang it on, and the cron path has none, so it awaits.
@@ -206,7 +210,7 @@ function refresh<T>(
     });
     if (executionCtx) executionCtx.waitUntil(write);
     else await write;
-    return value;
+    return { value, adopted: false };
   })().finally(() => inflight.delete(key));
 
   inflight.set(key, run);
@@ -249,7 +253,9 @@ export async function cachedJson<T>(
   }
 
   lastLayer = "MISS";
-  return refresh(key, ttlMs, load, persist);
+  const result = await refresh(key, ttlMs, load, persist);
+  if (result.adopted) lastLayer = "KV";
+  return result.value;
 }
 
 /** Thrown when every upstream call failed — distinct from "upstream has nothing". */
