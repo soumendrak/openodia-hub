@@ -583,6 +583,17 @@ describe("events.tsx", () => {
       screen.queryByText(/Counts below cover loaded events|previously loaded events only/),
     ).not.toBeInTheDocument();
   });
+  it("omits the loaded-events-only qualifier when complete corpus data is still held after an error", () => {
+    dataFixture.events = PAST_2020;
+    routeHarness.search = { type: "Workshop" };
+    queryHarness.data = { events: PAST_2020 };
+    queryHarness.isError = true;
+    render(<EventsRouteAny.options.component />);
+    const live = liveRegions();
+    expect(live).toHaveLength(1);
+    expect(live[0].textContent).toBe("1 event matched");
+    expect(screen.queryByText(/previously loaded events only/)).not.toBeInTheDocument();
+  });
   it("omits the loaded-events-only qualifier when the complete corpus is not requested", () => {
     dataFixture.events = PAST_2020;
     queryHarness.isPending = true;
@@ -929,6 +940,7 @@ describe("events.tsx", () => {
 
   it("keeps the event-count live region mounted through the first filter and clear", () => {
     dataFixture.events = PAST_2020;
+    queryHarness.data = { events: PAST_2020 };
     const Component = EventsRouteAny.options.component;
     render(<Component />);
     expect(liveRegions()).toHaveLength(1);
@@ -955,6 +967,7 @@ describe("events.tsx", () => {
 
   it("filters by search text, type, and community, and clears active filters", () => {
     dataFixture.events = PAST_2020;
+    queryHarness.data = { events: PAST_2020 };
     const Component = EventsRouteAny.options.component;
     render(<Component />);
 
